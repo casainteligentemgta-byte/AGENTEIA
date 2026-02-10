@@ -355,7 +355,7 @@ export async function POST(req: Request) {
       maxSteps: 5,
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toDataStreamResponse();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error en el chat";
     return new Response(
