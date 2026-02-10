@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build / Next
+.next/
+out/
+build/
+dist/
+
+# Env (no subir claves)
+.env
+.env.local
+.env.*.local
+
+# Debug / IDE
+npm-debug.log*
+.DS_Store
+.idea
+.vscode
+*.log
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo

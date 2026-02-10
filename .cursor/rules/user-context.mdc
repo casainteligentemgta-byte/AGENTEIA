@@ -1,0 +1,9 @@
+---
+description: Contexto y preferencias del usuario para el proyecto
+alwaysApply: true
+---
+
+# Contexto del usuario
+
+- **Stack favorito**: Antigravity. Priorizar este stack en decisiones técnicas y sugerencias.
+- **Objetivo del trimestre**: Lanzar 3 micro-SaaS. Las recomendaciones deben alinearse con velocidad de entrega y enfoque en productos pequeños y lanzables.
