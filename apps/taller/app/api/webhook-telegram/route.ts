@@ -1,6 +1,7 @@
+import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { extractMantenimientoFromImage } from "@/lib/extract-invoice";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { processInvoiceSafe } from "@/lib/process-invoice";
 import {
   downloadTelegramFile,
   getImageFileId,
@@ -9,9 +10,15 @@ import {
 } from "@/lib/telegram";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+function runInBackground(task: Promise<void>): void {
+  waitUntil(task);
+}
 
 /**
  * Webhook de Telegram para recibir fotos de facturas de mantenimiento.
+ * Responde de inmediato y procesa en segundo plano (GPT-4o + Supabase + WhatsApp).
  * POST /api/webhook-telegram
  */
 export async function POST(req: Request) {
@@ -33,54 +40,30 @@ export async function POST(req: Request) {
 
     const fileId = getImageFileId(message);
     if (!fileId) {
-      await sendTelegramMessage(
-        message.chat.id,
-        "Envía una foto de la factura u orden de mantenimiento para registrarla."
+      runInBackground(
+        sendTelegramMessage(
+          message.chat.id,
+          "Envía una foto de la factura u orden de mantenimiento para registrarla."
+        ).then(() => undefined)
       );
       return NextResponse.json({ ok: true, skipped: "sin imagen" });
     }
 
-    const { buffer, mimeType } = await downloadTelegramFile(fileId);
-    const extraido = await extractMantenimientoFromImage(buffer, mimeType);
+    // Responder rápido a Telegram; el procesamiento pesado va en background
+    runInBackground(
+      (async () => {
+        const { buffer, mimeType } = await downloadTelegramFile(fileId);
+        const extraido = await extractMantenimientoFromImage(buffer, mimeType);
+        await processInvoiceSafe({
+          extraido,
+          telegramChatId: message.chat.id,
+          telegramMessageId: message.message_id,
+          telegramFileId: fileId,
+        });
+      })()
+    );
 
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("mantenimientos")
-      .insert({
-        placa: extraido.placa,
-        kilometraje: extraido.kilometraje,
-        descripcion_servicio: extraido.descripcion_servicio,
-        costo: extraido.costo,
-        telegram_chat_id: message.chat.id,
-        telegram_message_id: message.message_id,
-        telegram_file_id: fileId,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      console.error("Error insertando mantenimiento:", error);
-      await sendTelegramMessage(
-        message.chat.id,
-        "No pude guardar el mantenimiento. Intenta de nuevo más tarde."
-      );
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    const resumen = [
-      "✅ Mantenimiento registrado",
-      extraido.placa ? `Placa: ${extraido.placa}` : null,
-      extraido.kilometraje != null ? `Km: ${extraido.kilometraje.toLocaleString("es-CO")}` : null,
-      extraido.descripcion_servicio ? `Servicio: ${extraido.descripcion_servicio}` : null,
-      extraido.costo != null ? `Costo: $${extraido.costo.toLocaleString("es-CO")}` : null,
-      `ID: ${data.id}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    await sendTelegramMessage(message.chat.id, resumen);
-
-    return NextResponse.json({ ok: true, id: data.id, extraido });
+    return NextResponse.json({ ok: true, accepted: true, update_id: update.update_id });
   } catch (err) {
     console.error("Error en webhook-telegram:", err);
     const message = err instanceof Error ? err.message : "Error interno";

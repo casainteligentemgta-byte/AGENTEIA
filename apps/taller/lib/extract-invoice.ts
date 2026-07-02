@@ -1,14 +1,10 @@
-export type MantenimientoExtraido = {
+export type FacturaExtraida = {
   placa: string | null;
   kilometraje: number | null;
-  descripcion_servicio: string | null;
+  descripcion: string | null;
   costo: number | null;
-};
-
-export type MantenimientoInsert = MantenimientoExtraido & {
-  telegram_chat_id?: number;
-  telegram_message_id?: number;
-  telegram_file_id?: string;
+  nombre_cliente: string | null;
+  telefono_cliente: string | null;
 };
 
 const SYSTEM_PROMPT = `Eres un asistente especializado en leer facturas y órdenes de servicio de talleres mecánicos en español.
@@ -16,8 +12,10 @@ const SYSTEM_PROMPT = `Eres un asistente especializado en leer facturas y órden
 Analiza la imagen y extrae ÚNICAMENTE un objeto JSON con estas claves:
 - placa: string con la placa del vehículo (mayúsculas, sin espacios extra). null si no aparece.
 - kilometraje: número entero del odómetro/kilometraje. null si no aparece.
-- descripcion_servicio: string resumiendo el servicio o repuestos realizados. null si no se puede determinar.
+- descripcion: string resumiendo el servicio o repuestos realizados. null si no se puede determinar.
 - costo: número decimal del total a pagar (solo el número, sin símbolo de moneda). null si no aparece.
+- nombre_cliente: string con el nombre del propietario o cliente. null si no aparece.
+- telefono_cliente: string con el teléfono del cliente (solo dígitos, con indicativo de país si está visible). null si no aparece.
 
 Reglas:
 - Responde solo con JSON válido, sin markdown ni texto adicional.
@@ -25,10 +23,32 @@ Reglas:
 - Para costo, usa punto como separador decimal (ej. 125000.50).
 - Normaliza la placa al formato visible en el documento.`;
 
+function parseString(value: unknown): string | null {
+  return typeof value === "string" ? value.trim() || null : null;
+}
+
+function parseKilometraje(value: unknown): number | null {
+  if (typeof value === "number") return Math.round(value);
+  if (typeof value === "string") {
+    const n = parseInt(value.replace(/\D/g, ""), 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function parseCosto(value: unknown): number | null {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const n = parseFloat(value.replace(/[^\d.,]/g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export async function extractMantenimientoFromImage(
   imageBuffer: Buffer,
   mimeType: string = "image/jpeg"
-): Promise<MantenimientoExtraido> {
+): Promise<FacturaExtraida> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
@@ -56,7 +76,7 @@ export async function extractMantenimientoFromImage(
         ],
       },
     ],
-    max_tokens: 500,
+    max_tokens: 600,
   });
 
   const raw = response.choices[0]?.message?.content;
@@ -67,22 +87,13 @@ export async function extractMantenimientoFromImage(
   const parsed = JSON.parse(raw) as Record<string, unknown>;
 
   return {
-    placa: typeof parsed.placa === "string" ? parsed.placa.trim() || null : null,
-    kilometraje:
-      typeof parsed.kilometraje === "number"
-        ? Math.round(parsed.kilometraje)
-        : typeof parsed.kilometraje === "string"
-          ? parseInt(parsed.kilometraje.replace(/\D/g, ""), 10) || null
-          : null,
-    descripcion_servicio:
-      typeof parsed.descripcion_servicio === "string"
-        ? parsed.descripcion_servicio.trim() || null
-        : null,
-    costo:
-      typeof parsed.costo === "number"
-        ? parsed.costo
-        : typeof parsed.costo === "string"
-          ? parseFloat(parsed.costo.replace(/[^\d.,]/g, "").replace(",", ".")) || null
-          : null,
+    placa: parseString(parsed.placa)?.toUpperCase() ?? null,
+    kilometraje: parseKilometraje(parsed.kilometraje),
+    descripcion:
+      parseString(parsed.descripcion) ??
+      parseString(parsed.descripcion_servicio),
+    costo: parseCosto(parsed.costo),
+    nombre_cliente: parseString(parsed.nombre_cliente),
+    telefono_cliente: parseString(parsed.telefono_cliente),
   };
 }
