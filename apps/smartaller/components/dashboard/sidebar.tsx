@@ -10,6 +10,7 @@ import {
   Bell,
   Home,
 } from "lucide-react";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 const links = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
@@ -18,7 +19,11 @@ const links = [
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
 ];
 
-export function Sidebar() {
+type SidebarProps = {
+  userEmail?: string | null;
+};
+
+export function Sidebar({ userEmail }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -54,9 +59,15 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto hidden border-t border-zinc-800 p-3 md:block">
+        {userEmail && (
+          <p className="mb-2 truncate px-3 text-xs text-zinc-600" title={userEmail}>
+            {userEmail}
+          </p>
+        )}
+        <SignOutButton />
         <Link
           href="/"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-500 transition hover:text-zinc-300"
+          className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-500 transition hover:text-zinc-300"
         >
           <Home className="h-4 w-4" />
           Volver al inicio

@@ -15,10 +15,10 @@ export function CTA() {
               Conecta Telegram, envía la primera factura y mira cómo aparece en tu dashboard.
             </p>
             <Link
-              href="/dashboard"
+              href="/login"
               className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-medium text-zinc-900 transition hover:bg-zinc-100"
             >
-              Abrir dashboard
+              Crear cuenta gratis
               <ArrowRight className="h-5 w-5" />
             </Link>
           </div>

@@ -23,10 +23,10 @@ export function Hero() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/dashboard"
+              href="/login"
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500"
             >
-              Ver dashboard
+              Entrar al taller
               <ArrowRight className="h-5 w-5" />
             </Link>
             <a

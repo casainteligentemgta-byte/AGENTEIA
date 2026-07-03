@@ -13,14 +13,14 @@ export function Navbar() {
         </Link>
         <nav className="flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href="/login"
             className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
           >
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            Iniciar sesión
           </Link>
           <Link
-            href="/dashboard"
+            href="/login"
             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             Entrar

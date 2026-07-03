@@ -1,4 +1,13 @@
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+function getSupabase() {
+  try {
+    return createClient();
+  } catch {
+    return createAdminClient();
+  }
+}
 
 export type Mantenimiento = {
   id: string;
@@ -43,7 +52,7 @@ function startOfMonth(): string {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    const supabase = createAdminClient();
+    const supabase = getSupabase();
     const monthStart = startOfMonth();
 
     const [vehiculos, mantenimientos, recordatorios, ingresos] = await Promise.all([
@@ -68,7 +77,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
 export async function getMantenimientos(limit = 20): Promise<Mantenimiento[]> {
   try {
-    const supabase = createAdminClient();
+    const supabase = getSupabase();
     const { data } = await supabase
       .from("mantenimientos")
       .select("id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, nombre_cliente")
@@ -82,7 +91,7 @@ export async function getMantenimientos(limit = 20): Promise<Mantenimiento[]> {
 
 export async function getVehiculos(): Promise<Vehiculo[]> {
   try {
-    const supabase = createAdminClient();
+    const supabase = getSupabase();
     const { data } = await supabase
       .from("vehiculos")
       .select("id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at")
@@ -95,7 +104,7 @@ export async function getVehiculos(): Promise<Vehiculo[]> {
 
 export async function getRecordatorios(): Promise<Recordatorio[]> {
   try {
-    const supabase = createAdminClient();
+    const supabase = getSupabase();
     const { data } = await supabase
       .from("recordatorios")
       .select("id, fecha_programada, kilometraje_objetivo, estado, vehiculo_id, vehiculos(placa, nombre_cliente)")
