@@ -1,5 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import {
+  getChatModelId,
+  getLlmApiKey,
+  getOpenAIBaseURL,
+  isLlmConfigured,
+} from "@/lib/ai/openai-config";
+import {
   streamText,
   tool,
   type UIMessage,
@@ -197,7 +203,10 @@ const agentTools = {
   }),
 };
 
-const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = createOpenAI({
+  apiKey: getLlmApiKey(),
+  baseURL: getOpenAIBaseURL(),
+});
 
 /**
  * Detecta si el mensaje del usuario contiene información valiosa para recordar:
@@ -254,18 +263,18 @@ export async function POST(req: Request) {
       saveMemory(lastUserText).catch(() => {});
     }
 
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "sk-...") {
+    if (!isLlmConfigured()) {
       return new Response(
         JSON.stringify({
           error:
-            "Falta OPENAI_API_KEY. Añádela en .env.local (local) o en Vercel → Settings → Environment Variables (producción) y redeploy.",
+            "Falta OPENAI_API_KEY. Añádela en .env.local (OpenAI sk-proj-... u OpenRouter sk-or-v1-...) o en Vercel y redeploy.",
         }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
     const result = streamText({
-      model: openai("gpt-4o-mini"),
+      model: openai(getChatModelId()),
       system: systemPrompt,
       messages: convertToCoreMessages(messages),
       tools: agentTools,

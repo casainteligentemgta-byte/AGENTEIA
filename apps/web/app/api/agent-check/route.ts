@@ -5,6 +5,7 @@ import {
   isWebSearchConfigured,
   probeWebSearch,
 } from "@/lib/ai/web-search";
+import { isLlmConfigured, isOpenRouterKey } from "@/lib/ai/openai-config";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,7 @@ export async function GET(req: NextRequest) {
 
   const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const hasSupabaseKey = Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const hasOpenAiKey = Boolean(openaiKey && openaiKey !== "sk-...");
+  const hasOpenAiKey = isLlmConfigured();
   const webConfigured = isWebSearchConfigured();
   const webProvider = getWebSearchProvider();
 
@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
   checks.push({
     name: "OpenAI API Key",
     ok: hasOpenAiKey,
-    detail: hasOpenAiKey ? "definida" : "falta OPENAI_API_KEY real (no sk-...)",
+    detail: hasOpenAiKey
+      ? isOpenRouterKey()
+        ? "OpenRouter"
+        : "OpenAI directo"
+      : "falta OPENAI_API_KEY",
   });
   checks.push({
     name: "Búsqueda web (Serper/Tavily)",

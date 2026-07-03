@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
+import { getEmbeddingModelId, getLlmApiKey, getOpenAIBaseURL } from "@/lib/ai/openai-config";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: getLlmApiKey(),
+  baseURL: getOpenAIBaseURL(),
 });
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
+const EMBEDDING_MODEL = getEmbeddingModelId();
 
 /**
  * Genera el embedding de un texto usando OpenAI text-embedding-3-small.

@@ -12,10 +12,11 @@ import { resolve } from "path";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { SEED_MEMORIES } from "../lib/ai/seed-memories";
+import { getEmbeddingModelId, getLlmApiKey, getOpenAIBaseURL, isLlmConfigured } from "../lib/ai/openai-config";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
+const EMBEDDING_MODEL = getEmbeddingModelId();
 
 const args = process.argv.slice(2);
 const force = args.includes("--force");
@@ -25,18 +26,21 @@ async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
+  const openaiKey = getLlmApiKey();
 
   if (!supabaseUrl || !supabaseKey) {
     console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o claves de Supabase en .env.local");
     process.exit(1);
   }
-  if (!openaiKey || openaiKey === "sk-...") {
-    console.error("Falta OPENAI_API_KEY real en .env.local (no puede ser sk-...)");
+  if (!isLlmConfigured()) {
+    console.error("Falta OPENAI_API_KEY real en .env.local (OpenAI o OpenRouter)");
     process.exit(1);
   }
 
-  const openai = new OpenAI({ apiKey: openaiKey });
+  const openai = new OpenAI({
+    apiKey: openaiKey,
+    baseURL: getOpenAIBaseURL(),
+  });
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   let existingContents = new Set<string>();

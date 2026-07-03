@@ -24,6 +24,8 @@ function check(name: string, ok: boolean, detail?: string) {
   console.log(`${icon} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+import { isLlmConfigured, isOpenRouterKey } from "../lib/ai/openai-config";
+
 function isRealKey(value: string | undefined, placeholders: string[] = ["sk-...", "..."]): boolean {
   if (!value?.trim()) return false;
   return !placeholders.some((p) => value.trim() === p || value.trim().endsWith("..."));
@@ -69,7 +71,15 @@ async function main() {
   check("NEXT_PUBLIC_SUPABASE_URL", isRealKey(process.env.NEXT_PUBLIC_SUPABASE_URL, ["..."]));
   check("NEXT_PUBLIC_SUPABASE_ANON_KEY", isRealKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, ["eyJ...", "..."]));
   check("NEXT_PUBLIC_AGENT_NAME", Boolean(process.env.NEXT_PUBLIC_AGENT_NAME?.trim()));
-  check("OPENAI_API_KEY", isRealKey(process.env.OPENAI_API_KEY), isRealKey(process.env.OPENAI_API_KEY) ? "definida" : "placeholder — bloquea chat");
+  check(
+    "OPENAI_API_KEY",
+    isLlmConfigured(),
+    isLlmConfigured()
+      ? isOpenRouterKey()
+        ? "OpenRouter (sk-or-v1)"
+        : "OpenAI directo"
+      : "falta o placeholder"
+  );
   check(
     "SERPER_API_KEY (opcional)",
     true,
@@ -128,7 +138,7 @@ async function main() {
 
   if (failed.length > 0) {
     console.log("\nPendientes manuales:");
-    if (!isRealKey(process.env.OPENAI_API_KEY)) console.log("  • OPENAI_API_KEY real → chat y seed memoria");
+    if (!isLlmConfigured()) console.log("  • OPENAI_API_KEY real → chat y seed memoria");
     if (!isRealKey(process.env.SERPER_API_KEY)) console.log("  • SERPER_API_KEY → búsqueda web");
     console.log("  • Ejecutar SQL RLS: supabase/migrations/20250703160000_missions_rls_by_user.sql");
     console.log("  • npm run seed:memory (con OpenAI real)");
