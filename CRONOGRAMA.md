@@ -62,10 +62,35 @@ Cada usuario solo ve/edita sus misiones. El agente asigna misiones con tu `user_
 
 ---
 
+## D11 — Serper (búsqueda web)
+
+1. [serper.dev](https://serper.dev) → registro → copia API key
+2. `.env.local` + Vercel → `SERPER_API_KEY`
+3. Prueba local: `npm run test:serper`
+4. Health check: `/api/agent-check?probe=web`
+
+El agente usa `webSearch` automáticamente para noticias, docs y competencia.
+
+## D12 — Seed memoria
+
+Requiere `OPENAI_API_KEY` real y Supabase con `setup-completo.sql` ejecutado.
+
+```bash
+cd apps/web
+npm run seed:memory              # inserta solo las nuevas
+npm run seed:memory -- --dry-run # vista previa
+```
+
+Memorias editables en `lib/ai/seed-memories.ts`.
+
+---
+
 ## Semana 3 — Lanzamiento
 
-| D11 | Búsqueda web (Serper) | ⏳ |
-| D12 | Seed memoria inicial | ⏳ |
+| Día | Tarea | Estado |
+|-----|-------|--------|
+| D11 | Búsqueda web (Serper) | ✅ lib/ai/web-search + test:serper |
+| D12 | Seed memoria inicial | ✅ script + 6 memorias base |
 | D13 | QA completo | ⏳ |
 | D14 | Dominio (opcional) | ⏳ |
 
@@ -108,6 +133,7 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | Hoy | D6: login email/Google activado ✅ |
 | Hoy | D7-D8: RLS + prompt Científico Loco ✅ |
 | Hoy | D9-D10: responsive + Next 14.2.35 ✅ |
+| Hoy | D11-D12: Serper + seed memoria ✅ |
 | Hoy | D5 pendiente: OpenAI para chat |
 | Hoy | D7 pendiente: ejecutar SQL RLS en Supabase |
 

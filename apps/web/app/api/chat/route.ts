@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import { retrieveMemories, saveMemory } from "@/lib/ai/memory";
 import { buildMemoryContext, buildSystemPrompt } from "@/lib/ai/system-prompt";
+import { doWebSearch } from "@/lib/ai/web-search";
 import { createClient } from "@/lib/supabase/server";
 
 /** Raíz del proyecto web: apps/web (o cwd si ya estamos ahí). */
@@ -49,74 +50,6 @@ function buildFileTree(dirPath: string, prefix: string, maxDepth: number, depth:
     }
   });
   return lines;
-}
-
-/** Resultado normalizado de búsqueda web para citar fuentes. */
-type WebSearchResult = { title: string; url: string; snippet: string };
-
-/** Búsqueda web con Tavily o Serper (según API key disponible). Devuelve resultados con URL para citar. */
-async function doWebSearch(
-  query: string,
-  maxResults: number = 5
-): Promise<{ results: WebSearchResult[]; error?: string }> {
-  const tavilyKey = process.env.TAVILY_API_KEY;
-  const serperKey = process.env.SERPER_API_KEY;
-
-  if (tavilyKey) {
-    try {
-      const res = await fetch("https://api.tavily.com/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tavilyKey}` },
-        body: JSON.stringify({
-          query,
-          search_depth: "basic",
-          max_results: Math.min(maxResults, 10),
-        }),
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        return { results: [], error: `Tavily: ${res.status} ${t.slice(0, 200)}` };
-      }
-      const data = (await res.json()) as {
-        results?: Array<{ title?: string; url?: string; content?: string }>;
-      };
-      const results: WebSearchResult[] = (data.results ?? []).slice(0, maxResults).map((r) => ({
-        title: r.title ?? "",
-        url: r.url ?? "",
-        snippet: r.content ?? "",
-      }));
-      return { results };
-    } catch (e) {
-      return { results: [], error: e instanceof Error ? e.message : "Error en Tavily" };
-    }
-  }
-
-  if (serperKey) {
-    try {
-      const res = await fetch("https://google.serper.dev/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-API-KEY": serperKey },
-        body: JSON.stringify({ q: query, num: Math.min(maxResults, 10) }),
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        return { results: [], error: `Serper: ${res.status} ${t.slice(0, 200)}` };
-      }
-      const data = (await res.json()) as {
-        organic?: Array<{ title?: string; link?: string; snippet?: string }>;
-      };
-      const results: WebSearchResult[] = (data.organic ?? []).slice(0, maxResults).map((r) => ({
-        title: r.title ?? "",
-        url: r.link ?? "",
-        snippet: r.snippet ?? "",
-      }));
-      return { results };
-    } catch (e) {
-      return { results: [], error: e instanceof Error ? e.message : "Error en Serper" };
-    }
-  }
-
-  return { results: [], error: "Configura SERPER_API_KEY (serper.dev) en .env.local para activar la búsqueda web." };
 }
 
 const agentTools = {

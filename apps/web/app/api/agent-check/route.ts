@@ -1,5 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getWebSearchProvider,
+  isWebSearchConfigured,
+  probeWebSearch,
+} from "@/lib/ai/web-search";
 
 export const dynamic = "force-dynamic";
 
@@ -7,15 +12,18 @@ type Check = { name: string; ok: boolean; detail?: string };
 
 /**
  * GET /api/agent-check — Comprueba que el agente y sus dependencias están bien configurados.
- * Abre en el navegador: http://localhost:3002/api/agent-check
+ * GET /api/agent-check?probe=web — prueba Serper/Tavily (consume 1 crédito).
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const checks: Check[] = [];
+  const probeWeb = req.nextUrl.searchParams.get("probe") === "web";
 
-  // 1. Variables de entorno
   const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const hasSupabaseKey = Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const hasOpenAiKey = Boolean(openaiKey && openaiKey !== "sk-...");
+  const webConfigured = isWebSearchConfigured();
+  const webProvider = getWebSearchProvider();
 
   checks.push({
     name: "Supabase URL",
@@ -30,20 +38,35 @@ export async function GET() {
   checks.push({
     name: "OpenAI API Key",
     ok: hasOpenAiKey,
-    detail: hasOpenAiKey ? "definida" : "falta OPENAI_API_KEY en .env.local",
+    detail: hasOpenAiKey ? "definida" : "falta OPENAI_API_KEY real (no sk-...)",
+  });
+  checks.push({
+    name: "Búsqueda web (Serper/Tavily)",
+    ok: webConfigured,
+    detail: webConfigured
+      ? `activa (${webProvider})`
+      : "opcional: SERPER_API_KEY en serper.dev (plan gratis)",
   });
 
-  // 2. Conexión a Supabase (solo si tenemos env)
-  let supabaseOk = false;
   if (hasSupabaseUrl && hasSupabaseKey) {
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("agent_missions").select("id").limit(1);
-      supabaseOk = !error;
+      const { error: missionsError } = await supabase.from("agent_missions").select("id").limit(1);
       checks.push({
         name: "Conexión Supabase",
-        ok: !error,
-        detail: error ? error.message : "conexión OK",
+        ok: !missionsError,
+        detail: missionsError ? missionsError.message : "conexión OK",
+      });
+
+      const { count, error: memoryError } = await supabase
+        .from("agent_memory")
+        .select("id", { count: "exact", head: true });
+      checks.push({
+        name: "Memoria vectorial (agent_memory)",
+        ok: !memoryError,
+        detail: memoryError
+          ? memoryError.message
+          : `${count ?? 0} memorias — ejecuta npm run seed:memory si es 0`,
       });
     } catch (e) {
       checks.push({
@@ -56,17 +79,29 @@ export async function GET() {
     checks.push({ name: "Conexión Supabase", ok: false, detail: "Faltan variables de entorno" });
   }
 
-  // 3. Resumen
-  const allOk = checks.every((c) => c.ok);
+  if (probeWeb && webConfigured) {
+    const probe = await probeWebSearch();
+    checks.push({
+      name: "Prueba búsqueda web",
+      ok: !probe.error && probe.results.length > 0,
+      detail: probe.error
+        ? probe.error
+        : `${probe.results.length} resultado(s) vía ${probe.provider} para "${probe.query}"`,
+    });
+  }
+
+  const requiredOk = checks
+    .filter((c) => c.name !== "Búsqueda web (Serper/Tavily)" && c.name !== "Prueba búsqueda web")
+    .every((c) => c.ok);
 
   return NextResponse.json(
     {
-      ok: allOk,
-      message: allOk
+      ok: requiredOk,
+      message: requiredOk
         ? "Agente correctamente configurado. Puedes usar el chat."
-        : "Revisa los puntos que fallen arriba (env, Supabase).",
+        : "Revisa los puntos que fallen arriba (env, Supabase, OpenAI).",
       checks,
     },
-    { status: allOk ? 200 : 503 }
+    { status: requiredOk ? 200 : 503 }
   );
 }
