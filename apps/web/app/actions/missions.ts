@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 export type Mission = {
@@ -12,6 +13,13 @@ export type Mission = {
   due_date: string | null;
   created_at: string;
 };
+
+const updateMissionStatusSchema = z.object({
+  id: z.string().uuid("id debe ser un UUID válido"),
+  status: z.enum(["pending", "completed"], {
+    errorMap: () => ({ message: "status debe ser 'pending' o 'completed'" }),
+  }),
+});
 
 export async function getMissions(): Promise<{ missions: Mission[]; error?: string }> {
   try {
@@ -36,9 +44,26 @@ export async function updateMissionStatus(
   id: string,
   status: "pending" | "completed"
 ): Promise<{ ok: boolean; error?: string }> {
+  const parsed = updateMissionStatusSchema.safeParse({ id, status });
+  if (!parsed.success) {
+    const msg = parsed.error.errors.map((e) => e.message).join("; ");
+    return { ok: false, error: msg };
+  }
+
   try {
     const supabase = createClient();
-    const { error } = await supabase.from("agent_missions").update({ status }).eq("id", id);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { ok: false, error: "Debes iniciar sesión para actualizar misiones." };
+    }
+
+    const { error } = await supabase
+      .from("agent_missions")
+      .update({ status: parsed.data.status })
+      .eq("id", parsed.data.id);
+
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {

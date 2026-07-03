@@ -16,9 +16,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Aquí puedes añadir lógica de auth: si no hay sesión, redirect a /login
+  // Refresco de sesión Supabase (recomendado cuando uses auth):
   // const res = NextResponse.next();
-  // return updateSession(request, res); // si usas Supabase updateSession
+  // const supabase = createServerClient(...); await supabase.auth.getUser();
+  // return res;
   return NextResponse.next();
 }
 

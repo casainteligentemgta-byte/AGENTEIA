@@ -1,0 +1,78 @@
+{
+  "project_rules": [
+    "Clean Code: Nombres descriptivos, funciones pequeñas y con una sola responsabilidad. Evitar magic numbers y comentarios obsoletos.",
+    "DRY (Don't Repeat Yourself): Extraer lógica repetida a hooks, utilidades en lib/ o componentes reutilizables. No duplicar esquemas Zod ni tipos.",
+    "KISS (Keep It Simple, Stupid): Priorizar soluciones simples y legibles. Evitar abstracciones prematuras y over-engineering.",
+    "Composición sobre herencia: Preferir componentes compuestos y hooks pequeños frente a jerarquías de herencia complejas.",
+    "Tipado estricto: Usar TypeScript en modo strict. Evitar 'any'; preferir 'unknown' y type guards cuando el tipo sea incierto.",
+    "Server-first: Mantener la mayor lógica en el servidor. Usar 'use client' solo para interactividad (eventos, estado de UI, hooks del navegador).",
+    "Validación en el límite: Validar con Zod en el punto de entrada (formularios, Server Actions, API) antes de confiar en los datos.",
+    "Seguridad por defecto: Nunca confiar en el cliente. Verificar sesión y permisos en el servidor antes de operaciones sensibles.",
+    "Accesibilidad y semántica: Usar elementos HTML semánticos y atributos ARIA cuando corresponda. Componentes Shadcn/UI ya cubren base.",
+    "Performance consciente: Evitar re-renders innecesarios (memo/useCallback cuando aplique), cargar datos en Server Components por defecto."
+  ],
+  "file_structure": {
+    "app": "App Router: page.tsx, layout.tsx, loading.tsx, error.tsx. Rutas dinámicas bajo [param]. Subcarpetas por feature cuando aplique.",
+    "app/actions": "Server Actions: un archivo por dominio o recurso (ej: missions.ts, auth.ts). Exportar funciones async que reciben y validan con Zod.",
+    "components": "Componentes React: ui/ para Shadcn, resto por feature o atómicos. Un componente por archivo. Nombres PascalCase.",
+    "components/ui": "Exclusivamente componentes de Shadcn/UI. No modificar sin necesidad; extender con className o wrappers.",
+    "hooks": "Custom hooks (use*.ts): lógica reutilizable, estado compartido, integración con Supabase cliente. Colocar en src/hooks o raíz según estructura del monorepo.",
+    "lib": "Utilidades puras, clientes (Supabase, etc.), helpers. lib/supabase para cliente servidor y cliente navegador. Evitar side effects en lib.",
+    "types": "Tipos e interfaces globales. Preferir tipos generados por Supabase (supabase/gen) y re-exportar o extender desde types/ cuando haga falta.",
+    "styles": "globals.css en app/. Tailwind como base. Variables CSS para temas. No archivos CSS por componente salvo casos excepcionales."
+  },
+  "preferred_libraries": [
+    "next (14+)",
+    "react",
+    "react-dom",
+    "typescript",
+    "tailwindcss",
+    "@supabase/supabase-js",
+    "@supabase/ssr",
+    "zod",
+    "lucide-react",
+    "@radix-ui/* (vía Shadcn/UI)",
+    "class-variance-authority",
+    "clsx",
+    "tailwind-merge",
+    "zustand (estado global cliente cuando sea necesario)",
+    "react-hook-form (formularios complejos)",
+    "@tanstack/react-query (opcional, para cache y sincronización)"
+  ],
+  "ai_behavior": {
+    "conciseness": "Sé conciso. Responde con código y cambios directos. No repitas el enunciado del usuario salvo que sea necesario.",
+    "explanations": "Explica el razonamiento o las alternativas solo cuando el usuario lo pida o cuando la decisión sea no obvia.",
+    "code_completeness": "Muestra siempre el código completo de los bloques que modifiques o crees (archivo o fragmento relevante), no solo diffs mínimos sin contexto.",
+    "formatting": "Respeta la indentación y estilo del proyecto. Usar comillas dobles en JSON/TS cuando el proyecto lo use.",
+    "language": "Responde en español salvo que el usuario pida explícitamente otro idioma.",
+    "stack_priority": "Priorizar Next.js 14+ App Router, Server Actions, Supabase y Tailwind. No sugerir API Routes REST salvo para webhooks o integraciones que lo exijan.",
+    "no_hallucination": "No inventar rutas, variables de entorno ni dependencias que no existan en el proyecto. Verificar package.json y estructura antes de sugerir imports."
+  },
+  "supabase_workflow": {
+    "description": "Flujo obligatorio antes de sugerir o escribir cualquier consulta (select/insert/update/delete) contra Supabase.",
+    "steps": [
+      "1. Verificar si la tabla tiene RLS activado: revisar migraciones en supabase/migrations/ o el dashboard. Si no hay política RLS, NO sugerir la consulta hasta que se defina RLS o se documente la excepción.",
+      "2. Para tablas con RLS: asegurar que existan políticas (SELECT/INSERT/UPDATE/DELETE) que reflejen el modelo de permisos del producto. La IA debe recordar que sin RLS el cliente puede acceder a datos según el anon key.",
+      "3. Usar siempre el cliente de Supabase correcto: server (createServerClient o createServerComponentClient) en Server Components y Server Actions; client (createBrowserClient) solo en componentes con 'use client'.",
+      "4. Tipado: preferir tipos generados con 'supabase gen types typescript'. No definir tipos a mano para tablas que ya existen en Supabase.",
+      "5. Antes de sugerir .from('tabla'), indicar brevemente si se asumió RLS activo y que el usuario debe confirmar en su proyecto."
+    ],
+    "reminder": "Nunca sugerir consultas directas a tablas sin haber comprobado o indicado el estado de RLS. Si RLS no está activado, proponer primero la migración para activarlo y añadir políticas."
+  },
+  "architecture": {
+    "framework": "Next.js 14+ con App Router. Sin API Routes tradicionales salvo webhooks, callbacks OAuth o requisitos de terceros.",
+    "data_fetching": "Server Components por defecto; fetch o Supabase server client en layout/page. Client Components solo para formularios interactivos, modales, estado local.",
+    "mutations": "Server Actions con useTransition o form action. Validar entrada con Zod; redirigir o revalidatePath según convenga.",
+    "auth": "Supabase Auth con @supabase/ssr. Middleware para refrescar sesión. Verificar getUser() o getSession() en Server Actions antes de operaciones críticas."
+  },
+  "validation": {
+    "library": "Zod",
+    "usage": "Esquemas en lib/validations o junto al action. Validar en Server Action con schema.parse() o schema.safeParse(); en cliente opcional para UX (mensajes en tiempo real).",
+    "error_handling": "Devolver { success: false, error: message } o usar ZodError.format() para mensajes amigables en formularios."
+  },
+  "security": {
+    "env": "Nunca exponer SUPABASE_SERVICE_ROLE ni claves secretas al cliente. Usar solo en Server Actions o scripts de backend.",
+    "session": "En toda operación que modifique datos o acceda a recursos protegidos: obtener sesión en el servidor (getUser()) y comprobar que el usuario está autenticado y autorizado.",
+    "rls": "Considerar RLS como la primera línea de defensa para datos en Supabase; las comprobaciones en Server Actions son una capa adicional."
+  }
+}
