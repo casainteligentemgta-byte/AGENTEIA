@@ -26,14 +26,23 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
 
 ---
 
-## D6 — Auth OAuth (qué hacer tú en Supabase)
+## D6 — Auth (activar en Supabase — 2 min)
 
-1. **Authentication → Providers** → activa **Google** y/o **GitHub** (credenciales OAuth del proveedor).
-2. **Authentication → URL Configuration → Redirect URLs**, añade:
+### Email + contraseña (más rápido)
+1. Supabase → **Authentication → Providers → Email** → **Enable**
+2. (Opcional dev) Desactiva **Confirm email** para entrar sin confirmar correo
+3. En la app: **/login** → **Regístrate** con tu email → **Entrar con email**
+
+### Google OAuth
+1. [Google Cloud Console](https://console.cloud.google.com/) → APIs → **OAuth consent screen** → crear app
+2. **Credentials → Create OAuth client ID** → Web application
+3. **Authorized redirect URI:** `https://TU-PROYECTO.supabase.co/auth/v1/callback`  
+   (copia la exacta en Supabase → Authentication → Google → Callback URL)
+4. Supabase → **Authentication → Providers → Google** → pega Client ID y Secret → **Enable**
+5. **URL Configuration → Redirect URLs:**
    - `http://localhost:3002/auth/callback`
    - `https://TU-URL.vercel.app/auth/callback`
-3. En Vercel/local: `NEXT_PUBLIC_REQUIRE_AUTH=false` (demo libre) o `true` (exige login en `/agente`).
-4. Prueba: `/login` → Google/GitHub → vuelves a `/agente` con sesión.
+6. Prueba **/login → Continuar con Google**
 
 ---
 
