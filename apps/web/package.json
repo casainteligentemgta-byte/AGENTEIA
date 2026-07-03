@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
+    "dev:local": "node scripts/with-local-tls.mjs npx next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "seed:memory": "tsx scripts/seed-memory.ts",
+    "seed:memory:local": "node scripts/with-local-tls.mjs npx tsx scripts/seed-memory.ts",
     "test:serper": "tsx scripts/test-web-search.ts",
-    "qa": "tsx scripts/qa-check.ts"
+    "qa": "tsx scripts/qa-check.ts",
+    "qa:local": "node scripts/with-local-tls.mjs npx tsx scripts/qa-check.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.24",

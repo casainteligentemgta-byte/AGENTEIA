@@ -34,10 +34,26 @@ alter table public.agent_missions enable row level security;
 drop policy if exists "Allow read agent_missions" on public.agent_missions;
 drop policy if exists "Allow insert agent_missions" on public.agent_missions;
 drop policy if exists "Allow update agent_missions" on public.agent_missions;
+drop policy if exists "missions_select_own" on public.agent_missions;
+drop policy if exists "missions_insert_own" on public.agent_missions;
+drop policy if exists "missions_update_own" on public.agent_missions;
 
-create policy "Allow read agent_missions" on public.agent_missions for select using (true);
-create policy "Allow insert agent_missions" on public.agent_missions for insert with check (true);
-create policy "Allow update agent_missions" on public.agent_missions for update using (true);
+-- RLS por usuario (D7): cada uno ve/edita solo sus misiones
+create policy "missions_select_own"
+  on public.agent_missions for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "missions_insert_own"
+  on public.agent_missions for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "missions_update_own"
+  on public.agent_missions for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- ========== 3. agent_memory + pgvector ==========
 create extension if not exists vector with schema extensions;
