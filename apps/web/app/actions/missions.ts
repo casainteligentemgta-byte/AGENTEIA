@@ -24,9 +24,18 @@ const updateMissionStatusSchema = z.object({
 export async function getMissions(): Promise<{ missions: Mission[]; error?: string }> {
   try {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { missions: [] };
+    }
+
     const { data, error } = await supabase
       .from("agent_missions")
       .select("id, user_id, title, description, reward_xp, status, due_date, created_at")
+      .eq("user_id", user.id)
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false });
 
@@ -62,7 +71,8 @@ export async function updateMissionStatus(
     const { error } = await supabase
       .from("agent_missions")
       .update({ status: parsed.data.status })
-      .eq("id", parsed.data.id);
+      .eq("id", parsed.data.id)
+      .eq("user_id", user.id);
 
     if (error) return { ok: false, error: error.message };
     return { ok: true };

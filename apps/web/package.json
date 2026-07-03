@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed:memory": "tsx scripts/seed-memory.ts",
-    "test:serper": "tsx scripts/test-web-search.ts"
+    "test:serper": "tsx scripts/test-web-search.ts",
+    "qa": "tsx scripts/qa-check.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.24",

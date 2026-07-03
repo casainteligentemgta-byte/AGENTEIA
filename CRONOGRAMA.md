@@ -83,6 +83,22 @@ npm run seed:memory -- --dry-run # vista previa
 
 Memorias editables en `lib/ai/seed-memories.ts`.
 
+## D13 — QA completo
+
+```bash
+cd apps/web
+npm run qa                              # env + archivos + TypeScript
+npm run qa -- --url http://localhost:3002   # + rutas HTTP (con dev server)
+```
+
+Checklist manual:
+- [ ] Login email/Google en `/login`
+- [ ] Chat responde en `/` y `/agente` (OpenAI real)
+- [ ] Agente asigna misión → aparece en Mission Control (logueado)
+- [ ] `npm run test:serper` devuelve resultados
+- [ ] SQL RLS ejecutado en Supabase (D7)
+- [ ] Variables en Vercel = `.env.local`
+
 ---
 
 ## Semana 3 — Lanzamiento
@@ -91,7 +107,7 @@ Memorias editables en `lib/ai/seed-memories.ts`.
 |-----|-------|--------|
 | D11 | Búsqueda web (Serper) | ✅ lib/ai/web-search + test:serper |
 | D12 | Seed memoria inicial | ✅ script + 6 memorias base |
-| D13 | QA completo | ⏳ |
+| D13 | QA completo | ✅ npm run qa + fixes memoria/misiones |
 | D14 | Dominio (opcional) | ⏳ |
 
 ---
@@ -134,6 +150,7 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | Hoy | D7-D8: RLS + prompt Científico Loco ✅ |
 | Hoy | D9-D10: responsive + Next 14.2.35 ✅ |
 | Hoy | D11-D12: Serper + seed memoria ✅ |
+| Hoy | D13: QA script + fixes memoria/misiones ✅ |
 | Hoy | D5 pendiente: OpenAI para chat |
 | Hoy | D7 pendiente: ejecutar SQL RLS en Supabase |
 

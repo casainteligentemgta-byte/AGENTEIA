@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import { retrieveMemories, saveMemory } from "@/lib/ai/memory";
 import { buildMemoryContext, buildSystemPrompt } from "@/lib/ai/system-prompt";
+import { getLastUserMessageText } from "@/lib/ai/chat-messages";
 import { doWebSearch } from "@/lib/ai/web-search";
 import { createClient } from "@/lib/supabase/server";
 
@@ -107,9 +108,21 @@ const agentTools = {
     execute: async () => {
       try {
         const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          return {
+            ok: false,
+            error: "Inicia sesión para ver tus misiones.",
+            pending_count: 0,
+            completed_count: 0,
+          };
+        }
         const { data, error } = await supabase
           .from("agent_missions")
           .select("id, title, description, status, due_date, reward_xp")
+          .eq("user_id", user.id)
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
         if (error) return { ok: false, error: error.message };
@@ -185,17 +198,6 @@ const agentTools = {
 };
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-/** Extrae el texto del último mensaje del usuario (soporta UIMessage con parts). */
-function getLastUserMessageText(messages: UIMessage[]): string {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  if (!lastUser?.parts) return "";
-  return lastUser.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join(" ")
-    .trim();
-}
 
 /**
  * Detecta si el mensaje del usuario contiene información valiosa para recordar:

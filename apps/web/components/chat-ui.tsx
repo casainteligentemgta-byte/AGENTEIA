@@ -3,17 +3,7 @@
 import { useChat } from "ai/react";
 import { useRef, useEffect } from "react";
 import { Send, Loader2, User, Bot } from "lucide-react";
-
-function getMessageText(m: { content?: string; parts?: Array<{ type: string; text?: string }> }): string {
-  if (typeof m.content === "string") return m.content;
-  if (Array.isArray(m.parts)) {
-    return m.parts
-      .filter((p) => p.type === "text")
-      .map((p) => p.text ?? "")
-      .join("");
-  }
-  return "";
-}
+import { getMessageText } from "@/lib/ai/chat-messages";
 
 type ChatUIProps = {
   api?: string;
