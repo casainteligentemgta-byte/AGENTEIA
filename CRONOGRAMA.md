@@ -18,9 +18,9 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
 
 | Día | Tarea | Estado |
 |-----|-------|--------|
-| **D6** | Auth OAuth + middleware | ✅ Código listo (configura OAuth en Supabase) |
-| D7 | RLS revisado por usuario | ⏳ |
-| D8 | Personalidad del agente (prompts) | ⏳ |
+| **D6** | Auth OAuth + middleware | ✅ Email/Google configurado por usuario |
+| D7 | RLS revisado por usuario | ✅ Migración lista (ejecutar SQL) |
+| D8 | Personalidad del agente (prompts) | ✅ Hecho |
 | D9 | UI/UX responsive | ⏳ |
 | D10 | Actualizar Next.js (seguridad) | ⏳ |
 
@@ -43,6 +43,14 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
    - `http://localhost:3002/auth/callback`
    - `https://TU-URL.vercel.app/auth/callback`
 6. Prueba **/login → Continuar con Google**
+
+---
+
+## D7 — RLS por usuario (ejecutar en Supabase)
+
+Pega y ejecuta: `apps/web/supabase/migrations/20250703160000_missions_rls_by_user.sql`
+
+Cada usuario solo ve/edita sus misiones. El agente asigna misiones con tu `user_id` al estar logueado.
 
 ---
 
@@ -97,7 +105,8 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | Hoy | D1: SQL ejecutado en Supabase ✅ |
 | Hoy | D3: `/` con `HomeClient` |
 | Hoy | D4: web carga en Vercel ✅ |
-| Hoy | D6: OAuth, middleware, /auth/callback, AuthNav en /agente |
+| Hoy | D6: login email/Google activado ✅ |
+| Hoy | D5 pendiente: OpenAI para chat |
 
 ---
 

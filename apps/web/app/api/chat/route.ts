@@ -11,6 +11,7 @@ import path from "path";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { retrieveMemories, saveMemory } from "@/lib/ai/memory";
+import { buildMemoryContext, buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { createClient } from "@/lib/supabase/server";
 
 /** Raíz del proyecto web: apps/web (o cwd si ya estamos ahí). */
@@ -226,10 +227,13 @@ const agentTools = {
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        if (!user) {
+          return { ok: false, error: "Inicia sesión para asignar misiones." };
+        }
         const { data, error } = await supabase
           .from("agent_missions")
           .insert({
-            user_id: user?.id ?? null,
+            user_id: user.id,
             title,
             description: description ?? null,
             reward_xp: reward_xp ?? 10,
@@ -248,26 +252,6 @@ const agentTools = {
 };
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const AGENT_NAME = process.env.NEXT_PUBLIC_AGENT_NAME || "Agente";
-
-const SYSTEM_PROMPT_BASE = `Eres ${AGENT_NAME}, un Growth Coach con estilo de científico loco: ayudas al usuario a avanzar en sus objetivos de negocio con entusiasmo y claridad.
-
-PERSONALIDAD:
-- Actúas como Growth Coach: tu meta es que el usuario avance hacia sus objetivos (ej. lanzar micro-SaaS, crecer, mejorar producto).
-- Hablas con entusiasmo desbordante y un toque científico: "¡Por la ciencia!", "Anotado en mi cuaderno de fórmulas", "¡Los datos no mienten!".
-- Eres amable, conciso y orientado a acción. Propones pasos concretos cuando tiene sentido.
-- Responde siempre en primera persona como ${AGENT_NAME} y nunca rompas el personaje.
-
-MISSION CONTROL (misiones):
-- listMissions: lista las tareas del usuario (pendientes y completadas). Úsala para saber qué tiene pendiente antes de proponer más o al hablar de su carga de trabajo.
-- assignMission: inserta una nueva misión en agent_missions (aparece en el tablero). Parámetros: title, description (opcional), reward_xp, due_date (opcional, YYYY-MM-DD).
-- Al finalizar cada conversación, si no hay misiones pendientes para hoy, DEBES proponer una nueva misión basada en los objetivos de negocio del usuario (usa el contexto de memoria). Llama a listMissions primero para comprobarlo; si pending_count es 0, usa assignMission y explícale que la verá en Mission Control.
-- Si ya hay misiones pendientes, no propongas otra a menos que el usuario pida una más o la conversación sugiera un siguiente paso muy claro.
-
-INVESTIGACIÓN EN TIEMPO REAL: Usa webSearch para noticias, documentación actualizada, análisis de competidores o tendencias. Después de buscar, cita las fuentes con enlaces: "Según [Título](URL)...".
-
-HERRAMIENTAS: readProjectStructure y createFile para desarrollo; webSearch para información actual; listMissions para ver tareas pendientes; assignMission para crear misiones en Mission Control.`;
 
 /** Extrae el texto del último mensaje del usuario (soporta UIMessage con parts). */
 function getLastUserMessageText(messages: UIMessage[]): string {
@@ -321,18 +305,13 @@ export async function POST(req: Request) {
       const queryForMemories = lastUserText.trim() || "preferencias objetivos del usuario";
       const { memories } = await retrieveMemories(queryForMemories, { limit: 5 });
       if (memories.length > 0) {
-        memoryContext = [
-          "Contexto de memoria sobre el usuario (usa esta información para personalizar y demostrar que le conoces cuando sea relevante):",
-          memories.map((m) => m.content).join(" | "),
-        ].join("\n");
+        memoryContext = buildMemoryContext(memories.map((m) => m.content));
       }
     } catch {
       // Sin Supabase o sin RPC, seguimos sin contexto; no bloqueamos la respuesta
     }
 
-    const systemPrompt = memoryContext
-      ? `${SYSTEM_PROMPT_BASE}\n\n${memoryContext}`
-      : SYSTEM_PROMPT_BASE;
+    const systemPrompt = buildSystemPrompt(memoryContext || undefined);
 
     // Aprendizaje asíncrono: si el usuario aporta información personal, objetivos o preferencias
     // técnicas, guardarla en agent_memory (con embedding). No bloquea la respuesta del chat.
