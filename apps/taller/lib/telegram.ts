@@ -46,6 +46,28 @@ export function getImageFileId(message: TelegramMessage): string | null {
   return null;
 }
 
+export async function getTelegramFileUrl(fileId: string): Promise<string> {
+  const token = getBotToken();
+
+  const fileRes = await fetch(`${TELEGRAM_API}/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  if (!fileRes.ok) {
+    const text = await fileRes.text();
+    throw new Error(`Telegram getFile falló: ${fileRes.status} ${text}`);
+  }
+
+  const fileData = (await fileRes.json()) as {
+    ok: boolean;
+    result?: { file_path: string };
+    description?: string;
+  };
+
+  if (!fileData.ok || !fileData.result?.file_path) {
+    throw new Error(fileData.description ?? "No se pudo obtener file_path de Telegram");
+  }
+
+  return `${TELEGRAM_API}/file/bot${token}/${fileData.result.file_path}`;
+}
+
 export async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; mimeType: string }> {
   const token = getBotToken();
 
@@ -66,7 +88,8 @@ export async function downloadTelegramFile(fileId: string): Promise<{ buffer: Bu
   }
 
   const filePath = fileData.result.file_path;
-  const downloadRes = await fetch(`${TELEGRAM_API}/file/bot${token}/${filePath}`);
+  const fileUrl = `${TELEGRAM_API}/file/bot${token}/${filePath}`;
+  const downloadRes = await fetch(fileUrl);
   if (!downloadRes.ok) {
     throw new Error(`Descarga de archivo Telegram falló: ${downloadRes.status}`);
   }
@@ -90,9 +113,14 @@ export async function downloadTelegramFile(fileId: string): Promise<{ buffer: Bu
 export async function sendTelegramMessage(chatId: number, text: string): Promise<void> {
   const token = getBotToken();
 
-  await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text }),
   });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Telegram sendMessage falló: ${res.status} ${body.slice(0, 200)}`);
+  }
 }

@@ -4,8 +4,8 @@ export default function HomePage() {
       <h1>Taller — Mantenimientos</h1>
       <p>
         Webhook activo en{" "}
-        <code>/api/webhook-telegram</code>. Envía fotos de facturas al bot de Telegram para
-        registrar mantenimientos automáticamente.
+        <code>/api/telegram-webhook</code> (y alias <code>/api/webhook-telegram</code>).
+        Envía fotos de facturas al bot de Telegram para registrar mantenimientos automáticamente.
       </p>
     </main>
   );

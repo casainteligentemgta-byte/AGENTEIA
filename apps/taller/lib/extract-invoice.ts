@@ -1,3 +1,5 @@
+import OpenAI from "openai";
+
 export type FacturaExtraida = {
   placa: string | null;
   kilometraje: number | null;
@@ -7,21 +9,8 @@ export type FacturaExtraida = {
   telefono_cliente: string | null;
 };
 
-const SYSTEM_PROMPT = `Eres un asistente especializado en leer facturas y órdenes de servicio de talleres mecánicos en español.
-
-Analiza la imagen y extrae ÚNICAMENTE un objeto JSON con estas claves:
-- placa: string con la placa del vehículo (mayúsculas, sin espacios extra). null si no aparece.
-- kilometraje: número entero del odómetro/kilometraje. null si no aparece.
-- descripcion: string resumiendo el servicio o repuestos realizados. null si no se puede determinar.
-- costo: número decimal del total a pagar (solo el número, sin símbolo de moneda). null si no aparece.
-- nombre_cliente: string con el nombre del propietario o cliente. null si no aparece.
-- telefono_cliente: string con el teléfono del cliente (solo dígitos, con indicativo de país si está visible). null si no aparece.
-
-Reglas:
-- Responde solo con JSON válido, sin markdown ni texto adicional.
-- Si un campo no está visible o es ilegible, usa null.
-- Para costo, usa punto como separador decimal (ej. 125000.50).
-- Normaliza la placa al formato visible en el documento.`;
+const EXTRACTION_PROMPT =
+  "Analiza esta factura de taller y extrae en formato JSON: placa del vehículo, kilometraje, costo total, y una breve descripción del servicio. Si no encuentras algún dato, pon null. Responde solo con el JSON.";
 
 function parseString(value: unknown): string | null {
   return typeof value === "string" ? value.trim() || null : null;
@@ -45,45 +34,7 @@ function parseCosto(value: unknown): number | null {
   return null;
 }
 
-export async function extractMantenimientoFromImage(
-  imageBuffer: Buffer,
-  mimeType: string = "image/jpeg"
-): Promise<FacturaExtraida> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
-  }
-
-  const OpenAI = (await import("openai")).default;
-  const openai = new OpenAI({ apiKey });
-
-  const base64 = imageBuffer.toString("base64");
-  const dataUrl = `data:${mimeType};base64,${base64}`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Extrae los datos de esta factura u orden de mantenimiento vehicular.",
-          },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-    max_tokens: 600,
-  });
-
-  const raw = response.choices[0]?.message?.content;
-  if (!raw) {
-    throw new Error("OpenAI no devolvió contenido");
-  }
-
+function parseOpenAIJson(raw: string): FacturaExtraida {
   const parsed = JSON.parse(raw) as Record<string, unknown>;
 
   return {
@@ -91,9 +42,73 @@ export async function extractMantenimientoFromImage(
     kilometraje: parseKilometraje(parsed.kilometraje),
     descripcion:
       parseString(parsed.descripcion) ??
-      parseString(parsed.descripcion_servicio),
-    costo: parseCosto(parsed.costo),
+      parseString(parsed.descripcion_servicio) ??
+      parseString(parsed["descripción del servicio"]),
+    costo: parseCosto(parsed.costo ?? parsed.costo_total),
     nombre_cliente: parseString(parsed.nombre_cliente),
     telefono_cliente: parseString(parsed.telefono_cliente),
   };
+}
+
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
+  }
+  return new OpenAI({ apiKey });
+}
+
+/** Extrae datos de factura enviando la URL pública del archivo de Telegram a GPT-4o-mini. */
+export async function extractMantenimientoFromUrl(fileUrl: string): Promise<FacturaExtraida> {
+  const openai = getOpenAIClient();
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: EXTRACTION_PROMPT },
+            { type: "image_url", image_url: { url: fileUrl } },
+          ],
+        },
+      ],
+      max_tokens: 500,
+    });
+
+    const raw = response.choices[0]?.message?.content;
+    if (!raw) {
+      throw new Error("OpenAI no devolvió contenido en la respuesta");
+    }
+
+    return parseOpenAIJson(raw);
+  } catch (err) {
+    if (err instanceof OpenAI.APIError) {
+      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
+    }
+    if (err instanceof SyntaxError) {
+      throw new Error("OpenAI devolvió JSON inválido");
+    }
+    throw err;
+  }
+}
+
+/** Compatibilidad: extracción desde buffer en base64 (fallback). */
+export async function extractMantenimientoFromImage(
+  imageBuffer: Buffer,
+  mimeType: string = "image/jpeg"
+): Promise<FacturaExtraida> {
+  const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+  return extractMantenimientoFromUrl(dataUrl);
+}
+
+export function buildFacturaProcesadaMessage(extraido: FacturaExtraida): string {
+  const placa = extraido.placa ?? "N/A";
+  const descripcion = extraido.descripcion ?? "Sin descripción";
+  const costo =
+    extraido.costo != null ? extraido.costo.toLocaleString("es-CO") : "N/A";
+
+  return `¡Factura procesada! Vehículo: ${placa}, Servicio: ${descripcion}, Total: $${costo}. Todo guardado correctamente.`;
 }

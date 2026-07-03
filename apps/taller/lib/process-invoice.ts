@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FacturaExtraida } from "@/lib/extract-invoice";
+import { buildFacturaProcesadaMessage } from "@/lib/extract-invoice";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
@@ -12,6 +13,8 @@ export type ProcessInvoiceInput = {
   telegramChatId: number;
   telegramMessageId: number;
   telegramFileId: string;
+  /** Mensaje personalizado al mecánico; si no se pasa, se usa el formato por defecto. */
+  confirmationMessage?: string;
 };
 
 export type ProcessInvoiceResult = {
@@ -94,7 +97,13 @@ async function findOrCreateVehiculo(
 }
 
 export async function processInvoice(input: ProcessInvoiceInput): Promise<ProcessInvoiceResult> {
-  const { extraido, telegramChatId, telegramMessageId, telegramFileId } = input;
+  const {
+    extraido,
+    telegramChatId,
+    telegramMessageId,
+    telegramFileId,
+    confirmationMessage,
+  } = input;
 
   if (!extraido.placa) {
     throw new Error("No se pudo extraer la placa de la factura");
@@ -173,20 +182,9 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
     }
   }
 
-  const resumen = [
-    "✅ Mantenimiento registrado",
-    `Placa: ${extraido.placa}`,
-    extraido.kilometraje != null ? `Km: ${extraido.kilometraje.toLocaleString("es-CO")}` : null,
-    extraido.descripcion ? `Servicio: ${extraido.descripcion}` : null,
-    extraido.costo != null ? `Costo: $${extraido.costo.toLocaleString("es-CO")}` : null,
-    extraido.nombre_cliente ? `Cliente: ${extraido.nombre_cliente}` : null,
-    `Próximo servicio: ${fechaFormateada}`,
-    kilometrajeObjetivo != null ? `Km objetivo: ${kilometrajeObjetivo.toLocaleString("es-CO")}` : null,
-    whatsappEnviado ? "📱 WhatsApp enviado al cliente" : telefono ? "⚠️ WhatsApp no enviado" : null,
-    `ID: ${mantenimiento.id}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const resumen =
+    confirmationMessage ??
+    buildFacturaProcesadaMessage(extraido);
 
   await sendTelegramMessage(telegramChatId, resumen);
 
