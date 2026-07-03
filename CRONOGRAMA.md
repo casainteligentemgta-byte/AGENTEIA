@@ -21,8 +21,8 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
 | **D6** | Auth OAuth + middleware | ✅ Email/Google configurado por usuario |
 | D7 | RLS revisado por usuario | ✅ Migración lista (ejecutar SQL) |
 | D8 | Personalidad del agente (prompts) | ✅ Hecho |
-| D9 | UI/UX responsive | ⏳ |
-| D10 | Actualizar Next.js (seguridad) | ⏳ |
+| D9 | UI/UX responsive | ✅ Tabs móvil /agente, home optimizado |
+| D10 | Actualizar Next.js (seguridad) | ✅ 14.2.35 en package.json |
 
 ---
 
@@ -106,7 +106,10 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | Hoy | D3: `/` con `HomeClient` |
 | Hoy | D4: web carga en Vercel ✅ |
 | Hoy | D6: login email/Google activado ✅ |
+| Hoy | D7-D8: RLS + prompt Científico Loco ✅ |
+| Hoy | D9-D10: responsive + Next 14.2.35 ✅ |
 | Hoy | D5 pendiente: OpenAI para chat |
+| Hoy | D7 pendiente: ejecutar SQL RLS en Supabase |
 
 ---
 

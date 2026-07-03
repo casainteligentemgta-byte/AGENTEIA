@@ -103,7 +103,7 @@ export function ChatUI({
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="shrink-0 p-4 pt-2">
+      <form onSubmit={handleSubmit} className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:p-4">
         <div className="flex gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/50 focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-500/30 transition-colors">
           <textarea
             value={input}
