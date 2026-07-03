@@ -4,16 +4,18 @@ import { AgentStatus } from "@/components/agent-status";
 import { MissionControl } from "@/components/mission-control";
 import { ChatUI } from "@/components/chat-ui";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { AuthNav } from "@/components/auth-nav";
 
 export default function AgentePage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
       {/* LADO IZQUIERDO: CHAT tipo ChatGPT */}
       <div className="flex-1 flex flex-col min-h-0 p-6 border-r border-zinc-800">
-        <header className="mb-6 shrink-0">
+        <header className="mb-6 shrink-0 flex items-start justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tighter text-zinc-100">
             SISTEMA OPERATIVO DE IA <span className="text-blue-500 text-sm">v1.0</span>
           </h1>
+          <AuthNav />
         </header>
 
         <div className="flex-1 min-h-0 flex flex-col bg-zinc-900/30 rounded-xl border border-zinc-800 overflow-hidden">

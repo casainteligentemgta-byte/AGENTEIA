@@ -14,24 +14,36 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
 | **D4** | Deploy verde en Vercel | ✅ Web carga |
 | **D5** | Probar flujo completo en producción | 🔄 Falta OpenAI → luego probar chat |
 
----
-
-## OpenAI — configurar ahora (5 min)
-
-1. [platform.openai.com/api-keys](https://platform.openai.com/api-keys) → **Create new secret key** → copia (`sk-proj-...`).
-2. **Local:** en `apps/web/.env.local` sustituye `OPENAI_API_KEY=sk-...` por tu clave real.
-3. **Vercel:** Project → **Settings → Environment Variables** → `OPENAI_API_KEY` = misma clave → **Production** (y Preview si quieres).
-4. **Redeploy:** Deployments → último deploy → **⋮ → Redeploy**.
-5. **Probar:** envía un mensaje en `/` o `/agente`. Opcional: `/api/agent-check`.
-
-
 ## Semana 2 — Pulido
 
-| D6 | Auth OAuth + middleware | ⏳ |
+| Día | Tarea | Estado |
+|-----|-------|--------|
+| **D6** | Auth OAuth + middleware | ✅ Código listo (configura OAuth en Supabase) |
 | D7 | RLS revisado por usuario | ⏳ |
 | D8 | Personalidad del agente (prompts) | ⏳ |
 | D9 | UI/UX responsive | ⏳ |
 | D10 | Actualizar Next.js (seguridad) | ⏳ |
+
+---
+
+## D6 — Auth OAuth (qué hacer tú en Supabase)
+
+1. **Authentication → Providers** → activa **Google** y/o **GitHub** (credenciales OAuth del proveedor).
+2. **Authentication → URL Configuration → Redirect URLs**, añade:
+   - `http://localhost:3002/auth/callback`
+   - `https://TU-URL.vercel.app/auth/callback`
+3. En Vercel/local: `NEXT_PUBLIC_REQUIRE_AUTH=false` (demo libre) o `true` (exige login en `/agente`).
+4. Prueba: `/login` → Google/GitHub → vuelves a `/agente` con sesión.
+
+---
+
+## OpenAI — pendiente (D5)
+
+1. [platform.openai.com/api-keys](https://platform.openai.com/api-keys) → clave `sk-proj-...`
+2. `.env.local` + Vercel → `OPENAI_API_KEY`
+3. Redeploy y probar chat en `/` o `/agente`
+
+---
 
 ## Semana 3 — Lanzamiento
 
@@ -76,7 +88,7 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | Hoy | D1: SQL ejecutado en Supabase ✅ |
 | Hoy | D3: `/` con `HomeClient` |
 | Hoy | D4: web carga en Vercel ✅ |
-| Hoy | D5: probar chat, misiones, memoria |
+| Hoy | D6: OAuth, middleware, /auth/callback, AuthNav en /agente |
 
 ---
 
