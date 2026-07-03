@@ -340,9 +340,12 @@ export async function POST(req: Request) {
       saveMemory(lastUserText).catch(() => {});
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "sk-...") {
       return new Response(
-        JSON.stringify({ error: "Falta OPENAI_API_KEY en .env.local" }),
+        JSON.stringify({
+          error:
+            "Falta OPENAI_API_KEY. Añádela en .env.local (local) o en Vercel → Settings → Environment Variables (producción) y redeploy.",
+        }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }

@@ -9,10 +9,21 @@ Stack: **Cursor** · **Gemini** (prompts/ideas) · **Supabase** · **Vercel** ·
 | Día | Tarea | Estado |
 |-----|-------|--------|
 | **D1** | Supabase: proyecto, migraciones, Realtime | ✅ Hecho (SQL ejecutado) |
-| **D2** | Env vars + build local + Vercel | ✅ Supabase OK · ⚠️ OpenAI: pon clave real en Vercel |
+| **D2** | Env vars + build local + Vercel | ✅ Supabase OK · ⚠️ OpenAI real en Vercel si el chat falla |
 | **D3** | Home con chat (`HomeClient`) | ✅ Hecho |
-| **D4** | Deploy verde en Vercel | 🔄 Push en curso |
-| D5 | Probar flujo completo en producción | ⏳ |
+| **D4** | Deploy verde en Vercel | ✅ Web carga |
+| **D5** | Probar flujo completo en producción | 🔄 Falta OpenAI → luego probar chat |
+
+---
+
+## OpenAI — configurar ahora (5 min)
+
+1. [platform.openai.com/api-keys](https://platform.openai.com/api-keys) → **Create new secret key** → copia (`sk-proj-...`).
+2. **Local:** en `apps/web/.env.local` sustituye `OPENAI_API_KEY=sk-...` por tu clave real.
+3. **Vercel:** Project → **Settings → Environment Variables** → `OPENAI_API_KEY` = misma clave → **Production** (y Preview si quieres).
+4. **Redeploy:** Deployments → último deploy → **⋮ → Redeploy**.
+5. **Probar:** envía un mensaje en `/` o `/agente`. Opcional: `/api/agent-check`.
+
 
 ## Semana 2 — Pulido
 
@@ -64,7 +75,8 @@ La ruta `/` usa `HomeClient` (chat + sidebar). Vista gaming en `/agente`.
 | — | Fix build: `toDataStreamResponse`, tipo `cookiesToSet` |
 | Hoy | D1: SQL ejecutado en Supabase ✅ |
 | Hoy | D3: `/` con `HomeClient` |
-| Hoy | D2/D4: vars Vercel + push pendiente |
+| Hoy | D4: web carga en Vercel ✅ |
+| Hoy | D5: probar chat, misiones, memoria |
 
 ---
 
