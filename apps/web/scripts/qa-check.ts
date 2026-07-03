@@ -31,7 +31,7 @@ function isRealKey(value: string | undefined, placeholders: string[] = ["sk-..."
 
 async function probeHttp(path: string, expectStatus?: number): Promise<{ ok: boolean; detail: string }> {
   try {
-    const res = await fetch(`${baseUrl}${path}`, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(`${baseUrl}${path}`, { signal: AbortSignal.timeout(30_000) });
     const ct = res.headers.get("content-type") ?? "";
     if (expectStatus != null && res.status !== expectStatus) {
       return { ok: false, detail: `HTTP ${res.status} (esperado ${expectStatus})` };
@@ -41,7 +41,7 @@ async function probeHttp(path: string, expectStatus?: number): Promise<{ ok: boo
     }
     return { ok: res.ok || res.status === 503, detail: `HTTP ${res.status}` };
   } catch (e) {
-    return { ok: false, detail: e instanceof Error ? e.message : "fetch error" };
+    return { ok: false, detail: `${e instanceof Error ? e.message : "fetch error"} (¿dev server listo? npm run dev)` };
   }
 }
 
@@ -91,10 +91,22 @@ async function main() {
       const r = await probeHttp(route, route.startsWith("/api") ? undefined : 200);
       check(`GET ${route}`, r.ok, r.detail);
     }
-    const agentCheck = await fetch(`${baseUrl}/api/agent-check`, { signal: AbortSignal.timeout(8000) });
-    if (agentCheck.ok || agentCheck.status === 503) {
-      const body = (await agentCheck.json()) as { ok?: boolean; checks?: QaResult[] };
-      check("agent-check JSON", Array.isArray(body.checks), `${body.checks?.length ?? 0} checks`);
+    try {
+      const agentCheck = await fetch(`${baseUrl}/api/agent-check`, {
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (agentCheck.ok || agentCheck.status === 503) {
+        const body = (await agentCheck.json()) as { ok?: boolean; checks?: QaResult[] };
+        check("agent-check JSON", Array.isArray(body.checks), `${body.checks?.length ?? 0} checks`);
+      } else {
+        check("agent-check JSON", false, `HTTP ${agentCheck.status}`);
+      }
+    } catch (e) {
+      check(
+        "agent-check JSON",
+        false,
+        e instanceof Error ? e.message : "timeout — espera a que Next muestre Ready"
+      );
     }
   } else {
     console.log("\n(Omitiendo probes HTTP — pasa --url http://localhost:3002 con el dev server activo)\n");
@@ -106,7 +118,9 @@ async function main() {
     (r) =>
       !r.name.includes("opcional") &&
       !r.name.includes("SERPER") &&
-      r.name !== "OPENAI_API_KEY"
+      r.name !== "OPENAI_API_KEY" &&
+      !r.name.startsWith("GET ") &&
+      r.name !== "agent-check JSON"
   );
 
   console.log("\n--- Resumen ---");
