@@ -1,22 +1,30 @@
 import Link from "next/link";
 import { Car, ClipboardList, Bell, DollarSign, ArrowRight } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { Badge } from "@/components/ui/badge";
+import { IngresosChart } from "@/components/dashboard/ingresos-chart";
+import { TopRanking } from "@/components/dashboard/top-ranking";
 import {
   getDashboardStats,
+  getIngresosPorMes,
   getMantenimientos,
   getRecordatorios,
+  getTopClientes,
+  getTopVehiculos,
 } from "@/lib/data/dashboard";
 import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [stats, mantenimientos, recordatorios] = await Promise.all([
-    getDashboardStats(),
-    getMantenimientos(8),
-    getRecordatorios(),
-  ]);
+  const [stats, ingresosPorMes, topClientes, topVehiculos, mantenimientos, recordatorios] =
+    await Promise.all([
+      getDashboardStats(),
+      getIngresosPorMes(6),
+      getTopClientes(5),
+      getTopVehiculos(5),
+      getMantenimientos(8),
+      getRecordatorios(),
+    ]);
 
   const proximosRecordatorios = recordatorios.filter((r) => r.estado === "pendiente").slice(0, 5);
 
@@ -40,6 +48,29 @@ export default async function DashboardPage() {
           value={formatCurrency(stats.ingresosMes)}
           icon={DollarSign}
         />
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-5">
+        <section className="glass rounded-2xl p-5 lg:col-span-3">
+          <div className="mb-4">
+            <h2 className="font-semibold text-zinc-100">Ingresos por mes</h2>
+            <p className="mt-1 text-sm text-zinc-500">Últimos 6 meses</p>
+          </div>
+          <IngresosChart data={ingresosPorMes} />
+        </section>
+
+        <div className="grid gap-6 lg:col-span-2">
+          <TopRanking
+            title="Top clientes"
+            items={topClientes}
+            emptyMessage="Aún no hay clientes con servicios registrados."
+          />
+          <TopRanking
+            title="Top vehículos"
+            items={topVehiculos}
+            emptyMessage="Aún no hay vehículos con servicios registrados."
+          />
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-5">
