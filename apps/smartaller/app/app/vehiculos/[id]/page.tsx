@@ -82,10 +82,10 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
         />
 
         {!resumen.vinculado && (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center">
-            <p className="text-2xl font-light text-zinc-300">Próximamente</p>
-            <p className="mt-2 text-sm text-zinc-500">
-              Chat con tu taller, gráficos de neumáticos y más
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-8 text-center">
+            <p className="text-sm font-medium text-zinc-700">Chat Smartaller disponible</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              Pregunta sobre mantenimiento aunque aún no tengas visitas en taller
             </p>
           </div>
         )}
@@ -95,6 +95,7 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
         titulo={titulo}
         placa={vehiculo.placa}
         tipoVehiculo={vehiculo.tipo_vehiculo}
+        chatHref={`/app/vehiculos/${vehiculo.id}/chat`}
       />
     </div>
   );

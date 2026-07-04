@@ -29,7 +29,7 @@ export function AppVehicleFooter({
         <Link
           href={chatHref}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500"
-          aria-label="Asistente (próximamente)"
+          aria-label="Chat Smartaller"
         >
           <MessageCircle className="h-5 w-5" />
         </Link>
