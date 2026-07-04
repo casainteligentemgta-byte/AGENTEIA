@@ -7,7 +7,7 @@ export async function updateSession(request: NextRequest) {
   const key = getSupabaseAnonKey();
 
   if (!url || !key) {
-    if (request.nextUrl.pathname.startsWith("/dashboard")) {
+    if (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/app")) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
       loginUrl.searchParams.set("error", "config");
@@ -39,7 +39,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && pathname.startsWith("/dashboard")) {
+  const isProtected = pathname.startsWith("/dashboard") || pathname.startsWith("/app");
+
+  if (!user && isProtected) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirectTo", pathname);
@@ -47,9 +49,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    return NextResponse.redirect(dashboardUrl);
+    const redirectTo = request.nextUrl.searchParams.get("redirectTo");
+    const target = request.nextUrl.clone();
+    target.pathname =
+      redirectTo && (redirectTo.startsWith("/dashboard") || redirectTo.startsWith("/app"))
+        ? redirectTo
+        : "/dashboard";
+    target.search = "";
+    return NextResponse.redirect(target);
   }
 
   return response;

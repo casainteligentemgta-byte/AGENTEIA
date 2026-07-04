@@ -3,6 +3,7 @@ import type { FacturaExtraida } from "@/lib/extract-invoice";
 import { buildFacturaProcesadaMessage } from "@/lib/extract-invoice";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTallerByTelegramChat } from "@/lib/taller";
+import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
 
@@ -54,27 +55,59 @@ async function findOrCreateVehiculo(
     kilometraje: number | null;
   }
 ): Promise<{ id: string; nombre_cliente: string | null; telefono_cliente: string | null }> {
-  const { data: existing } = await supabase
+  const placaNorm = normalizarPlaca(params.placa);
+
+  const { data: existingTaller } = await supabase
     .from("vehiculos")
     .select("id, nombre_cliente, telefono_cliente")
-    .eq("placa", params.placa)
+    .eq("placa", placaNorm)
     .eq("taller_id", params.tallerId)
     .maybeSingle();
 
-  if (existing) {
+  if (existingTaller) {
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (params.nombreCliente) updates.nombre_cliente = params.nombreCliente;
     if (params.telefonoCliente) updates.telefono_cliente = params.telefonoCliente;
     if (params.kilometraje != null) updates.kilometraje_ultimo = params.kilometraje;
 
     if (Object.keys(updates).length > 1) {
-      await supabase.from("vehiculos").update(updates).eq("id", existing.id);
+      await supabase.from("vehiculos").update(updates).eq("id", existingTaller.id);
     }
 
+    await fusionarVehiculosPorPlaca(supabase, placaNorm, existingTaller.id);
+
     return {
-      id: existing.id,
-      nombre_cliente: params.nombreCliente ?? existing.nombre_cliente,
-      telefono_cliente: params.telefonoCliente ?? existing.telefono_cliente,
+      id: existingTaller.id,
+      nombre_cliente: params.nombreCliente ?? existingTaller.nombre_cliente,
+      telefono_cliente: params.telefonoCliente ?? existingTaller.telefono_cliente,
+    };
+  }
+
+  // Puente: vehículo registrado por el dueño en /app con la misma placa
+  const { data: existingUsuario } = await supabase
+    .from("vehiculos")
+    .select("id, nombre_cliente, telefono_cliente")
+    .eq("placa", placaNorm)
+    .not("user_id", "is", null)
+    .maybeSingle();
+
+  if (existingUsuario) {
+    const updates: Record<string, unknown> = {
+      taller_id: params.tallerId,
+      telegram_chat_id: params.telegramChatId,
+      updated_at: new Date().toISOString(),
+    };
+    if (params.nombreCliente) updates.nombre_cliente = params.nombreCliente;
+    if (params.telefonoCliente) updates.telefono_cliente = params.telefonoCliente;
+    if (params.kilometraje != null) updates.kilometraje_ultimo = params.kilometraje;
+
+    await supabase.from("vehiculos").update(updates).eq("id", existingUsuario.id);
+    await fusionarVehiculosPorPlaca(supabase, placaNorm, existingUsuario.id);
+
+    return {
+      id: existingUsuario.id,
+      nombre_cliente: params.nombreCliente ?? existingUsuario.nombre_cliente,
+      telefono_cliente: params.telefonoCliente ?? existingUsuario.telefono_cliente,
     };
   }
 
@@ -82,7 +115,7 @@ async function findOrCreateVehiculo(
     .from("vehiculos")
     .insert({
       taller_id: params.tallerId,
-      placa: params.placa,
+      placa: placaNorm,
       telegram_chat_id: params.telegramChatId,
       nombre_cliente: params.nombreCliente,
       telefono_cliente: params.telefonoCliente,

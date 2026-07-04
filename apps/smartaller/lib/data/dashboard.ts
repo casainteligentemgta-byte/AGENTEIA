@@ -21,6 +21,12 @@ export type Vehiculo = {
   nombre_cliente: string | null;
   telefono_cliente: string | null;
   kilometraje_ultimo: number | null;
+  horas_motor_ultimo: number | null;
+  tipo_vehiculo: string;
+  nick: string | null;
+  marca: string | null;
+  modelo: string | null;
+  unidad_odometro: string;
   created_at: string;
 };
 
@@ -102,7 +108,9 @@ export async function getVehiculos(): Promise<Vehiculo[]> {
     const supabase = getSupabase();
     const { data } = await supabase
       .from("vehiculos")
-      .select("id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at")
+      .select(
+        "id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, horas_motor_ultimo, tipo_vehiculo, nick, marca, modelo, unidad_odometro, created_at"
+      )
       .order("created_at", { ascending: false });
     return (data ?? []) as Vehiculo[];
   } catch {

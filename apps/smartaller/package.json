@@ -12,14 +12,18 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@vercel/functions": "^2.0.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.460.0",
     "next": "14.2.18",
     "openai": "^4.73.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.15.0"
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.15.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

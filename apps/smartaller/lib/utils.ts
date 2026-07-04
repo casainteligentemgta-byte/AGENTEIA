@@ -32,3 +32,15 @@ export function formatKm(km: number | null): string {
   if (km == null) return "—";
   return `${km.toLocaleString("es-CO")} km`;
 }
+
+export function formatOdometroDashboard(
+  km: number | null,
+  horas: number | null,
+  unidad: string
+): string {
+  if (unidad === "horas") {
+    if (horas == null) return "—";
+    return `${horas.toLocaleString("es-CO")} h`;
+  }
+  return formatKm(km);
+}

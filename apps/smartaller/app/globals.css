@@ -18,4 +18,49 @@
   .gradient-text {
     @apply bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent;
   }
+
+  /* App dueño — estilo ABCopilot mejorado */
+  .app-bg-dark {
+    background-color: #0a1628;
+    background-image:
+      linear-gradient(180deg, rgba(15, 35, 70, 0.45) 0%, transparent 40%),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 48px,
+        rgba(255, 255, 255, 0.02) 48px,
+        rgba(255, 255, 255, 0.02) 49px
+      );
+  }
+
+  .app-bg-light {
+    @apply bg-[#eef0f3];
+  }
+
+  .app-cta-btn {
+    @apply rounded-2xl text-white shadow-lg transition;
+    background: linear-gradient(145deg, #5b6fd6 0%, #4a5eb8 100%);
+    box-shadow: 0 8px 24px rgba(74, 94, 184, 0.35);
+  }
+
+  .app-cta-btn:hover {
+    background: linear-gradient(145deg, #6b7fe6 0%, #5568c8 100%);
+  }
+
+  .app-card-white {
+    @apply rounded-2xl bg-white shadow-md;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .app-input {
+    @apply w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+  }
+
+  .app-progress-track {
+    @apply h-1.5 overflow-hidden rounded-full bg-zinc-200;
+  }
+
+  .app-progress-fill {
+    @apply h-full rounded-full bg-emerald-500 transition-all;
+  }
 }
