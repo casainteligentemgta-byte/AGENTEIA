@@ -4,13 +4,35 @@ import { AppHeader } from "@/components/app/app-header";
 import { AppActionButtons } from "@/components/app/app-action-buttons";
 import { AppTabs } from "@/components/app/app-tabs";
 import { VehicleCard } from "@/components/app/vehicle-card";
+import { PaywallScreen } from "@/components/app/paywall-screen";
 import { getUserVehiculos } from "@/lib/data/user-vehicles";
 import { countRecordatoriosPendientesPorPlaca } from "@/lib/data/vehicle-history";
+import {
+  getOrEnsurePerfil,
+  perfilSuscripcionVigente,
+  usuarioTieneVehiculoTaller,
+} from "@/lib/data/perfil";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppHomePage() {
-  const vehiculos = await getUserVehiculos();
+  const [vehiculos, perfil, tieneVinculoTaller] = await Promise.all([
+    getUserVehiculos(),
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  const suscripcionOk = perfil ? perfilSuscripcionVigente(perfil) : false;
+  const mostrarPaywall = !tieneVinculoTaller && !suscripcionOk;
+
+  if (mostrarPaywall) {
+    return (
+      <>
+        <AppHeader centered />
+        <PaywallScreen />
+      </>
+    );
+  }
 
   const vehiculosConRecordatorios = await Promise.all(
     vehiculos.map(async (v) => ({

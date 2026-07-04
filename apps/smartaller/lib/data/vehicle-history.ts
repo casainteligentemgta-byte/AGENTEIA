@@ -40,17 +40,16 @@ function formatFechaCorta(iso: string): string {
 
 export async function getResumenTallerVehiculo(
   vehiculoId: string,
-  placa: string
+  _placa: string
 ): Promise<ResumenTallerVehiculo> {
   const supabase = createClient();
-  const placaNorm = normalizarPlaca(placa);
 
   const { data: mantenimientos, error } = await supabase
     .from("mantenimientos")
     .select(
       "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, taller_id"
     )
-    .eq("placa", placaNorm)
+    .eq("vehiculo_id", vehiculoId)
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -100,6 +99,7 @@ export async function getResumenTallerVehiculo(
   const { data: recordatorios } = await supabase
     .from("recordatorios")
     .select("id, fecha_programada, kilometraje_objetivo, estado")
+    .eq("vehiculo_id", vehiculoId)
     .in("estado", ["pendiente", "enviado"])
     .order("fecha_programada", { ascending: true })
     .limit(1);

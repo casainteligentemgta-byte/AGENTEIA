@@ -43,9 +43,13 @@ export type ConfigTipoVehiculo = {
   modulos: ModuloMantenimiento[];
 };
 
+export type TipoActivo = "carro" | "bici" | "maquinaria";
+
 export type VehiculoUsuario = {
   id: string;
   tipo_vehiculo: TipoVehiculo;
+  tipo_activo: TipoActivo | null;
+  serial_alternativo: string | null;
   nick: string | null;
   marca: string | null;
   modelo: string | null;
@@ -53,6 +57,8 @@ export type VehiculoUsuario = {
   placa: string;
   kilometraje_ultimo: number | null;
   horas_motor_ultimo: number | null;
+  horometro_actual: number | null;
   unidad_odometro: UnidadOdometro;
+  taller_id: string | null;
   created_at: string;
 };

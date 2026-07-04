@@ -85,12 +85,15 @@ async function findOrCreateVehiculo(
   }
 
   // Puente: vehículo registrado por el dueño en /app con la misma placa
-  const { data: existingUsuario } = await supabase
+  const { data: usuariosConPlaca } = await supabase
     .from("vehiculos")
     .select("id, nombre_cliente, telefono_cliente")
     .eq("placa", placaNorm)
     .not("user_id", "is", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  const existingUsuario = usuariosConPlaca?.[0] ?? null;
 
   if (existingUsuario) {
     const updates: Record<string, unknown> = {
@@ -153,6 +156,26 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
   }
 
   const supabase = createAdminClient();
+
+  const { data: existente } = await supabase
+    .from("mantenimientos")
+    .select("id, vehiculo_id")
+    .eq("telegram_chat_id", telegramChatId)
+    .eq("telegram_message_id", telegramMessageId)
+    .maybeSingle();
+
+  if (existente) {
+    console.info(
+      `Factura Telegram duplicada ignorada: chat=${telegramChatId} msg=${telegramMessageId}`
+    );
+    return {
+      mantenimientoId: existente.id,
+      vehiculoId: existente.vehiculo_id ?? "",
+      recordatorioId: "",
+      fechaProximoServicio: "",
+      whatsappEnviado: false,
+    };
+  }
 
   const vehiculo = await findOrCreateVehiculo(supabase, {
     tallerId: taller.id,

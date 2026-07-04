@@ -54,7 +54,7 @@ export async function procesarRecordatoriosVencidos(): Promise<ProcesarRecordato
     errores: 0,
   };
 
-  for (const row of (rows ?? []) as RecordatorioConVehiculo[]) {
+  for (const row of (rows ?? []) as unknown as RecordatorioConVehiculo[]) {
     result.procesados++;
     const vehiculo = Array.isArray(row.vehiculos) ? row.vehiculos[0] : row.vehiculos;
 

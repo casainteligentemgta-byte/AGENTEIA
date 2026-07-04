@@ -5,8 +5,10 @@ import { getUser } from "@/lib/supabase/server";
 import {
   ensureTallerForUser,
   updateTallerNombre,
+  updateTallerTipoIndustria,
   regenerarCodigoVinculo,
 } from "@/lib/taller";
+import type { TipoIndustria } from "@/lib/platform/types";
 
 export async function initTallerAction() {
   const user = await getUser();
@@ -25,6 +27,16 @@ export async function updateNombreTallerAction(nombre: string) {
   if (result.ok) {
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/configuracion");
+    revalidatePath("/dashboard/mantenimientos");
+  }
+  return result;
+}
+
+export async function updateTipoIndustriaAction(tipoIndustria: TipoIndustria) {
+  const result = await updateTallerTipoIndustria(tipoIndustria);
+  if (result.ok) {
+    revalidatePath("/dashboard/configuracion");
+    revalidatePath("/dashboard/mantenimientos");
   }
   return result;
 }

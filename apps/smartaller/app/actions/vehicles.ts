@@ -6,6 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import {
+  getOrEnsurePerfil,
+  perfilSuscripcionVigente,
+  usuarioTieneVehiculoTaller,
+} from "@/lib/data/perfil";
+import {
   createVehicleSchema,
   type CreateVehicleInput,
 } from "@/lib/validations/vehicle";
@@ -45,13 +50,57 @@ export async function createVehicle(
 
   // Puente: vincular con vehículo existente del taller (misma placa, service role)
   const admin = createAdminClient();
-  const { data: vehiculoTaller } = await admin
+
+  const { data: placaOtroUsuario } = await admin
     .from("vehiculos")
     .select("id")
+    .eq("placa", placaNorm)
+    .not("user_id", "is", null)
+    .neq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (placaOtroUsuario) {
+    return {
+      success: false,
+      error: "Esta placa ya está registrada por otro usuario.",
+      fieldErrors: { placa: ["Placa no disponible"] },
+    };
+  }
+
+  const { data: vehiculoTaller } = await admin
+    .from("vehiculos")
+    .select("id, taller_id")
     .eq("placa", placaNorm)
     .not("taller_id", "is", null)
     .is("user_id", null)
     .maybeSingle();
+
+  if (vehiculoTaller) {
+    const codigoVinculo = data.codigo_vinculo;
+    if (!codigoVinculo) {
+      return {
+        success: false,
+        error:
+          "Esta placa está registrada en un taller. Ingresa el código de vinculación que te dio tu asesor.",
+        fieldErrors: { codigo_vinculo: ["Código requerido para vincular con taller"] },
+      };
+    }
+
+    const { data: taller } = await admin
+      .from("talleres")
+      .select("codigo_vinculo")
+      .eq("id", vehiculoTaller.taller_id)
+      .maybeSingle();
+
+    if (!taller || taller.codigo_vinculo !== codigoVinculo) {
+      return {
+        success: false,
+        error: "Código de vinculación incorrecto. Pídelo en recepción de tu taller.",
+        fieldErrors: { codigo_vinculo: ["Código inválido"] },
+      };
+    }
+  }
 
   const payload = {
     user_id: user.id,
@@ -84,6 +133,18 @@ export async function createVehicle(
     revalidatePath("/dashboard/vehiculos");
 
     return { success: true, data: { id: vinculado.id } };
+  }
+
+  const [perfil, tieneVinculoTaller] = await Promise.all([
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+    return {
+      success: false,
+      error: "Necesitas SmartTaller Pro ($2.99/mes) para registrar vehículos de forma independiente.",
+    };
   }
 
   const { data: created, error } = await supabase

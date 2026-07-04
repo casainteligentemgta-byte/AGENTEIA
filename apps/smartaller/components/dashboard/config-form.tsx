@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { Check, Copy, Loader2, RefreshCw } from "lucide-react";
 import {
   updateNombreTallerAction,
+  updateTipoIndustriaAction,
   regenerarCodigoAction,
 } from "@/app/actions/taller";
 import type { Taller } from "@/lib/taller";
+import { INDUSTRIA_LABELS, TIPOS_INDUSTRIA, type TipoIndustria } from "@/lib/platform/types";
 
 type ConfigFormProps = {
   taller: Taller;
@@ -15,6 +17,9 @@ type ConfigFormProps = {
 
 export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
   const [nombre, setNombre] = useState(taller.nombre);
+  const [tipoIndustria, setTipoIndustria] = useState<TipoIndustria>(
+    taller.tipo_industria ?? "concesionario"
+  );
   const [codigo, setCodigo] = useState(taller.codigo_vinculo);
   const [copied, setCopied] = useState(false);
   const [kioskCopied, setKioskCopied] = useState(false);
@@ -28,6 +33,13 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
     startTransition(async () => {
       const result = await updateNombreTallerAction(nombre);
       setMessage(result.ok ? "Nombre actualizado" : result.error ?? "Error");
+    });
+  };
+
+  const handleSaveIndustria = () => {
+    startTransition(async () => {
+      const result = await updateTipoIndustriaAction(tipoIndustria);
+      setMessage(result.ok ? "Industria actualizada" : result.error ?? "Error");
     });
   };
 
@@ -75,6 +87,34 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
           <button
             type="button"
             onClick={handleSaveNombre}
+            disabled={pending}
+            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
+          </button>
+        </div>
+      </section>
+
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-semibold text-zinc-100">Tipo de industria</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Define el protocolo de revisión en Mantenimientos
+        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <select
+            value={tipoIndustria}
+            onChange={(e) => setTipoIndustria(e.target.value as TipoIndustria)}
+            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+          >
+            {TIPOS_INDUSTRIA.map((t) => (
+              <option key={t} value={t}>
+                {INDUSTRIA_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleSaveIndustria}
             disabled={pending}
             className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >

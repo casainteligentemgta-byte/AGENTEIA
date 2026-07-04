@@ -31,6 +31,7 @@ export function AddVehicleForm() {
         color: String(form.get("color") ?? ""),
         placa: String(form.get("placa") ?? ""),
         odometro: String(form.get("odometro") ?? ""),
+        codigo_vinculo: String(form.get("codigo_vinculo") ?? ""),
       });
 
       if (!result.success) {
@@ -89,6 +90,21 @@ export function AddVehicleForm() {
               />
             </div>
           ))}
+          <div>
+            <label htmlFor="codigo_vinculo" className="mb-1.5 block text-sm font-medium text-zinc-600">
+              Código de taller (si te lo dieron)
+            </label>
+            <input
+              id="codigo_vinculo"
+              name="codigo_vinculo"
+              placeholder="Ej. ABC12345"
+              className="app-input uppercase"
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs text-zinc-400">
+              Solo si tu placa ya está en un taller y quieres vincular el historial.
+            </p>
+          </div>
         </div>
       </div>
 

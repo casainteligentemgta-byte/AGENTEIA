@@ -46,6 +46,11 @@ export type DashboardStats = {
   ingresosMes: number;
 };
 
+export type DashboardStatsResult = {
+  stats: DashboardStats;
+  error: string | null;
+};
+
 export type IngresoMensual = {
   mesKey: string;
   mes: string;
@@ -64,7 +69,14 @@ function startOfMonth(): string {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(): Promise<DashboardStatsResult> {
+  const empty: DashboardStats = {
+    totalVehiculos: 0,
+    totalMantenimientos: 0,
+    recordatoriosPendientes: 0,
+    ingresosMes: 0,
+  };
+
   try {
     const supabase = getSupabase();
     const monthStart = startOfMonth();
@@ -76,16 +88,33 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       supabase.from("mantenimientos").select("costo").gte("created_at", monthStart),
     ]);
 
+    const firstError =
+      vehiculos.error?.message ??
+      mantenimientos.error?.message ??
+      recordatorios.error?.message ??
+      ingresos.error?.message ??
+      null;
+
+    if (firstError) {
+      console.error("getDashboardStats:", firstError);
+      return { stats: empty, error: firstError };
+    }
+
     const ingresosMes = (ingresos.data ?? []).reduce((sum, m) => sum + (Number(m.costo) || 0), 0);
 
     return {
-      totalVehiculos: vehiculos.count ?? 0,
-      totalMantenimientos: mantenimientos.count ?? 0,
-      recordatoriosPendientes: recordatorios.count ?? 0,
-      ingresosMes,
+      stats: {
+        totalVehiculos: vehiculos.count ?? 0,
+        totalMantenimientos: mantenimientos.count ?? 0,
+        recordatoriosPendientes: recordatorios.count ?? 0,
+        ingresosMes,
+      },
+      error: null,
     };
-  } catch {
-    return { totalVehiculos: 0, totalMantenimientos: 0, recordatoriosPendientes: 0, ingresosMes: 0 };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error cargando estadísticas";
+    console.error("getDashboardStats:", message);
+    return { stats: empty, error: message };
   }
 }
 
