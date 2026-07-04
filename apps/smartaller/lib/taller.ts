@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 
 export type Taller = {
   id: string;
@@ -10,47 +10,94 @@ export type Taller = {
   created_at: string;
 };
 
+export type TallerResult = {
+  taller: Taller | null;
+  error?: string;
+};
+
 function generateCodigo(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 }
 
-/** Obtiene o crea el taller del usuario autenticado (dashboard). */
-export async function ensureTallerForUser(userId: string): Promise<Taller | null> {
-  const supabase = createClient();
+const TALLER_SELECT =
+  "id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at";
 
-  const { data: existing } = await supabase
-    .from("talleres")
-    .select("id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at")
-    .eq("owner_user_id", userId)
-    .maybeSingle();
-
-  if (existing) return existing as Taller;
-
-  const { data: created, error } = await supabase
-    .from("talleres")
-    .insert({
-      owner_user_id: userId,
-      nombre: "Mi Taller",
-      codigo_vinculo: generateCodigo(),
-    })
-    .select("id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at")
-    .single();
-
-  if (error) {
-    console.error("Error creando taller:", error.message);
-    return null;
+function mapTallerError(error: { message: string; code?: string }): string {
+  if (error.code === "42P01" || /relation.*talleres.*does not exist/i.test(error.message)) {
+    return "Falta la tabla talleres en Supabase. Ejecuta la migración multi-taller en SQL Editor.";
   }
-  return created as Taller;
+  if (error.code === "23503") {
+    return "Tu usuario de auth no está sincronizado. Cierra sesión, vuelve a entrar e intenta de nuevo.";
+  }
+  return error.message;
+}
+
+/** Obtiene o crea el taller del usuario autenticado (dashboard). Usa service role tras validar sesión. */
+export async function ensureTallerForUser(userId: string): Promise<TallerResult> {
+  if (!userId) {
+    return { taller: null, error: "Usuario no autenticado" };
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    const { data: existing, error: findError } = await supabase
+      .from("talleres")
+      .select(TALLER_SELECT)
+      .eq("owner_user_id", userId)
+      .maybeSingle();
+
+    if (findError) {
+      return { taller: null, error: mapTallerError(findError) };
+    }
+
+    if (existing) {
+      if (!existing.codigo_vinculo) {
+        const codigo = generateCodigo();
+        const { data: fixed, error: fixError } = await supabase
+          .from("talleres")
+          .update({ codigo_vinculo: codigo, updated_at: new Date().toISOString() })
+          .eq("id", existing.id)
+          .select(TALLER_SELECT)
+          .single();
+
+        if (fixError) {
+          return { taller: null, error: mapTallerError(fixError) };
+        }
+        return { taller: fixed as Taller };
+      }
+      return { taller: existing as Taller };
+    }
+
+    const codigo = generateCodigo();
+    const { data: created, error: createError } = await supabase
+      .from("talleres")
+      .insert({
+        owner_user_id: userId,
+        nombre: "Mi Taller",
+        codigo_vinculo: codigo,
+      })
+      .select(TALLER_SELECT)
+      .single();
+
+    if (createError) {
+      return { taller: null, error: mapTallerError(createError) };
+    }
+
+    return { taller: created as Taller };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    return { taller: null, error: message };
+  }
 }
 
 /** Taller del usuario autenticado. */
 export async function getMyTaller(): Promise<Taller | null> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("talleres")
-    .select("id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at")
-    .maybeSingle();
-  return (data as Taller) ?? null;
+  const user = await getUser();
+  if (!user) return null;
+
+  const { taller } = await ensureTallerForUser(user.id);
+  return taller;
 }
 
 /** Busca taller por chat de Telegram (webhook). */
@@ -58,7 +105,7 @@ export async function getTallerByTelegramChat(chatId: number): Promise<Taller | 
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("talleres")
-    .select("id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at")
+    .select(TALLER_SELECT)
     .eq("telegram_chat_id", chatId)
     .maybeSingle();
   return (data as Taller) ?? null;
@@ -109,7 +156,6 @@ export async function vincularTelegramPorCodigo(
     return { ok: false, error: updateError.message };
   }
 
-  // Asignar datos históricos huérfanos de este chat al taller
   await supabase
     .from("vehiculos")
     .update({ taller_id: taller.id })
@@ -126,12 +172,10 @@ export async function vincularTelegramPorCodigo(
 }
 
 export async function updateTallerNombre(nombre: string): Promise<{ ok: boolean; error?: string }> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("talleres")
     .update({ nombre: nombre.trim(), updated_at: new Date().toISOString() })
@@ -142,15 +186,15 @@ export async function updateTallerNombre(nombre: string): Promise<{ ok: boolean;
 }
 
 export async function regenerarCodigoVinculo(): Promise<{ codigo?: string; error?: string }> {
-  const supabase = createClient();
-  const userId = (await supabase.auth.getUser()).data.user?.id;
-  if (!userId) return { error: "No autenticado" };
+  const user = await getUser();
+  if (!user) return { error: "No autenticado" };
 
   const nuevoCodigo = generateCodigo();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("talleres")
     .update({ codigo_vinculo: nuevoCodigo, updated_at: new Date().toISOString() })
-    .eq("owner_user_id", userId);
+    .eq("owner_user_id", user.id);
 
   if (error) return { error: error.message };
   return { codigo: nuevoCodigo };
