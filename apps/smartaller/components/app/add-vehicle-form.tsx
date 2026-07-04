@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Car, Loader2 } from "lucide-react";
 import { createVehicle } from "@/app/actions/vehicles";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-import { VehicleTypePicker } from "@/components/app/vehicle-type-picker";
+import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 
 export function AddVehicleForm() {
   const router = useRouter();
@@ -43,60 +43,57 @@ export function AddVehicleForm() {
     });
   };
 
+  const fields = [
+    { id: "nick", label: "Nick del vehículo", required: false, placeholder: `Ej. Mi ${config.labelCorto}` },
+    { id: "marca", label: "Marca", required: false, placeholder: "Ej. BAIC" },
+    { id: "modelo", label: "Modelo", required: false, placeholder: "Ej. BJ40" },
+    { id: "color", label: "Color", required: false, placeholder: "Ej. Blanco" },
+    { id: "placa", label: "Placa / identificador", required: true, placeholder: "Ej. AA90N90" },
+    {
+      id: "odometro",
+      label: `${odometroLabel} (opcional)`,
+      required: false,
+      placeholder: config.unidadOdometro === "horas" ? "1250" : "10694",
+      inputMode: "numeric" as const,
+    },
+  ];
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <p className="mb-3 text-sm font-medium text-zinc-300">Tipo de vehículo</p>
+        <p className="mb-3 text-center text-sm font-medium text-zinc-400">Tipo de vehículo</p>
         <VehicleTypePicker value={tipo} onChange={setTipo} />
       </div>
 
-      <div className="rounded-2xl bg-white p-5 text-zinc-900 shadow-xl">
-        <p className="mb-4 text-lg font-bold">Nuevo vehículo</p>
+      <div className="app-card-white p-5 text-zinc-900">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
+            <VehicleTypeIcon tipo={tipo} className="h-7 w-7 text-zinc-700" />
+          </div>
+          <h2 className="text-lg font-bold">Nuevo vehículo</h2>
+        </div>
 
         <div className="space-y-4">
-          <div>
-            <label htmlFor="nick" className="mb-1.5 block text-sm text-zinc-500">
-              Nick del vehículo
-            </label>
-            <input
-              id="nick"
-              name="nick"
-              placeholder={`Ej. Mi ${config.labelCorto}`}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {(["marca", "modelo", "color", "placa"] as const).map((field) => (
-            <div key={field}>
-              <label htmlFor={field} className="mb-1.5 block text-sm capitalize text-zinc-500">
-                {field === "placa" ? "Placa / identificador" : field}
+          {fields.map((field) => (
+            <div key={field.id}>
+              <label htmlFor={field.id} className="mb-1.5 block text-sm font-medium text-zinc-600">
+                {field.label}
               </label>
               <input
-                id={field}
-                name={field}
-                required={field === "placa"}
-                className="w-full border-b border-zinc-200 bg-transparent py-2 text-sm outline-none focus:border-blue-500"
+                id={field.id}
+                name={field.id}
+                required={field.required}
+                placeholder={field.placeholder}
+                inputMode={field.inputMode}
+                className="app-input"
               />
             </div>
           ))}
-
-          <div>
-            <label htmlFor="odometro" className="mb-1.5 block text-sm text-zinc-500">
-              {odometroLabel} (opcional)
-            </label>
-            <input
-              id="odometro"
-              name="odometro"
-              inputMode="numeric"
-              placeholder={config.unidadOdometro === "horas" ? "Ej. 1250" : "Ej. 10694"}
-              className="w-full border-b border-zinc-200 bg-transparent py-2 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
         </div>
       </div>
 
       {error && (
-        <p className="rounded-xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+        <p className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -105,16 +102,16 @@ export function AddVehicleForm() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 rounded-2xl bg-zinc-700 py-3.5 text-sm font-medium text-white transition hover:bg-zinc-600"
+          className="flex-1 rounded-2xl bg-zinc-600 py-3.5 text-sm font-semibold text-white transition hover:bg-zinc-500"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={pending}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 disabled:opacity-60"
         >
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Car className="h-4 w-4" />}
           Confirmar
         </button>
       </div>

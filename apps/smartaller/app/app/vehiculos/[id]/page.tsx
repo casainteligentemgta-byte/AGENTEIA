@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { MessageCircle } from "lucide-react";
 import { AppHeader } from "@/components/app/app-header";
+import { AppVehicleFooter } from "@/components/app/app-vehicle-footer";
 import { OdometerCard } from "@/components/app/odometer-card";
 import { MaintenanceModuleCard } from "@/components/app/maintenance-module-card";
 import { VisitHistory } from "@/components/app/visit-history";
@@ -9,7 +8,7 @@ import { WheelsGrid } from "@/components/app/wheels-grid";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
 import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-import { getEtiquetaVehiculo, getSubtituloVehiculo } from "@/lib/vehicles/format";
+import { getEtiquetaVehiculo, getSubtituloVehiculo, getValorOdometro } from "@/lib/vehicles/format";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +35,7 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
 
   const resumen = await getResumenTallerVehiculo(id, vehiculoBase.placa);
   const vehiculo = vehiculoConOdometroTaller(vehiculoBase, resumen.ultimaVisitaKm);
+  const kmActual = getValorOdometro(vehiculo);
 
   const config = getConfigTipoVehiculo(vehiculo.tipo_vehiculo);
   const titulo = getEtiquetaVehiculo(vehiculo);
@@ -44,20 +44,13 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
   const modulosSinNeumaticos = config.modulos.filter((m) => m.id !== "neumaticos");
   const tieneNeumaticos = config.modulos.some((m) => m.id === "neumaticos");
 
-  const ultimoCentro = resumen.ultimoCentro
-    ? `${resumen.ultimoCentro}${resumen.ultimaVisita ? ` (${resumen.ultimaVisita})` : ""}`
-    : null;
+  const ultimoCentro = resumen.ultimoCentro ?? null;
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <AppHeader
-        showBack
-        backHref="/app"
-        title={titulo}
-        subtitle={subtitulo ?? config.label}
-      />
+    <div className="app-bg-light min-h-screen text-zinc-900">
+      <AppHeader variant="light" centered />
 
-      <main className="space-y-4 px-4 pb-24 pt-4">
+      <main className="space-y-4 px-4 pb-28 pt-2">
         <OdometerCard
           vehiculo={vehiculo}
           ultimaVisita={resumen.ultimaVisita}
@@ -65,8 +58,8 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
         />
 
         {resumen.vinculado && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-center text-xs font-medium text-emerald-800">
-            Vinculado con tu taller · {resumen.totalVisitas} visita(s) registrada(s)
+          <div className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-4 py-2.5 text-center text-xs font-semibold text-emerald-800">
+            ✓ Sincronizado con tu taller · {resumen.totalVisitas} visita(s)
           </div>
         )}
 
@@ -78,6 +71,8 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
             modulo={modulo}
             visitasRegistradas={resumen.totalVisitas}
             historial={resumen.mantenimientos}
+            kmActual={kmActual}
+            proximoRecordatorio={resumen.proximoRecordatorio}
           />
         ))}
 
@@ -85,23 +80,22 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
           mantenimientos={resumen.mantenimientos}
           proximoRecordatorio={resumen.proximoRecordatorio}
         />
+
+        {!resumen.vinculado && (
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center">
+            <p className="text-2xl font-light text-zinc-300">Próximamente</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Chat con tu taller, gráficos de neumáticos y más
+            </p>
+          </div>
+        )}
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 mx-auto max-w-lg border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-zinc-700">{titulo}</p>
-            <p className="truncate text-xs text-zinc-400">{vehiculo.placa}</p>
-          </div>
-          <Link
-            href="/app"
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg"
-            aria-label="Asistente (próximamente)"
-          >
-            <MessageCircle className="h-5 w-5" />
-          </Link>
-        </div>
-      </footer>
+      <AppVehicleFooter
+        titulo={titulo}
+        placa={vehiculo.placa}
+        tipoVehiculo={vehiculo.tipo_vehiculo}
+      />
     </div>
   );
 }

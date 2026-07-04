@@ -1,8 +1,10 @@
+import { BrandLogoStack } from "@/components/app/brand-logo";
+
 export default function AppLoading() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0a1628]">
-      <div className="h-14 w-14 animate-pulse rounded-2xl bg-blue-600/30" />
-      <p className="text-sm text-zinc-400">Cargando...</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white">
+      <BrandLogoStack theme="light" loading />
+      <p className="absolute bottom-8 text-xs text-zinc-400">v0.2.0</p>
     </div>
   );
 }
