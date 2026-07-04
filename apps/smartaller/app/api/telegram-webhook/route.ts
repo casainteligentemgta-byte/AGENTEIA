@@ -5,9 +5,11 @@ import {
   buildFacturaProcesadaMessage,
 } from "@/lib/extract-invoice";
 import { processInvoiceSafe } from "@/lib/process-invoice";
+import { vincularTelegramPorCodigo } from "@/lib/taller";
 import {
   getImageFileId,
   getTelegramFileUrl,
+  parseVincularCommand,
   sendTelegramMessage,
   type TelegramUpdate,
 } from "@/lib/telegram";
@@ -15,18 +17,38 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+async function handleTextMessage(update: TelegramUpdate): Promise<void> {
+  const message = update.message;
+  if (!message) return;
+
+  const codigo = parseVincularCommand(message);
+  if (codigo) {
+    const result = await vincularTelegramPorCodigo(codigo, message.chat.id);
+    if (result.ok) {
+      await sendTelegramMessage(
+        message.chat.id,
+        `✅ Taller "${result.nombre}" vinculado correctamente. Ya puedes enviar fotos de facturas.`
+      );
+    } else {
+      await sendTelegramMessage(message.chat.id, `❌ ${result.error}`);
+    }
+    return;
+  }
+
+  if (!getImageFileId(message)) {
+    await sendTelegramMessage(
+      message.chat.id,
+      "Envía una foto de factura para registrarla.\n\nPara vincular tu taller: /vincular TU_CODIGO\n(Obtén el código en el dashboard → Configuración)"
+    );
+  }
+}
+
 async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
   const message = update.message;
   if (!message) return;
 
   const fileId = getImageFileId(message);
-  if (!fileId) {
-    await sendTelegramMessage(
-      message.chat.id,
-      "Envía una foto de la factura u orden de mantenimiento para registrarla."
-    );
-    return;
-  }
+  if (!fileId) return;
 
   const fileUrl = await getTelegramFileUrl(fileId);
   const extraido = await extractMantenimientoFromUrl(fileUrl);
@@ -40,10 +62,6 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
   });
 }
 
-/**
- * Webhook de Telegram — SmartTaller
- * POST /api/telegram-webhook
- */
 export async function POST(req: Request) {
   try {
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -61,23 +79,15 @@ export async function POST(req: Request) {
     }
 
     const fileId = getImageFileId(update.message);
-    if (!fileId) {
-      waitUntil(processTelegramPhoto(update));
-      return NextResponse.json({ ok: true, skipped: "sin imagen" });
-    }
 
-    // Responder de inmediato; procesamiento pesado en background
     waitUntil(
-      processTelegramPhoto(update).catch(async (err) => {
+      (fileId ? processTelegramPhoto(update) : handleTextMessage(update)).catch(async (err) => {
         console.error("Error en telegram-webhook:", err);
         const msg = err instanceof Error ? err.message : "Error interno";
         try {
-          await sendTelegramMessage(
-            update.message!.chat.id,
-            `❌ No pude procesar la factura: ${msg}`
-          );
-        } catch (notifyErr) {
-          console.error("Error notificando a Telegram:", notifyErr);
+          await sendTelegramMessage(update.message!.chat.id, `❌ Error: ${msg}`);
+        } catch {
+          /* ignore */
         }
       })
     );
