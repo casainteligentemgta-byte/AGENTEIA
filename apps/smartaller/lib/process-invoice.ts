@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FacturaExtraida } from "@/lib/extract-invoice";
 import { buildFacturaProcesadaMessage } from "@/lib/extract-invoice";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTallerByTelegramChat } from "@/lib/taller";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
 
@@ -13,7 +14,6 @@ export type ProcessInvoiceInput = {
   telegramChatId: number;
   telegramMessageId: number;
   telegramFileId: string;
-  /** Mensaje personalizado al mecánico; si no se pasa, se usa el formato por defecto. */
   confirmationMessage?: string;
 };
 
@@ -46,6 +46,7 @@ function toISODate(date: Date): string {
 async function findOrCreateVehiculo(
   supabase: SupabaseClient,
   params: {
+    tallerId: string;
     placa: string;
     telegramChatId: number;
     nombreCliente: string | null;
@@ -57,7 +58,7 @@ async function findOrCreateVehiculo(
     .from("vehiculos")
     .select("id, nombre_cliente, telefono_cliente")
     .eq("placa", params.placa)
-    .eq("telegram_chat_id", params.telegramChatId)
+    .eq("taller_id", params.tallerId)
     .maybeSingle();
 
   if (existing) {
@@ -80,6 +81,7 @@ async function findOrCreateVehiculo(
   const { data: created, error } = await supabase
     .from("vehiculos")
     .insert({
+      taller_id: params.tallerId,
       placa: params.placa,
       telegram_chat_id: params.telegramChatId,
       nombre_cliente: params.nombreCliente,
@@ -109,9 +111,17 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
     throw new Error("No se pudo extraer la placa de la factura");
   }
 
+  const taller = await getTallerByTelegramChat(telegramChatId);
+  if (!taller) {
+    throw new Error(
+      "Taller no vinculado. En el dashboard ve a Configuración y envía /vincular TU_CODIGO al bot."
+    );
+  }
+
   const supabase = createAdminClient();
 
   const vehiculo = await findOrCreateVehiculo(supabase, {
+    tallerId: taller.id,
     placa: extraido.placa,
     telegramChatId,
     nombreCliente: extraido.nombre_cliente,
@@ -122,6 +132,7 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
   const { data: mantenimiento, error: mantError } = await supabase
     .from("mantenimientos")
     .insert({
+      taller_id: taller.id,
       vehiculo_id: vehiculo.id,
       placa: extraido.placa,
       kilometraje: extraido.kilometraje,
@@ -182,10 +193,7 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
     }
   }
 
-  const resumen =
-    confirmationMessage ??
-    buildFacturaProcesadaMessage(extraido);
-
+  const resumen = confirmationMessage ?? buildFacturaProcesadaMessage(extraido);
   await sendTelegramMessage(telegramChatId, resumen);
 
   return {

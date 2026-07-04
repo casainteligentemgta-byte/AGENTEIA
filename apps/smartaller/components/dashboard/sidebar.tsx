@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Bell,
   Home,
+  Settings,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
@@ -17,13 +18,15 @@ const links = [
   { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
   { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
+  { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
 
 type SidebarProps = {
   userEmail?: string | null;
+  tallerNombre?: string | null;
 };
 
-export function Sidebar({ userEmail }: SidebarProps) {
+export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -33,14 +36,14 @@ export function Sidebar({ userEmail }: SidebarProps) {
           <Wrench className="h-5 w-5" />
         </span>
         <div>
-          <p className="font-semibold leading-none">SmartTaller</p>
+          <p className="font-semibold leading-none">{tallerNombre ?? "SmartTaller"}</p>
           <p className="text-xs text-zinc-500">Panel del taller</p>
         </div>
       </div>
 
       <nav className="flex gap-1 overflow-x-auto p-3 md:flex-col md:overflow-visible">
         {links.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}
