@@ -29,6 +29,9 @@ function mapTallerError(error: { message: string; code?: string }): string {
   if (error.code === "23503") {
     return "Tu usuario de auth no está sincronizado. Cierra sesión, vuelve a entrar e intenta de nuevo.";
   }
+  if (/ByteString|character at index/i.test(error.message)) {
+    return "SUPABASE_SERVICE_ROLE_KEY tiene caracteres inválidos (• viñeta u otros). En Vercel, bórrala y pégala de nuevo desde Supabase → Settings → API → service_role.";
+  }
   return error.message;
 }
 
@@ -87,6 +90,13 @@ export async function ensureTallerForUser(userId: string): Promise<TallerResult>
     return { taller: created as Taller };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
+    if (/ByteString|character at index/i.test(message)) {
+      return {
+        taller: null,
+        error:
+          "SUPABASE_SERVICE_ROLE_KEY tiene caracteres inválidos (• viñeta u otros). En Vercel → Settings → Environment Variables: bórrala y pégala de nuevo desde Supabase → Settings → API → service_role (debe empezar por eyJ).",
+      };
+    }
     return { taller: null, error: message };
   }
 }
