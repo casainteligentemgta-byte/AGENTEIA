@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const user = await getUser();
     userEmail = user?.email ?? null;
     if (user) {
-      const taller = await ensureTallerForUser(user.id);
+      const { taller } = await ensureTallerForUser(user.id);
       tallerNombre = taller?.nombre ?? null;
       telegramLinked = taller?.telegram_chat_id != null;
     }

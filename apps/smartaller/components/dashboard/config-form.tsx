@@ -102,18 +102,31 @@ export function ConfigForm({ taller }: ConfigFormProps) {
           <div className="mt-4 space-y-4">
             <ol className="list-decimal space-y-2 pl-5 text-sm text-zinc-400">
               <li>Abre tu bot de SmartTaller en Telegram</li>
-              <li>Envía exactamente este mensaje:</li>
+              <li>Copia y envía exactamente este mensaje (no hace falta escribirlo a mano):</li>
             </ol>
             <div className="flex items-center gap-2 rounded-xl bg-zinc-900 p-4">
-              <code className="flex-1 text-sm text-blue-400">{comando}</code>
+              <code className="flex-1 break-all text-sm text-blue-400">
+                {codigo ? comando : "Generando código…"}
+              </code>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="rounded-lg border border-zinc-700 p-2 text-zinc-400 hover:text-zinc-200"
+                disabled={!codigo}
+                className="rounded-lg border border-zinc-700 p-2 text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
               >
                 {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
+            {!codigo && (
+              <button
+                type="button"
+                onClick={handleRegenerar}
+                disabled={pending}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                Generar código ahora
+              </button>
+            )}
             <p className="text-xs text-zinc-600">
               Cada taller tiene su propio código. Solo tú verás los datos de tu taller en el dashboard.
             </p>
