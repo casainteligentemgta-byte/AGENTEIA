@@ -1,5 +1,7 @@
 import { getVehiculos } from "@/lib/data/dashboard";
-import { formatDate, formatKm } from "@/lib/utils";
+import { formatDate, formatKm, formatOdometroDashboard } from "@/lib/utils";
+import { getEtiquetaTipo } from "@/lib/vehicles/format";
+import type { TipoVehiculo } from "@/lib/vehicles/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,16 @@ export default async function VehiculosPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-2xl font-bold tracking-wide text-blue-400">{v.placa}</p>
-                  <p className="mt-1 text-zinc-300">{v.nombre_cliente ?? "Sin nombre"}</p>
+                  <p className="mt-1 text-zinc-300">
+                    {v.nick ?? v.nombre_cliente ?? "Sin nombre"}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {getEtiquetaTipo(v.tipo_vehiculo as TipoVehiculo)}
+                    {v.marca && v.modelo ? ` · ${v.marca} ${v.modelo}` : ""}
+                  </p>
                 </div>
                 <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-500">
-                  {formatKm(v.kilometraje_ultimo)}
+                  {formatOdometroDashboard(v.kilometraje_ultimo, v.horas_motor_ultimo, v.unidad_odometro)}
                 </span>
               </div>
               <div className="mt-4 space-y-1 text-sm text-zinc-500">

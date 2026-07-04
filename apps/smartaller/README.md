@@ -1,6 +1,33 @@
 # SmartTaller
 
-Gestión de mantenimientos para talleres vía Telegram.
+Gestión de mantenimientos para talleres vía Telegram y **app multivehículo** para dueños (inspirada en ABCopilot).
+
+## Dos experiencias
+
+| Ruta | Usuario | Descripción |
+|------|---------|-------------|
+| `/dashboard` | Taller / mecánico | Panel web: facturas Telegram, flota, recordatorios |
+| `/app` | Dueño del vehículo | App móvil-first: mis vehículos, mantenimientos por tipo |
+
+## Tipos de vehículo soportados
+
+Auto, moto, bicicleta, patinete eléctrico, tractor, maquinaria pesada y jumbo. Cada tipo define:
+
+- Unidad de odómetro (`km` o `horas`)
+- Cantidad de ruedas en la UI
+- Módulos de mantenimiento visibles (aceite, neumáticos, cadena, hidráulico, etc.)
+
+Configuración en `lib/vehicles/templates.ts`.
+
+## Migración multivehículo
+
+Ejecutar en Supabase SQL Editor:
+
+```
+apps/smartaller/supabase/migrations/20250704100000_multivehiculo.sql
+```
+
+Añade `tipo_vehiculo`, `user_id`, `marca`, `modelo`, `color`, `nick` y RLS para vehículos del usuario.
 
 ## Deploy en Vercel
 

@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, Wrench } from "lucide-react";
 function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
+  const isAppFlow = redirectTo.startsWith("/app");
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -79,7 +80,9 @@ function LoginForm() {
         </span>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">SmartTaller</h1>
-          <p className="text-sm text-zinc-500">Accede a tu panel de taller</p>
+          <p className="text-sm text-zinc-500">
+            {isAppFlow ? "Accede a tu app de vehículos" : "Accede a tu panel de taller"}
+          </p>
         </div>
       </div>
 
@@ -153,7 +156,11 @@ function LoginForm() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "login" ? "Entrar al dashboard" : "Crear cuenta"}
+            {mode === "login"
+              ? isAppFlow
+                ? "Entrar a la app"
+                : "Entrar al dashboard"
+              : "Crear cuenta"}
           </button>
         </form>
 
