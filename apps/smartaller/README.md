@@ -45,6 +45,13 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 3. `20250704110000_multivehiculo.sql`
 4. `20250704140000_puente_taller_app.sql`
 5. `20250704120000_centros_servicio.sql` (opcional)
+6. `20250704150000_plataforma_hibrida.sql` — industria B2B, perfiles B2C, paywall y revisiones dinámicas
+
+## Plataforma híbrida B2B / B2C
+
+- **B2B:** `talleres.tipo_industria` → formulario de revisión en `/dashboard/mantenimientos`
+- **B2C:** tabla `perfiles` (`tipo_plan`, `suscripcion_activa`, `vencimiento_plan`)
+- **Paywall:** `/app` muestra suscripción $2.99/mes si no hay vehículo vinculado a taller ni plan activo
 
 ## Deploy en Vercel
 

@@ -1,12 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 
+import type { TipoIndustria } from "@/lib/platform/types";
+
 export type Taller = {
   id: string;
   nombre: string;
   owner_user_id: string;
   telegram_chat_id: number | null;
   codigo_vinculo: string;
+  tipo_industria?: TipoIndustria;
   created_at: string;
 };
 
@@ -20,7 +23,7 @@ function generateCodigo(): string {
 }
 
 const TALLER_SELECT =
-  "id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, created_at";
+  "id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, tipo_industria, created_at";
 
 function mapTallerError(error: { message: string; code?: string }): string {
   if (error.code === "42P01" || /relation.*talleres.*does not exist/i.test(error.message)) {
@@ -195,6 +198,22 @@ export async function updateTallerNombre(nombre: string): Promise<{ ok: boolean;
   const { error } = await supabase
     .from("talleres")
     .update({ nombre: nombre.trim(), updated_at: new Date().toISOString() })
+    .eq("owner_user_id", user.id);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function updateTallerTipoIndustria(
+  tipoIndustria: TipoIndustria
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("talleres")
+    .update({ tipo_industria: tipoIndustria, updated_at: new Date().toISOString() })
     .eq("owner_user_id", user.id);
 
   if (error) return { ok: false, error: error.message };

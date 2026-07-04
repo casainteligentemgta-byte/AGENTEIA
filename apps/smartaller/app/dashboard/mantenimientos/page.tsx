@@ -1,17 +1,38 @@
 import { Badge } from "@/components/ui/badge";
-import { getMantenimientos } from "@/lib/data/dashboard";
+import { RevisionForm } from "@/components/dashboard/revision-form";
+import { getMantenimientos, getVehiculos } from "@/lib/data/dashboard";
+import { getMyTaller } from "@/lib/taller";
+import type { TipoIndustria } from "@/lib/platform/types";
 import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function MantenimientosPage() {
-  const mantenimientos = await getMantenimientos(50);
+  const [mantenimientos, vehiculos, taller] = await Promise.all([
+    getMantenimientos(50),
+    getVehiculos(),
+    getMyTaller(),
+  ]);
+
+  const tipoIndustria: TipoIndustria = taller?.tipo_industria ?? "concesionario";
+
+  const vehiculoOptions = vehiculos.map((v) => ({
+    id: v.id,
+    placa: v.placa,
+    nombre_cliente: v.nombre_cliente,
+  }));
 
   return (
     <div className="p-4 sm:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Mantenimientos</h1>
-        <p className="mt-1 text-zinc-500">Historial de servicios registrados vía Telegram</p>
+        <p className="mt-1 text-zinc-500">
+          Revisiones manuales y historial vía Telegram
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <RevisionForm tipoIndustria={tipoIndustria} vehiculos={vehiculoOptions} />
       </div>
 
       <div className="glass overflow-hidden rounded-2xl">
@@ -19,7 +40,7 @@ export default async function MantenimientosPage() {
           <div className="px-5 py-16 text-center">
             <p className="text-zinc-400">No hay mantenimientos registrados</p>
             <p className="mt-1 text-sm text-zinc-600">
-              Envía una foto de factura al bot de Telegram
+              Usa el formulario de arriba o envía una factura al bot de Telegram
             </p>
           </div>
         ) : (

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartTaller — Auditoría pre-MVP</title>
+  <style>
+    @page { margin: 2cm; }
+    body { font-family: system-ui, -apple-system, sans-serif; font-size: 11pt; line-height: 1.5; color: #18181b; max-width: 800px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 1.5rem; border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.15rem; margin-top: 1.5rem; color: #2563eb; }
+    h3 { font-size: 1rem; margin-top: 1rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 10pt; }
+    th, td { border: 1px solid #d4d4d8; padding: 0.4rem 0.6rem; text-align: left; }
+    th { background: #f4f4f5; }
+    code { background: #f4f4f5; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 9pt; }
+    pre { background: #18181b; color: #e4e4e7; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 9pt; }
+    .meta { color: #71717a; font-size: 10pt; margin-bottom: 1.5rem; }
+    .critical { color: #dc2626; font-weight: 600; }
+    .ok { color: #16a34a; }
+    ul { padding-left: 1.2rem; }
+    li { margin: 0.3rem 0; }
+    .checklist { font-family: monospace; background: #fafafa; padding: 1rem; border-radius: 8px; white-space: pre-line; font-size: 10pt; }
+    hr { border: none; border-top: 1px solid #e4e4e7; margin: 2rem 0; }
+  </style>
+</head>
+<body>
+
+<h1>SmartTaller — Auditoría técnica pre-MVP</h1>
+<p class="meta"><strong>Fecha:</strong> 4 de julio de 2026 · <strong>Stack:</strong> Next.js 14, Supabase, Tailwind, TypeScript, Server Actions · <strong>App:</strong> apps/smartaller</p>
+
+<h2>Resumen ejecutivo</h2>
+<p>Arquitectura bien encaminada. <strong>2 blockers de seguridad</strong> antes del launch:</p>
+<ol>
+  <li><span class="critical">Puente por placa sin verificación</span> — usuario B2C puede ver historial ajeno registrando una placa.</li>
+  <li><span class="critical">Webhook Telegram con secret opcional</span> — sin <code>TELEGRAM_WEBHOOK_SECRET</code> acepta POST falsos.</li>
+</ol>
+
+<h2>1. SEGURIDAD Y RLS</h2>
+
+<h3>✅ Lo que funciona</h3>
+<ul>
+  <li>Multi-taller: <code>taller_id = get_my_taller_id()</code> en vehículos, mantenimientos, recordatorios</li>
+  <li>B2C: CRUD con <code>user_id = auth.uid()</code></li>
+  <li>Webhook usa service role solo en servidor</li>
+  <li>Middleware protege /dashboard y /app</li>
+</ul>
+
+<h3>🔴 CRÍTICO — Puente por placa</h3>
+<p><strong>Archivos:</strong> app/actions/vehicles.ts, puente_taller.sql, process-invoice.ts</p>
+<p>Cualquier usuario en /app registra placa ajena → service role asigna user_id → RLS expone mantenimientos de esa placa de <em>cualquier taller</em>. Chat Smartaller amplifica el leak.</p>
+<p><strong>Mitigación MVP:</strong> (A) Desactivar política por placa, (B) filtrar por vehiculo_id, o (C) aceptar riesgo solo en piloto cerrado.</p>
+
+<h3>🔴 CRÍTICO — Webhook sin secret obligatorio</h3>
+<p><strong>Archivo:</strong> app/api/telegram-webhook/route.ts</p>
+<p>Si falta TELEGRAM_WEBHOOK_SECRET → endpoint abierto → inserts con service role.</p>
+<p><strong>Fix:</strong> fail-closed en prod si !secret → 503.</p>
+
+<h3>🟠 ALTO — RLS legacy using(true)</h3>
+<p>Verificar en Supabase que no queden políticas <code>using (true)</code> para authenticated en mantenimientos, vehiculos, recordatorios.</p>
+
+<h3>🟠 ALTO — Token Telegram en URL a OpenAI</h3>
+<p>getTelegramFileUrl() incluye bot token en URL enviada a OpenAI Vision. Usar downloadTelegramFile + base64.</p>
+
+<h3>🟡 MEDIO</h3>
+<ul>
+  <li>Dos usuarios B2C con misma placa → maybeSingle() falla en webhook</li>
+  <li>/api/chat sin rate limit → abuso de créditos OpenAI</li>
+</ul>
+
+<h2>2. ROBUSTEZ EN PROD</h2>
+<p><strong>Flujo:</strong> Telegram → waitUntil ✅ → OpenAI → processInvoice → CallMeBot → Telegram reply</p>
+<p><strong>Nota:</strong> No hay Resend. Solo CallMeBot para WhatsApp.</p>
+
+<table>
+  <tr><th>Riesgo</th><th>Detalle</th></tr>
+  <tr><td>Timeout</td><td>maxDuration=60; monitorear en Hobby</td></tr>
+  <tr><td>Sin idempotencia</td><td>Reintentos Telegram = duplicados</td></tr>
+  <tr><td>Sin transacción</td><td>Writes parciales en processInvoice</td></tr>
+  <tr><td>Bug recordatorios</td><td>vehicle-history.ts: query global .limit(1) sin filtro vehículo</td></tr>
+</table>
+
+<h2>3. CLEAN CODE / ANTIGRAVITY</h2>
+<p class="ok">✅ Server Actions, Zod en createVehicle, useTransition, Server Components, API Route para chat streaming.</p>
+<p>⚠️ updateNombreTaller sin Zod; dashboard traga errores; sin tipos Supabase generados.</p>
+
+<h2>4. ACCIONES INMEDIATAS</h2>
+
+<h3>P0 — Antes de deploy</h3>
+<ol>
+  <li>Obligar TELEGRAM_WEBHOOK_SECRET (fail-closed)</li>
+  <li>Auditar pg_policies en Supabase</li>
+  <li>Acotar puente por placa</li>
+  <li>Filtrar recordatorios por vehiculo_id</li>
+  <li>OpenAI sin URL con bot token</li>
+</ol>
+
+<h3>P1 — Robustez</h3>
+<ol start="6">
+  <li>UNIQUE (telegram_chat_id, telegram_message_id)</li>
+  <li>Early return idempotente en processInvoice</li>
+  <li>8 migraciones en orden + env vars Vercel</li>
+</ol>
+
+<h3>Variables Vercel (obligatorias)</h3>
+<pre>TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBHOOK_SECRET
+OPENAI_API_KEY
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+CALLMEBOT_API_KEY (opcional)</pre>
+
+<h3>Checklist deploy</h3>
+<div class="checklist">[ ] 8 migraciones aplicadas
+[ ] pg_policies sin using(true)
+[ ] Webhook con secret_token
+[ ] Probar /vincular + factura + dashboard
+[ ] Probar /app + chat Smartaller
+[ ] Decisión sobre riesgo puente placa</div>
+
+<hr />
+<p><strong>Veredicto:</strong> Casi listo para MVP piloto. No para prod abierta sin P0. Tiempo parches P0: ~2–4 h.</p>
+<p style="color:#71717a;font-size:9pt;">SmartTaller · apps/smartaller · monorepo AGENTEIA</p>
+
+</body>
+</html>

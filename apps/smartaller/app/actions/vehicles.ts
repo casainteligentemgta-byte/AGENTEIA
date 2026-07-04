@@ -6,6 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import {
+  getOrEnsurePerfil,
+  perfilSuscripcionVigente,
+  usuarioTieneVehiculoTaller,
+} from "@/lib/data/perfil";
+import {
   createVehicleSchema,
   type CreateVehicleInput,
 } from "@/lib/validations/vehicle";
@@ -84,6 +89,18 @@ export async function createVehicle(
     revalidatePath("/dashboard/vehiculos");
 
     return { success: true, data: { id: vinculado.id } };
+  }
+
+  const [perfil, tieneVinculoTaller] = await Promise.all([
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+    return {
+      success: false,
+      error: "Necesitas SmartTaller Pro ($2.99/mes) para registrar vehículos de forma independiente.",
+    };
   }
 
   const { data: created, error } = await supabase
