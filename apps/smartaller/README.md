@@ -29,6 +29,16 @@ apps/smartaller/supabase/migrations/20250704100000_multivehiculo.sql
 
 Añade `tipo_vehiculo`, `user_id`, `marca`, `modelo`, `color`, `nick` y RLS para vehículos del usuario.
 
+## Centros de servicio (`/app/centros`)
+
+Migración:
+
+```
+apps/smartaller/supabase/migrations/20250704120000_centros_servicio.sql
+```
+
+Mapa OpenStreetMap (Leaflet), listado tipo bottom sheet, distancia por geolocalización, tags de servicios y enlace a Google Maps. Incluye seed de Porlamar.
+
 ## Deploy en Vercel
 
 | Setting | Valor |
