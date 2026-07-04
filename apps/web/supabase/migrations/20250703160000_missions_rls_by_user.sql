@@ -1,8 +1,12 @@
 -- D7: RLS por usuario en agent_missions (ejecutar en Supabase SQL Editor)
+-- Idempotente: se puede ejecutar varias veces sin error.
 
 drop policy if exists "Allow read agent_missions" on public.agent_missions;
 drop policy if exists "Allow insert agent_missions" on public.agent_missions;
 drop policy if exists "Allow update agent_missions" on public.agent_missions;
+drop policy if exists "missions_select_own" on public.agent_missions;
+drop policy if exists "missions_insert_own" on public.agent_missions;
+drop policy if exists "missions_update_own" on public.agent_missions;
 
 create policy "missions_select_own"
   on public.agent_missions for select
