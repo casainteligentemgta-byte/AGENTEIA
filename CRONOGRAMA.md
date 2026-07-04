@@ -13,8 +13,9 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | OpenRouter (LLM) | ✅ local |
 | Serper (web) | ⏳ falta API key |
 | RLS misiones por usuario | ⏳ ejecutar SQL en Supabase |
-| Vercel env vars | ⏳ sincronizar con `.env.local` |
-| Chat probado end-to-end | ⏳ local + producción |
+| Vercel deploy | ✅ https://web-sand-ten-60.vercel.app |
+| Vercel env vars | ✅ proyecto `web` |
+| Chat probado end-to-end | ⏳ prueba en navegador (D5) |
 | D14 Dominio | ⏳ opcional |
 
 ---
@@ -26,8 +27,8 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | D1 | Supabase SQL | ✅ |
 | D2 | Env vars | ✅ local · ⏳ Vercel |
 | D3 | Home chat | ✅ |
-| D4 | Deploy Vercel | ✅ |
-| D5 | Probar chat producción | ⏳ vars en Vercel + redeploy |
+| D4 | Deploy Vercel | ✅ web-sand-ten-60.vercel.app |
+| D5 | Probar chat producción | ⏳ abre / y prueba mensaje |
 
 ## Semana 2 — Pulido
 
