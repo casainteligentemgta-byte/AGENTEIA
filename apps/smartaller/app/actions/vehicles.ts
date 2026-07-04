@@ -52,11 +52,37 @@ export async function createVehicle(
   const admin = createAdminClient();
   const { data: vehiculoTaller } = await admin
     .from("vehiculos")
-    .select("id")
+    .select("id, taller_id")
     .eq("placa", placaNorm)
     .not("taller_id", "is", null)
     .is("user_id", null)
     .maybeSingle();
+
+  if (vehiculoTaller) {
+    const codigoVinculo = data.codigo_vinculo;
+    if (!codigoVinculo) {
+      return {
+        success: false,
+        error:
+          "Esta placa está registrada en un taller. Ingresa el código de vinculación que te dio tu asesor.",
+        fieldErrors: { codigo_vinculo: ["Código requerido para vincular con taller"] },
+      };
+    }
+
+    const { data: taller } = await admin
+      .from("talleres")
+      .select("codigo_vinculo")
+      .eq("id", vehiculoTaller.taller_id)
+      .maybeSingle();
+
+    if (!taller || taller.codigo_vinculo !== codigoVinculo) {
+      return {
+        success: false,
+        error: "Código de vinculación incorrecto. Pídelo en recepción de tu taller.",
+        fieldErrors: { codigo_vinculo: ["Código inválido"] },
+      };
+    }
+  }
 
   const payload = {
     user_id: user.id,

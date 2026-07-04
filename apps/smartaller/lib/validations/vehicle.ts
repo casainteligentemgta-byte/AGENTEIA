@@ -15,6 +15,13 @@ export const createVehicleSchema = z
       .min(2, "La placa o identificador es obligatorio")
       .max(20, "Máximo 20 caracteres")
       .transform((v) => v.toUpperCase()),
+    codigo_vinculo: z
+      .string()
+      .trim()
+      .max(12)
+      .optional()
+      .or(z.literal(""))
+      .transform((v) => (v?.trim() ? v.trim().toUpperCase() : undefined)),
     odometro: z
       .string()
       .optional()

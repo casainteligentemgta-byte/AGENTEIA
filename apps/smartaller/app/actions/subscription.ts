@@ -3,9 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { getStripeClient } from "@/lib/stripe/client";
+import {
+  getAppBaseUrl,
+  getStripePriceId,
+  isStripeConfigured,
+} from "@/lib/stripe/config";
 
 export type SubscriptionActionResult =
-  | { success: true }
+  | { success: true; checkoutUrl?: string }
   | { success: false; error: string };
 
 /**
@@ -16,6 +22,37 @@ export async function activarSuscripcionPremiumAction(): Promise<SubscriptionAct
   const user = await getUser();
   if (!user) {
     return { success: false, error: "Debes iniciar sesión" };
+  }
+
+  if (isStripeConfigured()) {
+    try {
+      const stripe = getStripeClient();
+      const baseUrl = getAppBaseUrl();
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: [{ price: getStripePriceId(), quantity: 1 }],
+        success_url: `${baseUrl}/app?subscribed=1`,
+        cancel_url: `${baseUrl}/app?subscribed=0`,
+        client_reference_id: user.id,
+        metadata: { supabase_user_id: user.id },
+        subscription_data: {
+          metadata: { supabase_user_id: user.id },
+        },
+        customer_email: user.email ?? undefined,
+      });
+
+      if (!session.url) {
+        return { success: false, error: "No se pudo crear la sesión de pago" };
+      }
+
+      return { success: true, checkoutUrl: session.url };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error con Stripe";
+      console.error("Stripe checkout:", message);
+      return { success: false, error: message };
+    }
   }
 
   const vencimiento = new Date();

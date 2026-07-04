@@ -14,10 +14,13 @@ export function PaywallScreen({ onActivated }: PaywallScreenProps) {
   function handleSubscribe() {
     startTransition(async () => {
       const result = await activarSuscripcionPremiumAction();
-      if (result.success) {
-        onActivated?.();
-        window.location.reload();
+      if (!result.success) return;
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
       }
+      onActivated?.();
+      window.location.reload();
     });
   }
 
@@ -71,7 +74,7 @@ export function PaywallScreen({ onActivated }: PaywallScreenProps) {
           </button>
 
           <p className="mt-3 text-[10px] text-zinc-600">
-            MVP: activación demo sin pago real. Integración Stripe próximamente.
+            Pago seguro con Stripe cuando está configurado; si no, activación demo para pruebas.
           </p>
         </div>
 

@@ -1,14 +1,14 @@
 import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import {
-  extractMantenimientoFromUrl,
+  extractMantenimientoFromImage,
   buildFacturaProcesadaMessage,
 } from "@/lib/extract-invoice";
 import { processInvoiceSafe } from "@/lib/process-invoice";
 import { vincularTelegramPorCodigo } from "@/lib/taller";
 import {
+  downloadTelegramFile,
   getImageFileId,
-  getTelegramFileUrl,
   parseVincularCommand,
   sendTelegramMessage,
   type TelegramUpdate,
@@ -50,8 +50,8 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
   const fileId = getImageFileId(message);
   if (!fileId) return;
 
-  const fileUrl = await getTelegramFileUrl(fileId);
-  const extraido = await extractMantenimientoFromUrl(fileUrl);
+  const { buffer, mimeType } = await downloadTelegramFile(fileId);
+  const extraido = await extractMantenimientoFromImage(buffer, mimeType);
 
   await processInvoiceSafe({
     extraido,
@@ -65,7 +65,14 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
 export async function POST(req: Request) {
   try {
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (secret) {
+    const isProd = process.env.NODE_ENV === "production";
+
+    if (!secret) {
+      if (isProd) {
+        console.error("TELEGRAM_WEBHOOK_SECRET no configurado en producción");
+        return NextResponse.json({ error: "Webhook no configurado" }, { status: 503 });
+      }
+    } else {
       const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
       if (headerSecret !== secret) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });

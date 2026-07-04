@@ -154,6 +154,26 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
 
   const supabase = createAdminClient();
 
+  const { data: existente } = await supabase
+    .from("mantenimientos")
+    .select("id, vehiculo_id")
+    .eq("telegram_chat_id", telegramChatId)
+    .eq("telegram_message_id", telegramMessageId)
+    .maybeSingle();
+
+  if (existente) {
+    console.info(
+      `Factura Telegram duplicada ignorada: chat=${telegramChatId} msg=${telegramMessageId}`
+    );
+    return {
+      mantenimientoId: existente.id,
+      vehiculoId: existente.vehiculo_id ?? "",
+      recordatorioId: "",
+      fechaProximoServicio: "",
+      whatsappEnviado: false,
+    };
+  }
+
   const vehiculo = await findOrCreateVehiculo(supabase, {
     tallerId: taller.id,
     placa: extraido.placa,

@@ -1,12 +1,18 @@
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/app/app-header";
 import { AppVehicleFooter } from "@/components/app/app-vehicle-footer";
+import { MantenimientoB2cForm } from "@/components/app/mantenimiento-b2c-form";
 import { OdometerCard } from "@/components/app/odometer-card";
 import { MaintenanceModuleCard } from "@/components/app/maintenance-module-card";
 import { VisitHistory } from "@/components/app/visit-history";
 import { WheelsGrid } from "@/components/app/wheels-grid";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
 import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
+import {
+  getOrEnsurePerfil,
+  perfilSuscripcionVigente,
+  usuarioTieneVehiculoTaller,
+} from "@/lib/data/perfil";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { getEtiquetaVehiculo, getSubtituloVehiculo, getValorOdometro } from "@/lib/vehicles/format";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
@@ -33,7 +39,16 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
 
   if (!vehiculoBase) notFound();
 
-  const resumen = await getResumenTallerVehiculo(id, vehiculoBase.placa);
+  const [resumen, perfil, tieneVinculoTaller] = await Promise.all([
+    getResumenTallerVehiculo(id, vehiculoBase.placa),
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  const puedeRegistrarMantenimiento =
+    !resumen.vinculado &&
+    (tieneVinculoTaller || (perfil != null && perfilSuscripcionVigente(perfil)));
+
   const vehiculo = vehiculoConOdometroTaller(vehiculoBase, resumen.ultimaVisitaKm);
   const kmActual = getValorOdometro(vehiculo);
 
@@ -81,11 +96,17 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
           proximoRecordatorio={resumen.proximoRecordatorio}
         />
 
-        {!resumen.vinculado && (
+        {!resumen.vinculado && puedeRegistrarMantenimiento && (
+          <MantenimientoB2cForm
+            vehiculoId={vehiculo.id}
+            unidadOdometro={vehiculo.unidad_odometro}
+          />
+        )}
+
+        {!resumen.vinculado && !puedeRegistrarMantenimiento && (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center">
-            <p className="text-2xl font-light text-zinc-300">Próximamente</p>
-            <p className="mt-2 text-sm text-zinc-500">
-              Chat con tu taller, gráficos de neumáticos y más
+            <p className="text-sm text-zinc-500">
+              Activa SmartTaller Pro para registrar mantenimientos y usar Chat Smartaller.
             </p>
           </div>
         )}
@@ -95,6 +116,7 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
         titulo={titulo}
         placa={vehiculo.placa}
         tipoVehiculo={vehiculo.tipo_vehiculo}
+        chatHref={`/app/vehiculos/${vehiculo.id}/chat`}
       />
     </div>
   );
