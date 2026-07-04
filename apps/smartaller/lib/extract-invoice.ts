@@ -10,7 +10,7 @@ export type FacturaExtraida = {
 };
 
 const EXTRACTION_PROMPT =
-  "Analiza esta factura de taller y extrae en formato JSON: placa del vehículo, kilometraje, costo total, y una breve descripción del servicio. Si no encuentras algún dato, pon null. Responde solo con el JSON.";
+  "Analiza esta factura de taller y extrae en formato JSON con estas claves: placa (string), kilometraje (number), costo (number), descripcion (string breve del servicio), nombre_cliente (string si aparece), telefono_cliente (string con dígitos si aparece). Si no encuentras algún dato, pon null. Responde solo con el JSON.";
 
 function parseString(value: unknown): string | null {
   return typeof value === "string" ? value.trim() || null : null;

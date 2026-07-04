@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { RecordatorioActions } from "@/components/dashboard/recordatorio-actions";
 import { getRecordatorios } from "@/lib/data/dashboard";
 import { formatDate, formatKm } from "@/lib/utils";
 
@@ -39,13 +41,19 @@ export default async function RecordatoriosPage() {
                   <th className="px-5 py-3 font-medium">Fecha programada</th>
                   <th className="px-5 py-3 font-medium">Km objetivo</th>
                   <th className="px-5 py-3 font-medium">Estado</th>
+                  <th className="px-5 py-3 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {recordatorios.map((r) => (
                   <tr key={r.id} className="border-b border-zinc-800/50 hover:bg-zinc-900/30">
                     <td className="px-5 py-4 font-medium text-zinc-200">
-                      {r.vehiculos?.placa ?? "—"}
+                      <Link
+                        href={`/dashboard/vehiculos/${r.vehiculo_id}`}
+                        className="hover:text-blue-400"
+                      >
+                        {r.vehiculos?.placa ?? "—"}
+                      </Link>
                     </td>
                     <td className="px-5 py-4 text-zinc-400">
                       {r.vehiculos?.nombre_cliente ?? "—"}
@@ -54,6 +62,9 @@ export default async function RecordatoriosPage() {
                     <td className="px-5 py-4 text-zinc-400">{formatKm(r.kilometraje_objetivo)}</td>
                     <td className="px-5 py-4">
                       <Badge variant={estadoVariant(r.estado)}>{r.estado}</Badge>
+                    </td>
+                    <td className="px-5 py-4">
+                      <RecordatorioActions recordatorioId={r.id} estado={r.estado} />
                     </td>
                   </tr>
                 ))}

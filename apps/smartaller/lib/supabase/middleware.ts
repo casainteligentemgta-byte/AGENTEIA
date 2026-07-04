@@ -7,7 +7,10 @@ export async function updateSession(request: NextRequest) {
   const key = getSupabaseAnonKey();
 
   if (!url || !key) {
-    if (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/app")) {
+    if (
+      request.nextUrl.pathname.startsWith("/dashboard") ||
+      request.nextUrl.pathname.startsWith("/app")
+    ) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
       loginUrl.searchParams.set("error", "config");
@@ -39,7 +42,8 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const isProtected = pathname.startsWith("/dashboard") || pathname.startsWith("/app");
+  const isProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/app");
 
   if (!user && isProtected) {
     const loginUrl = request.nextUrl.clone();

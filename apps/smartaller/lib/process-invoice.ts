@@ -3,6 +3,7 @@ import type { FacturaExtraida } from "@/lib/extract-invoice";
 import { buildFacturaProcesadaMessage } from "@/lib/extract-invoice";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTallerByTelegramChat } from "@/lib/taller";
+import { getClientePortalUrl } from "@/lib/format";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
@@ -216,13 +217,12 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
       nombre,
       placa: extraido.placa,
       fechaProximoServicio: fechaFormateada,
+      portalUrl: getClientePortalUrl(extraido.placa),
     });
     const { ok, error } = await enviarWhatsApp(telefono, mensaje);
     whatsappEnviado = ok;
     if (!ok) {
       console.error("WhatsApp no enviado:", error);
-    } else {
-      await supabase.from("recordatorios").update({ estado: "enviado" }).eq("id", recordatorio.id);
     }
   }
 

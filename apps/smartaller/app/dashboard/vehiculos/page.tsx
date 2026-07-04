@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { getVehiculos } from "@/lib/data/dashboard";
 import { formatDate, formatKm, formatOdometroDashboard } from "@/lib/utils";
 import { getEtiquetaTipo } from "@/lib/vehicles/format";
@@ -25,7 +27,11 @@ export default async function VehiculosPage() {
           </div>
         ) : (
           vehiculos.map((v) => (
-            <div key={v.id} className="glass rounded-2xl p-5 transition hover:border-blue-500/20">
+            <Link
+              key={v.id}
+              href={`/dashboard/vehiculos/${v.id}`}
+              className="glass group rounded-2xl p-5 transition hover:border-blue-500/30"
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-2xl font-bold tracking-wide text-blue-400">{v.placa}</p>
@@ -37,15 +43,23 @@ export default async function VehiculosPage() {
                     {v.marca && v.modelo ? ` · ${v.marca} ${v.modelo}` : ""}
                   </p>
                 </div>
-                <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-500">
-                  {formatOdometroDashboard(v.kilometraje_ultimo, v.horas_motor_ultimo, v.unidad_odometro)}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-500">
+                    {formatOdometroDashboard(v.kilometraje_ultimo, v.horas_motor_ultimo, v.unidad_odometro)}
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-zinc-600 transition group-hover:text-blue-400" />
+                </div>
               </div>
               <div className="mt-4 space-y-1 text-sm text-zinc-500">
-                {v.telefono_cliente && <p>Tel: {v.telefono_cliente}</p>}
+                {v.telefono_cliente ? (
+                  <p>Tel: {v.telefono_cliente}</p>
+                ) : (
+                  <p className="text-amber-500/80">Sin teléfono — agregar para WhatsApp</p>
+                )}
+                <p>Km: {formatKm(v.kilometraje_ultimo)}</p>
                 <p>Registrado: {formatDate(v.created_at)}</p>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </div>

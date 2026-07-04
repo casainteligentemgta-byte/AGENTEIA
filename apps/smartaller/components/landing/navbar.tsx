@@ -13,6 +13,18 @@ export function Navbar() {
         </Link>
         <nav className="flex items-center gap-3">
           <Link
+            href="/cliente"
+            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
+          >
+            Portal cliente
+          </Link>
+          <Link
+            href="/login?redirectTo=/app"
+            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
+          >
+            Mi vehículo
+          </Link>
+          <Link
             href="/login"
             className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
           >

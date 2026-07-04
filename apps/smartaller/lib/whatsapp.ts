@@ -1,6 +1,9 @@
 /**
- * Envío de WhatsApp vía CallMeBot API.
- * Docs: https://www.callmebot.com/blog/free-api-whatsapp-messages/
+ * Envío de WhatsApp.
+ *
+ * Proveedor actual: CallMeBot (solo pruebas — envía al número que activó la key).
+ * TODO: Integrar Twilio WhatsApp Business API para producción.
+ * Docs Twilio: https://www.twilio.com/docs/whatsapp
  */
 
 function normalizeTelefono(telefono: string): string {
@@ -11,10 +14,12 @@ function normalizeTelefono(telefono: string): string {
   return digits.startsWith("57") || digits.length > 10 ? digits : `57${digits}`;
 }
 
+/** Envía WhatsApp al cliente. Hoy usa CallMeBot; migrar a Twilio. */
 export async function enviarWhatsApp(telefono: string, mensaje: string): Promise<{ ok: boolean; error?: string }> {
+  // TODO(twilio): if (process.env.TWILIO_ACCOUNT_SID) return enviarWhatsAppTwilio(...)
   const apiKey = process.env.CALLMEBOT_API_KEY;
   if (!apiKey) {
-    return { ok: false, error: "Falta CALLMEBOT_API_KEY en las variables de entorno" };
+    return { ok: false, error: "WhatsApp no configurado (Twilio pendiente, CallMeBot opcional para pruebas)" };
   }
 
   try {
@@ -46,6 +51,29 @@ export function buildConfirmacionWhatsApp(params: {
   nombre: string;
   placa: string;
   fechaProximoServicio: string;
+  portalUrl?: string;
 }): string {
-  return `Hola ${params.nombre}, tu vehículo ${params.placa} ha sido registrado en el taller. Tu próximo servicio está programado para el ${params.fechaProximoServicio}.`;
+  const base = `Hola ${params.nombre}, tu vehículo ${params.placa} ha sido registrado en el taller. Tu próximo servicio está programado para el ${params.fechaProximoServicio}.`;
+  if (params.portalUrl) {
+    return `${base}\n\nConsulta tu historial aquí: ${params.portalUrl}`;
+  }
+  return base;
+}
+
+export function buildRecordatorioWhatsApp(params: {
+  nombre: string;
+  placa: string;
+  fechaProgramada: string;
+  kilometrajeObjetivo?: string;
+  portalUrl?: string;
+}): string {
+  const km =
+    params.kilometrajeObjetivo != null
+      ? ` o al llegar a ${params.kilometrajeObjetivo}`
+      : "";
+  const base = `Hola ${params.nombre}, te recordamos el mantenimiento de tu vehículo ${params.placa}. Fecha recomendada: ${params.fechaProgramada}${km}.`;
+  if (params.portalUrl) {
+    return `${base}\n\nConsulta tu historial: ${params.portalUrl}`;
+  }
+  return base;
 }
