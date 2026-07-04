@@ -40,6 +40,18 @@ export default async function ConfiguracionPage() {
                 <li>Debe empezar por <code className="text-zinc-300">eyJ</code>, sin viñetas • ni espacios</li>
                 <li>Guarda y haz Redeploy en Vercel</li>
               </>
+            ) : error?.includes("telegram_chat_id") ? (
+              <>
+                <li>
+                  En Supabase → SQL Editor, ejecuta:
+                  <pre className="mt-2 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs text-zinc-300">
+                    alter table public.talleres{"\n"}
+                    {"  "}alter column telegram_chat_id drop not null;
+                  </pre>
+                </li>
+                <li>Recarga esta página — deberías ver tu código de vinculación</li>
+                <li>Luego envía <code className="text-zinc-300">/vincular TU_CODIGO</code> al bot de Telegram</li>
+              </>
             ) : (
               <>
                 <li>Ejecuta la migración multi-taller en Supabase → SQL Editor</li>

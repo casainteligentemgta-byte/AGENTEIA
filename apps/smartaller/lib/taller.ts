@@ -26,6 +26,12 @@ function mapTallerError(error: { message: string; code?: string }): string {
   if (error.code === "42P01" || /relation.*talleres.*does not exist/i.test(error.message)) {
     return "Falta la tabla talleres en Supabase. Ejecuta la migración multi-taller en SQL Editor.";
   }
+  if (
+    error.code === "23502" ||
+    /telegram_chat_id.*not-null|null value in column "telegram_chat_id"/i.test(error.message)
+  ) {
+    return "La columna telegram_chat_id en talleres tiene NOT NULL incorrecto. Ejecuta en Supabase SQL Editor: alter table public.talleres alter column telegram_chat_id drop not null;";
+  }
   if (error.code === "23503") {
     return "Tu usuario de auth no está sincronizado. Cierra sesión, vuelve a entrar e intenta de nuevo.";
   }

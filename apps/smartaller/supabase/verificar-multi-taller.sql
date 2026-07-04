@@ -18,6 +18,25 @@ from information_schema.columns
 where table_schema = 'public' and table_name = 'talleres'
 order by ordinal_position;
 
+-- 2b) ¿telegram_chat_id es nullable? (debe ser YES)
+select
+  case
+    when exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'talleres'
+        and column_name = 'telegram_chat_id'
+        and is_nullable = 'YES'
+    ) then 'OK: telegram_chat_id es nullable'
+    when exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'talleres'
+        and column_name = 'telegram_chat_id'
+    ) then 'ERROR: telegram_chat_id tiene NOT NULL — ejecuta: alter table public.talleres alter column telegram_chat_id drop not null;'
+    else 'ERROR: falta columna telegram_chat_id'
+  end as check_telegram_nullable;
+
 -- 3) ¿Columna taller_id en vehiculos y mantenimientos?
 select
   'vehiculos.taller_id' as columna,
