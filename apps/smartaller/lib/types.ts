@@ -35,3 +35,15 @@ export type VehiculoConHistorial = Vehiculo & {
   mantenimientos: Mantenimiento[];
   recordatorios: Recordatorio[];
 };
+
+export type PresidenciaStats = {
+  serviciosHoy: number;
+  serviciosMes: number;
+  vehiculosRegistrados: number;
+  recordatoriosPendientes: number;
+};
+
+export type RecordatorioConPlaca = Recordatorio & {
+  placa: string;
+  nombre_cliente: string | null;
+};

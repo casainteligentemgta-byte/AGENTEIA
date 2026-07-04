@@ -10,12 +10,14 @@ import type { Taller } from "@/lib/taller";
 
 type ConfigFormProps = {
   taller: Taller;
+  kioskUrl: string;
 };
 
-export function ConfigForm({ taller }: ConfigFormProps) {
+export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
   const [nombre, setNombre] = useState(taller.nombre);
   const [codigo, setCodigo] = useState(taller.codigo_vinculo);
   const [copied, setCopied] = useState(false);
+  const [kioskCopied, setKioskCopied] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -45,6 +47,12 @@ export function ConfigForm({ taller }: ConfigFormProps) {
     await navigator.clipboard.writeText(comando);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyKiosk = async () => {
+    await navigator.clipboard.writeText(kioskUrl);
+    setKioskCopied(true);
+    setTimeout(() => setKioskCopied(false), 2000);
   };
 
   return (
@@ -132,6 +140,26 @@ export function ConfigForm({ taller }: ConfigFormProps) {
             </p>
           </div>
         )}
+      </section>
+
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-semibold text-zinc-100">Panel presidencia (recepción)</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Abre esta URL en una pantalla o tablet en recepción. Se actualiza sola cada 30 s.
+        </p>
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-zinc-900 p-4">
+          <code className="flex-1 break-all text-xs text-blue-400 sm:text-sm">{kioskUrl}</code>
+          <button
+            type="button"
+            onClick={handleCopyKiosk}
+            className="rounded-lg border border-zinc-700 p-2 text-zinc-400 hover:text-zinc-200"
+          >
+            {kioskCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-zinc-600">
+          Opcional: define <code className="text-zinc-400">PRESIDENCIA_PIN</code> en Vercel para proteger el acceso.
+        </p>
       </section>
     </div>
   );

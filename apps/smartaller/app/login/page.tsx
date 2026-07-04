@@ -4,13 +4,19 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, ArrowLeft, Wrench } from "lucide-react";
+import { Loader2, ArrowLeft, Wrench, Car } from "lucide-react";
+
+type AccountType = "taller" | "dueno";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
-  const isAppFlow = redirectTo.startsWith("/app");
+  const redirectParam = searchParams.get("redirectTo");
   const errorParam = searchParams.get("error");
+
+  const [accountType, setAccountType] = useState<AccountType>(() =>
+    redirectParam?.startsWith("/app") ? "dueno" : "taller"
+  );
+  const isAppFlow = accountType === "dueno";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +30,9 @@ function LoginForm() {
         : null
   );
 
+  const effectiveRedirect =
+    redirectParam ?? (accountType === "dueno" ? "/app" : "/dashboard");
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -33,7 +42,7 @@ function LoginForm() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        window.location.href = redirectTo;
+        window.location.href = effectiveRedirect;
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -57,7 +66,7 @@ function LoginForm() {
     setMessage(null);
     try {
       const supabase = createClient();
-      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(effectiveRedirect)}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: callbackUrl },
@@ -76,7 +85,7 @@ function LoginForm() {
     <div className="w-full max-w-md">
       <div className="mb-8 flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-          <Wrench className="h-6 w-6" />
+          {isAppFlow ? <Car className="h-6 w-6" /> : <Wrench className="h-6 w-6" />}
         </span>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">SmartTaller</h1>
@@ -87,6 +96,36 @@ function LoginForm() {
       </div>
 
       <div className="glass rounded-2xl p-6 sm:p-8">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Tipo de cuenta
+        </p>
+        <div className="mb-6 flex rounded-xl bg-zinc-900 p-1">
+          <button
+            type="button"
+            onClick={() => setAccountType("taller")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition ${
+              accountType === "taller"
+                ? "bg-zinc-800 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Wrench className="h-4 w-4" />
+            Taller
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType("dueno")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition ${
+              accountType === "dueno"
+                ? "bg-zinc-800 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Car className="h-4 w-4" />
+            Dueño
+          </button>
+        </div>
+
         <div className="mb-6 flex rounded-xl bg-zinc-900 p-1">
           <button
             type="button"

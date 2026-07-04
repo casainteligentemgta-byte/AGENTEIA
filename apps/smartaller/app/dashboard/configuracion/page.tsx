@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
+import { getAppBaseUrl } from "@/lib/format";
 import { ConfigForm } from "@/components/dashboard/config-form";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,7 @@ export default async function ConfiguracionPage() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Configuración</h1>
         <p className="mt-1 text-zinc-500">Administra tu taller y vincula Telegram</p>
       </div>
-      <ConfigForm taller={taller} />
+      <ConfigForm taller={taller} kioskUrl={`${getAppBaseUrl()}/presidencia/${taller.id}`} />
     </div>
   );
 }
