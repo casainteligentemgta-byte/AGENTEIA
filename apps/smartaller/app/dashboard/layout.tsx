@@ -21,16 +21,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen md:pl-64">
-      <Sidebar userEmail={userEmail} tallerNombre={tallerNombre} />
-      <main className="min-h-screen bg-zinc-950">
-        {!telegramLinked && (
-          <div className="px-4 pt-4 sm:px-8 sm:pt-6">
-            <TelegramBanner linked={telegramLinked} />
-          </div>
-        )}
-        {children}
-      </main>
+    <div className="min-h-screen bg-zinc-950">
+      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col md:flex-row">
+        <Sidebar userEmail={userEmail} tallerNombre={tallerNombre} />
+        <main className="min-w-0 flex-1">
+          {!telegramLinked && (
+            <div className="px-4 pt-4 sm:px-8 sm:pt-6">
+              <TelegramBanner linked={telegramLinked} />
+            </div>
+          )}
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
