@@ -19,6 +19,7 @@ export type TelegramPhotoSize = {
 export type TelegramMessage = {
   message_id: number;
   chat: { id: number; type: string };
+  text?: string;
   photo?: TelegramPhotoSize[];
   document?: {
     file_id: string;
@@ -44,6 +45,14 @@ export function getImageFileId(message: TelegramMessage): string | null {
   }
 
   return null;
+}
+
+/** Parsea /vincular CODIGO del mensaje de texto. */
+export function parseVincularCommand(message: TelegramMessage): string | null {
+  const text = message.text?.trim();
+  if (!text) return null;
+  const match = text.match(/^\/vincular(?:@\w+)?\s+([A-Za-z0-9]{6,12})$/i);
+  return match ? match[1].toUpperCase() : null;
 }
 
 export async function getTelegramFileUrl(fileId: string): Promise<string> {

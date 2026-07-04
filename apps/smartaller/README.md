@@ -21,10 +21,10 @@ Configuración en `lib/vehicles/templates.ts`.
 
 ## Migración multivehículo
 
-Ejecutar en Supabase SQL Editor:
+Ejecutar en Supabase SQL Editor **después** de `20250704100000_multi_taller.sql`:
 
 ```
-apps/smartaller/supabase/migrations/20250704100000_multivehiculo.sql
+apps/smartaller/supabase/migrations/20250704110000_multivehiculo.sql
 ```
 
 Añade `tipo_vehiculo`, `user_id`, `marca`, `modelo`, `color`, `nick` y RLS para vehículos del usuario.

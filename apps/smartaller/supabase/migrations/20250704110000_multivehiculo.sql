@@ -1,4 +1,5 @@
 -- SmartTaller multivehículo: tipos, perfil de usuario y RLS por propietario.
+-- Ejecutar DESPUÉS de 20250704100000_multi_taller.sql
 
 create type public.tipo_vehiculo as enum (
   'auto',
@@ -25,9 +26,8 @@ alter table public.vehiculos
 -- Vehículos creados por usuarios finales no requieren telegram_chat_id.
 alter table public.vehiculos alter column telegram_chat_id drop not null;
 
-alter table public.vehiculos drop constraint if exists vehiculos_placa_telegram_chat_id_key;
-
-create unique index if not exists idx_vehiculos_placa_taller
+-- Índice legacy telegram (multi_taller ya crea idx_vehiculos_placa_taller por taller_id)
+create unique index if not exists idx_vehiculos_placa_telegram
   on public.vehiculos (placa, telegram_chat_id)
   where telegram_chat_id is not null;
 
@@ -41,7 +41,13 @@ create index if not exists idx_vehiculos_tipo on public.vehiculos (tipo_vehiculo
 comment on column public.vehiculos.tipo_vehiculo is 'Tipo de vehículo para plantillas de mantenimiento';
 comment on column public.vehiculos.user_id is 'Propietario (app usuario final); null = vehículo del taller vía Telegram';
 
--- RLS: usuarios gestionan sus propios vehículos
+-- RLS app usuario final (coexiste con políticas por taller_id de multi_taller)
+drop policy if exists "vehiculos select own user" on public.vehiculos;
+create policy "vehiculos select own user"
+  on public.vehiculos for select
+  to authenticated
+  using (user_id = auth.uid());
+
 drop policy if exists "Users insert own vehiculos" on public.vehiculos;
 create policy "Users insert own vehiculos"
   on public.vehiculos for insert
