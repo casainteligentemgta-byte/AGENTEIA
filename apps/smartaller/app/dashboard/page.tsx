@@ -16,7 +16,7 @@ import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [stats, ingresosPorMes, topClientes, topVehiculos, mantenimientos, recordatorios] =
+  const [statsResult, ingresosPorMes, topClientes, topVehiculos, mantenimientos, recordatorios] =
     await Promise.all([
       getDashboardStats(),
       getIngresosPorMes(6),
@@ -26,6 +26,7 @@ export default async function DashboardPage() {
       getRecordatorios(),
     ]);
 
+  const { stats, error: statsError } = statsResult;
   const proximosRecordatorios = recordatorios.filter((r) => r.estado === "pendiente").slice(0, 5);
 
   return (
@@ -34,6 +35,13 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
         <p className="mt-1 text-zinc-500">Resumen de tu taller en tiempo real</p>
       </div>
+
+      {statsError && (
+        <div className="mb-6 rounded-xl border border-amber-900/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+          No se pudieron cargar todas las estadísticas: {statsError}. Revisa la conexión con Supabase
+          o las políticas RLS del taller.
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Vehículos" value={String(stats.totalVehiculos)} icon={Car} />

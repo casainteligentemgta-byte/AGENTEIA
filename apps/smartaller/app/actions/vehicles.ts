@@ -50,6 +50,24 @@ export async function createVehicle(
 
   // Puente: vincular con vehículo existente del taller (misma placa, service role)
   const admin = createAdminClient();
+
+  const { data: placaOtroUsuario } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("placa", placaNorm)
+    .not("user_id", "is", null)
+    .neq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (placaOtroUsuario) {
+    return {
+      success: false,
+      error: "Esta placa ya está registrada por otro usuario.",
+      fieldErrors: { placa: ["Placa no disponible"] },
+    };
+  }
+
   const { data: vehiculoTaller } = await admin
     .from("vehiculos")
     .select("id, taller_id")

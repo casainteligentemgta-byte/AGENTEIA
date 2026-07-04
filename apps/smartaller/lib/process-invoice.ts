@@ -85,12 +85,15 @@ async function findOrCreateVehiculo(
   }
 
   // Puente: vehículo registrado por el dueño en /app con la misma placa
-  const { data: existingUsuario } = await supabase
+  const { data: usuariosConPlaca } = await supabase
     .from("vehiculos")
     .select("id, nombre_cliente, telefono_cliente")
     .eq("placa", placaNorm)
     .not("user_id", "is", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  const existingUsuario = usuariosConPlaca?.[0] ?? null;
 
   if (existingUsuario) {
     const updates: Record<string, unknown> = {

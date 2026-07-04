@@ -200,6 +200,7 @@ export async function createMantenimientoB2C(
 
   revalidatePath(`/app/vehiculos/${vehiculo.id}`);
   revalidatePath("/app");
+  revalidatePath("/app/timeline");
 
   return { success: true, mantenimientoId: mantenimiento.id };
 }

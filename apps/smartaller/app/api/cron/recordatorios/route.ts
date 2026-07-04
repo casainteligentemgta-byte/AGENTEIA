@@ -6,7 +6,11 @@ export const maxDuration = 60;
 
 function isAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV === "development";
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!secret) {
+    return !isProd;
+  }
 
   const auth = req.headers.get("authorization");
   return auth === `Bearer ${secret}`;

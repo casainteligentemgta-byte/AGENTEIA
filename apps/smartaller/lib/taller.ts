@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { parseTallerNombre } from "@/lib/validations/taller";
 
 import type { TipoIndustria } from "@/lib/platform/types";
 
@@ -194,10 +195,13 @@ export async function updateTallerNombre(nombre: string): Promise<{ ok: boolean;
   const user = await getUser();
   if (!user) return { ok: false, error: "No autenticado" };
 
+  const parsed = parseTallerNombre(nombre);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("talleres")
-    .update({ nombre: nombre.trim(), updated_at: new Date().toISOString() })
+    .update({ nombre: parsed.nombre, updated_at: new Date().toISOString() })
     .eq("owner_user_id", user.id);
 
   if (error) return { ok: false, error: error.message };

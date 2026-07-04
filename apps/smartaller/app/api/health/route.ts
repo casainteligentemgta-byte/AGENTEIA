@@ -6,6 +6,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const checks: Record<string, "ok" | "error" | "skipped"> = {
     supabase: "skipped",
+    openai: process.env.OPENAI_API_KEY?.trim() ? "ok" : "skipped",
+    telegram: process.env.TELEGRAM_BOT_TOKEN?.trim() ? "ok" : "skipped",
+    cron: process.env.CRON_SECRET?.trim() ? "ok" : "skipped",
+    stripe: process.env.STRIPE_SECRET_KEY?.trim() ? "ok" : "skipped",
   };
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {

@@ -47,6 +47,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 5. `20250704120000_centros_servicio.sql` (opcional)
 6. `20250704150000_plataforma_hibrida.sql` — industria B2B, perfiles B2C, paywall y revisiones dinámicas
 7. `20250704160000_seguridad_p0.sql` — idempotencia Telegram, RLS por vehiculo_id
+8. `20250704170000_rls_cleanup.sql` — limpieza RLS legacy, recordatorios por vehiculo_id
 
 ## Plataforma híbrida B2B / B2C
 
