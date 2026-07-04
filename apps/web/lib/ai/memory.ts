@@ -1,10 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
-import { getEmbeddingModelId, getLlmApiKey, getOpenAIBaseURL } from "@/lib/ai/openai-config";
+import {
+  getEmbeddingModelId,
+  getLlmApiKey,
+  getOpenAIBaseURL,
+  getOpenRouterHeaders,
+} from "@/lib/ai/openai-config";
 
 const openai = new OpenAI({
   apiKey: getLlmApiKey(),
   baseURL: getOpenAIBaseURL(),
+  defaultHeaders: getOpenRouterHeaders(),
 });
 
 const EMBEDDING_MODEL = getEmbeddingModelId();
