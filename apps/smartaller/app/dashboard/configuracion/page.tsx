@@ -30,9 +30,23 @@ export default async function ConfiguracionPage() {
             {error ?? "Error desconocido. Revisa Supabase y las variables de entorno."}
           </p>
           <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-zinc-500">
-            <li>Ejecuta la migración multi-taller en Supabase → SQL Editor</li>
-            <li>Verifica que exista la tabla <code className="text-zinc-300">talleres</code></li>
-            <li>Confirma <code className="text-zinc-300">SUPABASE_SERVICE_ROLE_KEY</code> en Vercel</li>
+            {error?.includes("SERVICE_ROLE") || error?.includes("ByteString") ? (
+              <>
+                <li>
+                  Vercel → Settings → Environment Variables →{" "}
+                  <code className="text-zinc-300">SUPABASE_SERVICE_ROLE_KEY</code>
+                </li>
+                <li>Supabase → Settings → API → copia <strong>service_role</strong> (secret)</li>
+                <li>Debe empezar por <code className="text-zinc-300">eyJ</code>, sin viñetas • ni espacios</li>
+                <li>Guarda y haz Redeploy en Vercel</li>
+              </>
+            ) : (
+              <>
+                <li>Ejecuta la migración multi-taller en Supabase → SQL Editor</li>
+                <li>Verifica que exista la tabla <code className="text-zinc-300">talleres</code></li>
+                <li>Confirma <code className="text-zinc-300">SUPABASE_SERVICE_ROLE_KEY</code> en Vercel</li>
+              </>
+            )}
           </ul>
         </div>
       </div>
