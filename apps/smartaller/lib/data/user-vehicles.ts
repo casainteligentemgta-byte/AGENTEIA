@@ -45,14 +45,3 @@ export async function getUserVehiculoById(id: string): Promise<VehiculoUsuario |
   if (error || !data) return null;
   return data as VehiculoUsuario;
 }
-
-export async function countRecordatoriosPendientes(vehiculoId: string): Promise<number> {
-  const supabase = createClient();
-  const { count } = await supabase
-    .from("recordatorios")
-    .select("id", { count: "exact", head: true })
-    .eq("vehiculo_id", vehiculoId)
-    .eq("estado", "pendiente");
-
-  return count ?? 0;
-}

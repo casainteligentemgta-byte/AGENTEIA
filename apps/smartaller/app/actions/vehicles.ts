@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import {
   createVehicleSchema,
   type CreateVehicleInput,
@@ -39,6 +41,17 @@ export async function createVehicle(
 
   const data = parsed.data;
   const config = getConfigTipoVehiculo(data.tipo_vehiculo);
+  const placaNorm = normalizarPlaca(data.placa);
+
+  // Puente: vincular con vehículo existente del taller (misma placa, service role)
+  const admin = createAdminClient();
+  const { data: vehiculoTaller } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("placa", placaNorm)
+    .not("taller_id", "is", null)
+    .is("user_id", null)
+    .maybeSingle();
 
   const payload = {
     user_id: user.id,
@@ -47,16 +60,38 @@ export async function createVehicle(
     marca: data.marca || null,
     modelo: data.modelo || null,
     color: data.color || null,
-    placa: data.placa,
+    placa: placaNorm,
     unidad_odometro: config.unidadOdometro,
     kilometraje_ultimo: config.unidadOdometro === "km" ? data.odometro : null,
     horas_motor_ultimo: config.unidadOdometro === "horas" ? data.odometro : null,
-    telegram_chat_id: null,
   };
+
+  if (vehiculoTaller) {
+    const { data: vinculado, error } = await admin
+      .from("vehiculos")
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq("id", vehiculoTaller.id)
+      .select("id")
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    await fusionarVehiculosPorPlaca(admin, placaNorm, vinculado.id);
+
+    revalidatePath("/app");
+    revalidatePath("/dashboard/vehiculos");
+
+    return { success: true, data: { id: vinculado.id } };
+  }
 
   const { data: created, error } = await supabase
     .from("vehiculos")
-    .insert(payload)
+    .insert({
+      ...payload,
+      telegram_chat_id: null,
+    })
     .select("id")
     .single();
 

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { MapPin, Plus } from "lucide-react";
 import { AppHeader } from "@/components/app/app-header";
 import { VehicleCard } from "@/components/app/vehicle-card";
-import { getUserVehiculos, countRecordatoriosPendientes } from "@/lib/data/user-vehicles";
+import { getUserVehiculos } from "@/lib/data/user-vehicles";
+import { countRecordatoriosPendientesPorPlaca } from "@/lib/data/vehicle-history";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function AppHomePage() {
   const vehiculosConRecordatorios = await Promise.all(
     vehiculos.map(async (v) => ({
       vehiculo: v,
-      pendientes: await countRecordatoriosPendientes(v.id),
+      pendientes: await countRecordatoriosPendientesPorPlaca(v.id, v.placa),
     }))
   );
 

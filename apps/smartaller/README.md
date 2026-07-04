@@ -39,6 +39,16 @@ apps/smartaller/supabase/migrations/20250704120000_centros_servicio.sql
 
 Mapa OpenStreetMap (Leaflet), listado tipo bottom sheet, distancia por geolocalización, tags de servicios y enlace a Google Maps. Incluye seed de Porlamar.
 
+## Puente taller ↔ app
+
+Migración (después de multivehículo):
+
+```
+apps/smartaller/supabase/migrations/20250704130000_puente_taller.sql
+```
+
+Vincula vehículos por **placa** entre Telegram y `/app`. El historial del taller aparece en la ficha del dueño.
+
 ## Deploy en Vercel
 
 | Setting | Valor |
