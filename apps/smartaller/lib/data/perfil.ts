@@ -11,7 +11,9 @@ export async function getOrEnsurePerfil(): Promise<PerfilUsuario | null> {
 
   const { data: existing } = await supabase
     .from("perfiles")
-    .select("id, tipo_plan, suscripcion_activa, vencimiento_plan, created_at, updated_at")
+    .select(
+      "id, tipo_plan, suscripcion_activa, vencimiento_plan, stripe_customer_id, stripe_subscription_id, created_at, updated_at"
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -22,7 +24,9 @@ export async function getOrEnsurePerfil(): Promise<PerfilUsuario | null> {
   const { data: created, error } = await supabase
     .from("perfiles")
     .insert({ id: user.id })
-    .select("id, tipo_plan, suscripcion_activa, vencimiento_plan, created_at, updated_at")
+    .select(
+      "id, tipo_plan, suscripcion_activa, vencimiento_plan, stripe_customer_id, stripe_subscription_id, created_at, updated_at"
+    )
     .single();
 
   if (error) {

@@ -5,6 +5,8 @@ import { AppActionButtons } from "@/components/app/app-action-buttons";
 import { AppTabs } from "@/components/app/app-tabs";
 import { VehicleCard } from "@/components/app/vehicle-card";
 import { PaywallScreen } from "@/components/app/paywall-screen";
+import { SubscriptionNotice } from "@/components/app/subscription-notice";
+import { ManageSubscriptionButton } from "@/components/app/manage-subscription-button";
 import { getUserVehiculos } from "@/lib/data/user-vehicles";
 import { countRecordatoriosPendientesPorPlaca } from "@/lib/data/vehicle-history";
 import {
@@ -12,10 +14,15 @@ import {
   perfilSuscripcionVigente,
   usuarioTieneVehiculoTaller,
 } from "@/lib/data/perfil";
+import { isStripeConfigured } from "@/lib/stripe/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function AppHomePage() {
+type PageProps = {
+  searchParams: { subscribed?: string };
+};
+
+export default async function AppHomePage({ searchParams }: PageProps) {
   const [vehiculos, perfil, tieneVinculoTaller] = await Promise.all([
     getUserVehiculos(),
     getOrEnsurePerfil(),
@@ -29,7 +36,8 @@ export default async function AppHomePage() {
     return (
       <>
         <AppHeader centered />
-        <PaywallScreen />
+        <SubscriptionNotice subscribed={searchParams.subscribed} />
+        <PaywallScreen stripeEnabled={isStripeConfigured()} />
       </>
     );
   }
@@ -44,8 +52,12 @@ export default async function AppHomePage() {
   return (
     <>
       <AppHeader centered />
+      <SubscriptionNotice subscribed={searchParams.subscribed} />
 
       <main className="px-4 pb-10 pt-2">
+        <div className="mb-3 flex justify-end">
+          <ManageSubscriptionButton tieneStripe={Boolean(perfil?.stripe_customer_id)} />
+        </div>
         <AppActionButtons />
 
         <div className="my-5">

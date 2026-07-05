@@ -56,6 +56,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 - **B2B:** `talleres.tipo_industria` → formulario de revisión en `/dashboard/mantenimientos`
 - **B2C:** tabla `perfiles` (`tipo_plan`, `suscripcion_activa`, `vencimiento_plan`)
 - **Paywall:** `/app` muestra suscripción $2.99/mes si no hay vehículo vinculado a taller ni plan activo
+- **Stripe:** guía en `docs/STRIPE-SETUP.md` · SQL en `supabase/deploy-stripe.sql`
 
 ## Deploy en Vercel
 
@@ -76,6 +77,9 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL
 CRON_SECRET
+STRIPE_SECRET_KEY          # sk_test_... o sk_live_...
+STRIPE_WEBHOOK_SECRET      # whsec_... del webhook
+STRIPE_PRICE_ID            # price_... del producto SmartTaller Pro
 PRESIDENCIA_PIN          # opcional
 RESEND_API_KEY           # opcional — email recordatorios
 RESEND_FROM              # opcional

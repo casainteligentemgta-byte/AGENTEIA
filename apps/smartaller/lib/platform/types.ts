@@ -28,6 +28,8 @@ export type PerfilUsuario = {
   tipo_plan: TipoPlan;
   suscripcion_activa: boolean;
   vencimiento_plan: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
   created_at: string;
   updated_at: string;
 };

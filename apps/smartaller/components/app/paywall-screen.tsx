@@ -1,20 +1,26 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Crown, Loader2, Sparkles } from "lucide-react";
 import { activarSuscripcionPremiumAction } from "@/app/actions/subscription";
 
 type PaywallScreenProps = {
   onActivated?: () => void;
+  stripeEnabled?: boolean;
 };
 
-export function PaywallScreen({ onActivated }: PaywallScreenProps) {
+export function PaywallScreen({ onActivated, stripeEnabled = false }: PaywallScreenProps) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function handleSubscribe() {
+    setError(null);
     startTransition(async () => {
       const result = await activarSuscripcionPremiumAction();
-      if (!result.success) return;
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -74,9 +80,17 @@ export function PaywallScreen({ onActivated }: PaywallScreenProps) {
           </button>
 
           <p className="mt-3 text-[10px] text-zinc-600">
-            Pago seguro con Stripe cuando está configurado; si no, activación demo para pruebas.
+            {stripeEnabled
+              ? "Pago seguro con Stripe Checkout."
+              : "Modo demo: activación sin pago real (configura Stripe en Vercel)."}
           </p>
         </div>
+
+        {error && (
+          <p className="mt-4 rounded-xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+            {error}
+          </p>
+        )}
 
         <p className="mt-6 text-xs text-zinc-500">
           ¿Tu taller ya te registró? Vincula tu vehículo con la misma placa y accede gratis al

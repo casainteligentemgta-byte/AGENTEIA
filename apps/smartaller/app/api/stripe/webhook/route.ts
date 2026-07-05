@@ -1,23 +1,95 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/client";
 import { getStripeWebhookSecret } from "@/lib/stripe/config";
+import {
+  desactivarPremium,
+  syncPerfilFromSubscription,
+} from "@/lib/stripe/sync-subscription";
 
 export const runtime = "nodejs";
 
-function activarPremium(userId: string, vencimiento: Date) {
+async function resolveUserIdFromSubscription(
+  subscription: Stripe.Subscription
+): Promise<string | null> {
+  if (subscription.metadata?.supabase_user_id) {
+    return subscription.metadata.supabase_user_id;
+  }
+
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer?.id;
+
+  if (!customerId) return null;
+
+  const stripe = getStripeClient();
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted) return null;
+
+  return customer.metadata?.supabase_user_id ?? null;
+}
+
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const userId = session.metadata?.supabase_user_id ?? session.client_reference_id;
+  if (!userId) {
+    console.warn("Stripe checkout.session.completed sin userId");
+    return;
+  }
+
+  const stripe = getStripeClient();
+  const subscriptionId =
+    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+
+  if (subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const result = await syncPerfilFromSubscription({
+      userId,
+      subscription,
+      customerId:
+        typeof session.customer === "string" ? session.customer : session.customer?.id,
+    });
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    return;
+  }
+
+  // Fallback: pago único o sesión sin subscription object aún
+  const vencimiento = new Date();
+  vencimiento.setMonth(vencimiento.getMonth() + 1);
+  const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
-  return admin.from("perfiles").upsert(
+  const { error } = await admin.from("perfiles").upsert(
     {
       id: userId,
       tipo_plan: "premium",
       suscripcion_activa: true,
       vencimiento_plan: vencimiento.toISOString(),
+      stripe_customer_id:
+        typeof session.customer === "string" ? session.customer : session.customer?.id ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" }
   );
+  if (error) throw new Error(error.message);
+}
+
+async function handleSubscriptionChange(subscription: Stripe.Subscription): Promise<void> {
+  const userId = await resolveUserIdFromSubscription(subscription);
+  if (!userId) {
+    console.warn("Stripe subscription sin supabase_user_id:", subscription.id);
+    return;
+  }
+
+  if (subscription.status === "canceled" || subscription.status === "unpaid") {
+    const result = await desactivarPremium(userId);
+    if (!result.ok) throw new Error(result.error);
+    return;
+  }
+
+  const result = await syncPerfilFromSubscription({ userId, subscription });
+  if (!result.ok) throw new Error(result.error);
 }
 
 export async function POST(req: Request) {
@@ -43,49 +115,43 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.metadata?.supabase_user_id;
-      if (userId) {
-        const vencimiento = new Date();
-        vencimiento.setMonth(vencimiento.getMonth() + 1);
-        const { error } = await activarPremium(userId, vencimiento);
-        if (error) {
-          console.error("Stripe webhook activar premium:", error.message);
-          return NextResponse.json({ error: error.message }, { status: 500 });
+    switch (event.type) {
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+        await handleSubscriptionChange(event.data.object as Stripe.Subscription);
+        break;
+
+      case "customer.subscription.deleted":
+        {
+          const subscription = event.data.object as Stripe.Subscription;
+          const userId = await resolveUserIdFromSubscription(subscription);
+          if (userId) {
+            const result = await desactivarPremium(userId);
+            if (!result.ok) throw new Error(result.error);
+          }
         }
-      }
-    }
+        break;
 
-    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.supabase_user_id;
-      if (userId) {
-        const activa =
-          event.type !== "customer.subscription.deleted" &&
-          (subscription.status === "active" || subscription.status === "trialing");
-
-        const vencimiento = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000)
-          : new Date();
-
-        const admin = createAdminClient();
-        const { error } = await admin.from("perfiles").upsert(
-          {
-            id: userId,
-            tipo_plan: activa ? "premium" : "free",
-            suscripcion_activa: activa,
-            vencimiento_plan: activa ? vencimiento.toISOString() : null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
-
-        if (error) {
-          console.error("Stripe webhook subscription:", error.message);
-          return NextResponse.json({ error: error.message }, { status: 500 });
+      case "invoice.payment_failed":
+        {
+          const invoice = event.data.object as Stripe.Invoice;
+          const subId =
+            typeof invoice.subscription === "string"
+              ? invoice.subscription
+              : invoice.subscription?.id;
+          if (subId) {
+            const subscription = await getStripeClient().subscriptions.retrieve(subId);
+            await handleSubscriptionChange(subscription);
+          }
         }
-      }
+        break;
+
+      default:
+        break;
     }
 
     return NextResponse.json({ received: true });
