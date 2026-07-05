@@ -28,3 +28,15 @@ export function isLlmConfigured(): boolean {
   if (key === "sk-..." || key.endsWith("...")) return false;
   return key.length > 20;
 }
+
+/** Headers recomendados para OpenRouter (ranking y políticas del proveedor). */
+export function getOpenRouterHeaders(): Record<string, string> | undefined {
+  if (!isOpenRouterKey()) return undefined;
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+  return {
+    "HTTP-Referer": appUrl ? `https://${appUrl.replace(/^https?:\/\//, "")}` : "https://agente-ia.local",
+    "X-Title": process.env.NEXT_PUBLIC_AGENT_NAME?.trim() || "Agente IA",
+  };
+}

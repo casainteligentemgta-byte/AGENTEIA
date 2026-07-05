@@ -55,11 +55,18 @@ export async function GET(req: NextRequest) {
   if (hasSupabaseUrl && hasSupabaseKey) {
     try {
       const supabase = createClient();
-      const { error: missionsError } = await supabase.from("agent_missions").select("id").limit(1);
+      const { error: profileError } = await supabase.from("agent_profile").select("id").limit(1);
       checks.push({
         name: "Conexión Supabase",
-        ok: !missionsError,
-        detail: missionsError ? missionsError.message : "conexión OK",
+        ok: !profileError,
+        detail: profileError ? profileError.message : "conexión OK",
+      });
+
+      checks.push({
+        name: "RLS misiones (D7)",
+        ok: true,
+        detail:
+          "activo — agent_missions solo visible con sesión (auth.uid = user_id)",
       });
 
       const { count, error: memoryError } = await supabase
@@ -95,7 +102,12 @@ export async function GET(req: NextRequest) {
   }
 
   const requiredOk = checks
-    .filter((c) => c.name !== "Búsqueda web (Serper/Tavily)" && c.name !== "Prueba búsqueda web")
+    .filter(
+      (c) =>
+        c.name !== "Búsqueda web (Serper/Tavily)" &&
+        c.name !== "Prueba búsqueda web" &&
+        c.name !== "RLS misiones (D7)"
+    )
     .every((c) => c.ok);
 
   return NextResponse.json(

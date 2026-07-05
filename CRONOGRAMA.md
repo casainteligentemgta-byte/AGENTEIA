@@ -12,7 +12,7 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | Supabase nuevo (`quocxyesrdwfyeynegkd`) | ✅ URL + seed memoria (6) |
 | OpenRouter (LLM) | ✅ local |
 | Serper (web) | ⏳ falta API key |
-| RLS misiones por usuario | ⏳ ejecutar SQL en Supabase |
+| RLS misiones por usuario | ⏳ ejecutar `apps/web/supabase/deploy-rls-d7.sql` |
 | Vercel deploy | ✅ https://web-sand-ten-60.vercel.app |
 | Vercel env vars | ✅ proyecto `web` |
 | Chat probado end-to-end | ⏳ prueba en navegador (D5) |
@@ -39,7 +39,7 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | Día | Tarea | Estado |
 |-----|-------|--------|
 | D6 | Auth OAuth | ✅ |
-| D7 | RLS por usuario | ⏳ ejecutar migración SQL |
+| D7 | RLS por usuario | ⏳ `deploy-rls-d7.sql` en Supabase |
 | D8–D10 | Prompts, responsive, Next 14.2.35 | ✅ |
 
 ## Semana 3 — Lanzamiento
@@ -56,8 +56,8 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 ## Lo que falta (acción tuya)
 
 ### 1. SQL RLS en Supabase (2 min)
-Si ya ejecutaste `setup-completo.sql` **antes** del fix D7, pega en SQL Editor:
-`apps/web/supabase/migrations/20250703160000_missions_rls_by_user.sql`
+Pega en SQL Editor: **`apps/web/supabase/deploy-rls-d7.sql`**  
+(o la migración `20250703160000_missions_rls_by_user.sql` — mismo contenido)
 
 ### 2. Vercel — Environment Variables
 Root Directory: `apps/web`
@@ -104,6 +104,22 @@ npm run qa                 # checks estáticos
 npm run seed:memory:local  # re-seed si hace falta
 npm run test:serper        # cuando tengas Serper
 ```
+
+---
+
+## SmartTaller (`apps/smartaller`) — micro-SaaS #2
+
+| Tarea | Estado |
+|-------|--------|
+| Código en `main` | ✅ |
+| Deploy Vercel (Git → `main`) | ✅ auto |
+| SQL `deploy-pr9.sql` | ✅ (ejecutado) |
+| SQL `deploy-stripe.sql` | ⏳ |
+| Env vars Vercel + redeploy | ⏳ |
+| Webhook Telegram + Stripe | ⏳ |
+| Smoke test `/app` + `/dashboard` | ⏳ |
+
+Detalle: `apps/smartaller/DEPLOY.md` · Stripe: `apps/smartaller/docs/STRIPE-SETUP.md`
 
 ---
 
