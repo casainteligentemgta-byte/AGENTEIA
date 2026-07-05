@@ -49,6 +49,8 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 7. `20250704160000_seguridad_p0.sql` — idempotencia Telegram, RLS por vehiculo_id
 8. `20250704170000_rls_cleanup.sql` — limpieza RLS legacy, recordatorios por vehiculo_id
 
+**Script único post-PR #9:** `supabase/deploy-pr9.sql` (pegar y ejecutar en SQL Editor si ya tienes las migraciones anteriores).
+
 ## Plataforma híbrida B2B / B2C
 
 - **B2B:** `talleres.tipo_industria` → formulario de revisión en `/dashboard/mantenimientos`
