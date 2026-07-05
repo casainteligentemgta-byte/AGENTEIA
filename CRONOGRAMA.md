@@ -17,6 +17,10 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | Vercel env vars | ✅ proyecto `web` |
 | Chat probado end-to-end | ⏳ prueba en navegador (D5) |
 | D14 Dominio | ⏳ opcional |
+| **SmartTaller** código `main` | ✅ PR #9 mergeado |
+| SmartTaller Vercel | ✅ auto-deploy en push (`Production – smartaller`) |
+| SmartTaller Supabase | ⏳ `deploy-stripe.sql` + verificar RLS |
+| SmartTaller Stripe/Telegram prod | ⏳ env vars + webhooks |
 
 ---
 
