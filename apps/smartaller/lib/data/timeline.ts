@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUserVehiculos } from "@/lib/data/user-vehicles";
 import { getEtiquetaVehiculo } from "@/lib/vehicles/format";
+import type { CategoriaVehiculoId } from "@/lib/schemas/categoria-vehiculo";
+import {
+  eventoCoincideCategoria,
+  inferirCategoriasEvento,
+} from "@/lib/vehicles/inferir-categorias-evento";
 
 export type TimelineEvento = {
   id: string;
@@ -12,9 +17,12 @@ export type TimelineEvento = {
   vehiculoLabel: string;
   placa: string;
   origen: "taller" | "propio";
+  categorias: CategoriaVehiculoId[];
 };
 
-export async function getTimelineUsuario(): Promise<TimelineEvento[]> {
+export async function getTimelineUsuario(
+  categoriaFiltro: CategoriaVehiculoId | null = null
+): Promise<TimelineEvento[]> {
   const vehiculos = await getUserVehiculos();
   if (vehiculos.length === 0) return [];
 
@@ -27,7 +35,7 @@ export async function getTimelineUsuario(): Promise<TimelineEvento[]> {
   const { data, error } = await supabase
     .from("mantenimientos")
     .select(
-      "id, created_at, descripcion, descripcion_servicio, costo, kilometraje, vehiculo_id, taller_id"
+      "id, created_at, descripcion, descripcion_servicio, costo, kilometraje, vehiculo_id, taller_id, detalle_revision"
     )
     .in("vehiculo_id", vehiculoIds)
     .order("created_at", { ascending: false })
@@ -38,8 +46,14 @@ export async function getTimelineUsuario(): Promise<TimelineEvento[]> {
     return [];
   }
 
-  return (data ?? []).map((m) => {
+  const eventos: TimelineEvento[] = (data ?? []).map((m) => {
     const meta = labelMap.get(m.vehiculo_id) ?? { label: "Vehículo", placa: "—" };
+    const categorias = inferirCategoriasEvento(
+      m.descripcion,
+      m.descripcion_servicio,
+      m.detalle_revision
+    );
+
     return {
       id: m.id,
       fecha: m.created_at,
@@ -50,6 +64,9 @@ export async function getTimelineUsuario(): Promise<TimelineEvento[]> {
       vehiculoLabel: meta.label,
       placa: meta.placa,
       origen: m.taller_id ? "taller" : "propio",
+      categorias,
     };
   });
+
+  return eventos.filter((e) => eventoCoincideCategoria(e.categorias, categoriaFiltro));
 }
