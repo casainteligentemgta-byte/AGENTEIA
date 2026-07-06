@@ -5,16 +5,16 @@ import {
   Wrench,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { EstadoSalud } from "@/lib/validations/detalle-revision";
+import type { EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import {
   formatEstadoSalud,
   type CategoriaSaludResumen,
   type VehicleHealthSummary,
 } from "@/lib/vehicles/vehicle-health";
-import type { CategoriaSaludId } from "@/lib/validations/detalle-revision";
+import type { CategoriaVehiculoId } from "@/lib/schemas/categoria-vehiculo";
 import { cn } from "@/lib/utils";
 
-const ICONOS: Record<CategoriaSaludId, React.ComponentType<{ className?: string }>> = {
+const ICONOS: Record<CategoriaVehiculoId, React.ComponentType<{ className?: string }>> = {
   bateria: Battery,
   neumaticos: CircleDot,
   aceite: Droplets,
@@ -22,7 +22,7 @@ const ICONOS: Record<CategoriaSaludId, React.ComponentType<{ className?: string 
 };
 
 const ESTILO_ESTADO: Record<
-  EstadoSalud,
+  EstadoCategoriaValue,
   { dot: string; ring: string; badge: "success" | "warning" | "danger" }
 > = {
   bien: {

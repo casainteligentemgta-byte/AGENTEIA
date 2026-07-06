@@ -4,11 +4,12 @@ import type {
   ResumenTallerVehiculo,
 } from "@/lib/data/vehicle-history";
 import {
-  CATEGORIAS_SALUD,
-  type CategoriaSaludId,
-  type EstadoSalud,
+  CATEGORIAS_VEHICULO,
+  type CategoriaVehiculoId,
+  type EstadoCategoriaValue,
   parseDetalleRevision,
-} from "@/lib/validations/detalle-revision";
+} from "@/lib/schemas/categoria-vehiculo";
+export type { CategoriaVehiculoId, EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import { palabrasParaCategoria } from "@/lib/vehicles/module-keywords";
 import type { ConfigTipoVehiculo, TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
@@ -25,9 +26,9 @@ export type FuenteEstadoSalud =
   | null;
 
 export type CategoriaSaludResumen = {
-  id: CategoriaSaludId;
+  id: CategoriaVehiculoId;
   label: string;
-  estado: EstadoSalud | null;
+  estado: EstadoCategoriaValue | null;
   fechaRevision: string | null;
   notas: string | null;
   fuente: FuenteEstadoSalud;
@@ -35,32 +36,32 @@ export type CategoriaSaludResumen = {
 
 export type VehicleHealthSummary = {
   categorias: CategoriaSaludResumen[];
-  peorEstado: EstadoSalud | null;
+  peorEstado: EstadoCategoriaValue | null;
   recordatoriosUrgentes: number;
 };
 
-const ETIQUETAS: Record<CategoriaSaludId, string> = {
+const ETIQUETAS: Record<CategoriaVehiculoId, string> = {
   bateria: "Batería",
   neumaticos: "Neumáticos",
   aceite: "Aceite",
   general: "Revisión general",
 };
 
-const ORDEN_ESTADO: Record<EstadoSalud, number> = {
+const ORDEN_ESTADO: Record<EstadoCategoriaValue, number> = {
   critico: 3,
   atencion: 2,
   bien: 1,
 };
 
-function peorDe(...estados: (EstadoSalud | null | undefined)[]): EstadoSalud | null {
-  const validos = estados.filter((e): e is EstadoSalud => e != null);
+function peorDe(...estados: (EstadoCategoriaValue | null | undefined)[]): EstadoCategoriaValue | null {
+  const validos = estados.filter((e): e is EstadoCategoriaValue => e != null);
   if (validos.length === 0) return null;
   return validos.reduce((peor, actual) =>
     ORDEN_ESTADO[actual] > ORDEN_ESTADO[peor] ? actual : peor
   );
 }
 
-function estadoDesdeFecha(fechaIso: string): EstadoSalud {
+function estadoDesdeFecha(fechaIso: string): EstadoCategoriaValue {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   const fecha = new Date(fechaIso);
@@ -72,7 +73,7 @@ function estadoDesdeFecha(fechaIso: string): EstadoSalud {
   return "bien";
 }
 
-function estadoDesdeKm(ultimoKm: number, actualKm: number): EstadoSalud | null {
+function estadoDesdeKm(ultimoKm: number, actualKm: number): EstadoCategoriaValue | null {
   const diff = actualKm - ultimoKm;
   if (diff >= KM_CRITICO) return "critico";
   if (diff >= KM_ATENCION) return "atencion";
@@ -80,14 +81,14 @@ function estadoDesdeKm(ultimoKm: number, actualKm: number): EstadoSalud | null {
   return null;
 }
 
-function estadoDesdeVoltaje(voltaje: number): EstadoSalud {
+function estadoDesdeVoltaje(voltaje: number): EstadoCategoriaValue {
   if (voltaje < 11.8) return "critico";
   if (voltaje < 12.4) return "atencion";
   return "bien";
 }
 
 function buscarUltimoMantenimientoCategoria(
-  categoria: CategoriaSaludId,
+  categoria: CategoriaVehiculoId,
   historial: MantenimientoHistorial[]
 ): MantenimientoHistorial | null {
   const palabras = palabrasParaCategoria(categoria);
@@ -99,9 +100,9 @@ function buscarUltimoMantenimientoCategoria(
 }
 
 function buscarCategoriaEnHistorial(
-  categoria: CategoriaSaludId,
+  categoria: CategoriaVehiculoId,
   historial: MantenimientoHistorial[]
-): { estado: EstadoSalud; fechaRevision: string | null; notas: string | null } | null {
+): { estado: EstadoCategoriaValue; fechaRevision: string | null; notas: string | null } | null {
   for (const m of historial) {
     const detalle = parseDetalleRevision(m.detalle_revision);
     const cat = detalle.categorias?.[categoria];
@@ -117,7 +118,7 @@ function buscarCategoriaEnHistorial(
 }
 
 function estadoLegacyBateria(historial: MantenimientoHistorial[]): {
-  estado: EstadoSalud;
+  estado: EstadoCategoriaValue;
   notas: string | null;
 } | null {
   for (const m of historial) {
@@ -134,7 +135,7 @@ function estadoLegacyBateria(historial: MantenimientoHistorial[]): {
 
 function estadoDesdeRecordatorio(
   recordatorios: RecordatorioUsuario[]
-): { estado: EstadoSalud; fechaRevision: string } | null {
+): { estado: EstadoCategoriaValue; fechaRevision: string } | null {
   const pendientes = recordatorios
     .filter((r) => r.estado === "pendiente" || r.estado === "enviado")
     .sort((a, b) => a.fecha_programada.localeCompare(b.fecha_programada));
@@ -149,10 +150,10 @@ function estadoDesdeRecordatorio(
 }
 
 function estadoHeuristico(
-  categoria: CategoriaSaludId,
+  categoria: CategoriaVehiculoId,
   historial: MantenimientoHistorial[],
   kmActual: number | null
-): { estado: EstadoSalud; fechaRevision: string | null } | null {
+): { estado: EstadoCategoriaValue; fechaRevision: string | null } | null {
   const ultimo = buscarUltimoMantenimientoCategoria(categoria, historial);
   if (!ultimo) return null;
 
@@ -166,7 +167,7 @@ function estadoHeuristico(
   return { estado: "bien", fechaRevision: ultimo.created_at };
 }
 
-function categoriaAplicaATipo(categoria: CategoriaSaludId, tipo: TipoVehiculo): boolean {
+function categoriaAplicaATipo(categoria: CategoriaVehiculoId, tipo: TipoVehiculo): boolean {
   const config = getConfigTipoVehiculo(tipo);
   const modulosIds = config.modulos.map((m) => m.id);
 
@@ -183,7 +184,7 @@ function categoriaAplicaATipo(categoria: CategoriaSaludId, tipo: TipoVehiculo): 
 }
 
 function resolverCategoria(
-  categoria: CategoriaSaludId,
+  categoria: CategoriaVehiculoId,
   historial: MantenimientoHistorial[],
   recordatorios: RecordatorioUsuario[],
   kmActual: number | null
@@ -255,7 +256,7 @@ export function buildVehicleHealthSummary(
   resumen: ResumenTallerVehiculo,
   kmActual: number | null
 ): VehicleHealthSummary {
-  const categoriasAplicables = CATEGORIAS_SALUD.filter((c) =>
+  const categoriasAplicables = CATEGORIAS_VEHICULO.filter((c) =>
     categoriaAplicaATipo(c, tipoVehiculo)
   );
 
@@ -278,7 +279,7 @@ export function getConfigParaSalud(tipoVehiculo: TipoVehiculo): ConfigTipoVehicu
   return getConfigTipoVehiculo(tipoVehiculo);
 }
 
-export function formatEstadoSalud(estado: EstadoSalud | null): string {
+export function formatEstadoSalud(estado: EstadoCategoriaValue | null): string {
   switch (estado) {
     case "bien":
       return "Bien";

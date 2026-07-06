@@ -1,5 +1,5 @@
 import type { ModuloMantenimientoId } from "@/lib/vehicles/types";
-import type { CategoriaSaludId } from "@/lib/validations/detalle-revision";
+import type { CategoriaVehiculoId } from "@/lib/schemas/categoria-vehiculo";
 
 export const PALABRAS_MODULO: Record<string, string[]> = {
   aceite: ["aceite", "lubric", "oil"],
@@ -17,13 +17,13 @@ export const PALABRAS_MODULO: Record<string, string[]> = {
   general: ["revisión", "revision", "mantenimiento", "servicio", "inspección", "inspeccion"],
 };
 
-const MODULO_A_CATEGORIA: Partial<Record<ModuloMantenimientoId, CategoriaSaludId>> = {
+const MODULO_A_CATEGORIA: Partial<Record<ModuloMantenimientoId, CategoriaVehiculoId>> = {
   aceite: "aceite",
   neumaticos: "neumaticos",
   bateria: "bateria",
 };
 
-export function palabrasParaCategoria(categoria: CategoriaSaludId): string[] {
+export function palabrasParaCategoria(categoria: CategoriaVehiculoId): string[] {
   if (categoria === "general") {
     return PALABRAS_MODULO.general ?? ["revisión", "revision", "servicio"];
   }
