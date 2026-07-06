@@ -11,6 +11,14 @@ import {
   perfilSuscripcionVigente,
   usuarioTieneVehiculoTaller,
 } from "@/lib/data/perfil";
+import {
+  CATEGORIAS_VEHICULO,
+  CategoriaVehiculoSchema,
+  DetalleRevisionSchema,
+  type CategoriaVehiculo,
+  type CategoriaVehiculoId,
+  parseDetalleRevision,
+} from "@/lib/schemas/categoria-vehiculo";
 
 export type RevisionActionResult =
   | { success: true; mantenimientoId: string }
@@ -203,4 +211,198 @@ export async function createMantenimientoB2C(
   revalidatePath("/app/timeline");
 
   return { success: true, mantenimientoId: mantenimiento.id };
+}
+
+export async function actualizarCategoriaVehiculo(
+  mantenimientoId: string,
+  categoria: CategoriaVehiculoId,
+  data: CategoriaVehiculo
+): Promise<RevisionActionResult> {
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: "Debes iniciar sesión" };
+  }
+
+  const parsedCategoria = z.enum(CATEGORIAS_VEHICULO).safeParse(categoria);
+  if (!parsedCategoria.success) {
+    return { success: false, error: "Categoría inválida" };
+  }
+
+  const parsed = CategoriaVehiculoSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const supabase = createClient();
+
+  const { data: mantenimiento, error: fetchError } = await supabase
+    .from("mantenimientos")
+    .select("id, detalle_revision, vehiculo_id, taller_id")
+    .eq("id", mantenimientoId)
+    .maybeSingle();
+
+  if (fetchError || !mantenimiento) {
+    return { success: false, error: "Mantenimiento no encontrado" };
+  }
+
+  if (mantenimiento.taller_id != null) {
+    const taller = await getMyTaller();
+    if (!taller || mantenimiento.taller_id !== taller.id) {
+      return { success: false, error: "No autorizado para este mantenimiento" };
+    }
+  } else {
+    if (!mantenimiento.vehiculo_id) {
+      return { success: false, error: "Mantenimiento sin vehículo asociado" };
+    }
+
+    const { data: vehiculo, error: vehError } = await supabase
+      .from("vehiculos")
+      .select("user_id")
+      .eq("id", mantenimiento.vehiculo_id)
+      .maybeSingle();
+
+    if (vehError || !vehiculo || vehiculo.user_id !== user.id) {
+      return { success: false, error: "No autorizado para este mantenimiento" };
+    }
+
+    const [perfil, tieneVinculoTaller] = await Promise.all([
+      getOrEnsurePerfil(),
+      usuarioTieneVehiculoTaller(),
+    ]);
+
+    if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+      return {
+        success: false,
+        error: "Necesitas SmartTaller Pro para actualizar categorías.",
+      };
+    }
+  }
+
+  const detalleActual = parseDetalleRevision(mantenimiento.detalle_revision);
+  const categoriasActuales = detalleActual.categorias ?? {};
+
+  const nuevoDetalle = DetalleRevisionSchema.parse({
+    ...detalleActual,
+    categorias: {
+      ...categoriasActuales,
+      [parsedCategoria.data]: parsed.data,
+    },
+  });
+
+  const { error: updateError } = await supabase
+    .from("mantenimientos")
+    .update({ detalle_revision: nuevoDetalle })
+    .eq("id", mantenimientoId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  if (mantenimiento.vehiculo_id) {
+    revalidatePath(`/app/vehiculos/${mantenimiento.vehiculo_id}`);
+    revalidatePath("/app");
+    revalidatePath("/app/timeline");
+    revalidatePath(`/dashboard/vehiculos/${mantenimiento.vehiculo_id}`);
+  }
+  revalidatePath("/dashboard/mantenimientos");
+
+  return { success: true, mantenimientoId };
+}
+
+async function resolverMantenimientoIdB2C(
+  supabase: ReturnType<typeof createClient>,
+  vehiculoId: string,
+  userId: string
+): Promise<{ success: true; mantenimientoId: string } | { success: false; error: string }> {
+  const { data: existente, error: buscarError } = await supabase
+    .from("mantenimientos")
+    .select("id")
+    .eq("vehiculo_id", vehiculoId)
+    .is("taller_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (buscarError) {
+    return { success: false, error: buscarError.message };
+  }
+
+  if (existente) {
+    return { success: true, mantenimientoId: existente.id };
+  }
+
+  const { data: vehiculo, error: vehError } = await supabase
+    .from("vehiculos")
+    .select("id, placa, kilometraje_ultimo, horas_motor_ultimo, unidad_odometro, user_id")
+    .eq("id", vehiculoId)
+    .maybeSingle();
+
+  if (vehError || !vehiculo || vehiculo.user_id !== userId) {
+    return { success: false, error: "Vehículo no encontrado" };
+  }
+
+  const kilometraje =
+    vehiculo.unidad_odometro === "km" ? vehiculo.kilometraje_ultimo : null;
+
+  const { data: nuevo, error: insertError } = await supabase
+    .from("mantenimientos")
+    .insert({
+      taller_id: null,
+      vehiculo_id: vehiculo.id,
+      placa: vehiculo.placa,
+      kilometraje,
+      descripcion: "Estado del vehículo",
+      descripcion_servicio: "Estado del vehículo",
+      detalle_revision: {},
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !nuevo) {
+    return { success: false, error: insertError?.message ?? "No se pudo crear registro" };
+  }
+
+  return { success: true, mantenimientoId: nuevo.id };
+}
+
+export async function actualizarCategoriaVehiculoPorVehiculo(
+  vehiculoId: string,
+  categoria: CategoriaVehiculoId,
+  data: CategoriaVehiculo
+): Promise<RevisionActionResult> {
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: "Debes iniciar sesión" };
+  }
+
+  const [perfil, tieneVinculoTaller] = await Promise.all([
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+    return {
+      success: false,
+      error: "Necesitas SmartTaller Pro para actualizar el estado.",
+    };
+  }
+
+  const supabase = createClient();
+
+  const { data: vehiculo, error: vehError } = await supabase
+    .from("vehiculos")
+    .select("id, user_id")
+    .eq("id", vehiculoId)
+    .maybeSingle();
+
+  if (vehError || !vehiculo || vehiculo.user_id !== user.id) {
+    return { success: false, error: "Vehículo no encontrado" };
+  }
+
+  const resuelto = await resolverMantenimientoIdB2C(supabase, vehiculoId, user.id);
+  if (!resuelto.success) {
+    return resuelto;
+  }
+
+  return actualizarCategoriaVehiculo(resuelto.mantenimientoId, categoria, data);
 }

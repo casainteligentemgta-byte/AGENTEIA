@@ -11,6 +11,7 @@ export type MantenimientoHistorial = {
   costo: number | null;
   taller_id: string | null;
   taller_nombre: string | null;
+  detalle_revision: Record<string, unknown> | null;
 };
 
 export type RecordatorioUsuario = {
@@ -27,6 +28,7 @@ export type ResumenTallerVehiculo = {
   ultimaVisitaKm: number | null;
   ultimoCentro: string | null;
   proximoRecordatorio: RecordatorioUsuario | null;
+  recordatoriosPendientes: RecordatorioUsuario[];
   mantenimientos: MantenimientoHistorial[];
 };
 
@@ -47,7 +49,7 @@ export async function getResumenTallerVehiculo(
   const { data: mantenimientos, error } = await supabase
     .from("mantenimientos")
     .select(
-      "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, taller_id"
+      "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, taller_id, detalle_revision"
     )
     .eq("vehiculo_id", vehiculoId)
     .order("created_at", { ascending: false })
@@ -62,6 +64,7 @@ export async function getResumenTallerVehiculo(
       ultimaVisitaKm: null,
       ultimoCentro: null,
       proximoRecordatorio: null,
+      recordatoriosPendientes: [],
       mantenimientos: [],
     };
   }
@@ -92,6 +95,10 @@ export async function getResumenTallerVehiculo(
     costo: m.costo,
     taller_id: m.taller_id,
     taller_nombre: m.taller_id ? talleresMap.get(m.taller_id) ?? null : null,
+    detalle_revision:
+      m.detalle_revision && typeof m.detalle_revision === "object"
+        ? (m.detalle_revision as Record<string, unknown>)
+        : null,
   }));
 
   const ultimo = historial[0] ?? null;
@@ -101,10 +108,16 @@ export async function getResumenTallerVehiculo(
     .select("id, fecha_programada, kilometraje_objetivo, estado")
     .eq("vehiculo_id", vehiculoId)
     .in("estado", ["pendiente", "enviado"])
-    .order("fecha_programada", { ascending: true })
-    .limit(1);
+    .order("fecha_programada", { ascending: true });
 
-  const proximo = recordatorios?.[0] ?? null;
+  const recordatoriosPendientes: RecordatorioUsuario[] = (recordatorios ?? []).map((r) => ({
+    id: r.id,
+    fecha_programada: r.fecha_programada,
+    kilometraje_objetivo: r.kilometraje_objetivo,
+    estado: r.estado,
+  }));
+
+  const proximo = recordatoriosPendientes[0] ?? null;
 
   return {
     vinculado: historial.length > 0,
@@ -112,14 +125,8 @@ export async function getResumenTallerVehiculo(
     ultimaVisita: ultimo ? formatFechaCorta(ultimo.created_at) : null,
     ultimaVisitaKm: ultimo?.kilometraje ?? null,
     ultimoCentro: ultimo?.taller_nombre ?? null,
-    proximoRecordatorio: proximo
-      ? {
-          id: proximo.id,
-          fecha_programada: proximo.fecha_programada,
-          kilometraje_objetivo: proximo.kilometraje_objetivo,
-          estado: proximo.estado,
-        }
-      : null,
+    proximoRecordatorio: proximo,
+    recordatoriosPendientes,
     mantenimientos: historial,
   };
 }

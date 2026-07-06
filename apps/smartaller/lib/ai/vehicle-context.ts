@@ -8,6 +8,7 @@ import {
   getValorOdometro,
 } from "@/lib/vehicles/format";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { buildVehicleHealthSummary, formatEstadoSalud } from "@/lib/vehicles/vehicle-health";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 
 export type VehicleChatContext = {
@@ -18,6 +19,7 @@ export type VehicleChatContext = {
   odometroTexto: string;
   modulos: string[];
   resumen: ResumenTallerVehiculo;
+  salud: ReturnType<typeof buildVehicleHealthSummary>;
 };
 
 function formatRecordatorio(
@@ -69,6 +71,7 @@ export async function buildVehicleChatContext(
   const resumen = await getResumenTallerVehiculo(vehiculoId, vehiculo.placa);
   const config = getConfigTipoVehiculo(vehiculo.tipo_vehiculo);
   const odometro = getValorOdometro(vehiculo);
+  const salud = buildVehicleHealthSummary(vehiculo.tipo_vehiculo, resumen, odometro);
 
   return {
     vehiculo,
@@ -78,6 +81,7 @@ export async function buildVehicleChatContext(
     odometroTexto: formatOdometro(odometro, vehiculo.unidad_odometro),
     modulos: config.modulos.map((m) => m.label),
     resumen,
+    salud,
   };
 }
 
@@ -108,6 +112,10 @@ export function formatVehicleContextBlock(context: VehicleChatContext): string {
       )
     : "Ninguno programado";
 
+  const lineasSalud = context.salud.categorias
+    .filter((c) => c.estado != null)
+    .map((c) => `${c.label}: ${formatEstadoSalud(c.estado)}`);
+
   return [
     `Nombre / apodo: ${nick}`,
     `Tipo: ${context.tipoLabel}`,
@@ -120,6 +128,9 @@ export function formatVehicleContextBlock(context: VehicleChatContext): string {
     `Estado taller: ${vinculacion}`,
     `Última visita: ${ultimaVisita}`,
     `Próximo recordatorio: ${recordatorio}`,
+    lineasSalud.length > 0
+      ? `Estado por categoría: ${lineasSalud.join("; ")}`
+      : "Estado por categoría: sin datos suficientes",
     "",
     "Historial reciente:",
     formatHistorialResumido(resumen),

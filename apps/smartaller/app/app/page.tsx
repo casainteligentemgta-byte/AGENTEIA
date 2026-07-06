@@ -3,17 +3,22 @@ import { Plus } from "lucide-react";
 import { AppHeader } from "@/components/app/app-header";
 import { AppActionButtons } from "@/components/app/app-action-buttons";
 import { AppTabs } from "@/components/app/app-tabs";
+import { AlertasBanner } from "@/components/app/alertas-banner";
 import { VehicleCard } from "@/components/app/vehicle-card";
+import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboard";
 import { PaywallScreen } from "@/components/app/paywall-screen";
 import { SubscriptionNotice } from "@/components/app/subscription-notice";
 import { ManageSubscriptionButton } from "@/components/app/manage-subscription-button";
+import { getAlertasUsuario } from "@/lib/data/alertas";
+import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
 import { getUserVehiculos } from "@/lib/data/user-vehicles";
-import { countRecordatoriosPendientesPorPlaca } from "@/lib/data/vehicle-history";
 import {
   getOrEnsurePerfil,
   perfilSuscripcionVigente,
   usuarioTieneVehiculoTaller,
 } from "@/lib/data/perfil";
+import { getEtiquetaVehiculo, getValorOdometro } from "@/lib/vehicles/format";
+import { buildVehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
 import { isStripeConfigured } from "@/lib/stripe/config";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +28,11 @@ type PageProps = {
 };
 
 export default async function AppHomePage({ searchParams }: PageProps) {
-  const [vehiculos, perfil, tieneVinculoTaller] = await Promise.all([
+  const [vehiculos, perfil, tieneVinculoTaller, alertas] = await Promise.all([
     getUserVehiculos(),
     getOrEnsurePerfil(),
     usuarioTieneVehiculoTaller(),
+    getAlertasUsuario(8),
   ]);
 
   const suscripcionOk = perfil ? perfilSuscripcionVigente(perfil) : false;
@@ -42,12 +48,22 @@ export default async function AppHomePage({ searchParams }: PageProps) {
     );
   }
 
-  const vehiculosConRecordatorios = await Promise.all(
-    vehiculos.map(async (v) => ({
-      vehiculo: v,
-      pendientes: await countRecordatoriosPendientesPorPlaca(v.id, v.placa),
-    }))
+  const vehiculosConSalud = await Promise.all(
+    vehiculos.map(async (vehiculo) => {
+      const resumen = await getResumenTallerVehiculo(vehiculo.id, vehiculo.placa);
+      const kmActual = getValorOdometro(vehiculo);
+      const salud = buildVehicleHealthSummary(vehiculo.tipo_vehiculo, resumen, kmActual);
+      const alertasVehiculo = alertas.filter((a) => a.vehiculoId === vehiculo.id).length;
+      return {
+        vehiculo,
+        salud,
+        titulo: getEtiquetaVehiculo(vehiculo),
+        alertasUrgentes: alertasVehiculo,
+      };
+    })
   );
+
+  const vehiculoUnico = vehiculosConSalud.length === 1 ? vehiculosConSalud[0] : null;
 
   return (
     <>
@@ -58,6 +74,18 @@ export default async function AppHomePage({ searchParams }: PageProps) {
         <div className="mb-3 flex justify-end">
           <ManageSubscriptionButton tieneStripe={Boolean(perfil?.stripe_customer_id)} />
         </div>
+
+        <AlertasBanner alertas={alertas} />
+
+        {vehiculoUnico && (
+          <div className="mb-4">
+            <VehicleHealthDashboard
+              salud={vehiculoUnico.salud}
+              tituloVehiculo={vehiculoUnico.titulo}
+            />
+          </div>
+        )}
+
         <AppActionButtons />
 
         <div className="my-5">
@@ -65,7 +93,7 @@ export default async function AppHomePage({ searchParams }: PageProps) {
         </div>
 
         <div className="space-y-4 rounded-3xl bg-[#0f1f38]/90 p-4 ring-1 ring-white/5">
-          {vehiculosConRecordatorios.length === 0 ? (
+          {vehiculosConSalud.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-600/60 px-6 py-12 text-center">
               <p className="text-zinc-200">Aún no tienes vehículos registrados</p>
               <p className="mt-2 text-sm text-zinc-500">
@@ -80,11 +108,12 @@ export default async function AppHomePage({ searchParams }: PageProps) {
               </Link>
             </div>
           ) : (
-            vehiculosConRecordatorios.map(({ vehiculo, pendientes }) => (
+            vehiculosConSalud.map(({ vehiculo, salud, alertasUrgentes }) => (
               <VehicleCard
                 key={vehiculo.id}
                 vehiculo={vehiculo}
-                recordatoriosPendientes={pendientes}
+                salud={salud}
+                alertasUrgentes={alertasUrgentes}
               />
             ))
           )}

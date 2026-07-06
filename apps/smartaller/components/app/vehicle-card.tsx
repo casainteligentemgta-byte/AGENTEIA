@@ -1,17 +1,43 @@
 import Link from "next/link";
 import { CalendarClock, Pencil } from "lucide-react";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
+import type { EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import { getEtiquetaTipo, getEtiquetaVehiculo } from "@/lib/vehicles/format";
+import { formatEstadoSalud, type VehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
 import { VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+const DOT_ESTADO: Record<EstadoCategoriaValue, string> = {
+  bien: "bg-emerald-500",
+  atencion: "bg-amber-500",
+  critico: "bg-red-500",
+};
 
 type VehicleCardProps = {
   vehiculo: VehiculoUsuario;
-  recordatoriosPendientes?: number;
+  salud?: VehicleHealthSummary;
+  alertasUrgentes?: number;
 };
 
-export function VehicleCard({ vehiculo, recordatoriosPendientes = 0 }: VehicleCardProps) {
+export function VehicleCard({
+  vehiculo,
+  salud,
+  alertasUrgentes = 0,
+}: VehicleCardProps) {
   const titulo = getEtiquetaVehiculo(vehiculo);
   const lineaMarca = [vehiculo.marca, vehiculo.modelo].filter(Boolean).join(" — ");
+
+  const badgeVariant =
+    salud?.peorEstado === "critico"
+      ? "danger"
+      : salud?.peorEstado === "atencion"
+        ? "warning"
+        : salud?.peorEstado === "bien"
+          ? "success"
+          : "default";
+
+  const notificaciones = alertasUrgentes > 0 ? alertasUrgentes : salud?.recordatoriosUrgentes ?? 0;
 
   return (
     <Link
@@ -23,7 +49,16 @@ export function VehicleCard({ vehiculo, recordatoriosPendientes = 0 }: VehicleCa
           <VehicleTypeIcon tipo={vehiculo.tipo_vehiculo} className="h-12 w-12" />
         </div>
         <div className="min-w-0 flex-1 py-0.5">
-          <p className="truncate text-base font-bold text-zinc-900">{titulo}</p>
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 truncate text-base font-bold text-zinc-900">{titulo}</p>
+            {salud?.peorEstado && (
+              <span className="shrink-0">
+                <Badge variant={badgeVariant}>
+                  {formatEstadoSalud(salud.peorEstado)}
+                </Badge>
+              </span>
+            )}
+          </div>
           {lineaMarca && (
             <p className="truncate text-sm text-zinc-700">{lineaMarca}</p>
           )}
@@ -36,13 +71,35 @@ export function VehicleCard({ vehiculo, recordatoriosPendientes = 0 }: VehicleCa
           <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-800">
             {vehiculo.placa}
           </p>
+
+          {salud && salud.categorias.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {salud.categorias.map((cat) => (
+                <span
+                  key={cat.id}
+                  title={`${cat.label}: ${formatEstadoSalud(cat.estado)}`}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      cat.estado ? DOT_ESTADO[cat.estado] : "bg-zinc-300"
+                    )}
+                  />
+                  {cat.label.split(" ")[0]}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end justify-between py-0.5">
           <span className="relative flex h-10 w-10 items-center justify-center text-zinc-800">
             <CalendarClock className="h-6 w-6" strokeWidth={1.75} />
-            {recordatoriosPendientes > 0 && (
+            {notificaciones > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
-                {recordatoriosPendientes}
+                {notificaciones}
               </span>
             )}
           </span>
