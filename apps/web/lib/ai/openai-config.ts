@@ -12,18 +12,6 @@ export function getOpenAIBaseURL(): string | undefined {
   return isOpenRouterKey() ? "https://openrouter.ai/api/v1" : undefined;
 }
 
-/** OpenRouter exige Referer; mejora compatibilidad en Vercel. */
-export function getOpenRouterHeaders(): Record<string, string> | undefined {
-  if (!isOpenRouterKey()) return undefined;
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3002");
-  return {
-    "HTTP-Referer": siteUrl,
-    "X-Title": process.env.NEXT_PUBLIC_AGENT_NAME?.trim() || "Agente IA",
-  };
-}
-
 /** Modelo de chat según proveedor. */
 export function getChatModelId(): string {
   return isOpenRouterKey() ? "openai/gpt-4o-mini" : "gpt-4o-mini";
@@ -41,14 +29,16 @@ export function isLlmConfigured(): boolean {
   return key.length > 20;
 }
 
-/** Headers recomendados para OpenRouter (ranking y políticas del proveedor). */
+/** Headers recomendados para OpenRouter (Referer exigido; mejora compatibilidad en Vercel). */
 export function getOpenRouterHeaders(): Record<string, string> | undefined {
   if (!isOpenRouterKey()) return undefined;
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.VERCEL_URL?.trim();
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ??
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3002");
+  const siteUrl = raw.startsWith("http") ? raw : `https://${raw.replace(/^https?:\/\//, "")}`;
   return {
-    "HTTP-Referer": appUrl ? `https://${appUrl.replace(/^https?:\/\//, "")}` : "https://agente-ia.local",
+    "HTTP-Referer": siteUrl,
     "X-Title": process.env.NEXT_PUBLIC_AGENT_NAME?.trim() || "Agente IA",
   };
 }
