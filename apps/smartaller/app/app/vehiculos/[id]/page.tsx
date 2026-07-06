@@ -4,6 +4,7 @@ import { AppVehicleFooter } from "@/components/app/app-vehicle-footer";
 import { MantenimientoB2cForm } from "@/components/app/mantenimiento-b2c-form";
 import { OdometerCard } from "@/components/app/odometer-card";
 import { MaintenanceModuleCard } from "@/components/app/maintenance-module-card";
+import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboard";
 import { VisitHistory } from "@/components/app/visit-history";
 import { WheelsGrid } from "@/components/app/wheels-grid";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/data/perfil";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { getEtiquetaVehiculo, getSubtituloVehiculo, getValorOdometro } from "@/lib/vehicles/format";
+import { buildVehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 
 export const dynamic = "force-dynamic";
@@ -60,12 +62,15 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
   const tieneNeumaticos = config.modulos.some((m) => m.id === "neumaticos");
 
   const ultimoCentro = resumen.ultimoCentro ?? null;
+  const salud = buildVehicleHealthSummary(vehiculo.tipo_vehiculo, resumen, kmActual);
 
   return (
     <div className="app-bg-light min-h-screen text-zinc-900">
       <AppHeader variant="light" centered />
 
       <main className="space-y-4 px-4 pb-28 pt-2">
+        <VehicleHealthDashboard salud={salud} tituloVehiculo={titulo} />
+
         <OdometerCard
           vehiculo={vehiculo}
           ultimaVisita={resumen.ultimaVisita}

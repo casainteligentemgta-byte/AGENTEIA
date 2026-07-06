@@ -1,3 +1,6 @@
+import type { ModuloMantenimiento } from "@/lib/vehicles/types";
+import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
+import { PALABRAS_MODULO } from "@/lib/vehicles/module-keywords";
 import {
   Battery,
   CircleDot,
@@ -10,8 +13,6 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import type { ModuloMantenimiento } from "@/lib/vehicles/types";
-import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
 
 const ICONOS: Record<string, React.ComponentType<{ className?: string }>> = {
   aceite: Droplets,
@@ -26,21 +27,6 @@ const ICONOS: Record<string, React.ComponentType<{ className?: string }>> = {
   hidraulico: Zap,
   filtros: Filter,
   orugas: Settings2,
-};
-
-const PALABRAS_MODULO: Record<string, string[]> = {
-  aceite: ["aceite", "lubric", "oil"],
-  neumaticos: ["neumático", "neumatico", "caucho", "llanta", "tire"],
-  balanceo: ["balanceo", "balance"],
-  rotacion: ["rotación", "rotacion"],
-  alineacion: ["alineación", "alineacion"],
-  bateria: ["batería", "bateria"],
-  fluidos: ["fluido", "refrigerante", "freno"],
-  cadena: ["cadena", "transmisión", "transmision"],
-  frenos: ["freno", "pastilla", "disco"],
-  hidraulico: ["hidráulico", "hidraulico"],
-  filtros: ["filtro"],
-  orugas: ["oruga", "tren de rodaje"],
 };
 
 const KM_PROXIMO_DEFAULT = 5000;
