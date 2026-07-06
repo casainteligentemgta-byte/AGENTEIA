@@ -308,3 +308,101 @@ export async function actualizarCategoriaVehiculo(
 
   return { success: true, mantenimientoId };
 }
+
+async function resolverMantenimientoIdB2C(
+  supabase: ReturnType<typeof createClient>,
+  vehiculoId: string,
+  userId: string
+): Promise<{ success: true; mantenimientoId: string } | { success: false; error: string }> {
+  const { data: existente, error: buscarError } = await supabase
+    .from("mantenimientos")
+    .select("id")
+    .eq("vehiculo_id", vehiculoId)
+    .is("taller_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (buscarError) {
+    return { success: false, error: buscarError.message };
+  }
+
+  if (existente) {
+    return { success: true, mantenimientoId: existente.id };
+  }
+
+  const { data: vehiculo, error: vehError } = await supabase
+    .from("vehiculos")
+    .select("id, placa, kilometraje_ultimo, horas_motor_ultimo, unidad_odometro, user_id")
+    .eq("id", vehiculoId)
+    .maybeSingle();
+
+  if (vehError || !vehiculo || vehiculo.user_id !== userId) {
+    return { success: false, error: "Vehículo no encontrado" };
+  }
+
+  const kilometraje =
+    vehiculo.unidad_odometro === "km" ? vehiculo.kilometraje_ultimo : null;
+
+  const { data: nuevo, error: insertError } = await supabase
+    .from("mantenimientos")
+    .insert({
+      taller_id: null,
+      vehiculo_id: vehiculo.id,
+      placa: vehiculo.placa,
+      kilometraje,
+      descripcion: "Estado del vehículo",
+      descripcion_servicio: "Estado del vehículo",
+      detalle_revision: {},
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !nuevo) {
+    return { success: false, error: insertError?.message ?? "No se pudo crear registro" };
+  }
+
+  return { success: true, mantenimientoId: nuevo.id };
+}
+
+export async function actualizarCategoriaVehiculoPorVehiculo(
+  vehiculoId: string,
+  categoria: CategoriaVehiculoId,
+  data: CategoriaVehiculo
+): Promise<RevisionActionResult> {
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: "Debes iniciar sesión" };
+  }
+
+  const [perfil, tieneVinculoTaller] = await Promise.all([
+    getOrEnsurePerfil(),
+    usuarioTieneVehiculoTaller(),
+  ]);
+
+  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+    return {
+      success: false,
+      error: "Necesitas SmartTaller Pro para actualizar el estado.",
+    };
+  }
+
+  const supabase = createClient();
+
+  const { data: vehiculo, error: vehError } = await supabase
+    .from("vehiculos")
+    .select("id, user_id")
+    .eq("id", vehiculoId)
+    .maybeSingle();
+
+  if (vehError || !vehiculo || vehiculo.user_id !== user.id) {
+    return { success: false, error: "Vehículo no encontrado" };
+  }
+
+  const resuelto = await resolverMantenimientoIdB2C(supabase, vehiculoId, user.id);
+  if (!resuelto.success) {
+    return resuelto;
+  }
+
+  return actualizarCategoriaVehiculo(resuelto.mantenimientoId, categoria, data);
+}

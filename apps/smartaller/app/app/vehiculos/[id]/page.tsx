@@ -5,6 +5,7 @@ import { MantenimientoB2cForm } from "@/components/app/mantenimiento-b2c-form";
 import { OdometerCard } from "@/components/app/odometer-card";
 import { MaintenanceModuleCard } from "@/components/app/maintenance-module-card";
 import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboard";
+import { CategoriaVehiculoPanel } from "@/components/app/categoria-vehiculo-panel";
 import { VisitHistory } from "@/components/app/visit-history";
 import { WheelsGrid } from "@/components/app/wheels-grid";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
@@ -51,6 +52,9 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
     !resumen.vinculado &&
     (tieneVinculoTaller || (perfil != null && perfilSuscripcionVigente(perfil)));
 
+  const puedeEditarCategorias =
+    tieneVinculoTaller || (perfil != null && perfilSuscripcionVigente(perfil));
+
   const vehiculo = vehiculoConOdometroTaller(vehiculoBase, resumen.ultimaVisitaKm);
   const kmActual = getValorOdometro(vehiculo);
 
@@ -70,6 +74,10 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
 
       <main className="space-y-4 px-4 pb-28 pt-2">
         <VehicleHealthDashboard salud={salud} tituloVehiculo={titulo} />
+
+        {puedeEditarCategorias && (
+          <CategoriaVehiculoPanel vehiculoId={vehiculo.id} categorias={salud.categorias} />
+        )}
 
         <OdometerCard
           vehiculo={vehiculo}
