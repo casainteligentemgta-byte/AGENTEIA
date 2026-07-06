@@ -3,7 +3,7 @@ import { z } from "zod";
 export const EstadoCategoria = z.enum(["bien", "atencion", "critico"]);
 export type EstadoCategoriaValue = z.infer<typeof EstadoCategoria>;
 
-const CategoriaVehiculoSchema = z.object({
+export const CategoriaVehiculoSchema = z.object({
   estado: EstadoCategoria,
   fecha_revision: z.string().date().nullable().optional(),
   notas: z.string().optional(),
