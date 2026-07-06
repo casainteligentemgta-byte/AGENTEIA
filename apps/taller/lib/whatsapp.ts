@@ -46,6 +46,11 @@ export function buildConfirmacionWhatsApp(params: {
   nombre: string;
   placa: string;
   fechaProximoServicio: string;
+  portalUrl?: string;
 }): string {
-  return `Hola ${params.nombre}, tu vehículo ${params.placa} ha sido registrado en el taller. Tu próximo servicio está programado para el ${params.fechaProximoServicio}.`;
+  const base = `Hola ${params.nombre}, tu vehículo ${params.placa} ha sido registrado en el taller. Tu próximo servicio está programado para el ${params.fechaProximoServicio}.`;
+  if (params.portalUrl) {
+    return `${base}\n\nConsulta tu historial aquí: ${params.portalUrl}`;
+  }
+  return base;
 }

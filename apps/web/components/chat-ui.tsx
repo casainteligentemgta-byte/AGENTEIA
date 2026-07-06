@@ -18,7 +18,10 @@ export function ChatUI({
   className = "",
   emptyMessage = "Envía un mensaje para empezar.",
 }: ChatUIProps) {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({ api });
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
+    api,
+    onError: (err) => console.error("[ChatUI]", err),
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +36,9 @@ export function ChatUI({
       >
         {error && (
           <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
-            {error.message}
+            {error.message === "An error occurred."
+              ? "Error en el chat. Revisa OPENAI_API_KEY en Vercel, créditos OpenRouter, o recarga la página."
+              : error.message}
           </div>
         )}
         {messages.length === 0 && !error && (

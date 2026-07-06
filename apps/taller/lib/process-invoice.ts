@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FacturaExtraida } from "@/lib/extract-invoice";
 import { buildFacturaProcesadaMessage } from "@/lib/extract-invoice";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientePortalUrl } from "@/lib/format";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
 
@@ -172,6 +173,7 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
       nombre,
       placa: extraido.placa,
       fechaProximoServicio: fechaFormateada,
+      portalUrl: getClientePortalUrl(extraido.placa),
     });
     const { ok, error } = await enviarWhatsApp(telefono, mensaje);
     whatsappEnviado = ok;

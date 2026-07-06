@@ -3,8 +3,10 @@ import {
   getChatModelId,
   getLlmApiKey,
   getOpenAIBaseURL,
+  getOpenRouterHeaders,
   isLlmConfigured,
 } from "@/lib/ai/openai-config";
+import { getMessageText } from "@/lib/ai/chat-messages";
 import {
   streamText,
   tool,
@@ -206,7 +208,17 @@ const agentTools = {
 const openai = createOpenAI({
   apiKey: getLlmApiKey(),
   baseURL: getOpenAIBaseURL(),
+  headers: getOpenRouterHeaders(),
 });
+
+/** Normaliza UIMessage (content o parts) para convertToCoreMessages. */
+function normalizeForCore(messages: UIMessage[]): UIMessage[] {
+  return messages.map((m) => {
+    if (m.parts && m.parts.length > 0) return m;
+    const text = getMessageText(m as Parameters<typeof getMessageText>[0]);
+    return { ...m, parts: [{ type: "text" as const, text }] };
+  });
+}
 
 /**
  * Detecta si el mensaje del usuario contiene información valiosa para recordar:
@@ -276,14 +288,18 @@ export async function POST(req: Request) {
     const result = streamText({
       model: openai(getChatModelId()),
       system: systemPrompt,
-      messages: convertToCoreMessages(messages),
+      messages: convertToCoreMessages(normalizeForCore(messages)),
       tools: agentTools,
       maxSteps: 5,
     });
 
-    return result.toDataStreamResponse();
+    return result.toDataStreamResponse({
+      getErrorMessage: (error) =>
+        error instanceof Error ? error.message : "Error al generar respuesta del agente",
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error en el chat";
+    console.error("[api/chat]", message, err);
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { "Content-Type": "application/json" } }
