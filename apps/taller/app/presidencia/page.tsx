@@ -9,6 +9,7 @@ import {
   fetchRecordatoriosProximos,
   getTallerNombre,
 } from "@/lib/data/presidencia";
+import type { Mantenimiento, PresidenciaStats, RecordatorioConPlaca } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,9 @@ export default async function PresidenciaPage() {
     );
   }
 
-  let stats;
-  let mantenimientos;
-  let recordatorios;
+  let stats: PresidenciaStats;
+  let mantenimientos: Mantenimiento[];
+  let recordatorios: RecordatorioConPlaca[];
   let error: string | null = null;
 
   try {
