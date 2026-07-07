@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/landing/navbar";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { B2bHero } from "@/components/landing/b2b-hero";
+import { PlatformAbout } from "@/components/landing/platform-about";
 import { B2bFeatures } from "@/components/landing/b2b-features";
 import { B2bIndustries } from "@/components/landing/b2b-industries";
 import { B2bFaq } from "@/components/landing/b2b-faq";
@@ -18,6 +19,7 @@ export default function ParaTalleresPage() {
       <Navbar active="talleres" />
       <main>
         <B2bHero />
+        <PlatformAbout />
         <B2bFeatures />
         <HowItWorks />
         <B2bIndustries />

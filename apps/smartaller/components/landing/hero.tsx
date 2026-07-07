@@ -9,10 +9,6 @@ export function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-3xl text-center animate-fade-in">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300">
-            <Sparkles className="h-4 w-4" />
-            IA + Telegram para talleres mecánicos
-          </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
             Tu taller,{" "}
             <span className="gradient-text">inteligente</span>
