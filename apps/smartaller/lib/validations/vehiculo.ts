@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { TIPOS_VEHICULO } from "@/lib/vehicles/types";
+import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 
 export const updateVehiculoContactoSchema = z.object({
   vehiculoId: z.string().uuid("ID de vehículo inválido"),
@@ -18,3 +20,48 @@ export const recordatorioEstadoSchema = z.object({
   recordatorioId: z.string().uuid("ID de recordatorio inválido"),
   estado: z.enum(["completado", "cancelado", "pendiente"]),
 });
+
+export const createVehiculoTallerSchema = z
+  .object({
+    tipo_vehiculo: z.enum(TIPOS_VEHICULO),
+    placa: z
+      .string()
+      .trim()
+      .min(2, "La placa o identificador es obligatorio")
+      .max(20, "Máximo 20 caracteres")
+      .transform((v) => v.toUpperCase()),
+    marca: z.string().trim().max(80).optional().or(z.literal("")),
+    modelo: z.string().trim().max(80).optional().or(z.literal("")),
+    color: z.string().trim().max(40).optional().or(z.literal("")),
+    nombreCliente: z
+      .string()
+      .trim()
+      .min(1, "Ingresa el nombre del comprador")
+      .max(120),
+    telefonoCliente: z
+      .string()
+      .trim()
+      .min(7, "Ingresa un teléfono válido")
+      .max(20),
+    odometro: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .transform((v) => {
+        if (!v || v.trim() === "") return null;
+        const n = Number(v.replace(/\./g, "").replace(",", "."));
+        return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+      }),
+  })
+  .superRefine((data, ctx) => {
+    const config = getConfigTipoVehiculo(data.tipo_vehiculo);
+    if (config.unidadOdometro === "horas" && data.odometro != null && data.odometro > 100000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Revisa las horas de motor ingresadas",
+        path: ["odometro"],
+      });
+    }
+  });
+
+export type CreateVehiculoTallerInput = z.input<typeof createVehiculoTallerSchema>;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { getVehiculos } from "@/lib/data/dashboard";
 import { formatDate, formatKm, formatOdometroDashboard } from "@/lib/utils";
 import { getEtiquetaTipo } from "@/lib/vehicles/format";
@@ -12,9 +12,18 @@ export default async function VehiculosPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Vehículos</h1>
-        <p className="mt-1 text-zinc-500">Flota registrada en tu taller</p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Vehículos</h1>
+          <p className="mt-1 text-zinc-500">Flota registrada en tu taller o concesionario</p>
+        </div>
+        <Link
+          href="/dashboard/vehiculos/nuevo"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+        >
+          <Plus className="h-4 w-4" />
+          Registrar vehículo
+        </Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -22,8 +31,15 @@ export default async function VehiculosPage() {
           <div className="glass col-span-full rounded-2xl px-5 py-16 text-center">
             <p className="text-zinc-400">No hay vehículos registrados</p>
             <p className="mt-1 text-sm text-zinc-600">
-              Se crean automáticamente al procesar una factura
+              Regístralos al vender o también se crean al procesar una factura por Telegram
             </p>
+            <Link
+              href="/dashboard/vehiculos/nuevo"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
+            >
+              <Plus className="h-4 w-4" />
+              Registrar primer vehículo
+            </Link>
           </div>
         ) : (
           vehiculos.map((v) => (
