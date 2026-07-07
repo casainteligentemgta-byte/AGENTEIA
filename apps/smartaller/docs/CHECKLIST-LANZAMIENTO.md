@@ -105,7 +105,7 @@ Usar `supabase/pc-deploy/05-verificar-indice-telegram.sql`
 
 ### 2.6 Multi-taller
 
-- [ ] Ejecutar `supabase/verificar-multi-taller.sql` → todos los checks en OK
+- [ ] Ejecutar `supabase/pc-deploy/07-verificar-multi-taller.sql` → todos los checks en OK
 
 ---
 
@@ -319,6 +319,7 @@ Marca la decisión tomada:
 - [x] Actualizar `setup-completo.sql` con las 6 migraciones faltantes
 - [ ] Actualizar `CRONOGRAMA.md` (sigue en PR #9)
 - [x] `error.tsx` / `not-found.tsx` globales
+- [x] Script QA local (`npm run qa`)
 - [ ] Tests smoke en CI
 
 ---

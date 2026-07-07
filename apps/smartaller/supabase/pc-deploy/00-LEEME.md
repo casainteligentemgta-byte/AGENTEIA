@@ -14,6 +14,7 @@ Actualizado: 7 jul 2026 (a partir del `setup-completo.sql` completo).
 | **Ya ejecutaste `setup-completo` antiguo** (solo hasta 4 jul) | `01-parche-migraciones-jul5-a-jul10.sql` |
 | **Solo falta Stripe** (tienes plataforma híbrida) | `../deploy-stripe.sql` |
 | **Verificar que todo quedó bien** | `02` → `05` en orden |
+| **Multi-taller** | `07-verificar-multi-taller.sql` |
 | **Demo SmartBike** (opcional) | `06-seed-smartbike-opcional.sql` |
 
 ---
@@ -26,11 +27,13 @@ Actualizado: 7 jul 2026 (a partir del `setup-completo.sql` completo).
 3. `03-verificar-tablas-nuevas.sql`
 4. `04-verificar-bucket-diagnosticos.sql`
 5. `05-verificar-indice-telegram.sql`
-6. (opcional) `06-seed-smartbike-opcional.sql`
+6. `07-verificar-multi-taller.sql`
+7. (opcional) `06-seed-smartbike-opcional.sql`
 
 ### Solo actualizar base existente (tenías hasta jul 4)
 1. `01-parche-migraciones-jul5-a-jul10.sql`
 2. Verificaciones `02` → `05`
+3. `07-verificar-multi-taller.sql`
 
 ---
 
