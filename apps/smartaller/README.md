@@ -53,6 +53,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 8. `20250704170000_rls_cleanup.sql` — limpieza RLS legacy, recordatorios por vehiculo_id
 9. `20250706100000_mantenimientos_update_categorias.sql` — RLS UPDATE para escribir `categorias` en B2C/B2B
 10. `20250707100000_bicicopilot.sql` — BiciCopilot: shops, bikes, bike_components, maintenance_protocols
+11. `20250708100000_diagnostico_media.sql` — bucket Storage `diagnosticos` + RLS fotos/videos
 
 **Script único post-PR #9:** `supabase/deploy-pr9.sql` (pegar y ejecutar en SQL Editor si ya tienes las migraciones anteriores).
 
@@ -81,6 +82,14 @@ curl -X POST https://tu-dominio/api/strava/webhook \
 ```
 
 Umbrales de desgaste: amarillo ≥ 80 %, rojo ≥ 95 % (`lib/bicicopilot/component-wear.ts`).
+
+## Diagnóstico visual (fotos y videos)
+
+El taller sube evidencia en **Dashboard → Mantenimientos** (formulario de revisión) o en el detalle de cada servicio en **Vehículos**. Los archivos se guardan en Supabase Storage (`diagnosticos`) y las URLs en `mantenimientos.detalle_revision.media[]`.
+
+El cliente las ve en `/app/vehiculos/[id]` dentro del **Historial transparente**.
+
+**Migración requerida:** `20250708100000_diagnostico_media.sql` (crea el bucket y políticas RLS).
 
 ## Plataforma híbrida B2B / B2C
 

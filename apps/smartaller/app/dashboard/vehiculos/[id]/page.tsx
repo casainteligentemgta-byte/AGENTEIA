@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DiagnosticoGaleria } from "@/components/app/diagnostico-galeria";
+import { DiagnosticoMediaUpload } from "@/components/dashboard/diagnostico-media-upload";
 import { VehiculoEditForm } from "@/components/dashboard/vehiculo-edit-form";
+import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { getVehiculoDetalle } from "@/lib/data/vehiculos";
 import {
   formatCurrency,
@@ -76,7 +79,10 @@ export default async function VehiculoDetallePage({ params }: Props) {
             </p>
           ) : (
             <ul className="space-y-3">
-              {vehiculo.mantenimientos.map((m) => (
+              {vehiculo.mantenimientos.map((m) => {
+                const media = parseMediaFromDetalle(m.detalle_revision);
+
+                return (
                 <li key={m.id} className="glass rounded-2xl p-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -90,8 +96,22 @@ export default async function VehiculoDetallePage({ params }: Props) {
                       Kilometraje: {formatKilometraje(m.kilometraje)}
                     </p>
                   )}
+
+                  {media.length > 0 && (
+                    <div className="mt-4">
+                      <DiagnosticoGaleria
+                        media={media}
+                        variant="dark"
+                        compact
+                        titulo="Evidencia visual"
+                      />
+                    </div>
+                  )}
+
+                  <DiagnosticoMediaUpload mantenimientoId={m.id} compact />
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </section>

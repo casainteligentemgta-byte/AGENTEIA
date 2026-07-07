@@ -22,7 +22,7 @@ export async function getVehiculoDetalle(id: string): Promise<VehiculoDetalle | 
       supabase
         .from("mantenimientos")
         .select(
-          "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, nombre_cliente, telefono_cliente, vehiculo_id"
+          "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, nombre_cliente, telefono_cliente, vehiculo_id, detalle_revision"
         )
         .eq("vehiculo_id", id)
         .order("created_at", { ascending: false }),
