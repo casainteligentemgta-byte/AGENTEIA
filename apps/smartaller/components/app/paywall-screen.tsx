@@ -33,7 +33,7 @@ export function PaywallScreen({ onActivated, stripeEnabled = false }: PaywallScr
   return (
     <main className="flex min-h-[calc(100dvh-5rem)] flex-col items-center justify-center px-6 py-10 text-center">
       <div className="mx-auto max-w-sm">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-lg shadow-brand-600/30">
           <Crown className="h-8 w-8" />
         </div>
 
@@ -45,15 +45,15 @@ export function PaywallScreen({ onActivated, stripeEnabled = false }: PaywallScr
 
         <ul className="mt-6 space-y-2 text-left text-sm text-zinc-300">
           <li className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-blue-400" />
+            <Sparkles className="h-4 w-4 shrink-0 text-brand-400" />
             Registra todos tus activos (auto, bici, maquinaria)
           </li>
           <li className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-blue-400" />
+            <Sparkles className="h-4 w-4 shrink-0 text-brand-400" />
             Anota mantenimientos manualmente
           </li>
           <li className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-blue-400" />
+            <Sparkles className="h-4 w-4 shrink-0 text-brand-400" />
             Sincroniza si tu taller te atiende más adelante
           </li>
         </ul>

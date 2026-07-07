@@ -87,7 +87,7 @@ export default async function DashboardPage() {
             <h2 className="font-semibold">Últimos mantenimientos</h2>
             <Link
               href="/dashboard/mantenimientos"
-              className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
+              className="flex items-center gap-1 text-sm text-brand-400 hover:text-brand-300"
             >
               Ver todos
               <ArrowRight className="h-4 w-4" />
@@ -133,7 +133,7 @@ export default async function DashboardPage() {
             <h2 className="font-semibold">Próximos servicios</h2>
             <Link
               href="/dashboard/recordatorios"
-              className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
+              className="flex items-center gap-1 text-sm text-brand-400 hover:text-brand-300"
             >
               Ver todos
               <ArrowRight className="h-4 w-4" />

@@ -44,7 +44,7 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
             className={cn(
               "flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-center transition",
               selected
-                ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                ? "border-brand-500 bg-brand-500/10 text-brand-300"
                 : "border-zinc-700 bg-zinc-900/50 text-zinc-400 hover:border-zinc-600"
             )}
           >

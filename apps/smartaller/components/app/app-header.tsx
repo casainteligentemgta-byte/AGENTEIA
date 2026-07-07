@@ -27,7 +27,7 @@ export function AppHeader({
       <header
         className={cn(
           "sticky top-0 z-20 px-4 py-4",
-          isLight ? "border-b border-zinc-200/80 bg-[#eef0f3]/95 backdrop-blur-md" : "app-bg-dark border-b border-white/5"
+          isLight ? "border-b border-zinc-200/80 bg-[#eef2f1]/95 backdrop-blur-md" : "app-bg-dark border-b border-white/5"
         )}
       >
         <div className="flex justify-center">
@@ -42,8 +42,8 @@ export function AppHeader({
       className={cn(
         "sticky top-0 z-20 backdrop-blur-md",
         isLight
-          ? "border-b border-zinc-200/80 bg-[#eef0f3]/95"
-          : "border-b border-white/10 bg-[#0a1628]/95"
+          ? "border-b border-zinc-200/80 bg-[#eef2f1]/95"
+          : "border-b border-white/10 bg-[#0b1220]/95"
       )}
     >
       <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-4">
@@ -52,7 +52,7 @@ export function AppHeader({
             href={backHref}
             className={cn(
               "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition",
-              isLight ? "text-blue-600 hover:bg-zinc-200/60" : "text-blue-400 hover:bg-white/5"
+              isLight ? "text-brand-600 hover:bg-zinc-200/60" : "text-brand-400 hover:bg-white/5"
             )}
             aria-label="Volver"
           >

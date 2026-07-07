@@ -26,7 +26,7 @@ export function ServiceCenterCard({
     <article
       className={cn(
         "overflow-hidden rounded-2xl border bg-white shadow-sm transition",
-        selected ? "border-blue-400 ring-2 ring-blue-100" : "border-zinc-200"
+        selected ? "border-brand-400 ring-2 ring-brand-100" : "border-zinc-200"
       )}
     >
       <button type="button" onClick={onSelect} className="block w-full text-left">
@@ -64,7 +64,7 @@ export function ServiceCenterCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition hover:bg-blue-100"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition hover:bg-brand-100"
               aria-label={`Cómo llegar a ${centro.nombre}`}
             >
               <Navigation className="h-5 w-5" />

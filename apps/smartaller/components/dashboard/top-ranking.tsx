@@ -39,7 +39,7 @@ export function TopRanking({ title, items, emptyMessage }: TopRankingProps) {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400"
+                    className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400"
                     style={{ width: `${width}%` }}
                   />
                 </div>

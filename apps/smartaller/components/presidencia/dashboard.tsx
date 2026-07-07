@@ -26,7 +26,7 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
 function EstadoBadge({ estado }: { estado: string }) {
   const styles: Record<string, string> = {
     pendiente: "bg-amber-500/20 text-amber-300",
-    enviado: "bg-blue-500/20 text-blue-300",
+    enviado: "bg-brand-500/20 text-brand-300",
     completado: "bg-emerald-500/20 text-emerald-300",
     cancelado: "bg-zinc-700 text-zinc-400",
   };
@@ -44,7 +44,7 @@ export function PresidenciaDashboard({ stats, mantenimientos, recordatorios, tal
     <div className="space-y-8">
       <header className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-400">Panel de recepción</p>
+          <p className="text-sm font-medium text-brand-400">Panel de recepción</p>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-100 lg:text-4xl">{tallerNombre}</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Servicios vía Telegram · actualización automática cada 30 s
@@ -62,7 +62,7 @@ export function PresidenciaDashboard({ stats, mantenimientos, recordatorios, tal
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Servicios hoy" value={stats.serviciosHoy} accent="text-blue-400" />
+        <StatCard label="Servicios hoy" value={stats.serviciosHoy} accent="text-brand-400" />
         <StatCard label="Servicios este mes" value={stats.serviciosMes} accent="text-zinc-100" />
         <StatCard label="Vehículos registrados" value={stats.vehiculosRegistrados} accent="text-zinc-100" />
         <StatCard label="Recordatorios pendientes" value={stats.recordatoriosPendientes} accent="text-amber-400" />
@@ -94,7 +94,7 @@ export function PresidenciaDashboard({ stats, mantenimientos, recordatorios, tal
                         <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
                           {formatDateTime(m.created_at)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-lg font-bold text-blue-400">
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-lg font-bold text-brand-400">
                           {m.placa ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-zinc-300">{m.nombre_cliente ?? "—"}</td>

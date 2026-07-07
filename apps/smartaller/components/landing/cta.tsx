@@ -5,7 +5,7 @@ export function CTA() {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-950/50 to-zinc-900 p-10 sm:p-16 text-center">
+        <div className="relative overflow-hidden rounded-3xl border border-brand-500/20 bg-gradient-to-br from-brand-950/50 to-zinc-900 p-10 sm:p-16 text-center">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,_rgba(59,130,246,0.15),_transparent_50%)]" />
           <div className="relative">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">

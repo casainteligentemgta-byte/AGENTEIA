@@ -23,11 +23,11 @@ export default function ClientePage() {
 
         <header className="mb-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400">
               <Car className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-medium text-blue-400">Portal del cliente</p>
+              <p className="text-sm font-medium text-brand-400">Portal del cliente</p>
               <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
                 Historial de tu vehículo
               </h1>

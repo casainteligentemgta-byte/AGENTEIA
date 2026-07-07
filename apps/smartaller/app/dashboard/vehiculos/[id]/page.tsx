@@ -45,7 +45,7 @@ export default async function VehiculoDetallePage({ params }: Props) {
 
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-3xl font-bold tracking-wide text-blue-400">{vehiculo.placa}</p>
+          <p className="font-mono text-3xl font-bold tracking-wide text-brand-400">{vehiculo.placa}</p>
           <p className="mt-1 text-zinc-500">
             Kilometraje: {formatKilometraje(vehiculo.kilometraje_ultimo)} · Registrado{" "}
             {formatDate(vehiculo.created_at)}

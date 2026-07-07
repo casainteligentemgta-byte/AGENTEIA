@@ -82,13 +82,13 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
           />
           <button
             type="button"
             onClick={handleSaveNombre}
             disabled={pending}
-            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
           </button>
@@ -104,7 +104,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
           <select
             value={tipoIndustria}
             onChange={(e) => setTipoIndustria(e.target.value as TipoIndustria)}
-            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
           >
             {TIPOS_INDUSTRIA.map((t) => (
               <option key={t} value={t}>
@@ -116,7 +116,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
             type="button"
             onClick={handleSaveIndustria}
             disabled={pending}
-            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
           </button>
@@ -153,7 +153,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
               <li>Copia y envía exactamente este mensaje (no hace falta escribirlo a mano):</li>
             </ol>
             <div className="flex items-center gap-2 rounded-xl bg-zinc-900 p-4">
-              <code className="flex-1 break-all text-sm text-blue-400">
+              <code className="flex-1 break-all text-sm text-brand-400">
                 {codigo ? comando : "Generando código…"}
               </code>
               <button
@@ -170,7 +170,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
                 type="button"
                 onClick={handleRegenerar}
                 disabled={pending}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
               >
                 Generar código ahora
               </button>
@@ -188,7 +188,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
           Abre esta URL en una pantalla o tablet en recepción. Se actualiza sola cada 30 s.
         </p>
         <div className="mt-4 flex items-center gap-2 rounded-xl bg-zinc-900 p-4">
-          <code className="flex-1 break-all text-xs text-blue-400 sm:text-sm">{kioskUrl}</code>
+          <code className="flex-1 break-all text-xs text-brand-400 sm:text-sm">{kioskUrl}</code>
           <button
             type="button"
             onClick={handleCopyKiosk}

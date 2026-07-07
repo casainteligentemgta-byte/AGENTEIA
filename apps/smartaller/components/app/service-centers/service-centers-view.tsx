@@ -18,7 +18,7 @@ const ServiceCenterMap = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full items-center justify-center bg-zinc-200">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
       </div>
     ),
   }
@@ -88,7 +88,7 @@ export function ServiceCentersView({ centros }: ServiceCentersViewProps) {
 
         <Link
           href="/app"
-          className="absolute left-3 top-3 z-[1001] flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-blue-600 shadow-md"
+          className="absolute left-3 top-3 z-[1001] flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-brand-600 shadow-md"
           aria-label="Volver"
         >
           ←
@@ -98,7 +98,7 @@ export function ServiceCentersView({ centros }: ServiceCentersViewProps) {
           type="button"
           onClick={requestLocation}
           disabled={locating}
-          className="absolute right-3 top-3 z-[1001] flex h-10 w-10 items-center justify-center rounded-full bg-white text-blue-600 shadow-md disabled:opacity-60"
+          className="absolute right-3 top-3 z-[1001] flex h-10 w-10 items-center justify-center rounded-full bg-white text-brand-600 shadow-md disabled:opacity-60"
           aria-label="Mi ubicación"
         >
           {locating ? (

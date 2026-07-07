@@ -46,7 +46,7 @@ export default async function TimelinePage({ searchParams }: PageProps) {
 
         <TimelineFiltroCategorias activo={categoriaFiltro} />
 
-        <div className="space-y-3 rounded-3xl bg-[#0f1f38]/90 p-4 ring-1 ring-white/5">
+        <div className="space-y-3 rounded-3xl bg-[#0f1a2e]/90 p-4 ring-1 ring-white/5">
           {eventos.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-600/60 px-6 py-12 text-center">
               <p className="text-zinc-200">
@@ -80,7 +80,7 @@ export default async function TimelinePage({ searchParams }: PageProps) {
               <Link
                 key={evento.id}
                 href={`/app/vehiculos/${evento.vehiculoId}`}
-                className="block rounded-2xl border border-white/5 bg-[#1a3055]/60 p-4 transition hover:border-blue-500/30 hover:bg-[#1a3055]"
+                className="block rounded-2xl border border-white/5 bg-[#152238]/60 p-4 transition hover:border-brand-500/30 hover:bg-[#152238]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -95,7 +95,7 @@ export default async function TimelinePage({ searchParams }: PageProps) {
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       evento.origen === "taller"
                         ? "bg-emerald-500/15 text-emerald-300"
-                        : "bg-blue-500/15 text-blue-300"
+                        : "bg-brand-500/15 text-brand-300"
                     }`}
                   >
                     {evento.origen === "taller" ? "Taller" : "Propio"}

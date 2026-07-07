@@ -64,7 +64,7 @@ export function ClienteBuscarForm() {
               defaultValue={placaInicial}
               placeholder="ABC123"
               required
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 font-mono uppercase text-zinc-100 outline-none focus:border-blue-500"
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 font-mono uppercase text-zinc-100 outline-none focus:border-brand-500"
             />
           </div>
           <div>
@@ -79,7 +79,7 @@ export function ClienteBuscarForm() {
               maxLength={4}
               placeholder="1234"
               pattern="\d{4}"
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-zinc-100 outline-none focus:border-blue-500"
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-zinc-100 outline-none focus:border-brand-500"
             />
             <p className="mt-1 text-xs text-zinc-500">
               Opcional si la placa es única en el taller.
@@ -96,7 +96,7 @@ export function ClienteBuscarForm() {
         <button
           type="submit"
           disabled={pending}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60 sm:w-auto"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-60 sm:w-auto"
         >
           {pending ? (
             <>
