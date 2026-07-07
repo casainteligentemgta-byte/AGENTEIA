@@ -37,6 +37,7 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | Webhook Telegram + Stripe | ⏳ |
 | Checklist lanzamiento | ✅ `docs/CHECKLIST-LANZAMIENTO.md` |
 | QA script | ✅ `npm run qa` |
+| CI GitHub Actions | ✅ `smartaller-ci.yml` (qa + build en PR/push) |
 
 ### En tu PC (Supabase SQL Editor)
 

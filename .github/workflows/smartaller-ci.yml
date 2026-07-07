@@ -1,0 +1,53 @@
+name: SmartTaller CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/smartaller/**"
+      - ".github/workflows/smartaller-ci.yml"
+  pull_request:
+    paths:
+      - "apps/smartaller/**"
+      - ".github/workflows/smartaller-ci.yml"
+
+defaults:
+  run:
+    working-directory: apps/smartaller
+
+jobs:
+  qa-and-build:
+    name: QA + Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/smartaller/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: QA (archivos y SQL)
+        run: npm run qa
+
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholders para que Next compile en CI sin secretos reales
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpLXBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkyMDAwMDAwMH0.ci-placeholder-anon-key-for-github-actions-build-only
+          SUPABASE_URL: https://ci-placeholder.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpLXBsYWNlaG9sZGVyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTYwMDAwMDAwMCwiZXhwIjoxOTIwMDAwMDAwfQ.ci-placeholder-service-role-key-for-github-actions-build-only
+          NEXT_PUBLIC_APP_URL: https://ci-placeholder.vercel.app
+          TELEGRAM_BOT_TOKEN: "0000000000:CI-PLACEHOLDER-TOKEN"
+          TELEGRAM_WEBHOOK_SECRET: ci-placeholder-webhook-secret
+          OPENAI_API_KEY: sk-ci-placeholder-openai-key
+          CRON_SECRET: ci-placeholder-cron-secret

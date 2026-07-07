@@ -320,7 +320,7 @@ Marca la decisión tomada:
 - [ ] Actualizar `CRONOGRAMA.md` (sigue en PR #9)
 - [x] `error.tsx` / `not-found.tsx` globales
 - [x] Script QA local (`npm run qa`)
-- [ ] Tests smoke en CI
+- [x] Tests smoke en CI (`.github/workflows/smartaller-ci.yml`)
 
 ---
 
