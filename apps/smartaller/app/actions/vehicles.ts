@@ -14,6 +14,7 @@ import {
   createVehicleSchema,
   type CreateVehicleInput,
 } from "@/lib/validations/vehicle";
+import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
 
 export type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -21,6 +22,32 @@ export type ActionResult<T = undefined> =
 
 function mapZodErrors(error: { flatten: () => { fieldErrors: Record<string, string[]> } }) {
   return error.flatten().fieldErrors;
+}
+
+async function provisionSmartBikeIfNeeded(
+  supabase: ReturnType<typeof createClient>,
+  vehiculoId: string,
+  userId: string,
+  data: {
+    tipo_vehiculo: string;
+    placa: string;
+    nick?: string | null;
+    marca?: string | null;
+    modelo?: string | null;
+    color?: string | null;
+  }
+) {
+  if (data.tipo_vehiculo !== "bicicleta") return;
+
+  await ensureBikeForVehiculo(supabase, {
+    id: vehiculoId,
+    user_id: userId,
+    placa: data.placa,
+    nick: data.nick,
+    marca: data.marca,
+    modelo: data.modelo,
+    color: data.color,
+  });
 }
 
 export async function createVehicle(
@@ -128,9 +155,11 @@ export async function createVehicle(
     }
 
     await fusionarVehiculosPorPlaca(admin, placaNorm, vinculado.id);
+    await provisionSmartBikeIfNeeded(supabase, vinculado.id, user.id, data);
 
     revalidatePath("/app");
     revalidatePath("/dashboard/vehiculos");
+    revalidatePath(`/app/vehiculos/${vinculado.id}`);
 
     return { success: true, data: { id: vinculado.id } };
   }
@@ -163,8 +192,11 @@ export async function createVehicle(
     return { success: false, error: error.message };
   }
 
+  await provisionSmartBikeIfNeeded(supabase, created.id, user.id, data);
+
   revalidatePath("/app");
   revalidatePath("/dashboard/vehiculos");
+  revalidatePath(`/app/vehiculos/${created.id}`);
 
   return { success: true, data: { id: created.id } };
 }

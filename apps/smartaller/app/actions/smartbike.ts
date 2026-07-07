@@ -56,7 +56,16 @@ export async function submitMaintenanceProtocol(
     return { success: false, error: resetError.message };
   }
 
+  const { data: bikeRow } = await supabase
+    .from("bikes")
+    .select("vehiculo_id")
+    .eq("id", data.bikeId)
+    .maybeSingle();
+
   revalidatePath(`/app/bicicletas/${data.bikeId}`);
+  if (bikeRow?.vehiculo_id) {
+    revalidatePath(`/app/vehiculos/${bikeRow.vehiculo_id}`);
+  }
   revalidatePath("/dashboard/smartbike");
 
   return { success: true, protocolId: protocol.id };

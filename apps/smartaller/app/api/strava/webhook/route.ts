@@ -52,6 +52,6 @@ export async function GET() {
   return NextResponse.json({
     service: "smartbike-strava-webhook",
     status: "ok",
-    usage: "POST { data: { distance: metros, bicycle_id: uuid } }",
+    usage: "POST { data: { distance: metros, bicycle_id: uuid (bike o vehiculo) } }",
   });
 }
