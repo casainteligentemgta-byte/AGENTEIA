@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Camera, LayoutDashboard, Sparkles } from "lucide-react";
+import { ArrowRight, Camera } from "lucide-react";
 
 export function B2bHero() {
   return (
@@ -11,10 +11,6 @@ export function B2bHero() {
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="animate-fade-in">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300">
-              <Sparkles className="h-4 w-4" />
-              Plataforma B2B para talleres y tiendas
-            </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Digitaliza tu taller sin cambiar cómo{" "}
               <span className="gradient-text">trabajas</span>
@@ -79,12 +75,6 @@ export function B2bHero() {
                   </p>
                   <p className="text-xs text-zinc-500">Registrada al escanear llegada hace 2 min</p>
                 </div>
-              </div>
-            </div>
-            <div className="absolute -bottom-4 -left-4 hidden rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 shadow-xl sm:block">
-              <div className="flex items-center gap-2 text-sm text-zinc-300">
-                <LayoutDashboard className="h-4 w-4 text-blue-400" />
-                Dashboard + app cliente sincronizados
               </div>
             </div>
           </div>
