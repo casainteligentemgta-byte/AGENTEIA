@@ -41,6 +41,8 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 
 **Instalación limpia:** ejecuta `supabase/setup-completo.sql` en el SQL Editor.
 
+**En tu PC (scripts numerados):** `supabase/pc-deploy/00-LEEME.md` — parche jul 5–10, verificaciones y seed opcional.
+
 **Migraciones incrementales (orden):**
 
 1. `20250704100000_multi_taller.sql`

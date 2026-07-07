@@ -17,6 +17,8 @@ Copia y marca cada ítem. Orden recomendado: **Supabase → Vercel → Webhooks 
 
 ## Fase 1 — Supabase: migraciones SQL
 
+> **Scripts listos para tu PC:** `supabase/pc-deploy/00-LEEME.md` (orden y qué archivo usar).
+
 Ejecutar en **SQL Editor** en este orden. **Omitir** `20250703100000_auth_rls_policies.sql` (obsoleta).
 
 | # | Archivo | Qué añade |
@@ -53,7 +55,7 @@ Ejecutar en **SQL Editor** en este orden. **Omitir** `20250703100000_auth_rls_po
 
 ### 2.1 RLS sin políticas permisivas
 
-Ejecutar `supabase/verificar-rls.sql`:
+Ejecutar `supabase/pc-deploy/02-verificar-rls.sql` (o `supabase/verificar-rls.sql`):
 
 ```sql
 select tablename, policyname, qual
@@ -79,30 +81,29 @@ where schemaname = 'public'
 
 ### 2.3 Tablas nuevas presentes
 
+Usar `supabase/pc-deploy/03-verificar-tablas-nuevas.sql`:
+
 ```sql
-select table_name
-from information_schema.tables
-where table_schema = 'public'
-  and table_name in (
-    'repuestos', 'mantenimiento_repuestos',
-    'bikes', 'bike_components', 'shops', 'maintenance_protocols'
-  )
-order by 1;
+-- (ver archivo; resultado esperado: 6 filas en tablas SmartBike/repuestos)
 ```
 
-- [ ] **Resultado: 6 filas**
+- [ ] **Resultado: 6 filas** en la primera query
 
 ### 2.4 Bucket diagnósticos
 
+Usar `supabase/pc-deploy/04-verificar-bucket-diagnosticos.sql`:
+
 ```sql
-select id, name, public
-from storage.buckets
-where id = 'diagnosticos';
+-- (ver archivo)
 ```
 
-- [ ] **Resultado: 1 fila**, `public = false`
+- [ ] **Resultado: 1 fila**, bucket `diagnosticos`
 
-### 2.5 Multi-taller
+### 2.5 Índice Telegram + repuestos
+
+Usar `supabase/pc-deploy/05-verificar-indice-telegram.sql`
+
+### 2.6 Multi-taller
 
 - [ ] Ejecutar `supabase/verificar-multi-taller.sql` → todos los checks en OK
 
