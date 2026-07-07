@@ -1,5 +1,5 @@
 -- Seed SmartBike (demo)
--- 1. Ejecuta tras 20250707100000_bicicopilot.sql
+-- 1. Ejecuta tras 20250707100000_smartbike.sql
 -- 2. Reemplaza :USER_ID por el UUID de auth.users del ciclista de prueba
 
 -- Taller de confianza
