@@ -68,4 +68,4 @@ npx vercel deploy --prod --yes
 - `/app` → paywall o vehículos
 - `/vincular CODIGO` en Telegram → foto factura
 
-Guías: `docs/STRIPE-SETUP.md` · `README.md`
+Guías: `docs/CHECKLIST-LANZAMIENTO.md` · `docs/STRIPE-SETUP.md` · `README.md`
