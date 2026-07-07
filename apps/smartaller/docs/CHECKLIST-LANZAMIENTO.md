@@ -313,11 +313,11 @@ Marca la decisión tomada:
 
 ## Fase 8 — Post-lanzamiento inmediato (no bloqueante)
 
-- [ ] Añadir SmartBike al sidebar del dashboard
-- [ ] CRUD repuestos (editar stock, desactivar)
-- [ ] Actualizar `setup-completo.sql` con las 6 migraciones faltantes
+- [x] Añadir SmartBike al sidebar del dashboard
+- [x] CRUD repuestos (editar stock, desactivar)
+- [x] Actualizar `setup-completo.sql` con las 6 migraciones faltantes
 - [ ] Actualizar `CRONOGRAMA.md` (sigue en PR #9)
-- [ ] `error.tsx` / `not-found.tsx` globales
+- [x] `error.tsx` / `not-found.tsx` globales
 - [ ] Tests smoke en CI
 
 ---

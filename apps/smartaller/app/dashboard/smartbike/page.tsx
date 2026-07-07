@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Bike } from "lucide-react";
 import { ProtocoloTaller } from "@/components/smartbike/ProtocoloTaller";
 import { getBikeWithComponents } from "@/lib/data/smartbike";
+import { getVehiculos } from "@/lib/data/dashboard";
 import { resolveBikeId } from "@/lib/smartbike/link-vehiculo";
 import { createClient } from "@/lib/supabase/server";
 import { componentsNeedingAlert } from "@/lib/smartbike/strava";
@@ -19,21 +20,47 @@ export default async function SmartBikeDashboardPage({ searchParams }: PageProps
   const identifier = bikeId ?? vehiculoId;
 
   if (!identifier) {
+    const vehiculos = await getVehiculos();
+    const bicicletas = vehiculos.filter((v) => v.tipo_vehiculo === "bicicleta");
+
     return (
       <div className="p-4 sm:p-8">
         <h1 className="text-2xl font-bold text-zinc-100">SmartBike — Protocolo taller</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
-          Abre esta página con{" "}
-          <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-brand-400">
-            ?vehiculoId=UUID&amp;componentId=UUID
-          </code>{" "}
-          o{" "}
-          <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-brand-400">
-            ?bikeId=UUID&amp;componentId=UUID
-          </code>{" "}
-          cuando recibas una bicicleta en servicio. El formulario exige el checklist completo antes
-          de resetear el contador del componente.
+          Selecciona una bicicleta de tu flota para ejecutar el protocolo de cierre y resetear
+          contadores de componentes.
         </p>
+
+        {bicicletas.length === 0 ? (
+          <div className="mt-8 rounded-2xl border border-dashed border-zinc-800 px-6 py-12 text-center text-sm text-zinc-500">
+            No hay bicicletas registradas. Agrégalas en{" "}
+            <Link href="/dashboard/vehiculos/nuevo" className="text-brand-400 hover:underline">
+              Vehículos → Nuevo
+            </Link>
+            .
+          </div>
+        ) : (
+          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {bicicletas.map((v) => (
+              <li key={v.id}>
+                <Link
+                  href={`/dashboard/smartbike?vehiculoId=${v.id}`}
+                  className="glass flex items-start gap-3 rounded-2xl p-4 transition hover:border-brand-600/40"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400">
+                    <Bike className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-zinc-100">
+                      {v.nick || `${v.marca ?? ""} ${v.modelo ?? ""}`.trim() || v.placa}
+                    </p>
+                    <p className="text-sm text-zinc-500">{v.placa}</p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }
