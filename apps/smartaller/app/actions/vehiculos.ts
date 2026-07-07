@@ -127,10 +127,11 @@ export async function createVehiculoTallerAction(
     return { ok: false, error: error?.message ?? "No se pudo registrar el vehículo" };
   }
 
-  if (data.tipo_vehiculo === "bicicleta" && created.user_id) {
+  if (data.tipo_vehiculo === "bicicleta") {
+    const bikeUserId = created.user_id ?? user.id;
     await ensureBikeForVehiculo(supabase, {
       id: created.id,
-      user_id: created.user_id,
+      user_id: bikeUserId,
       placa: placaNorm,
       marca: data.marca,
       modelo: data.modelo,
