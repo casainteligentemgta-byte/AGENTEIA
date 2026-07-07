@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { RevisionForm } from "@/components/dashboard/revision-form";
 import { getMantenimientos, getVehiculos } from "@/lib/data/dashboard";
+import { getRepuestosTaller } from "@/lib/data/repuestos";
 import { getMyTaller } from "@/lib/taller";
 import type { TipoIndustria } from "@/lib/platform/types";
 import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
@@ -8,10 +9,11 @@ import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function MantenimientosPage() {
-  const [mantenimientos, vehiculos, taller] = await Promise.all([
+  const [mantenimientos, vehiculos, taller, catalogoRepuestos] = await Promise.all([
     getMantenimientos(50),
     getVehiculos(),
     getMyTaller(),
+    getRepuestosTaller(),
   ]);
 
   const tipoIndustria: TipoIndustria = taller?.tipo_industria ?? "concesionario";
@@ -32,7 +34,11 @@ export default async function MantenimientosPage() {
       </div>
 
       <div className="mb-8">
-        <RevisionForm tipoIndustria={tipoIndustria} vehiculos={vehiculoOptions} />
+        <RevisionForm
+          tipoIndustria={tipoIndustria}
+          vehiculos={vehiculoOptions}
+          catalogoRepuestos={catalogoRepuestos}
+        />
       </div>
 
       <div className="glass overflow-hidden rounded-2xl">

@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DiagnosticoGaleria } from "@/components/app/diagnostico-galeria";
+import { RepuestosLista } from "@/components/app/repuestos-lista";
 import { DiagnosticoMediaUpload } from "@/components/dashboard/diagnostico-media-upload";
+import { MantenimientoRepuestosEditor } from "@/components/dashboard/mantenimiento-repuestos-editor";
 import { VehiculoEditForm } from "@/components/dashboard/vehiculo-edit-form";
+import { getRepuestosPorMantenimientoIds, getRepuestosTaller } from "@/lib/data/repuestos";
 import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { getVehiculoDetalle } from "@/lib/data/vehiculos";
 import {
@@ -31,6 +34,11 @@ function estadoVariant(estado: string): "default" | "success" | "warning" | "dan
 export default async function VehiculoDetallePage({ params }: Props) {
   const vehiculo = await getVehiculoDetalle(params.id);
   if (!vehiculo) notFound();
+
+  const [catalogoRepuestos, repuestosMap] = await Promise.all([
+    getRepuestosTaller(),
+    getRepuestosPorMantenimientoIds(vehiculo.mantenimientos.map((m) => m.id)),
+  ]);
 
   const proximoRecordatorio = vehiculo.recordatorios.find(
     (r) => r.estado === "pendiente" || r.estado === "enviado"
@@ -81,6 +89,7 @@ export default async function VehiculoDetallePage({ params }: Props) {
             <ul className="space-y-3">
               {vehiculo.mantenimientos.map((m) => {
                 const media = parseMediaFromDetalle(m.detalle_revision);
+                const repuestos = repuestosMap.get(m.id) ?? [];
 
                 return (
                 <li key={m.id} className="glass rounded-2xl p-5">
@@ -107,6 +116,17 @@ export default async function VehiculoDetallePage({ params }: Props) {
                       />
                     </div>
                   )}
+
+                  {repuestos.length > 0 && (
+                    <div className="mt-4">
+                      <RepuestosLista lineas={repuestos} variant="dark" />
+                    </div>
+                  )}
+
+                  <MantenimientoRepuestosEditor
+                    mantenimientoId={m.id}
+                    catalogo={catalogoRepuestos}
+                  />
 
                   <DiagnosticoMediaUpload mantenimientoId={m.id} compact />
                 </li>

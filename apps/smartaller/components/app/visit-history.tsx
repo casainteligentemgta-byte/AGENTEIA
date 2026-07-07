@@ -2,6 +2,7 @@ import type { MantenimientoHistorial } from "@/lib/data/vehicle-history";
 import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { formatDate } from "@/lib/utils";
 import { DiagnosticoGaleria, DiagnosticoMediaBadge } from "@/components/app/diagnostico-galeria";
+import { RepuestosLista } from "@/components/app/repuestos-lista";
 import { CalendarClock, Wrench } from "lucide-react";
 
 type VisitHistoryProps = {
@@ -65,6 +66,12 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
               {media.length > 0 && (
                 <div className="mt-3 pl-7">
                   <DiagnosticoGaleria media={media} compact titulo="Evidencia del taller" />
+                </div>
+              )}
+
+              {m.repuestos.length > 0 && (
+                <div className="mt-3 pl-7">
+                  <RepuestosLista lineas={m.repuestos} />
                 </div>
               )}
             </li>

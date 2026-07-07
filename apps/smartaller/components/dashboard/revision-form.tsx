@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Loader2, Wrench } from "lucide-react";
 import { createRevisionMantenimiento } from "@/app/actions/mantenimientos";
 import { DiagnosticoMediaInput } from "@/components/dashboard/diagnostico-media-input";
+import { RepuestosLineasInput } from "@/components/dashboard/repuestos-lineas-input";
+import type { Repuesto } from "@/lib/repuestos/types";
 import {
   DESGASTE_CADENA_OPCIONES,
   ESTADO_MANGUERAS_OPCIONES,
@@ -20,9 +22,10 @@ type VehiculoOption = {
 type RevisionFormProps = {
   tipoIndustria: TipoIndustria;
   vehiculos: VehiculoOption[];
+  catalogoRepuestos: Repuesto[];
 };
 
-export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
+export function RevisionForm({ tipoIndustria, vehiculos, catalogoRepuestos }: RevisionFormProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -206,6 +209,8 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
               </div>
             </div>
           )}
+
+          <RepuestosLineasInput catalogo={catalogoRepuestos} disabled={pending} />
 
           <DiagnosticoMediaInput disabled={pending} />
 
