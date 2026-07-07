@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Wrench, LayoutDashboard, ArrowRight } from "lucide-react";
+import { LayoutDashboard, ArrowRight } from "lucide-react";
+import { BrandLogo } from "@/components/app/brand-logo";
 
 type NavbarProps = {
   active?: "home" | "talleres";
@@ -9,11 +10,8 @@ export function Navbar({ active = "home" }: NavbarProps) {
   return (
     <header className="fixed top-0 z-50 w-full border-b border-zinc-800/60 glass">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-            <Wrench className="h-5 w-5" />
-          </span>
-          SmartTaller
+        <Link href="/" className="flex items-center">
+          <BrandLogo size="sm" theme="dark" showDot={false} />
         </Link>
         <nav className="flex items-center gap-2 sm:gap-3">
           <Link

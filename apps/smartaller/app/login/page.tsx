@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, ArrowLeft, Wrench, Car } from "lucide-react";
+import { BrandLogo } from "@/components/app/brand-logo";
 
 type AccountType = "taller" | "dueno";
 
@@ -83,16 +84,11 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="mb-8 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-          {isAppFlow ? <Car className="h-6 w-6" /> : <Wrench className="h-6 w-6" />}
-        </span>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">SmartTaller</h1>
-          <p className="text-sm text-zinc-500">
-            {isAppFlow ? "Accede a tu app de vehículos" : "Accede a tu panel de taller"}
-          </p>
-        </div>
+      <div className="mb-8">
+        <BrandLogo size="md" theme="dark" showDot={false} />
+        <p className="mt-3 text-sm text-zinc-500">
+          {isAppFlow ? "Accede a tu app de vehículos" : "Accede a tu panel de taller"}
+        </p>
       </div>
 
       <div className="glass rounded-2xl p-6 sm:p-8">

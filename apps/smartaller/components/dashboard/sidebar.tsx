@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Wrench,
   LayoutDashboard,
   Car,
   ClipboardList,
@@ -16,6 +15,7 @@ import {
   Package,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
+import { BrandLogo } from "@/components/app/brand-logo";
 
 const links = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
@@ -73,11 +73,9 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
     <>
       {/* Barra superior móvil */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 md:hidden">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
-            <Wrench className="h-4 w-4" />
-          </span>
-          <span className="font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandLogo size="sm" theme="dark" markOnly showDot={false} />
+          <span className="truncate font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
         </div>
         <button
           type="button"
@@ -106,11 +104,9 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
-              <Wrench className="h-4 w-4" />
-            </span>
-            <span className="font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <BrandLogo size="sm" theme="dark" markOnly showDot={false} />
+            <span className="truncate font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
           </div>
           <button
             type="button"
@@ -144,12 +140,10 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
 
       {/* Sidebar escritorio */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 md:sticky md:top-0 md:flex md:h-screen">
-        <div className="flex h-16 items-center gap-2 border-b border-zinc-800 px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-            <Wrench className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-semibold leading-none">{tallerNombre ?? "SmartTaller"}</p>
+        <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-5">
+          <BrandLogo size="sm" theme="dark" markOnly showDot={false} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold leading-none">{tallerNombre ?? "SmartTaller"}</p>
             <p className="text-xs text-zinc-500">Panel del taller</p>
           </div>
         </div>
