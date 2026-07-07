@@ -1,4 +1,4 @@
--- BiciCopilot: bicicletas, componentes, talleres y protocolos de mantenimiento.
+-- SmartBike: bicicletas, componentes, talleres y protocolos de mantenimiento.
 
 -- Enums
 create type public.bike_status as enum ('active', 'stolen', 'sold');
@@ -76,7 +76,7 @@ create table if not exists public.maintenance_protocols (
 
 create index if not exists idx_maintenance_protocols_bike on public.maintenance_protocols (bike_id);
 
-comment on table public.shops is 'Talleres BiciCopilot — marca y logo para alertas al ciclista';
+comment on table public.shops is 'Talleres SmartBike — marca y logo para alertas al ciclista';
 comment on table public.bikes is 'Bicicletas registradas por el usuario (Strava + carnet digital)';
 comment on table public.bike_components is 'Componentes con km acumulados y semáforo de desgaste';
 comment on table public.maintenance_protocols is 'Protocolo obligatorio de cierre del taller';

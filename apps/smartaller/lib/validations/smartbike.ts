@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BIKE_COMPONENT_TYPES } from "@/lib/bicicopilot/types";
+import { BIKE_COMPONENT_TYPES } from "@/lib/smartbike/types";
 
 export const stravaWebhookPayloadSchema = z.object({
   data: z.object({

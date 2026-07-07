@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { ProtocoloTaller } from "@/components/bicicopilot/ProtocoloTaller";
-import { getBikeWithComponents } from "@/lib/data/bicicopilot";
-import { componentsNeedingAlert } from "@/lib/bicicopilot/strava";
-import { COMPONENT_TYPE_LABELS } from "@/lib/bicicopilot/types";
+import { ProtocoloTaller } from "@/components/smartbike/ProtocoloTaller";
+import { getBikeWithComponents } from "@/lib/data/smartbike";
+import { componentsNeedingAlert } from "@/lib/smartbike/strava";
+import { COMPONENT_TYPE_LABELS } from "@/lib/smartbike/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +12,13 @@ type PageProps = {
   searchParams: { bikeId?: string; componentId?: string };
 };
 
-export default async function BicicopilotDashboardPage({ searchParams }: PageProps) {
+export default async function SmartBikeDashboardPage({ searchParams }: PageProps) {
   const { bikeId, componentId } = searchParams;
 
   if (!bikeId) {
     return (
       <div className="p-4 sm:p-8">
-        <h1 className="text-2xl font-bold text-zinc-100">BiciCopilot — Protocolo taller</h1>
+        <h1 className="text-2xl font-bold text-zinc-100">SmartBike — Protocolo taller</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
           Abre esta página con{" "}
           <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-brand-400">
@@ -70,7 +70,7 @@ export default async function BicicopilotDashboardPage({ searchParams }: PagePro
           {bike.components.map((c) => (
             <li key={c.id}>
               <Link
-                href={`/dashboard/bicicopilot?bikeId=${bike.id}&componentId=${c.id}`}
+                href={`/dashboard/smartbike?bikeId=${bike.id}&componentId=${c.id}`}
                 className={
                   c.id === component.id
                     ? "rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white"

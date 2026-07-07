@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/app/app-header";
-import { CarnetDigital } from "@/components/bicicopilot/CarnetDigital";
-import { AlertaSustitucion } from "@/components/bicicopilot/AlertaSustitucion";
-import { getBikeWithComponents } from "@/lib/data/bicicopilot";
-import { componentsNeedingAlert } from "@/lib/bicicopilot/strava";
+import { CarnetDigital } from "@/components/smartbike/CarnetDigital";
+import { AlertaSustitucion } from "@/components/smartbike/AlertaSustitucion";
+import { getBikeWithComponents } from "@/lib/data/smartbike";
+import { componentsNeedingAlert } from "@/lib/smartbike/strava";
 
 export const dynamic = "force-dynamic";
 

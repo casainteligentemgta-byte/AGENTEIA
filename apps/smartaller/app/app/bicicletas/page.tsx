@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/app/app-header";
-import { getUserBikes } from "@/lib/data/bicicopilot";
-import { BIKE_STATUS_LABELS } from "@/lib/bicicopilot/types";
+import { getUserBikes } from "@/lib/data/smartbike";
+import { BIKE_STATUS_LABELS } from "@/lib/smartbike/types";
 import { Bike, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +15,12 @@ export default async function BicicletasListPage() {
 
       <main className="px-4 pb-12 pt-2">
         <h1 className="mb-1 text-xl font-bold">Mis bicicletas</h1>
-        <p className="mb-4 text-sm text-zinc-500">BiciCopilot · desgaste por Strava</p>
+        <p className="mb-4 text-sm text-zinc-500">SmartBike · desgaste por Strava</p>
 
         {bikes.length === 0 ? (
           <div className="app-card-white p-6 text-center text-sm text-zinc-500">
             No tienes bicicletas registradas. Ejecuta{" "}
-            <code className="text-xs text-brand-700">supabase/seed-bicicopilot.sql</code> tras la
+            <code className="text-xs text-brand-700">supabase/seed-smartbike.sql</code> tras la
             migración.
           </div>
         ) : (

@@ -4,11 +4,11 @@ import {
   BIKE_STATUS_LABELS,
   type BikeComponent,
   type BikeWithComponents,
-} from "@/lib/bicicopilot/types";
+} from "@/lib/smartbike/types";
 import {
   STATUS_STYLES,
   wearPercent,
-} from "@/lib/bicicopilot/component-wear";
+} from "@/lib/smartbike/component-wear";
 import { cn } from "@/lib/utils";
 import { Bike, Hash, Shield } from "lucide-react";
 
@@ -66,7 +66,7 @@ export function CarnetDigital({ bike }: CarnetDigitalProps) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-brand-100">
-              Carnet digital BiciCopilot
+              Carnet digital SmartBike
             </p>
             <h1 className="mt-1 text-2xl font-bold">
               {bike.brand} {bike.model}

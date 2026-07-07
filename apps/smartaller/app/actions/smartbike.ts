@@ -2,15 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { maintenanceProtocolSchema } from "@/lib/validations/bicicopilot";
+import { maintenanceProtocolSchema } from "@/lib/validations/smartbike";
 
-export type BicicopilotActionResult =
+export type SmartBikeActionResult =
   | { success: true; protocolId: string }
   | { success: false; error: string };
 
 export async function submitMaintenanceProtocol(
   raw: unknown
-): Promise<BicicopilotActionResult> {
+): Promise<SmartBikeActionResult> {
   const user = await getUser();
   if (!user) {
     return { success: false, error: "Debes iniciar sesión" };
@@ -57,7 +57,7 @@ export async function submitMaintenanceProtocol(
   }
 
   revalidatePath(`/app/bicicletas/${data.bikeId}`);
-  revalidatePath("/dashboard/bicicopilot");
+  revalidatePath("/dashboard/smartbike");
 
   return { success: true, protocolId: protocol.id };
 }

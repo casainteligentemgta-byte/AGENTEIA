@@ -1,4 +1,4 @@
-import type { BikeComponentStatus } from "@/lib/bicicopilot/types";
+import type { BikeComponentStatus } from "@/lib/smartbike/types";
 
 /** Umbral de alerta amarilla (80% vida útil consumida). */
 export const WEAR_WARNING_RATIO = 0.8;
