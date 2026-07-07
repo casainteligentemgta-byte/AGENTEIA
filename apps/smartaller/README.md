@@ -19,7 +19,10 @@ Gestión de mantenimientos para talleres vía Telegram + app multivehículo para
 | `/login` | Auth con selector Taller / Dueño |
 | `/dashboard/configuracion` | URL del kiosk presidencia + vincular Telegram |
 | `/app/vehiculos/nuevo` | Registrar auto, moto, bici, etc. |
+| `/app/bicicletas` | BiciCopilot — carnet digital y alertas de desgaste |
+| `/dashboard/bicicopilot` | Protocolo de cierre del taller (reset contadores) |
 | `/app/centros` | Mapa de centros de servicio |
+| `/api/strava/webhook` | Webhook ficticio Strava → km en componentes |
 | `/api/telegram-webhook` | Webhook del bot |
 | `/api/cron/recordatorios` | Cron recordatorios (WhatsApp + email opcional) |
 | `/api/health` | Health check para monitoreo |
@@ -49,10 +52,35 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 7. `20250704160000_seguridad_p0.sql` — idempotencia Telegram, RLS por vehiculo_id
 8. `20250704170000_rls_cleanup.sql` — limpieza RLS legacy, recordatorios por vehiculo_id
 9. `20250706100000_mantenimientos_update_categorias.sql` — RLS UPDATE para escribir `categorias` en B2C/B2B
+10. `20250707100000_bicicopilot.sql` — BiciCopilot: shops, bikes, bike_components, maintenance_protocols
 
 **Script único post-PR #9:** `supabase/deploy-pr9.sql` (pegar y ejecutar en SQL Editor si ya tienes las migraciones anteriores).
 
 **ABCopilot B2C (escritura de categorías):** ejecuta también `20250706100000_mantenimientos_update_categorias.sql` si aún no lo hiciste (ver sección [detalle_revision](#detalle_revision-jsonb) más abajo).
+
+## BiciCopilot
+
+Módulo de bicicletas con desgaste por kilómetros (Strava) y alertas con marca del taller de confianza.
+
+| Tabla | Uso |
+|-------|-----|
+| `shops` | Taller de confianza (nombre + logo para alertas) |
+| `bikes` | Bicicletas del usuario (carnet digital) |
+| `bike_components` | Componentes con `km_accumulated` / `km_limit` y semáforo |
+| `maintenance_protocols` | Protocolo obligatorio de cierre del taller |
+
+**Instalación:** migración `20250707100000_bicicopilot.sql` + seed opcional `supabase/seed-bicicopilot.sql`.
+
+**Webhook Strava (ficticio):**
+
+```bash
+curl -X POST https://tu-dominio/api/strava/webhook \
+  -H "Content-Type: application/json" \
+  -H "x-strava-webhook-secret: $STRAVA_WEBHOOK_SECRET" \
+  -d '{"data":{"distance":12500,"bicycle_id":"UUID-BICI"}}'
+```
+
+Umbrales de desgaste: amarillo ≥ 80 %, rojo ≥ 95 % (`lib/bicicopilot/component-wear.ts`).
 
 ## Plataforma híbrida B2B / B2C
 
