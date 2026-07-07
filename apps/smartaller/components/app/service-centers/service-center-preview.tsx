@@ -38,7 +38,7 @@ export function ServiceCenterPreview({ centro }: ServiceCenterPreviewProps) {
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full bg-blue-600 text-white"
+          className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full bg-brand-600 text-white"
           aria-label={`Navegar a ${centro.nombre}`}
         >
           <Navigation className="h-4 w-4" />

@@ -16,11 +16,11 @@ function buildRecordatorioEmailHtml(params: RecordatorioEmailParams): string {
 
   return `
     <div style="font-family:sans-serif;max-width:480px;color:#18181b">
-      <h2 style="color:#2563eb">Recordatorio de mantenimiento</h2>
+      <h2 style="color:#0d9488">Recordatorio de mantenimiento</h2>
       <p>Hola ${params.nombre},</p>
       <p>Tu vehículo <strong>${params.placa}</strong> tiene un servicio programado para el <strong>${params.fechaProgramada}</strong>.</p>
       ${kmLine}
-      <p><a href="${portalUrl}" style="color:#2563eb">Ver historial en SmartTaller</a></p>
+      <p><a href="${portalUrl}" style="color:#0d9488">Ver historial en SmartTaller</a></p>
       <p style="font-size:12px;color:#71717a">SmartTaller — ${getAppBaseUrl()}</p>
     </div>
   `.trim();

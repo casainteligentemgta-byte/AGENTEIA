@@ -37,9 +37,9 @@ export function HowItWorks() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map(({ step, icon: Icon, title, desc }) => (
-            <div key={step} className="glass group rounded-2xl p-6 transition hover:border-blue-500/30">
-              <span className="text-xs font-mono text-blue-400">{step}</span>
-              <div className="mt-4 mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 transition group-hover:bg-blue-600/20 group-hover:text-blue-400">
+            <div key={step} className="glass group rounded-2xl p-6 transition hover:border-brand-500/30">
+              <span className="text-xs font-mono text-brand-400">{step}</span>
+              <div className="mt-4 mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 transition group-hover:bg-brand-600/20 group-hover:text-brand-400">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="font-semibold text-zinc-100">{title}</h3>

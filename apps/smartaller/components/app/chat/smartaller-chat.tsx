@@ -52,7 +52,7 @@ export function SmartallerChat({
     <div className="flex h-[calc(100dvh-4.5rem)] flex-col">
       <div className="border-b border-zinc-200/80 bg-white/80 px-4 py-3 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/25">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-md shadow-brand-600/25">
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -77,7 +77,7 @@ export function SmartallerChat({
         {messages.length === 0 && !error && (
           <div className="space-y-4 py-6">
             <div className="mx-auto max-w-xs text-center">
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
                 <Sparkles className="h-7 w-7" />
               </div>
               <p className="text-base font-semibold text-zinc-900">Hola, soy Smartaller</p>
@@ -93,7 +93,7 @@ export function SmartallerChat({
                   type="button"
                   onClick={() => enviar(sugerencia)}
                   disabled={isLoading}
-                  className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+                  className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
                 >
                   {sugerencia}
                 </button>
@@ -116,8 +116,8 @@ export function SmartallerChat({
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                   isUser
-                    ? "bg-blue-600 text-white"
-                    : "border border-zinc-200 bg-white text-blue-600"
+                    ? "bg-brand-600 text-white"
+                    : "border border-zinc-200 bg-white text-brand-600"
                 }`}
               >
                 {isUser ? (
@@ -132,7 +132,7 @@ export function SmartallerChat({
                 <div
                   className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
                     isUser
-                      ? "rounded-br-md bg-blue-600 text-white"
+                      ? "rounded-br-md bg-brand-600 text-white"
                       : "rounded-bl-md border border-zinc-200/80 bg-white text-zinc-800"
                   }`}
                 >
@@ -152,7 +152,7 @@ export function SmartallerChat({
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-blue-600">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-brand-600">
               <Sparkles className="h-4 w-4" />
             </div>
             <div className="rounded-2xl rounded-bl-md border border-zinc-200/80 bg-white px-4 py-2.5 shadow-sm">
@@ -172,7 +172,7 @@ export function SmartallerChat({
         }}
         className="shrink-0 border-t border-zinc-200/80 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
       >
-        <div className="flex gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20">
+        <div className="flex gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -190,7 +190,7 @@ export function SmartallerChat({
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="self-end rounded-xl p-2.5 text-blue-600 transition hover:bg-blue-50 disabled:opacity-40"
+            className="self-end rounded-xl p-2.5 text-brand-600 transition hover:bg-brand-50 disabled:opacity-40"
             aria-label="Enviar mensaje"
           >
             {isLoading ? (

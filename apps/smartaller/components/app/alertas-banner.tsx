@@ -27,7 +27,7 @@ export function AlertasBanner({ alertas }: AlertasBannerProps) {
   const criticas = alertas.filter((a) => a.prioridad === "critico").length;
 
   return (
-    <section className="mb-4 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 to-[#1a3055]/80 ring-1 ring-amber-500/10">
+    <section className="mb-4 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 to-[#152238]/80 ring-1 ring-amber-500/10">
       <div className="flex items-center gap-2 border-b border-amber-500/15 px-4 py-2.5">
         <AlertTriangle
           className={cn(

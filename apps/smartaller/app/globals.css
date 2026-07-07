@@ -3,6 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --brand-primary: #0d9488;
+    --brand-primary-hover: #0f766e;
+    --brand-primary-light: #14b8a6;
+    --brand-accent: #f97316;
+    --brand-dark: #0b1220;
+    --brand-dark-surface: #0f1a2e;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -16,14 +25,14 @@
     @apply bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80;
   }
   .gradient-text {
-    @apply bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-400 to-brand-300 bg-clip-text text-transparent;
   }
 
-  /* App dueño — estilo ABCopilot mejorado */
+  /* App dueño — fondo oscuro con acento teal */
   .app-bg-dark {
-    background-color: #0a1628;
+    background-color: var(--brand-dark);
     background-image:
-      linear-gradient(180deg, rgba(15, 35, 70, 0.45) 0%, transparent 40%),
+      linear-gradient(180deg, rgba(13, 148, 136, 0.12) 0%, transparent 45%),
       repeating-linear-gradient(
         90deg,
         transparent,
@@ -34,17 +43,17 @@
   }
 
   .app-bg-light {
-    @apply bg-[#eef0f3];
+    @apply bg-[#eef2f1];
   }
 
   .app-cta-btn {
     @apply rounded-2xl text-white shadow-lg transition;
-    background: linear-gradient(145deg, #5b6fd6 0%, #4a5eb8 100%);
-    box-shadow: 0 8px 24px rgba(74, 94, 184, 0.35);
+    background: linear-gradient(145deg, #14b8a6 0%, #0d9488 100%);
+    box-shadow: 0 8px 24px rgba(13, 148, 136, 0.35);
   }
 
   .app-cta-btn:hover {
-    background: linear-gradient(145deg, #6b7fe6 0%, #5568c8 100%);
+    background: linear-gradient(145deg, #2dd4bf 0%, #0f766e 100%);
   }
 
   .app-card-white {
@@ -53,7 +62,7 @@
   }
 
   .app-input {
-    @apply w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+    @apply w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
   }
 
   .app-progress-track {
@@ -61,6 +70,6 @@
   }
 
   .app-progress-fill {
-    @apply h-full rounded-full bg-emerald-500 transition-all;
+    @apply h-full rounded-full bg-brand-600 transition-all;
   }
 }

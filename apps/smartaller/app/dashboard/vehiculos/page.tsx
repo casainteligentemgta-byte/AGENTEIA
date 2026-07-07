@@ -30,11 +30,11 @@ export default async function VehiculosPage() {
             <Link
               key={v.id}
               href={`/dashboard/vehiculos/${v.id}`}
-              className="glass group rounded-2xl p-5 transition hover:border-blue-500/30"
+              className="glass group rounded-2xl p-5 transition hover:border-brand-500/30"
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-2xl font-bold tracking-wide text-blue-400">{v.placa}</p>
+                  <p className="text-2xl font-bold tracking-wide text-brand-400">{v.placa}</p>
                   <p className="mt-1 text-zinc-300">
                     {v.nick ?? v.nombre_cliente ?? "Sin nombre"}
                   </p>
@@ -47,7 +47,7 @@ export default async function VehiculosPage() {
                   <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-500">
                     {formatOdometroDashboard(v.kilometraje_ultimo, v.horas_motor_ultimo, v.unidad_odometro)}
                   </span>
-                  <ChevronRight className="h-5 w-5 text-zinc-600 transition group-hover:text-blue-400" />
+                  <ChevronRight className="h-5 w-5 text-zinc-600 transition group-hover:text-brand-400" />
                 </div>
               </div>
               <div className="mt-4 space-y-1 text-sm text-zinc-500">

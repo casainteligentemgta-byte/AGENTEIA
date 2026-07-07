@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { Wrench, LayoutDashboard, ArrowRight } from "lucide-react";
+import { LayoutDashboard, ArrowRight } from "lucide-react";
+import { BrandLogo } from "@/components/app/brand-logo";
 
 export function Navbar() {
   return (
     <header className="fixed top-0 z-50 w-full border-b border-zinc-800/60 glass">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-            <Wrench className="h-5 w-5" />
-          </span>
-          SmartTaller
+        <Link href="/" className="transition opacity-95 hover:opacity-100">
+          <BrandLogo size="sm" theme="dark" showDot={false} />
         </Link>
         <nav className="flex items-center gap-3">
           <Link
@@ -33,7 +31,7 @@ export function Navbar() {
           </Link>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500"
           >
             Entrar
             <ArrowRight className="h-4 w-4" />

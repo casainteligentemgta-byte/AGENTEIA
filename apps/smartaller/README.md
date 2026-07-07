@@ -34,6 +34,19 @@ Gestión de mantenimientos para talleres vía Telegram + app multivehículo para
 
 Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `lib/vehicles/templates.ts`.
 
+## Identidad visual (marca)
+
+| Token | Valor | Uso |
+|-------|-------|-----|
+| Primario | `#0d9488` (`brand-600`) | Botones, logo, PWA |
+| Primario claro | `#14b8a6` (`brand-500`) | Hover, gradientes |
+| Acento | `#f97316` | Punto del logo, alertas |
+| Fondo app oscuro | `#0b1220` | `/app`, headers |
+
+- Logo: `components/app/brand-logo.tsx` + `public/icon.svg`
+- Tokens: `lib/brand.ts`, variables CSS en `app/globals.css`, paleta `brand-*` en `tailwind.config.js`
+- Para cambiar colores globalmente: edita `lib/brand.ts` y la escala `brand` en Tailwind
+
 ## Supabase
 
 **Instalación limpia:** ejecuta `supabase/setup-completo.sql` en el SQL Editor.

@@ -24,8 +24,8 @@ export function TimelineFiltroCategorias({ activo }: TimelineFiltroCategoriasPro
             className={cn(
               "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
               isActive
-                ? "bg-blue-500 text-white shadow-md shadow-blue-500/25"
-                : "bg-[#1a3055]/80 text-zinc-300 ring-1 ring-white/10 hover:bg-[#1a3055] hover:text-white"
+                ? "bg-brand-500 text-white shadow-md shadow-brand-500/25"
+                : "bg-[#152238]/80 text-zinc-300 ring-1 ring-white/10 hover:bg-[#152238] hover:text-white"
             )}
           >
             {filtro.label}

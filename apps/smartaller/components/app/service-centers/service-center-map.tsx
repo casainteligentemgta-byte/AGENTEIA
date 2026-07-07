@@ -27,7 +27,7 @@ const pinSelectedIcon = L.divIcon({
   html: `<div style="
     width: 34px;
     height: 34px;
-    background: #2563eb;
+    background: #0d9488;
     border: 3px solid white;
     border-radius: 50% 50% 50% 0;
     transform: rotate(-45deg);

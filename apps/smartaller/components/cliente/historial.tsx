@@ -16,8 +16,8 @@ export function HistorialVehiculo({ vehiculo }: Props) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
-        <p className="text-sm font-medium text-blue-300">Tu vehículo</p>
+      <section className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-6">
+        <p className="text-sm font-medium text-brand-300">Tu vehículo</p>
         <h2 className="mt-1 font-mono text-3xl font-bold tracking-wide text-zinc-100">
           {vehiculo.placa}
         </h2>

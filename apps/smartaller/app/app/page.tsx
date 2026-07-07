@@ -92,7 +92,7 @@ export default async function AppHomePage({ searchParams }: PageProps) {
           <AppTabs active="vehiculos" />
         </div>
 
-        <div className="space-y-4 rounded-3xl bg-[#0f1f38]/90 p-4 ring-1 ring-white/5">
+        <div className="space-y-4 rounded-3xl bg-[#0f1a2e]/90 p-4 ring-1 ring-white/5">
           {vehiculosConSalud.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-600/60 px-6 py-12 text-center">
               <p className="text-zinc-200">Aún no tienes vehículos registrados</p>

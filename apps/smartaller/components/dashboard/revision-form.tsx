@@ -46,7 +46,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
   return (
     <section className="glass rounded-2xl p-5 sm:p-6">
       <div className="mb-5 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400">
           <Wrench className="h-5 w-5" />
         </div>
         <div>
@@ -71,7 +71,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
               id="vehiculoId"
               name="vehiculoId"
               required
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
             >
               <option value="">Seleccionar…</option>
               {vehiculos.map((v) => (
@@ -93,7 +93,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
               required
               rows={2}
               placeholder="Ej. Revisión periódica, cambio de aceite…"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
             />
           </div>
 
@@ -112,7 +112,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   max="20"
                   required
                   placeholder="12.6"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 />
               </div>
               <div>
@@ -126,7 +126,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   min="0"
                   required
                   placeholder="45320"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 />
               </div>
             </div>
@@ -142,7 +142,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   id="desgasteCadena"
                   name="desgasteCadena"
                   required
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 >
                   {DESGASTE_CADENA_OPCIONES.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -163,7 +163,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   max="400"
                   required
                   placeholder="120"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 />
               </div>
             </div>
@@ -182,7 +182,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   min="0"
                   required
                   placeholder="1250"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 />
               </div>
               <div>
@@ -193,7 +193,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
                   id="estadoManguerasHidraulicas"
                   name="estadoManguerasHidraulicas"
                   required
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
                 >
                   {ESTADO_MANGUERAS_OPCIONES.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -219,7 +219,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Guardar revisión

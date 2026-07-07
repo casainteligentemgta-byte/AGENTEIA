@@ -57,7 +57,7 @@ export function VehiculoEditForm({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>
@@ -70,7 +70,7 @@ export function VehiculoEditForm({
             onChange={(e) => setTelefono(e.target.value)}
             required
             placeholder="3001234567"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -78,7 +78,7 @@ export function VehiculoEditForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
       >
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Guardar contacto

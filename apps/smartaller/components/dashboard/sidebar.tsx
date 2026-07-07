@@ -48,7 +48,7 @@ function NavLinks({
             onClick={onNavigate}
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
               active
-                ? "bg-blue-600/15 text-blue-400"
+                ? "bg-brand-600/15 text-brand-400"
                 : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
             }`}
           >
@@ -72,7 +72,7 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
       {/* Barra superior móvil */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 md:hidden">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600/20 text-brand-400">
             <Wrench className="h-4 w-4" />
           </span>
           <span className="font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
@@ -105,7 +105,7 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
       >
         <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600/20 text-brand-400">
               <Wrench className="h-4 w-4" />
             </span>
             <span className="font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
@@ -143,7 +143,7 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
       {/* Sidebar escritorio */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 md:sticky md:top-0 md:flex md:h-screen">
         <div className="flex h-16 items-center gap-2 border-b border-zinc-800 px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400">
             <Wrench className="h-5 w-5" />
           </span>
           <div>

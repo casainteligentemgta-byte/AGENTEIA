@@ -50,7 +50,7 @@ export default async function RecordatoriosPage() {
                     <td className="px-5 py-4 font-medium text-zinc-200">
                       <Link
                         href={`/dashboard/vehiculos/${r.vehiculo_id}`}
-                        className="hover:text-blue-400"
+                        className="hover:text-brand-400"
                       >
                         {r.vehiculos?.placa ?? "—"}
                       </Link>

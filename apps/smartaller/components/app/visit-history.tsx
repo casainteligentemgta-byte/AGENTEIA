@@ -21,11 +21,11 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
       </div>
 
       {proximoRecordatorio && (
-        <div className="flex items-start gap-3 border-b border-blue-50 bg-blue-50/60 px-4 py-3">
-          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+        <div className="flex items-start gap-3 border-b border-brand-50 bg-brand-50/60 px-4 py-3">
+          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
           <div>
-            <p className="text-xs font-semibold text-blue-800">Próximo servicio</p>
-            <p className="text-sm text-blue-700">
+            <p className="text-xs font-semibold text-brand-800">Próximo servicio</p>
+            <p className="text-sm text-brand-700">
               {formatDate(proximoRecordatorio.fecha_programada)}
               {proximoRecordatorio.kilometraje_objetivo != null &&
                 ` · ${proximoRecordatorio.kilometraje_objetivo.toLocaleString("es-CO")} km`}
