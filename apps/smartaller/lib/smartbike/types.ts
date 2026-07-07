@@ -25,6 +25,7 @@ export type Shop = {
 export type Bike = {
   id: string;
   user_id: string;
+  vehiculo_id: string | null;
   shop_id: string | null;
   brand: string;
   model: string;

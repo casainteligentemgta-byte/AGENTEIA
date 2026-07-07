@@ -10,6 +10,7 @@ import {
   createVehiculoTallerSchema,
   updateVehiculoContactoSchema,
 } from "@/lib/validations/vehiculo";
+import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
 
 export type CreateVehiculoTallerResult =
   | { ok: true; vehiculoId: string }
@@ -92,6 +93,26 @@ export async function createVehiculoTallerAction(
     }
 
     await fusionarVehiculosPorPlaca(supabase, placaNorm, vinculado.id);
+
+    if (data.tipo_vehiculo === "bicicleta") {
+      const { data: vehiculoRow } = await supabase
+        .from("vehiculos")
+        .select("user_id")
+        .eq("id", vinculado.id)
+        .maybeSingle();
+
+      if (vehiculoRow?.user_id) {
+        await ensureBikeForVehiculo(supabase, {
+          id: vinculado.id,
+          user_id: vehiculoRow.user_id,
+          placa: placaNorm,
+          marca: data.marca,
+          modelo: data.modelo,
+          color: data.color,
+        });
+      }
+    }
+
     revalidatePath("/dashboard/vehiculos");
     return { ok: true, vehiculoId: vinculado.id };
   }
@@ -99,11 +120,22 @@ export async function createVehiculoTallerAction(
   const { data: created, error } = await supabase
     .from("vehiculos")
     .insert(payload)
-    .select("id")
+    .select("id, user_id")
     .single();
 
   if (error || !created) {
     return { ok: false, error: error?.message ?? "No se pudo registrar el vehículo" };
+  }
+
+  if (data.tipo_vehiculo === "bicicleta" && created.user_id) {
+    await ensureBikeForVehiculo(supabase, {
+      id: created.id,
+      user_id: created.user_id,
+      placa: placaNorm,
+      marca: data.marca,
+      modelo: data.modelo,
+      color: data.color,
+    });
   }
 
   revalidatePath("/dashboard/vehiculos");

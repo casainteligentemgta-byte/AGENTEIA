@@ -1,5 +1,5 @@
 -- Seed SmartBike (demo)
--- 1. Ejecuta tras 20250707100000_bicicopilot.sql
+-- 1. Ejecuta tras 20250707100000_smartbike.sql
 -- 2. Reemplaza :USER_ID por el UUID de auth.users del ciclista de prueba
 
 -- Taller de confianza
@@ -53,13 +53,32 @@ begin
   end if;
 
   insert into public.bikes (
-    id, user_id, shop_id, brand, model, frame_serial, color, size, material, status
+    id, user_id, vehiculo_id, shop_id, brand, model, frame_serial, color, size, material, status
   ) values (
-    v_bike_id, v_user_id, v_shop_id,
+    v_bike_id, v_user_id, null, v_shop_id,
     'Trek', 'Domane SL 5', 'TRK-DOM-2024-001',
     'negro mate', '54', 'carbono', 'active'
   )
-  on conflict (user_id, frame_serial) do update set shop_id = excluded.shop_id;
+  on conflict (user_id, frame_serial) do update set shop_id = excluded.shop_id
+  returning id into v_bike_id;
+
+  insert into public.vehiculos (
+    user_id, tipo_vehiculo, placa, marca, modelo, color,
+    unidad_odometro, kilometraje_ultimo, telegram_chat_id, updated_at
+  ) values (
+    v_user_id, 'bicicleta', 'TRK-DOM-2024-001',
+    'Trek', 'Domane SL 5', 'negro mate',
+    'km', 0, null, now()
+  )
+  on conflict (placa, user_id) where user_id is not null do nothing;
+
+  update public.bikes b
+  set vehiculo_id = v.id
+  from public.vehiculos v
+  where b.id = v_bike_id
+    and v.user_id = v_user_id
+    and v.placa = 'TRK-DOM-2024-001'
+    and b.vehiculo_id is null;
 
   insert into public.bike_components (bike_id, component_type, brand_model, km_accumulated, km_limit, status)
   values

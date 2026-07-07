@@ -3,24 +3,31 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProtocoloTaller } from "@/components/smartbike/ProtocoloTaller";
 import { getBikeWithComponents } from "@/lib/data/smartbike";
+import { resolveBikeId } from "@/lib/smartbike/link-vehiculo";
+import { createClient } from "@/lib/supabase/server";
 import { componentsNeedingAlert } from "@/lib/smartbike/strava";
 import { COMPONENT_TYPE_LABELS } from "@/lib/smartbike/types";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: { bikeId?: string; componentId?: string };
+  searchParams: { bikeId?: string; vehiculoId?: string; componentId?: string };
 };
 
 export default async function SmartBikeDashboardPage({ searchParams }: PageProps) {
-  const { bikeId, componentId } = searchParams;
+  const { bikeId, vehiculoId, componentId } = searchParams;
+  const identifier = bikeId ?? vehiculoId;
 
-  if (!bikeId) {
+  if (!identifier) {
     return (
       <div className="p-4 sm:p-8">
         <h1 className="text-2xl font-bold text-zinc-100">SmartBike — Protocolo taller</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
           Abre esta página con{" "}
+          <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-brand-400">
+            ?vehiculoId=UUID&amp;componentId=UUID
+          </code>{" "}
+          o{" "}
           <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-brand-400">
             ?bikeId=UUID&amp;componentId=UUID
           </code>{" "}
@@ -31,7 +38,11 @@ export default async function SmartBikeDashboardPage({ searchParams }: PageProps
     );
   }
 
-  const bike = await getBikeWithComponents(bikeId);
+  const supabase = createClient();
+  const resolvedBikeId = await resolveBikeId(supabase, identifier);
+  if (!resolvedBikeId) notFound();
+
+  const bike = await getBikeWithComponents(resolvedBikeId);
   if (!bike || !bike.shop_id || !bike.shop) notFound();
 
   const alertCandidates = componentsNeedingAlert(bike.components);

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { statusFromWear } from "@/lib/smartbike/component-wear";
+import { resolveBikeId } from "@/lib/smartbike/link-vehiculo";
 import type { BikeComponent } from "@/lib/smartbike/types";
 
 export type StravaActivityResult =
@@ -20,21 +21,16 @@ export async function processStravaActivity(
   }
 
   const supabase = createAdminClient();
+  const resolvedBikeId = await resolveBikeId(supabase, bicycleId);
 
-  const { data: bike, error: bikeError } = await supabase
-    .from("bikes")
-    .select("id")
-    .eq("id", bicycleId)
-    .maybeSingle();
-
-  if (bikeError || !bike) {
+  if (!resolvedBikeId) {
     return { success: false, error: "Bicicleta no encontrada" };
   }
 
   const { data: components, error: compError } = await supabase
     .from("bike_components")
     .select("id, km_accumulated, km_limit")
-    .eq("bike_id", bicycleId);
+    .eq("bike_id", resolvedBikeId);
 
   if (compError) {
     return { success: false, error: compError.message };
@@ -62,7 +58,7 @@ export async function processStravaActivity(
 
   return {
     success: true,
-    bikeId: bicycleId,
+    bikeId: resolvedBikeId,
     kmAdded,
     updatedComponents: updated,
   };

@@ -8,7 +8,9 @@ import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboar
 import { CategoriaVehiculoPanel } from "@/components/app/categoria-vehiculo-panel";
 import { VisitHistory } from "@/components/app/visit-history";
 import { WheelsGrid } from "@/components/app/wheels-grid";
+import { SmartBikePanel } from "@/components/smartbike/SmartBikePanel";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
+import { getOrEnsureSmartBikeForVehiculo } from "@/lib/data/smartbike";
 import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
 import {
   getOrEnsurePerfil,
@@ -42,10 +44,13 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
 
   if (!vehiculoBase) notFound();
 
-  const [resumen, perfil, tieneVinculoTaller] = await Promise.all([
+  const [resumen, perfil, tieneVinculoTaller, smartBike] = await Promise.all([
     getResumenTallerVehiculo(id, vehiculoBase.placa),
     getOrEnsurePerfil(),
     usuarioTieneVehiculoTaller(),
+    vehiculoBase.tipo_vehiculo === "bicicleta"
+      ? getOrEnsureSmartBikeForVehiculo(id)
+      : Promise.resolve(null),
   ]);
 
   const puedeRegistrarMantenimiento =
@@ -90,6 +95,8 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
             ✓ Sincronizado con tu taller · {resumen.totalVisitas} visita(s)
           </div>
         )}
+
+        {smartBike && <SmartBikePanel bike={smartBike} />}
 
         {tieneNeumaticos && <WheelsGrid config={config} />}
 
