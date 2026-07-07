@@ -18,8 +18,9 @@ export function Hero() {
             <span className="gradient-text">inteligente</span>
           </h1>
           <p className="mt-6 text-lg text-zinc-400 sm:text-xl">
-            El mecánico envía una foto de la factura por Telegram. SmartTaller extrae los datos,
-            registra el mantenimiento y programa el próximo servicio automáticamente.
+            El mecánico escanea el vehículo al llegar. SmartTaller registra la orden,
+            actualiza la flota, avisa al cliente y deja todo visible en tu dashboard — auto, moto,
+            bici o maquinaria.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link

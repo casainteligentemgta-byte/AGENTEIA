@@ -20,7 +20,7 @@ export function B2bHero() {
               <span className="gradient-text">trabajas</span>
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-zinc-400">
-              El mecánico sigue enviando la factura por Telegram. SmartTaller registra la orden,
+              El mecánico escanea el vehículo al llegar. SmartTaller registra la orden,
               actualiza la flota, avisa al cliente y deja todo visible en tu dashboard — auto, moto,
               bici o maquinaria.
             </p>
@@ -77,7 +77,7 @@ export function B2bHero() {
                   <p className="truncate text-sm font-medium text-zinc-200">
                     Nueva OS · ABC-123 · Cambio de aceite
                   </p>
-                  <p className="text-xs text-zinc-500">Registrada desde Telegram hace 2 min</p>
+                  <p className="text-xs text-zinc-500">Registrada al escanear llegada hace 2 min</p>
                 </div>
               </div>
             </div>
