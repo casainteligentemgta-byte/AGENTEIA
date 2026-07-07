@@ -58,7 +58,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 
 **Script único post-PR #9:** `supabase/deploy-pr9.sql` (pegar y ejecutar en SQL Editor si ya tienes las migraciones anteriores).
 
-**ABCopilot B2C (escritura de categorías):** ejecuta también `20250706100000_mantenimientos_update_categorias.sql` si aún no lo hiciste (ver sección [detalle_revision](#detalle_revision-jsonb) más abajo).
+**SmartTaller B2C (escritura de categorías):** ejecuta también `20250706100000_mantenimientos_update_categorias.sql` si aún no lo hiciste (ver sección [detalle_revision](#detalle_revision-jsonb) más abajo).
 
 ## SmartBike
 

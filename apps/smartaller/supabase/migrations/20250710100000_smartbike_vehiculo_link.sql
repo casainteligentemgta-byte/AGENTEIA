@@ -9,7 +9,7 @@ create unique index if not exists idx_bikes_vehiculo_id
 
 create index if not exists idx_bikes_vehiculo on public.bikes (vehiculo_id);
 
-comment on column public.bikes.vehiculo_id is 'Vehículo ABCopilot vinculado (tipo bicicleta); fuente única en /app/vehiculos';
+comment on column public.bikes.vehiculo_id is 'Vehículo SmartTaller vinculado (tipo bicicleta); fuente única en /app/vehiculos';
 
 -- Backfill: crear vehiculo para bicis huérfanas y enlazar
 do $$

@@ -19,7 +19,7 @@
     @apply bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent;
   }
 
-  /* App dueño — estilo ABCopilot mejorado */
+  /* App dueño — estilo SmartTaller mejorado */
   .app-bg-dark {
     background-color: #0a1628;
     background-image:
