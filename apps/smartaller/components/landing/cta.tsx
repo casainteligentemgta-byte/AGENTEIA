@@ -15,12 +15,17 @@ export function CTA() {
               Conecta Telegram, envía la primera factura y mira cómo aparece en tu dashboard.
             </p>
             <Link
-              href="/login"
+              href="/login?redirectTo=/dashboard"
               className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-medium text-zinc-900 transition hover:bg-zinc-100"
             >
               Crear cuenta gratis
               <ArrowRight className="h-5 w-5" />
             </Link>
+            <p className="mt-4">
+              <Link href="/para-talleres" className="text-sm text-zinc-500 transition hover:text-zinc-300">
+                Ver landing para talleres →
+              </Link>
+            </p>
           </div>
         </div>
       </div>
