@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMyTaller } from "@/lib/taller";
+import { uploadDiagnosticoFiles } from "@/lib/diagnostico/upload";
+import {
+  MAX_DIAGNOSTICO_FILES_PER_UPLOAD,
+  mergeMediaIntoDetalle,
+} from "@/lib/schemas/diagnostico-media";
 import { z } from "zod";
 import { parseRevisionInput, type RevisionParsed } from "@/lib/validations/revision";
 import type { TipoIndustria } from "@/lib/platform/types";
@@ -65,6 +71,43 @@ function buildDetalleRevision(data: RevisionParsed): Record<string, unknown> {
   }
 }
 
+function mediaFilesFromFormData(formData: FormData): File[] {
+  return formData
+    .getAll("media")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0)
+    .slice(0, MAX_DIAGNOSTICO_FILES_PER_UPLOAD);
+}
+
+async function attachDiagnosticoMedia(
+  tallerId: string,
+  mantenimientoId: string,
+  vehiculoId: string | null,
+  detalleBase: Record<string, unknown>,
+  files: File[]
+): Promise<void> {
+  if (files.length === 0) return;
+
+  const admin = createAdminClient();
+  const { items } = await uploadDiagnosticoFiles(admin, {
+    tallerId,
+    mantenimientoId,
+    files,
+  });
+
+  if (items.length === 0) return;
+
+  const nuevoDetalle = mergeMediaIntoDetalle(detalleBase, items);
+  await admin
+    .from("mantenimientos")
+    .update({ detalle_revision: nuevoDetalle })
+    .eq("id", mantenimientoId);
+
+  revalidatePath("/app/timeline");
+  if (vehiculoId) {
+    revalidatePath(`/app/vehiculos/${vehiculoId}`);
+  }
+}
+
 export async function createRevisionMantenimiento(
   tipoIndustria: TipoIndustria,
   formData: FormData
@@ -120,6 +163,15 @@ export async function createRevisionMantenimiento(
     return { success: false, error: mantError?.message ?? "No se pudo guardar la revisión" };
   }
 
+  const mediaFiles = mediaFilesFromFormData(formData);
+  await attachDiagnosticoMedia(
+    taller.id,
+    mantenimiento.id,
+    vehiculo.id,
+    detalle,
+    mediaFiles
+  );
+
   const vehiculoUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (data.tipoIndustria === "concesionario") {
     vehiculoUpdate.kilometraje_ultimo = data.kilometraje;
@@ -135,6 +187,7 @@ export async function createRevisionMantenimiento(
   revalidatePath("/dashboard/mantenimientos");
   revalidatePath("/dashboard/vehiculos");
   revalidatePath(`/dashboard/vehiculos/${vehiculo.id}`);
+  revalidatePath(`/app/vehiculos/${vehiculo.id}`);
 
   return { success: true, mantenimientoId: mantenimiento.id };
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DiagnosticoMediaListSchema } from "@/lib/schemas/diagnostico-media";
 
 export const EstadoCategoria = z.enum(["bien", "atencion", "critico"]);
 export type EstadoCategoriaValue = z.infer<typeof EstadoCategoria>;
@@ -29,6 +30,7 @@ export type CategoriaVehiculoId = (typeof CATEGORIAS_VEHICULO)[number];
 export const DetalleRevisionSchema = z
   .object({
     categorias: CategoriasSchema.optional(),
+    media: DiagnosticoMediaListSchema.optional(),
   })
   .passthrough();
 

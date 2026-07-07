@@ -9,6 +9,7 @@ export type Mantenimiento = {
   nombre_cliente: string | null;
   telefono_cliente: string | null;
   vehiculo_id: string | null;
+  detalle_revision?: Record<string, unknown> | null;
 };
 
 export type Vehiculo = {

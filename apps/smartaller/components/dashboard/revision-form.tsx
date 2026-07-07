@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Loader2, Wrench } from "lucide-react";
 import { createRevisionMantenimiento } from "@/app/actions/mantenimientos";
+import { DiagnosticoMediaInput } from "@/components/dashboard/diagnostico-media-input";
 import {
   DESGASTE_CADENA_OPCIONES,
   ESTADO_MANGUERAS_OPCIONES,
@@ -25,6 +26,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,7 +41,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
         return;
       }
       setSuccess(true);
-      e.currentTarget.reset();
+      setFormKey((k) => k + 1);
     });
   }
 
@@ -62,7 +64,7 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
           Registra un vehículo (Telegram o manualmente) antes de cargar revisiones.
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="vehiculoId" className="mb-1.5 block text-sm text-zinc-400">
               Vehículo / activo
@@ -204,6 +206,8 @@ export function RevisionForm({ tipoIndustria, vehiculos }: RevisionFormProps) {
               </div>
             </div>
           )}
+
+          <DiagnosticoMediaInput disabled={pending} />
 
           {error && (
             <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-2 text-sm text-red-300">

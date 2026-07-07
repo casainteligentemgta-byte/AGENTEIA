@@ -1,5 +1,7 @@
 import type { MantenimientoHistorial } from "@/lib/data/vehicle-history";
+import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { formatDate } from "@/lib/utils";
+import { DiagnosticoGaleria, DiagnosticoMediaBadge } from "@/components/app/diagnostico-galeria";
 import { CalendarClock, Wrench } from "lucide-react";
 
 type VisitHistoryProps = {
@@ -16,7 +18,7 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
   return (
     <div className="app-card-white overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <h2 className="text-sm font-bold text-zinc-800">Timeline</h2>
+        <h2 className="text-sm font-bold text-zinc-800">Historial transparente</h2>
         <span className="text-xs text-zinc-400">{mantenimientos.length} evento(s)</span>
       </div>
 
@@ -35,25 +37,39 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
       )}
 
       <ul className="divide-y divide-zinc-100">
-        {mantenimientos.slice(0, 5).map((m) => (
-          <li key={m.id} className="flex gap-3 px-4 py-3">
-            <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-800">
-                {m.descripcion ?? m.descripcion_servicio ?? "Servicio registrado"}
-              </p>
-              {m.taller_nombre && (
-                <p className="truncate text-xs text-zinc-500">{m.taller_nombre}</p>
+        {mantenimientos.slice(0, 8).map((m) => {
+          const media = parseMediaFromDetalle(m.detalle_revision);
+
+          return (
+            <li key={m.id} className="px-4 py-4">
+              <div className="flex gap-3">
+                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-zinc-800">
+                      {m.descripcion ?? m.descripcion_servicio ?? "Servicio registrado"}
+                    </p>
+                    <DiagnosticoMediaBadge count={media.length} />
+                  </div>
+                  {m.taller_nombre && (
+                    <p className="truncate text-xs text-zinc-500">{m.taller_nombre}</p>
+                  )}
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    {formatDate(m.created_at)}
+                    {m.kilometraje != null &&
+                      ` · ${m.kilometraje.toLocaleString("es-CO")} km`}
+                  </p>
+                </div>
+              </div>
+
+              {media.length > 0 && (
+                <div className="mt-3 pl-7">
+                  <DiagnosticoGaleria media={media} compact titulo="Evidencia del taller" />
+                </div>
               )}
-            </div>
-            <div className="shrink-0 text-right text-xs text-zinc-400">
-              <p>{formatDate(m.created_at)}</p>
-              {m.kilometraje != null && (
-                <p>{m.kilometraje.toLocaleString("es-CO")} km</p>
-              )}
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
