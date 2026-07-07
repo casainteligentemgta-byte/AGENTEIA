@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Bike, BikeComponent, BikeWithComponents, Shop } from "@/lib/bicicopilot/types";
+import type { Bike, BikeComponent, BikeWithComponents, Shop } from "@/lib/smartbike/types";
 
 export async function getBikeWithComponents(
   bikeId: string

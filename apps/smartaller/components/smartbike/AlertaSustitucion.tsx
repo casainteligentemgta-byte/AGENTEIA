@@ -5,8 +5,8 @@ import {
   COMPONENT_TYPE_LABELS,
   type BikeComponent,
   type Shop,
-} from "@/lib/bicicopilot/types";
-import { wearPercent } from "@/lib/bicicopilot/component-wear";
+} from "@/lib/smartbike/types";
+import { wearPercent } from "@/lib/smartbike/component-wear";
 import { cn } from "@/lib/utils";
 
 type AlertaSustitucionProps = {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { stravaWebhookPayloadSchema } from "@/lib/validations/bicicopilot";
-import { processStravaActivity } from "@/lib/bicicopilot/strava";
+import { stravaWebhookPayloadSchema } from "@/lib/validations/smartbike";
+import { processStravaActivity } from "@/lib/smartbike/strava";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 /** Health / verificación del endpoint */
 export async function GET() {
   return NextResponse.json({
-    service: "bicicopilot-strava-webhook",
+    service: "smartbike-strava-webhook",
     status: "ok",
     usage: "POST { data: { distance: metros, bicycle_id: uuid } }",
   });

@@ -19,8 +19,8 @@ Gestión de mantenimientos para talleres vía Telegram + app multivehículo para
 | `/login` | Auth con selector Taller / Dueño |
 | `/dashboard/configuracion` | URL del kiosk presidencia + vincular Telegram |
 | `/app/vehiculos/nuevo` | Registrar auto, moto, bici, etc. |
-| `/app/bicicletas` | BiciCopilot — carnet digital y alertas de desgaste |
-| `/dashboard/bicicopilot` | Protocolo de cierre del taller (reset contadores) |
+| `/app/bicicletas` | SmartBike — carnet digital y alertas de desgaste |
+| `/dashboard/smartbike` | Protocolo de cierre del taller (reset contadores) |
 | `/app/centros` | Mapa de centros de servicio |
 | `/api/strava/webhook` | Webhook ficticio Strava → km en componentes |
 | `/api/telegram-webhook` | Webhook del bot |
@@ -52,7 +52,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 7. `20250704160000_seguridad_p0.sql` — idempotencia Telegram, RLS por vehiculo_id
 8. `20250704170000_rls_cleanup.sql` — limpieza RLS legacy, recordatorios por vehiculo_id
 9. `20250706100000_mantenimientos_update_categorias.sql` — RLS UPDATE para escribir `categorias` en B2C/B2B
-10. `20250707100000_bicicopilot.sql` — BiciCopilot: shops, bikes, bike_components, maintenance_protocols
+10. `20250707100000_bicicopilot.sql` — SmartBike: shops, bikes, bike_components, maintenance_protocols
 11. `20250708100000_diagnostico_media.sql` — bucket Storage `diagnosticos` + RLS fotos/videos
 12. `20250709100000_repuestos.sql` — catálogo `repuestos` + líneas `mantenimiento_repuestos`
 
@@ -60,7 +60,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 
 **ABCopilot B2C (escritura de categorías):** ejecuta también `20250706100000_mantenimientos_update_categorias.sql` si aún no lo hiciste (ver sección [detalle_revision](#detalle_revision-jsonb) más abajo).
 
-## BiciCopilot
+## SmartBike
 
 Módulo de bicicletas con desgaste por kilómetros (Strava) y alertas con marca del taller de confianza.
 
@@ -71,7 +71,7 @@ Módulo de bicicletas con desgaste por kilómetros (Strava) y alertas con marca 
 | `bike_components` | Componentes con `km_accumulated` / `km_limit` y semáforo |
 | `maintenance_protocols` | Protocolo obligatorio de cierre del taller |
 
-**Instalación:** migración `20250707100000_bicicopilot.sql` + seed opcional `supabase/seed-bicicopilot.sql`.
+**Instalación:** migración `20250707100000_bicicopilot.sql` + seed opcional `supabase/seed-smartbike.sql`.
 
 **Webhook Strava (ficticio):**
 
@@ -82,7 +82,7 @@ curl -X POST https://tu-dominio/api/strava/webhook \
   -d '{"data":{"distance":12500,"bicycle_id":"UUID-BICI"}}'
 ```
 
-Umbrales de desgaste: amarillo ≥ 80 %, rojo ≥ 95 % (`lib/bicicopilot/component-wear.ts`).
+Umbrales de desgaste: amarillo ≥ 80 %, rojo ≥ 95 % (`lib/smartbike/component-wear.ts`).
 
 ## Diagnóstico visual (fotos y videos)
 

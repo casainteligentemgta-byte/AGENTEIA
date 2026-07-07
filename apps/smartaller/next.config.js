@@ -9,6 +9,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/bicicopilot",
+        destination: "/dashboard/smartbike",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { statusFromWear } from "@/lib/bicicopilot/component-wear";
-import type { BikeComponent } from "@/lib/bicicopilot/types";
+import { statusFromWear } from "@/lib/smartbike/component-wear";
+import type { BikeComponent } from "@/lib/smartbike/types";
 
 export type StravaActivityResult =
   | { success: true; bikeId: string; kmAdded: number; updatedComponents: number }

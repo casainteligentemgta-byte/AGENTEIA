@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { Loader2, Wrench } from "lucide-react";
-import { submitMaintenanceProtocol } from "@/app/actions/bicicopilot";
+import { submitMaintenanceProtocol } from "@/app/actions/smartbike";
 import {
   COMPONENT_TYPE_LABELS,
   type BikeComponent,
-} from "@/lib/bicicopilot/types";
+} from "@/lib/smartbike/types";
 
 type ProtocoloTallerProps = {
   bikeId: string;
