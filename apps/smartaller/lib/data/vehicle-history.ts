@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { normalizarPlaca } from "@/lib/vehicles/link";
+import { getRepuestosPorMantenimientoIds } from "@/lib/data/repuestos";
+import type { MantenimientoRepuestoLinea } from "@/lib/repuestos/types";
 
 export type MantenimientoHistorial = {
   id: string;
@@ -12,6 +14,7 @@ export type MantenimientoHistorial = {
   taller_id: string | null;
   taller_nombre: string | null;
   detalle_revision: Record<string, unknown> | null;
+  repuestos: MantenimientoRepuestoLinea[];
 };
 
 export type RecordatorioUsuario = {
@@ -85,20 +88,31 @@ export async function getResumenTallerVehiculo(
     }
   }
 
-  const historial: MantenimientoHistorial[] = (mantenimientos ?? []).map((m) => ({
-    id: m.id,
-    created_at: m.created_at,
-    placa: m.placa,
-    kilometraje: m.kilometraje,
-    descripcion: m.descripcion,
-    descripcion_servicio: m.descripcion_servicio,
-    costo: m.costo,
-    taller_id: m.taller_id,
-    taller_nombre: m.taller_id ? talleresMap.get(m.taller_id) ?? null : null,
-    detalle_revision:
-      m.detalle_revision && typeof m.detalle_revision === "object"
-        ? (m.detalle_revision as Record<string, unknown>)
-        : null,
+  const historialBase: Omit<MantenimientoHistorial, "repuestos">[] = (mantenimientos ?? []).map(
+    (m) => ({
+      id: m.id,
+      created_at: m.created_at,
+      placa: m.placa,
+      kilometraje: m.kilometraje,
+      descripcion: m.descripcion,
+      descripcion_servicio: m.descripcion_servicio,
+      costo: m.costo,
+      taller_id: m.taller_id,
+      taller_nombre: m.taller_id ? talleresMap.get(m.taller_id) ?? null : null,
+      detalle_revision:
+        m.detalle_revision && typeof m.detalle_revision === "object"
+          ? (m.detalle_revision as Record<string, unknown>)
+          : null,
+    })
+  );
+
+  const repuestosMap = await getRepuestosPorMantenimientoIds(
+    historialBase.map((m) => m.id)
+  );
+
+  const historial: MantenimientoHistorial[] = historialBase.map((m) => ({
+    ...m,
+    repuestos: repuestosMap.get(m.id) ?? [],
   }));
 
   const ultimo = historial[0] ?? null;

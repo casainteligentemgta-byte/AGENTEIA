@@ -5,6 +5,8 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMyTaller } from "@/lib/taller";
 import { uploadDiagnosticoFiles } from "@/lib/diagnostico/upload";
+import { addRepuestosToMantenimiento } from "@/app/actions/repuestos";
+import { parseRepuestosLineasJson } from "@/lib/validations/repuestos";
 import {
   MAX_DIAGNOSTICO_FILES_PER_UPLOAD,
   mergeMediaIntoDetalle,
@@ -171,6 +173,13 @@ export async function createRevisionMantenimiento(
     detalle,
     mediaFiles
   );
+
+  const repuestosLineas = parseRepuestosLineasJson(
+    String(formData.get("repuestosLineas") ?? "")
+  );
+  if (repuestosLineas.length > 0) {
+    await addRepuestosToMantenimiento(mantenimiento.id, repuestosLineas);
+  }
 
   const vehiculoUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (data.tipoIndustria === "concesionario") {

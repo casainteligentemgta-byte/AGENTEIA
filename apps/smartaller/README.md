@@ -54,6 +54,7 @@ Auto, moto, bicicleta, patinete, tractor, maquinaria pesada y jumbo. Config en `
 9. `20250706100000_mantenimientos_update_categorias.sql` — RLS UPDATE para escribir `categorias` en B2C/B2B
 10. `20250707100000_bicicopilot.sql` — BiciCopilot: shops, bikes, bike_components, maintenance_protocols
 11. `20250708100000_diagnostico_media.sql` — bucket Storage `diagnosticos` + RLS fotos/videos
+12. `20250709100000_repuestos.sql` — catálogo `repuestos` + líneas `mantenimiento_repuestos`
 
 **Script único post-PR #9:** `supabase/deploy-pr9.sql` (pegar y ejecutar en SQL Editor si ya tienes las migraciones anteriores).
 
@@ -90,6 +91,18 @@ El taller sube evidencia en **Dashboard → Mantenimientos** (formulario de revi
 El cliente las ve en `/app/vehiculos/[id]` dentro del **Historial transparente**.
 
 **Migración requerida:** `20250708100000_diagnostico_media.sql` (crea el bucket y políticas RLS).
+
+## Repuestos por orden de servicio
+
+| Tabla | Uso |
+|-------|-----|
+| `repuestos` | Catálogo e inventario del taller |
+| `mantenimiento_repuestos` | Líneas consumidas en cada OS |
+
+- **B2B:** `/dashboard/repuestos` (catálogo) + líneas en nueva revisión o en detalle de vehículo.
+- **B2C:** lista de repuestos con precios en el historial transparente (`/app/vehiculos/[id]`).
+
+**Migración:** `20250709100000_repuestos.sql`
 
 ## Plataforma híbrida B2B / B2C
 
