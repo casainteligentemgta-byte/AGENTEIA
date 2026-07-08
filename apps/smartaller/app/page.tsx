@@ -7,7 +7,7 @@ import { CTA } from "@/components/landing/cta";
 export default function HomePage() {
   return (
     <>
-      <Navbar />
+      <Navbar variant="minimal" />
       <main>
         <Hero />
         <PlatformAbout />

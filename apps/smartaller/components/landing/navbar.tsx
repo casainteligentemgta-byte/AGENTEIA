@@ -4,9 +4,11 @@ import { BrandLogo } from "@/components/app/brand-logo";
 
 type NavbarProps = {
   active?: "home" | "talleres";
+  /** Home: solo registro e inicio de sesión. Talleres: navegación completa. */
+  variant?: "minimal" | "full";
 };
 
-export function Navbar({ active = "home" }: NavbarProps) {
+export function Navbar({ active = "home", variant = "full" }: NavbarProps) {
   return (
     <header className="fixed top-0 z-50 w-full border-b border-zinc-800/60 glass">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -14,27 +16,41 @@ export function Navbar({ active = "home" }: NavbarProps) {
           <BrandLogo size="sm" theme="dark" showDot={false} />
         </Link>
         <nav className="flex items-center gap-2 sm:gap-3">
+          {variant === "full" && (
+            <>
+              <Link
+                href="/para-talleres"
+                className={`hidden sm:inline-flex rounded-lg px-3 py-2 text-sm transition ${
+                  active === "talleres"
+                    ? "font-medium text-blue-300"
+                    : "text-zinc-400 hover:text-zinc-100"
+                }`}
+              >
+                Para talleres
+              </Link>
+              <Link
+                href="/cliente"
+                className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
+              >
+                Portal cliente
+              </Link>
+              <Link
+                href="/login?redirectTo=/app"
+                className="hidden md:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
+              >
+                Mi vehículo
+              </Link>
+            </>
+          )}
           <Link
-            href="/para-talleres"
-            className={`hidden sm:inline-flex rounded-lg px-3 py-2 text-sm transition ${
-              active === "talleres"
-                ? "font-medium text-blue-300"
-                : "text-zinc-400 hover:text-zinc-100"
+            href="/login?redirectTo=/dashboard&mode=signup"
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+              variant === "minimal"
+                ? "border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white"
+                : "hidden sm:inline-flex border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white"
             }`}
           >
-            Para talleres
-          </Link>
-          <Link
-            href="/cliente"
-            className="hidden sm:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
-          >
-            Portal cliente
-          </Link>
-          <Link
-            href="/login?redirectTo=/app"
-            className="hidden md:inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-100"
-          >
-            Mi vehículo
+            Registro
           </Link>
           <Link
             href="/login?redirectTo=/dashboard"

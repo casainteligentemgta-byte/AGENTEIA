@@ -32,7 +32,7 @@ const paragraphs = [
 
 export function PlatformAbout() {
   return (
-    <section id="plataforma" className="border-t border-zinc-800/60 py-24">
+    <section id="plataforma" className="border-t border-zinc-800/60 py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -41,7 +41,7 @@ export function PlatformAbout() {
           <p className="mt-4 text-lg leading-relaxed text-zinc-400">{paragraphs[0]}</p>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {highlights.map(({ icon: Icon, title, desc }) => (
             <div key={title} className="glass rounded-2xl p-5">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/15 text-blue-400">
@@ -53,7 +53,7 @@ export function PlatformAbout() {
           ))}
         </div>
 
-        <div className="mx-auto mt-14 max-w-3xl space-y-6 text-base leading-relaxed text-zinc-400">
+        <div className="mx-auto mt-10 max-w-3xl space-y-6 text-base leading-relaxed text-zinc-400">
           {paragraphs.slice(1).map((text) => (
             <p key={text.slice(0, 40)}>{text}</p>
           ))}

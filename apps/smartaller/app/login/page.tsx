@@ -13,6 +13,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirectTo");
   const errorParam = searchParams.get("error");
+  const modeParam = searchParams.get("mode");
 
   const [accountType, setAccountType] = useState<AccountType>(() =>
     redirectParam?.startsWith("/app") ? "dueno" : "taller"
@@ -22,7 +23,9 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">(
+    modeParam === "signup" ? "signup" : "login"
+  );
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(
     errorParam === "auth"
       ? { type: "error", text: "No se pudo completar el inicio de sesión." }
