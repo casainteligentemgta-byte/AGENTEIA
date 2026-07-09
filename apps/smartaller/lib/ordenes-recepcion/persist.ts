@@ -1,5 +1,6 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { CrearOrdenRecepcionInput } from "@/lib/schemas/orden-recepcion";
+import { marcaToDbValor } from "@/lib/schemas/orden-recepcion";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -35,12 +36,14 @@ export async function persistOrdenRecepcion(
       color: orden.color?.trim() || null,
       chasis: orden.chasis?.trim() || null,
       kilometraje: orden.kilometraje ?? null,
+      nivel_combustible: orden.nivelCombustible ?? null,
       fecha_ingreso: fechaIngreso,
       hora_ingreso: normalizeHora(orden.horaIngreso),
       llego_grua: orden.llegoGrua ?? false,
       vehiculo_sucio: orden.vehiculoSucio ?? false,
       estado_ingreso_notas: orden.estadoIngresoNotas?.trim() || null,
       motivo_visita: orden.motivoVisita?.trim() || null,
+      autorizacion_propietario: orden.autorizacionPropietario ?? false,
       firma_cliente: orden.firmaCliente?.trim() || null,
       firma_asesor: orden.firmaAsesor?.trim() || null,
       firmado_cliente_at: orden.firmaCliente?.trim() ? now : null,
@@ -56,11 +59,11 @@ export async function persistOrdenRecepcion(
   }
 
   const checklistRows = orden.checklist
-    .filter((c) => c.valor !== "no_aplica")
+    .filter((c) => c.marca || (c.valor && c.valor !== "no_aplica"))
     .map((c) => ({
       orden_recepcion_id: ordenRow.id,
       item_id: c.itemId,
-      valor: c.valor,
+      valor: c.marca ? marcaToDbValor(c.marca) : c.valor!,
       notas: c.notas?.trim() || null,
     }));
 

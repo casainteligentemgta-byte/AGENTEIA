@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   OrdenRecepcionChecklistRespuesta,
   OrdenRecepcionDanoVisual,
+  NivelCombustible,
 } from "@/lib/schemas/orden-recepcion";
+import { dbValorToMarca } from "@/lib/schemas/orden-recepcion";
 
 export type OrdenRecepcionDetalle = {
   id: string;
@@ -20,6 +22,8 @@ export type OrdenRecepcionDetalle = {
   vehiculo_sucio: boolean;
   estado_ingreso_notas: string | null;
   motivo_visita: string | null;
+  nivel_combustible: string | null;
+  autorizacion_propietario: boolean;
   firma_cliente: string | null;
   firma_asesor: string | null;
   firmado_cliente_at: string | null;
@@ -38,7 +42,7 @@ export async function getOrdenRecepcionDetalle(
     const { data: orden, error } = await supabase
       .from("ordenes_recepcion")
       .select(
-        "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id"
+        "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, nivel_combustible, autorizacion_propietario, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id"
       )
       .eq("id", ordenId)
       .maybeSingle();
@@ -60,6 +64,7 @@ export async function getOrdenRecepcionDetalle(
       ...orden,
       checklist: (checkRes.data ?? []).map((r) => ({
         itemId: r.item_id,
+        marca: dbValorToMarca(r.valor),
         valor: r.valor as OrdenRecepcionChecklistRespuesta["valor"],
         notas: r.notas ?? "",
       })),

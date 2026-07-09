@@ -3,9 +3,10 @@
 import { Printer } from "lucide-react";
 import {
   RECEPCION_CHECKLIST_SECCION,
-  RECEPCION_CHECKLIST_VALOR_LABELS,
   RECEPCION_SECCION_LABELS,
   RECEPCION_TIPO_DANO_SIMBOLO,
+  NIVEL_COMBUSTIBLE_LABELS,
+  NOTA_AUTORIZACION_PROPIETARIO,
 } from "@/lib/schemas/orden-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
 
@@ -18,8 +19,10 @@ function LineField({ label, wide }: { label: string; wide?: boolean }) {
   );
 }
 
-function CheckCell() {
-  return <td className="h-7 w-10 border border-zinc-300 text-center text-xs" />;
+function MarcaCell() {
+  return (
+    <td className="h-7 w-14 border border-zinc-300 text-center text-xs font-bold">✓ / X</td>
+  );
 }
 
 export function HojaInspeccionPlantilla() {
@@ -45,9 +48,7 @@ export function HojaInspeccionPlantilla() {
 
       <article className="mx-auto max-w-4xl bg-white p-6 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-            SmartTaller
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">SmartTaller</p>
           <h1 className="mt-1 text-xl font-bold uppercase tracking-wide">
             Hoja de inspección — Orden de recepción
           </h1>
@@ -68,6 +69,17 @@ export function HojaInspeccionPlantilla() {
             <LineField label="Color" />
             <LineField label="Chasis" />
             <LineField label="Kilometraje (km)" />
+            <div>
+              <span className="text-[11px] font-medium text-zinc-600">Nivel de combustible</span>
+              <div className="mt-1 flex flex-wrap gap-3 text-[10px]">
+                {Object.values(NIVEL_COMBUSTIBLE_LABELS).map((l) => (
+                  <label key={l} className="flex items-center gap-1">
+                    <span className="inline-block h-3.5 w-3.5 border border-zinc-500" />
+                    {l}
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <LineField label="Fecha ingreso" />
               <LineField label="Hora" />
@@ -92,12 +104,9 @@ export function HojaInspeccionPlantilla() {
         </section>
 
         <section className="mt-8">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            2. Checklist de inspección
-          </h2>
+          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">2. Checklist de inspección</h2>
           <p className="mb-4 text-[10px] text-zinc-600">
-            Marque con una X el estado de cada ítem: Presente · Ausente · Bueno · Regular · Malo ·
-            N/A
+            Marque en cada ítem: <strong>✓</strong> correcto/presente o <strong>X</strong> falla/ausente
           </p>
 
           {RECEPCION_CHECKLIST_SECCION.map((seccion) => {
@@ -112,17 +121,10 @@ export function HojaInspeccionPlantilla() {
                 <table className="w-full border-collapse text-[10px]">
                   <thead>
                     <tr className="bg-zinc-100">
-                      <th className="border border-zinc-300 px-2 py-1 text-left font-semibold">
-                        Ítem
+                      <th className="border border-zinc-300 px-2 py-1 text-left font-semibold">Ítem</th>
+                      <th className="border border-zinc-300 px-2 py-1 text-center font-semibold w-16">
+                        ✓ / X
                       </th>
-                      {Object.values(RECEPCION_CHECKLIST_VALOR_LABELS).map((l) => (
-                        <th
-                          key={l}
-                          className="border border-zinc-300 px-1 py-1 font-semibold"
-                        >
-                          {l}
-                        </th>
-                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -139,9 +141,7 @@ export function HojaInspeccionPlantilla() {
                             )}
                             {item.etiqueta}
                           </td>
-                          {Array.from({ length: 6 }).map((_, i) => (
-                            <CheckCell key={i} />
-                          ))}
+                          <MarcaCell />
                         </tr>
                       );
                     })}
@@ -157,7 +157,8 @@ export function HojaInspeccionPlantilla() {
             3. Estado visual — esquema del vehículo
           </h2>
           <p className="mb-2 text-[10px] text-zinc-600">
-            Leyenda de daños: {Object.entries(RECEPCION_TIPO_DANO_SIMBOLO)
+            Leyenda:{" "}
+            {Object.entries(RECEPCION_TIPO_DANO_SIMBOLO)
               .map(([k, s]) => `${s} ${k.replace("_", " ")}`)
               .join(" · ")}
           </p>
@@ -181,13 +182,18 @@ export function HojaInspeccionPlantilla() {
               <ellipse cx="145" cy="305" rx="16" ry="26" fill="none" stroke="#a1a1aa" />
             </svg>
           </div>
-          <p className="mt-2 text-center text-[10px] text-zinc-500">
-            Vista superior — marque rayones, abolladuras y piezas faltantes
-          </p>
         </section>
 
         <section className="mt-8 break-inside-avoid border-t border-zinc-300 pt-6">
-          <h2 className="mb-4 text-sm font-bold uppercase text-zinc-800">4. Validación</h2>
+          <h2 className="mb-4 text-sm font-bold uppercase text-zinc-800">4. Autorización y validación</h2>
+
+          <div className="mb-6 rounded border border-zinc-300 bg-zinc-50 p-3 text-[10px] leading-relaxed text-zinc-700">
+            <label className="flex items-start gap-2">
+              <span className="mt-0.5 inline-block h-4 w-4 shrink-0 border border-zinc-500" />
+              <span>{NOTA_AUTORIZACION_PROPIETARIO}</span>
+            </label>
+          </div>
+
           <div className="grid gap-8 sm:grid-cols-2">
             <div>
               <p className="text-xs font-medium text-zinc-600">Firma del cliente</p>
@@ -202,7 +208,7 @@ export function HojaInspeccionPlantilla() {
           </div>
         </section>
 
-        <footer className="mt-8 text-center text-[9px] text-zinc-400 print:fixed print:bottom-0 print:left-0 print:right-0">
+        <footer className="mt-8 text-center text-[9px] text-zinc-400">
           Documento generado por SmartTaller · smartaller.vercel.app
         </footer>
       </article>

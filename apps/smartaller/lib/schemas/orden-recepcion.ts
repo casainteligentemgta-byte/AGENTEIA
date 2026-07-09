@@ -18,6 +18,29 @@ export const RECEPCION_CHECKLIST_VALOR = [
   "no_aplica",
 ] as const;
 
+/** Marca simplificada en UI: solo ✓ o X */
+export const CHECKLIST_MARCA = ["check", "x"] as const;
+export type ChecklistMarca = (typeof CHECKLIST_MARCA)[number];
+
+export const CHECKLIST_MARCA_SIMBOLO: Record<ChecklistMarca, string> = {
+  check: "✓",
+  x: "X",
+};
+
+export const NIVEL_COMBUSTIBLE = ["vacio", "1_4", "1_2", "3_4", "lleno"] as const;
+export type NivelCombustible = (typeof NIVEL_COMBUSTIBLE)[number];
+
+export const NIVEL_COMBUSTIBLE_LABELS: Record<NivelCombustible, string> = {
+  vacio: "Vacío",
+  "1_4": "1/4",
+  "1_2": "1/2",
+  "3_4": "3/4",
+  lleno: "Lleno",
+};
+
+export const NOTA_AUTORIZACION_PROPIETARIO =
+  "Declaro bajo mi responsabilidad ser el propietario del vehículo o estar debidamente autorizado por el propietario para requerir los trabajos de servicio indicados en esta orden, y acepto las condiciones de recepción del taller.";
+
 export const RECEPCION_TIPO_DANO = [
   "rayado",
   "falta_pieza",
@@ -67,7 +90,9 @@ export const RECEPCION_SECCION_LABELS: Record<
 
 const checklistRespuestaSchema = z.object({
   itemId: z.string().min(1),
-  valor: z.enum(RECEPCION_CHECKLIST_VALOR).default("no_aplica"),
+  marca: z.enum(CHECKLIST_MARCA).optional(),
+  /** Legacy / persistencia DB */
+  valor: z.enum(RECEPCION_CHECKLIST_VALOR).optional(),
   notas: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
@@ -95,10 +120,12 @@ export const ordenRecepcionAltaSchema = z.object({
     .optional()
     .or(z.literal("")),
   kilometraje: z.coerce.number().int().min(0).nullable().optional(),
+  nivelCombustible: z.enum(NIVEL_COMBUSTIBLE).optional(),
   llegoGrua: z.boolean().default(false),
   vehiculoSucio: z.boolean().default(false),
   estadoIngresoNotas: z.string().trim().max(500).optional().or(z.literal("")),
   motivoVisita: z.string().trim().max(500).optional().or(z.literal("")),
+  autorizacionPropietario: z.boolean().default(false),
   checklist: z.array(checklistRespuestaSchema).default([]),
   danos: z.array(danoVisualSchema).default([]),
   firmaCliente: z.string().trim().max(120).optional().or(z.literal("")),
@@ -137,19 +164,49 @@ export function tieneDatosOrdenRecepcion(raw: unknown): boolean {
       o.llegoGrua ||
       o.vehiculoSucio ||
       o.kilometraje != null ||
-      o.checklist.some((c) => c.valor !== "no_aplica") ||
+      o.nivelCombustible ||
+      o.autorizacionPropietario ||
+      o.checklist.some((c) => c.marca) ||
       o.danos.length > 0
   );
+}
+
+export function marcaToDbValor(marca: ChecklistMarca): "presente" | "ausente" {
+  return marca === "check" ? "presente" : "ausente";
+}
+
+export function dbValorToMarca(valor: string | undefined): ChecklistMarca | undefined {
+  if (valor === "presente" || valor === "bueno") return "check";
+  if (valor === "ausente" || valor === "malo" || valor === "regular") return "x";
+  return undefined;
+}
+
+export function checklistToMarcaRecord(
+  items: OrdenRecepcionChecklistRespuesta[]
+): Record<string, ChecklistMarca | undefined> {
+  return Object.fromEntries(
+    items.map((i) => [i.itemId, i.marca ?? dbValorToMarca(i.valor)])
+  );
+}
+
+export function marcaRecordToChecklist(
+  record: Record<string, ChecklistMarca | undefined>
+): OrdenRecepcionChecklistRespuesta[] {
+  return Object.entries(record)
+    .filter(([, marca]) => marca != null)
+    .map(([itemId, marca]) => ({ itemId, marca: marca! }));
 }
 
 export function checklistToRecord(
   items: OrdenRecepcionChecklistRespuesta[]
 ): Record<string, OrdenRecepcionChecklistRespuesta["valor"]> {
-  return Object.fromEntries(items.map((i) => [i.itemId, i.valor]));
+  return Object.fromEntries(
+    items.map((i) => [i.itemId, i.valor ?? (i.marca ? marcaToDbValor(i.marca) : "no_aplica")])
+  );
 }
 
 export function recordToChecklist(
-  record: Record<string, OrdenRecepcionChecklistRespuesta["valor"]>
+  record: Record<string, ChecklistMarca | undefined>
 ): OrdenRecepcionChecklistRespuesta[] {
-  return Object.entries(record).map(([itemId, valor]) => ({ itemId, valor }));
+  return marcaRecordToChecklist(record);
 }

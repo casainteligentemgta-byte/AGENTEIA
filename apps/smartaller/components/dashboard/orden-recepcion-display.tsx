@@ -1,8 +1,11 @@
 import {
-  RECEPCION_CHECKLIST_VALOR_LABELS,
   RECEPCION_SECCION_LABELS,
   RECEPCION_TIPO_DANO_SIMBOLO,
-  checklistToRecord,
+  CHECKLIST_MARCA_SIMBOLO,
+  NIVEL_COMBUSTIBLE_LABELS,
+  NOTA_AUTORIZACION_PROPIETARIO,
+  checklistToMarcaRecord,
+  type NivelCombustible,
 } from "@/lib/schemas/orden-recepcion";
 import { RECEPCION_CHECKLIST_CATALOG } from "@/lib/recepcion/catalog";
 import type { OrdenRecepcionDetalle } from "@/lib/data/ordenes-recepcion";
@@ -15,17 +18,19 @@ type Props = {
 };
 
 export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: Props) {
-  const checklistMap = checklistToRecord(orden.checklist);
-  const itemsConValor = RECEPCION_CHECKLIST_CATALOG.filter(
-    (i) => checklistMap[i.id] && checklistMap[i.id] !== "no_aplica"
-  );
+  const checklistMap = checklistToMarcaRecord(orden.checklist);
+  const itemsMarcados = RECEPCION_CHECKLIST_CATALOG.filter((i) => checklistMap[i.id]);
 
-  const porSeccion = itemsConValor.reduce<Record<string, typeof itemsConValor>>((acc, item) => {
+  const porSeccion = itemsMarcados.reduce<Record<string, typeof itemsMarcados>>((acc, item) => {
     const key = item.seccion;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
   }, {});
+
+  const nivelLabel =
+    orden.nivel_combustible &&
+    NIVEL_COMBUSTIBLE_LABELS[orden.nivel_combustible as NivelCombustible];
 
   return (
     <section className="glass rounded-2xl border border-blue-500/20 p-6">
@@ -79,6 +84,12 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
             <dd className="text-zinc-200">{formatKilometraje(orden.kilometraje)}</dd>
           </div>
         )}
+        {nivelLabel && (
+          <div>
+            <dt className="text-zinc-500">Combustible</dt>
+            <dd className="text-zinc-200">{nivelLabel}</dd>
+          </div>
+        )}
       </dl>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
@@ -114,14 +125,21 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
             {RECEPCION_SECCION_LABELS[seccion as keyof typeof RECEPCION_SECCION_LABELS]}
           </p>
           <ul className="space-y-1">
-            {items.map((item) => (
-              <li key={item.id} className="flex justify-between gap-3 text-sm">
-                <span className="text-zinc-300">{item.etiqueta}</span>
-                <span className="text-zinc-400">
-                  {RECEPCION_CHECKLIST_VALOR_LABELS[checklistMap[item.id]!]}
-                </span>
-              </li>
-            ))}
+            {items.map((item) => {
+              const marca = checklistMap[item.id]!;
+              return (
+                <li key={item.id} className="flex justify-between gap-3 text-sm">
+                  <span className="text-zinc-300">{item.etiqueta}</span>
+                  <span
+                    className={
+                      marca === "check" ? "font-bold text-emerald-400" : "font-bold text-red-400"
+                    }
+                  >
+                    {CHECKLIST_MARCA_SIMBOLO[marca]}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
@@ -135,10 +153,18 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
                 key={`${d.posicionX}-${i}`}
                 className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-200"
               >
-                {RECEPCION_TIPO_DANO_SIMBOLO[d.tipo]} ({d.posicionX.toFixed(0)}%, {d.posicionY.toFixed(0)}%)
+                {RECEPCION_TIPO_DANO_SIMBOLO[d.tipo]} ({d.posicionX.toFixed(0)}%,{" "}
+                {d.posicionY.toFixed(0)}%)
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {orden.autorizacion_propietario && (
+        <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-400">
+          <p className="font-medium text-emerald-400">✓ Autorización del propietario</p>
+          <p className="mt-1">{NOTA_AUTORIZACION_PROPIETARIO}</p>
         </div>
       )}
 

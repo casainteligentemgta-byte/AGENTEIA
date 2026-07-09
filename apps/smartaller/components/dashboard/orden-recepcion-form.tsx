@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import { ClipboardCheck } from "lucide-react";
+import { ChecklistMarcaCelda } from "@/components/dashboard/checklist-marca-celda";
 import { OrdenRecepcionDanosCanvas } from "@/components/dashboard/orden-recepcion-danos-canvas";
 import {
   RECEPCION_CHECKLIST_SECCION,
-  RECEPCION_CHECKLIST_VALOR,
-  RECEPCION_CHECKLIST_VALOR_LABELS,
   RECEPCION_SECCION_LABELS,
   RECEPCION_TIPO_DANO,
-  checklistToRecord,
-  recordToChecklist,
+  NIVEL_COMBUSTIBLE,
+  NIVEL_COMBUSTIBLE_LABELS,
+  NOTA_AUTORIZACION_PROPIETARIO,
+  checklistToMarcaRecord,
+  marcaRecordToChecklist,
+  type ChecklistMarca,
   type OrdenRecepcionFormValue,
   type OrdenRecepcionDanoVisual,
-  type OrdenRecepcionChecklistRespuesta,
 } from "@/lib/schemas/orden-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
 
@@ -26,7 +28,7 @@ type Props = {
 export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometraje" }: Props) {
   const [tipoDanoActivo, setTipoDanoActivo] = useState<OrdenRecepcionDanoVisual["tipo"]>("rayado");
 
-  const checklistRecord = checklistToRecord(value.checklist ?? []);
+  const checklistRecord = checklistToMarcaRecord(value.checklist ?? []);
   const today = new Date().toISOString().slice(0, 10);
   const nowTime = new Date().toTimeString().slice(0, 5);
 
@@ -34,9 +36,9 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
     onChange({ ...value, ...partial });
   }
 
-  function setChecklistValor(itemId: string, valor: OrdenRecepcionChecklistRespuesta["valor"]) {
-    const next = { ...checklistRecord, [itemId]: valor };
-    patch({ checklist: recordToChecklist(next) });
+  function setChecklistMarca(itemId: string, marca: ChecklistMarca | undefined) {
+    const next = { ...checklistRecord, [itemId]: marca };
+    patch({ checklist: marcaRecordToChecklist(next) });
   }
 
   return (
@@ -89,26 +91,48 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
             />
           </div>
-          <div className="flex flex-col justify-end gap-2 sm:col-span-2 lg:col-span-1">
-            <label className="flex items-center gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={value.llegoGrua ?? false}
-                onChange={(e) => patch({ llegoGrua: e.target.checked })}
-                className="rounded border-zinc-600"
-              />
-              Llegó en grúa
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={value.vehiculoSucio ?? false}
-                onChange={(e) => patch({ vehiculoSucio: e.target.checked })}
-                className="rounded border-zinc-600"
-              />
-              Vehículo sucio
-            </label>
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Nivel de combustible</label>
+            <select
+              value={value.nivelCombustible ?? ""}
+              onChange={(e) =>
+                patch({
+                  nivelCombustible: e.target.value
+                    ? (e.target.value as OrdenRecepcionFormValue["nivelCombustible"])
+                    : undefined,
+                })
+              }
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              <option value="">Seleccionar…</option>
+              {NIVEL_COMBUSTIBLE.map((n) => (
+                <option key={n} value={n}>
+                  {NIVEL_COMBUSTIBLE_LABELS[n]}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-6">
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={value.llegoGrua ?? false}
+              onChange={(e) => patch({ llegoGrua: e.target.checked })}
+              className="rounded border-zinc-600"
+            />
+            Llegó en grúa
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={value.vehiculoSucio ?? false}
+              onChange={(e) => patch({ vehiculoSucio: e.target.checked })}
+              className="rounded border-zinc-600"
+            />
+            Vehículo sucio
+          </label>
         </div>
 
         <div className="mt-4">
@@ -127,7 +151,7 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
             rows={2}
             value={value.motivoVisita ?? ""}
             onChange={(e) => patch({ motivoVisita: e.target.value })}
-            placeholder='Ej. Rev. 15000 kms'
+            placeholder="Ej. Rev. 15000 kms"
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
         </div>
@@ -142,12 +166,13 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
             <h3 className="mb-3 text-sm font-semibold text-zinc-200">
               {RECEPCION_SECCION_LABELS[seccion]}
             </h3>
+            <p className="mb-2 text-xs text-zinc-500">Marque ✓ (correcto/presente) o X (falla/ausente)</p>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
+              <table className="w-full min-w-[400px] text-sm">
                 <thead>
                   <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
                     <th className="pb-2 pr-4 font-medium">Ítem</th>
-                    <th className="pb-2 w-32 font-medium">Estado</th>
+                    <th className="pb-2 w-24 text-center font-medium">✓ / X</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -165,22 +190,10 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
                           <span className="text-zinc-300">{item.etiqueta}</span>
                         </td>
                         <td className="py-2">
-                          <select
-                            value={checklistRecord[item.id] ?? "no_aplica"}
-                            onChange={(e) =>
-                              setChecklistValor(
-                                item.id,
-                                e.target.value as OrdenRecepcionChecklistRespuesta["valor"]
-                              )
-                            }
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs outline-none focus:border-blue-500"
-                          >
-                            {RECEPCION_CHECKLIST_VALOR.map((v) => (
-                              <option key={v} value={v}>
-                                {RECEPCION_CHECKLIST_VALOR_LABELS[v]}
-                              </option>
-                            ))}
-                          </select>
+                          <ChecklistMarcaCelda
+                            marca={checklistRecord[item.id]}
+                            onChange={(marca) => setChecklistMarca(item.id, marca)}
+                          />
                         </td>
                       </tr>
                     );
@@ -215,6 +228,18 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
           onChange={(danos) => patch({ danos })}
           tipoActivo={tipoDanoActivo}
         />
+      </div>
+
+      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+        <label className="flex items-start gap-3 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={value.autorizacionPropietario ?? false}
+            onChange={(e) => patch({ autorizacionPropietario: e.target.checked })}
+            className="mt-1 rounded border-zinc-600"
+          />
+          <span>{NOTA_AUTORIZACION_PROPIETARIO}</span>
+        </label>
       </div>
 
       <div className="grid gap-4 border-t border-zinc-800 pt-5 sm:grid-cols-2">
