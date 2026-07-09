@@ -12,7 +12,9 @@ export async function getVehiculoDetalle(id: string): Promise<VehiculoDetalle | 
 
     const { data: vehiculo, error } = await supabase
       .from("vehiculos")
-      .select("id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at")
+      .select(
+        "id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, marca, modelo, color, created_at, updated_at"
+      )
       .eq("id", id)
       .maybeSingle();
 

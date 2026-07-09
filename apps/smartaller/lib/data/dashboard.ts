@@ -41,8 +41,8 @@ export type Recordatorio = {
 
 export type DashboardStats = {
   totalVehiculos: number;
-  totalMantenimientos: number;
-  recordatoriosPendientes: number;
+  vehiculosEnMantenimiento: number;
+  tareasPorEjecutar: number;
   ingresosMes: number;
 };
 
@@ -69,28 +69,49 @@ function startOfMonth(): string {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
 }
 
+function startOfToday(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function countVehiculosEnMantenimientoActivo(
+  rows: { vehiculo_id: string | null; placa: string | null }[]
+): number {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    const key = row.vehiculo_id ?? row.placa?.trim();
+    if (key) keys.add(key);
+  }
+  return keys.size;
+}
+
 export async function getDashboardStats(): Promise<DashboardStatsResult> {
   const empty: DashboardStats = {
     totalVehiculos: 0,
-    totalMantenimientos: 0,
-    recordatoriosPendientes: 0,
+    vehiculosEnMantenimiento: 0,
+    tareasPorEjecutar: 0,
     ingresosMes: 0,
   };
 
   try {
     const supabase = getSupabase();
     const monthStart = startOfMonth();
+    const todayStart = startOfToday();
 
-    const [vehiculos, mantenimientos, recordatorios, ingresos] = await Promise.all([
+    const [vehiculos, mantenimientosActivos, recordatorios, ingresos] = await Promise.all([
       supabase.from("vehiculos").select("id", { count: "exact", head: true }),
-      supabase.from("mantenimientos").select("id", { count: "exact", head: true }),
+      supabase
+        .from("mantenimientos")
+        .select("vehiculo_id, placa")
+        .gte("created_at", todayStart),
       supabase.from("recordatorios").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
       supabase.from("mantenimientos").select("costo").gte("created_at", monthStart),
     ]);
 
     const firstError =
       vehiculos.error?.message ??
-      mantenimientos.error?.message ??
+      mantenimientosActivos.error?.message ??
       recordatorios.error?.message ??
       ingresos.error?.message ??
       null;
@@ -105,8 +126,8 @@ export async function getDashboardStats(): Promise<DashboardStatsResult> {
     return {
       stats: {
         totalVehiculos: vehiculos.count ?? 0,
-        totalMantenimientos: mantenimientos.count ?? 0,
-        recordatoriosPendientes: recordatorios.count ?? 0,
+        vehiculosEnMantenimiento: countVehiculosEnMantenimientoActivo(mantenimientosActivos.data ?? []),
+        tareasPorEjecutar: recordatorios.count ?? 0,
         ingresosMes,
       },
       error: null,

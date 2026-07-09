@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, ClipboardList, Bell, DollarSign, ArrowRight } from "lucide-react";
+import { Car, ListTodo, DollarSign, ArrowRight, Wrench } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { IngresosChart } from "@/components/dashboard/ingresos-chart";
 import { TopRanking } from "@/components/dashboard/top-ranking";
@@ -44,12 +44,22 @@ export default async function DashboardPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Vehículos" value={String(stats.totalVehiculos)} icon={Car} />
-        <StatCard label="Mantenimientos" value={String(stats.totalMantenimientos)} icon={ClipboardList} />
         <StatCard
-          label="Recordatorios pendientes"
-          value={String(stats.recordatoriosPendientes)}
-          icon={Bell}
+          label="Vehículos registrados"
+          value={String(stats.totalVehiculos)}
+          icon={Car}
+        />
+        <StatCard
+          label="En mantenimiento"
+          value={String(stats.vehiculosEnMantenimiento)}
+          icon={Wrench}
+          trend="Vehículos con servicio activo hoy"
+        />
+        <StatCard
+          label="Tareas por ejecutar"
+          value={String(stats.tareasPorEjecutar)}
+          icon={ListTodo}
+          trend="Recordatorios pendientes"
         />
         <StatCard
           label="Ingresos del mes"
@@ -130,7 +140,7 @@ export default async function DashboardPage() {
 
         <section className="glass rounded-2xl lg:col-span-2">
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
-            <h2 className="font-semibold">Próximos servicios</h2>
+            <h2 className="font-semibold">Tareas por ejecutar</h2>
             <Link
               href="/dashboard/recordatorios"
               className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
@@ -140,7 +150,10 @@ export default async function DashboardPage() {
             </Link>
           </div>
           {proximosRecordatorios.length === 0 ? (
-            <EmptyState title="Sin recordatorios" desc="Se crean automáticamente al registrar un mantenimiento." />
+            <EmptyState
+              title="Sin tareas pendientes"
+              desc="Se crean automáticamente al registrar un mantenimiento."
+            />
           ) : (
             <ul className="divide-y divide-zinc-800/50">
               {proximosRecordatorios.map((r) => (

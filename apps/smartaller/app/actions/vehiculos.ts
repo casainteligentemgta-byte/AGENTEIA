@@ -11,6 +11,61 @@ import {
   updateVehiculoContactoSchema,
 } from "@/lib/validations/vehiculo";
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
+import type { RecepcionVehiculo } from "@/lib/schemas/recepcion-vehiculo";
+import { tieneDatosRecepcion } from "@/lib/schemas/recepcion-vehiculo";
+
+async function registrarRecepcionInicial(
+  supabase: ReturnType<typeof createAdminClient>,
+  params: {
+    tallerId: string;
+    vehiculoId: string;
+    placa: string;
+    recepcion: RecepcionVehiculo;
+    kilometrajeFallback: number | null;
+  }
+): Promise<void> {
+  const km = params.recepcion.kilometrajeIngreso ?? params.kilometrajeFallback;
+  const descripcion =
+    params.recepcion.motivoIngreso?.trim() || "Acta de recepción — ingreso al taller";
+
+  await supabase.from("mantenimientos").insert({
+    taller_id: params.tallerId,
+    vehiculo_id: params.vehiculoId,
+    placa: params.placa,
+    kilometraje: km,
+    descripcion,
+    descripcion_servicio: descripcion,
+    detalle_revision: {
+      tipo: "recepcion_inicial",
+      recepcion: params.recepcion,
+    },
+  });
+}
+
+async function afterVehiculoRegistrado(
+  supabase: ReturnType<typeof createAdminClient>,
+  vehiculoId: string,
+  data: {
+    tipo_vehiculo: string;
+    placa: string;
+    marca?: string;
+    modelo?: string;
+    color?: string;
+    odometro: number | null;
+    recepcionInicial?: RecepcionVehiculo;
+  },
+  tallerId: string
+): Promise<void> {
+  if (data.recepcionInicial && tieneDatosRecepcion(data.recepcionInicial)) {
+    await registrarRecepcionInicial(supabase, {
+      tallerId,
+      vehiculoId,
+      placa: data.placa,
+      recepcion: data.recepcionInicial,
+      kilometrajeFallback: data.odometro,
+    });
+  }
+}
 
 export type CreateVehiculoTallerResult =
   | { ok: true; vehiculoId: string }
@@ -55,6 +110,7 @@ export async function createVehiculoTallerAction(
     };
   }
 
+  const kmRecepcion = data.recepcionInicial?.kilometrajeIngreso ?? data.odometro;
   const payload = {
     taller_id: taller.id,
     tipo_vehiculo: data.tipo_vehiculo,
@@ -64,9 +120,18 @@ export async function createVehiculoTallerAction(
     color: data.color?.trim() || null,
     nombre_cliente: data.nombreCliente.trim(),
     telefono_cliente: data.telefonoCliente.trim(),
+    serial_motor: data.serialMotor?.trim() || null,
+    serial_carroceria: data.serialCarroceria?.trim() || null,
+    cedula_propietario: data.cedulaPropietario?.trim() || null,
+    email_propietario: data.emailPropietario?.trim() || null,
+    fecha_nacimiento_propietario: data.fechaNacimientoPropietario?.trim() || null,
+    recepcion_inicial: data.recepcionInicial && tieneDatosRecepcion(data.recepcionInicial)
+      ? data.recepcionInicial
+      : {},
+    documentos: data.documentos ?? {},
     unidad_odometro: config.unidadOdometro,
-    kilometraje_ultimo: config.unidadOdometro === "km" ? data.odometro : null,
-    horas_motor_ultimo: config.unidadOdometro === "horas" ? data.odometro : null,
+    kilometraje_ultimo: config.unidadOdometro === "km" ? kmRecepcion : null,
+    horas_motor_ultimo: config.unidadOdometro === "horas" ? kmRecepcion : null,
     telegram_chat_id: null,
     updated_at: new Date().toISOString(),
   };
@@ -93,6 +158,8 @@ export async function createVehiculoTallerAction(
     }
 
     await fusionarVehiculosPorPlaca(supabase, placaNorm, vinculado.id);
+
+    await afterVehiculoRegistrado(supabase, vinculado.id, { ...data, placa: placaNorm }, taller.id);
 
     if (data.tipo_vehiculo === "bicicleta") {
       const { data: vehiculoRow } = await supabase
@@ -137,6 +204,8 @@ export async function createVehiculoTallerAction(
       color: data.color,
     });
   }
+
+  await afterVehiculoRegistrado(supabase, created.id, { ...data, placa: placaNorm }, taller.id);
 
   revalidatePath("/dashboard/vehiculos");
   return { ok: true, vehiculoId: created.id };

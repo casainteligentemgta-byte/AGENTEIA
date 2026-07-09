@@ -18,6 +18,16 @@ export type Vehiculo = {
   nombre_cliente: string | null;
   telefono_cliente: string | null;
   kilometraje_ultimo: number | null;
+  serial_motor: string | null;
+  serial_carroceria: string | null;
+  cedula_propietario: string | null;
+  email_propietario: string | null;
+  fecha_nacimiento_propietario: string | null;
+  documentos: Record<string, unknown> | null;
+  recepcion_inicial: Record<string, unknown> | null;
+  marca: string | null;
+  modelo: string | null;
+  color: string | null;
   created_at: string;
   updated_at: string;
 };
