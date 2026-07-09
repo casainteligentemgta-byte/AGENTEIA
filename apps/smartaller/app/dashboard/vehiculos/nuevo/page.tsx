@@ -19,7 +19,8 @@ export default function NuevoVehiculoPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrar vehículo</h1>
           <p className="mt-1 text-zinc-500">
-            Agrega cada unidad vendida o entregada para dar seguimiento desde el primer día
+            Registra los datos del vehículo y del propietario. La inspección de ingreso se realiza
+            en el paso siguiente.
           </p>
         </div>
         <Link

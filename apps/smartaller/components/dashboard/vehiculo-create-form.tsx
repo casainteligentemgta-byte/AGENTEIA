@@ -8,8 +8,6 @@ import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
-import { OrdenRecepcionForm } from "@/components/dashboard/orden-recepcion-form";
-import { tieneDatosOrdenRecepcion, type OrdenRecepcionFormValue } from "@/lib/schemas/orden-recepcion";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 type FormFields = {
@@ -49,10 +47,6 @@ export function VehiculoCreateForm() {
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [documentos, setDocumentos] = useState<VehiculosDocumentos>({});
-  const [ordenRecepcion, setOrdenRecepcion] = useState<OrdenRecepcionFormValue>({
-    checklist: [],
-    estadoVisual: { fotos: [] },
-  });
 
   const config = getConfigTipoVehiculo(tipo);
   const odometroLabel =
@@ -83,16 +77,6 @@ export function VehiculoCreateForm() {
     setError(null);
 
     startTransition(async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const nowTime = new Date().toTimeString().slice(0, 5);
-      const ordenPayload = tieneDatosOrdenRecepcion(ordenRecepcion)
-        ? {
-            ...ordenRecepcion,
-            fechaIngreso: ordenRecepcion.fechaIngreso || today,
-            horaIngreso: ordenRecepcion.horaIngreso || nowTime,
-          }
-        : undefined;
-
       const result = await createVehiculoTallerAction({
         tipo_vehiculo: tipo,
         placa: fields.placa,
@@ -108,7 +92,6 @@ export function VehiculoCreateForm() {
         telefonoCliente: fields.telefonoCliente,
         odometro: fields.odometro,
         documentos: Object.keys(documentos).length > 0 ? documentos : undefined,
-        ordenRecepcion: ordenPayload,
       });
 
       if (!result.ok) {
@@ -116,7 +99,7 @@ export function VehiculoCreateForm() {
         return;
       }
 
-      router.push(`/dashboard/vehiculos/${result.vehiculoId}`);
+      router.push(`/dashboard/vehiculos/${result.vehiculoId}/inspeccion?nuevo=1`);
       router.refresh();
     });
   }
@@ -344,12 +327,6 @@ export function VehiculoCreateForm() {
           </div>
         </div>
       </div>
-
-      <OrdenRecepcionForm
-        value={ordenRecepcion}
-        onChange={setOrdenRecepcion}
-        odometroLabel={config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje"}
-      />
 
       {error && (
         <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

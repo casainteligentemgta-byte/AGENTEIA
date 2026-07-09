@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Plus } from "lucide-react";
 import { getVehiculos } from "@/lib/data/dashboard";
-import { formatDate, formatKm, formatOdometroDashboard } from "@/lib/utils";
+import { formatDate, formatOdometroDashboard } from "@/lib/utils";
 import { getEtiquetaTipo } from "@/lib/vehicles/format";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 
@@ -72,7 +72,6 @@ export default async function VehiculosPage() {
                 ) : (
                   <p className="text-amber-500/80">Sin teléfono — agregar para WhatsApp</p>
                 )}
-                <p>Km: {formatKm(v.kilometraje_ultimo)}</p>
                 <p>Registrado: {formatDate(v.created_at)}</p>
               </div>
             </Link>

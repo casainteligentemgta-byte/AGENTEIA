@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DiagnosticoGaleria } from "@/components/app/diagnostico-galeria";
 import { RepuestosLista } from "@/components/app/repuestos-lista";
@@ -79,14 +79,23 @@ export default async function VehiculoDetallePage({ params }: Props) {
             {formatDate(vehiculo.created_at)}
           </p>
         </div>
-        {proximoRecordatorio && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <p className="text-xs font-medium text-amber-300">Próximo servicio</p>
-            <p className="text-sm font-semibold text-amber-100">
-              {formatDate(proximoRecordatorio.fecha_programada)}
-            </p>
-          </div>
-        )}
+        <div className="flex flex-wrap items-end gap-3">
+          <Link
+            href={`/dashboard/vehiculos/${vehiculo.id}/inspeccion`}
+            className="inline-flex items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-300 hover:bg-blue-500/20"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            {ordenRecepcion ? "Nueva inspección" : "Inspección de ingreso"}
+          </Link>
+          {proximoRecordatorio && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <p className="text-xs font-medium text-amber-300">Próximo servicio</p>
+              <p className="text-sm font-semibold text-amber-100">
+                {formatDate(proximoRecordatorio.fecha_programada)}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-8">
@@ -177,10 +186,21 @@ export default async function VehiculoDetallePage({ params }: Props) {
         {ordenRecepcion ? (
           <OrdenRecepcionDisplay orden={ordenRecepcion} />
         ) : (
-          recepcionInicial &&
-          tieneDatosRecepcion(recepcionInicial) && (
-            <RecepcionVehiculoDisplay recepcion={recepcionInicial} />
-          )
+          <>
+            <section className="glass rounded-2xl border border-dashed border-blue-500/30 p-6 text-center">
+              <p className="text-sm text-zinc-400">Este vehículo aún no tiene inspección de ingreso.</p>
+              <Link
+                href={`/dashboard/vehiculos/${vehiculo.id}/inspeccion`}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Completar inspección
+              </Link>
+            </section>
+            {recepcionInicial && tieneDatosRecepcion(recepcionInicial) && (
+              <RecepcionVehiculoDisplay recepcion={recepcionInicial} />
+            )}
+          </>
         )}
 
         <VehiculoEditForm

@@ -132,7 +132,7 @@ export async function createVehiculoTallerAction(
     };
   }
 
-  const kmRecepcion = data.ordenRecepcion?.kilometraje ?? data.odometro;
+  const kmRecepcion = data.odometro;
   const payload = {
     taller_id: taller.id,
     tipo_vehiculo: data.tipo_vehiculo,
