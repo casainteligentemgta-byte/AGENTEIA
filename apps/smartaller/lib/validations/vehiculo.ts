@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TIPOS_VEHICULO } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 
-import { recepcionVehiculoSchema } from "@/lib/schemas/recepcion-vehiculo";
+import { ordenRecepcionAltaSchema } from "@/lib/schemas/orden-recepcion";
 
 export const updateVehiculoContactoSchema = z.object({
   vehiculoId: z.string().uuid("ID de vehículo inválido"),
@@ -80,7 +80,7 @@ export const createVehiculoTallerSchema = z
         titulo: z.object({ url: z.string(), path: z.string(), scanned_at: z.string().optional() }).optional(),
       })
       .optional(),
-    recepcionInicial: recepcionVehiculoSchema.optional(),
+    ordenRecepcion: ordenRecepcionAltaSchema.optional(),
     odometro: z
       .string()
       .optional()

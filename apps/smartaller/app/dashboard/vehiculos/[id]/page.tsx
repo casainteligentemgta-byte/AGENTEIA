@@ -13,6 +13,8 @@ import { getVehiculoDetalle } from "@/lib/data/vehiculos";
 import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { parseRecepcionVehiculo, tieneDatosRecepcion } from "@/lib/schemas/recepcion-vehiculo";
 import { RecepcionVehiculoDisplay } from "@/components/dashboard/recepcion-vehiculo-display";
+import { OrdenRecepcionDisplay } from "@/components/dashboard/orden-recepcion-display";
+import { getUltimaOrdenRecepcionVehiculo } from "@/lib/data/ordenes-recepcion";
 import {
   formatCurrency,
   formatDate,
@@ -38,9 +40,10 @@ export default async function VehiculoDetallePage({ params }: Props) {
   const vehiculo = await getVehiculoDetalle(params.id);
   if (!vehiculo) notFound();
 
-  const [catalogoRepuestos, repuestosMap] = await Promise.all([
+  const [catalogoRepuestos, repuestosMap, ordenRecepcion] = await Promise.all([
     getRepuestosTaller(),
     getRepuestosPorMantenimientoIds(vehiculo.mantenimientos.map((m) => m.id)),
+    getUltimaOrdenRecepcionVehiculo(vehiculo.id, vehiculo.ultima_orden_recepcion_id),
   ]);
 
   const proximoRecordatorio = vehiculo.recordatorios.find(
@@ -171,8 +174,13 @@ export default async function VehiculoDetallePage({ params }: Props) {
           </section>
         )}
 
-        {recepcionInicial && tieneDatosRecepcion(recepcionInicial) && (
-          <RecepcionVehiculoDisplay recepcion={recepcionInicial} />
+        {ordenRecepcion ? (
+          <OrdenRecepcionDisplay orden={ordenRecepcion} />
+        ) : (
+          recepcionInicial &&
+          tieneDatosRecepcion(recepcionInicial) && (
+            <RecepcionVehiculoDisplay recepcion={recepcionInicial} />
+          )
         )}
 
         <VehiculoEditForm

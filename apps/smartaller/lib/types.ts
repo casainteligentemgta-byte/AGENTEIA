@@ -25,6 +25,7 @@ export type Vehiculo = {
   fecha_nacimiento_propietario: string | null;
   documentos: Record<string, unknown> | null;
   recepcion_inicial: Record<string, unknown> | null;
+  ultima_orden_recepcion_id: string | null;
   marca: string | null;
   modelo: string | null;
   color: string | null;

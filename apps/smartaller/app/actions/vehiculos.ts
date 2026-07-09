@@ -11,59 +11,81 @@ import {
   updateVehiculoContactoSchema,
 } from "@/lib/validations/vehiculo";
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
-import type { RecepcionVehiculo } from "@/lib/schemas/recepcion-vehiculo";
-import { tieneDatosRecepcion } from "@/lib/schemas/recepcion-vehiculo";
+import { crearOrdenRecepcionSchema, tieneDatosOrdenRecepcion } from "@/lib/schemas/orden-recepcion";
+import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
+import type { OrdenRecepcionAltaInput } from "@/lib/schemas/orden-recepcion";
 
-async function registrarRecepcionInicial(
+async function registrarOrdenRecepcion(
   supabase: ReturnType<typeof createAdminClient>,
   params: {
     tallerId: string;
+    userId: string | null;
     vehiculoId: string;
     placa: string;
-    recepcion: RecepcionVehiculo;
-    kilometrajeFallback: number | null;
+    nombreCliente: string;
+    telefonoCliente: string;
+    modelo?: string;
+    color?: string;
+    chasis?: string;
+    odometro: number | null;
+    orden: OrdenRecepcionAltaInput;
   }
 ): Promise<void> {
-  const km = params.recepcion.kilometrajeIngreso ?? params.kilometrajeFallback;
-  const descripcion =
-    params.recepcion.motivoIngreso?.trim() || "Acta de recepción — ingreso al taller";
-
-  await supabase.from("mantenimientos").insert({
-    taller_id: params.tallerId,
-    vehiculo_id: params.vehiculoId,
+  const km = params.orden.kilometraje ?? params.odometro;
+  const payload = crearOrdenRecepcionSchema.parse({
+    ...params.orden,
+    vehiculoId: params.vehiculoId,
+    clienteNombre: params.nombreCliente,
+    clienteTelefono: params.telefonoCliente,
     placa: params.placa,
+    modelo: params.modelo ?? "",
+    color: params.color ?? "",
+    chasis: params.chasis ?? "",
     kilometraje: km,
-    descripcion,
-    descripcion_servicio: descripcion,
-    detalle_revision: {
-      tipo: "recepcion_inicial",
-      recepcion: params.recepcion,
-    },
+  });
+
+  await persistOrdenRecepcion(supabase, {
+    tallerId: params.tallerId,
+    userId: params.userId,
+    orden: payload,
   });
 }
 
 async function afterVehiculoRegistrado(
   supabase: ReturnType<typeof createAdminClient>,
   vehiculoId: string,
+  userId: string | null,
   data: {
-    tipo_vehiculo: string;
     placa: string;
     marca?: string;
     modelo?: string;
     color?: string;
+    serialCarroceria?: string;
+    nombreCliente: string;
+    telefonoCliente: string;
     odometro: number | null;
-    recepcionInicial?: RecepcionVehiculo;
+    ordenRecepcion?: OrdenRecepcionAltaInput;
   },
   tallerId: string
 ): Promise<void> {
-  if (data.recepcionInicial && tieneDatosRecepcion(data.recepcionInicial)) {
-    await registrarRecepcionInicial(supabase, {
-      tallerId,
-      vehiculoId,
-      placa: data.placa,
-      recepcion: data.recepcionInicial,
-      kilometrajeFallback: data.odometro,
-    });
+  if (data.ordenRecepcion && tieneDatosOrdenRecepcion(data.ordenRecepcion)) {
+    try {
+      await registrarOrdenRecepcion(supabase, {
+        tallerId,
+        userId,
+        vehiculoId,
+        placa: data.placa,
+        nombreCliente: data.nombreCliente,
+        telefonoCliente: data.telefonoCliente,
+        modelo: data.modelo,
+        color: data.color,
+        chasis: data.serialCarroceria,
+        odometro: data.odometro,
+        orden: data.ordenRecepcion,
+      });
+    } catch (err) {
+      console.error("[ordenes_recepcion] No se pudo guardar la orden:", err);
+    }
   }
 }
 
@@ -110,7 +132,7 @@ export async function createVehiculoTallerAction(
     };
   }
 
-  const kmRecepcion = data.recepcionInicial?.kilometrajeIngreso ?? data.odometro;
+  const kmRecepcion = data.ordenRecepcion?.kilometraje ?? data.odometro;
   const payload = {
     taller_id: taller.id,
     tipo_vehiculo: data.tipo_vehiculo,
@@ -125,9 +147,6 @@ export async function createVehiculoTallerAction(
     cedula_propietario: data.cedulaPropietario?.trim() || null,
     email_propietario: data.emailPropietario?.trim() || null,
     fecha_nacimiento_propietario: data.fechaNacimientoPropietario?.trim() || null,
-    recepcion_inicial: data.recepcionInicial && tieneDatosRecepcion(data.recepcionInicial)
-      ? data.recepcionInicial
-      : {},
     documentos: data.documentos ?? {},
     unidad_odometro: config.unidadOdometro,
     kilometraje_ultimo: config.unidadOdometro === "km" ? kmRecepcion : null,
@@ -159,7 +178,23 @@ export async function createVehiculoTallerAction(
 
     await fusionarVehiculosPorPlaca(supabase, placaNorm, vinculado.id);
 
-    await afterVehiculoRegistrado(supabase, vinculado.id, { ...data, placa: placaNorm }, taller.id);
+    await afterVehiculoRegistrado(
+      supabase,
+      vinculado.id,
+      user.id,
+      {
+        placa: placaNorm,
+        marca: data.marca,
+        modelo: data.modelo,
+        color: data.color,
+        serialCarroceria: data.serialCarroceria,
+        nombreCliente: data.nombreCliente,
+        telefonoCliente: data.telefonoCliente,
+        odometro: data.odometro,
+        ordenRecepcion: data.ordenRecepcion,
+      },
+      taller.id
+    );
 
     if (data.tipo_vehiculo === "bicicleta") {
       const { data: vehiculoRow } = await supabase
@@ -205,7 +240,23 @@ export async function createVehiculoTallerAction(
     });
   }
 
-  await afterVehiculoRegistrado(supabase, created.id, { ...data, placa: placaNorm }, taller.id);
+  await afterVehiculoRegistrado(
+    supabase,
+    created.id,
+    user.id,
+    {
+      placa: placaNorm,
+      marca: data.marca,
+      modelo: data.modelo,
+      color: data.color,
+      serialCarroceria: data.serialCarroceria,
+      nombreCliente: data.nombreCliente,
+      telefonoCliente: data.telefonoCliente,
+      odometro: data.odometro,
+      ordenRecepcion: data.ordenRecepcion,
+    },
+    taller.id
+  );
 
   revalidatePath("/dashboard/vehiculos");
   return { ok: true, vehiculoId: created.id };

@@ -8,11 +8,8 @@ import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
-import {
-  RecepcionVehiculoSection,
-  type RecepcionVehiculoFormValue,
-} from "@/components/dashboard/recepcion-vehiculo-section";
-import { tieneDatosRecepcion } from "@/lib/schemas/recepcion-vehiculo";
+import { OrdenRecepcionForm } from "@/components/dashboard/orden-recepcion-form";
+import { tieneDatosOrdenRecepcion, type OrdenRecepcionFormValue } from "@/lib/schemas/orden-recepcion";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 type FormFields = {
@@ -52,7 +49,10 @@ export function VehiculoCreateForm() {
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [documentos, setDocumentos] = useState<VehiculosDocumentos>({});
-  const [recepcion, setRecepcion] = useState<RecepcionVehiculoFormValue>({});
+  const [ordenRecepcion, setOrdenRecepcion] = useState<OrdenRecepcionFormValue>({
+    checklist: [],
+    danos: [],
+  });
 
   const config = getConfigTipoVehiculo(tipo);
   const odometroLabel =
@@ -85,11 +85,11 @@ export function VehiculoCreateForm() {
     startTransition(async () => {
       const today = new Date().toISOString().slice(0, 10);
       const nowTime = new Date().toTimeString().slice(0, 5);
-      const recepcionPayload = tieneDatosRecepcion(recepcion)
+      const ordenPayload = tieneDatosOrdenRecepcion(ordenRecepcion)
         ? {
-            ...recepcion,
-            fechaIngreso: recepcion.fechaIngreso || today,
-            horaIngreso: recepcion.horaIngreso || nowTime,
+            ...ordenRecepcion,
+            fechaIngreso: ordenRecepcion.fechaIngreso || today,
+            horaIngreso: ordenRecepcion.horaIngreso || nowTime,
           }
         : undefined;
 
@@ -108,7 +108,7 @@ export function VehiculoCreateForm() {
         telefonoCliente: fields.telefonoCliente,
         odometro: fields.odometro,
         documentos: Object.keys(documentos).length > 0 ? documentos : undefined,
-        recepcionInicial: recepcionPayload,
+        ordenRecepcion: ordenPayload,
       });
 
       if (!result.ok) {
@@ -345,9 +345,9 @@ export function VehiculoCreateForm() {
         </div>
       </div>
 
-      <RecepcionVehiculoSection
-        value={recepcion}
-        onChange={setRecepcion}
+      <OrdenRecepcionForm
+        value={ordenRecepcion}
+        onChange={setOrdenRecepcion}
         odometroLabel={config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje"}
       />
 
