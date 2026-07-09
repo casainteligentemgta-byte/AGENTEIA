@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { VehiculoCreateForm } from "@/components/dashboard/vehiculo-create-form";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +15,20 @@ export default function NuevoVehiculoPage() {
         Volver a vehículos
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrar vehículo</h1>
-        <p className="mt-1 text-zinc-500">
-          Agrega cada unidad vendida o entregada para dar seguimiento desde el primer día
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrar vehículo</h1>
+          <p className="mt-1 text-zinc-500">
+            Agrega cada unidad vendida o entregada para dar seguimiento desde el primer día
+          </p>
+        </div>
+        <Link
+          href="/dashboard/hoja-inspeccion"
+          className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-blue-300"
+        >
+          <FileText className="h-4 w-4" />
+          Planilla de inspección (PDF)
+        </Link>
       </div>
 
       <VehiculoCreateForm />
