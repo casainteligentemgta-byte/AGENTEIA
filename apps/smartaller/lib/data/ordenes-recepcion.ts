@@ -5,6 +5,10 @@ import type {
   NivelCombustible,
 } from "@/lib/schemas/orden-recepcion";
 import { dbValorToMarca } from "@/lib/schemas/orden-recepcion";
+import {
+  parseEstadoVisualRecepcion,
+  type EstadoVisualRecepcion,
+} from "@/lib/schemas/estado-visual-recepcion";
 
 export type OrdenRecepcionDetalle = {
   id: string;
@@ -31,6 +35,7 @@ export type OrdenRecepcionDetalle = {
   mantenimiento_id: string | null;
   checklist: OrdenRecepcionChecklistRespuesta[];
   danos: OrdenRecepcionDanoVisual[];
+  estadoVisual: EstadoVisualRecepcion | null;
 };
 
 export async function getOrdenRecepcionDetalle(
@@ -42,7 +47,7 @@ export async function getOrdenRecepcionDetalle(
     const { data: orden, error } = await supabase
       .from("ordenes_recepcion")
       .select(
-        "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, nivel_combustible, autorizacion_propietario, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id"
+        "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, nivel_combustible, autorizacion_propietario, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id, esquema_danos_meta"
       )
       .eq("id", ordenId)
       .maybeSingle();
@@ -60,8 +65,17 @@ export async function getOrdenRecepcionDetalle(
         .eq("orden_recepcion_id", ordenId),
     ]);
 
+    const {
+      esquema_danos_meta: _meta,
+      ...ordenFields
+    } = orden;
+
+    const meta = _meta as { estadoVisual?: unknown } | null;
+    const estadoVisual = parseEstadoVisualRecepcion(meta?.estadoVisual);
+
     return {
-      ...orden,
+      ...ordenFields,
+      estadoVisual,
       checklist: (checkRes.data ?? []).map((r) => ({
         itemId: r.item_id,
         marca: dbValorToMarca(r.valor),

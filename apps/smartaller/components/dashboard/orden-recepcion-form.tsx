@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { ClipboardCheck } from "lucide-react";
 import { ChecklistMarcaCelda } from "@/components/dashboard/checklist-marca-celda";
-import { OrdenRecepcionDanosCanvas } from "@/components/dashboard/orden-recepcion-danos-canvas";
+import { EstadoVisualFotos } from "@/components/dashboard/estado-visual-fotos";
+import { FirmaExpandible } from "@/components/dashboard/firma-expandible";
 import {
   RECEPCION_CHECKLIST_SECCION,
   RECEPCION_SECCION_LABELS,
-  RECEPCION_TIPO_DANO,
   NIVEL_COMBUSTIBLE,
   NIVEL_COMBUSTIBLE_LABELS,
   NOTA_AUTORIZACION_PROPIETARIO,
@@ -15,8 +14,8 @@ import {
   marcaRecordToChecklist,
   type ChecklistMarca,
   type OrdenRecepcionFormValue,
-  type OrdenRecepcionDanoVisual,
 } from "@/lib/schemas/orden-recepcion";
+import { emptyEstadoVisualSlots } from "@/lib/schemas/estado-visual-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
 
 type Props = {
@@ -26,8 +25,6 @@ type Props = {
 };
 
 export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometraje" }: Props) {
-  const [tipoDanoActivo, setTipoDanoActivo] = useState<OrdenRecepcionDanoVisual["tipo"]>("rayado");
-
   const checklistRecord = checklistToMarcaRecord(value.checklist ?? []);
   const today = new Date().toISOString().slice(0, 10);
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -206,27 +203,16 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
       })}
 
       <div className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold text-zinc-200">Estado visual — esquema del vehículo</h3>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {RECEPCION_TIPO_DANO.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTipoDanoActivo(t)}
-              className={`rounded-lg border px-3 py-1.5 text-xs ${
-                tipoDanoActivo === t
-                  ? "border-blue-500 bg-blue-500/20 text-blue-300"
-                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-              }`}
-            >
-              Marcar: {t.replace("_", " ")}
-            </button>
-          ))}
-        </div>
-        <OrdenRecepcionDanosCanvas
-          danos={value.danos ?? []}
-          onChange={(danos) => patch({ danos })}
-          tipoActivo={tipoDanoActivo}
+        <h3 className="mb-3 text-sm font-semibold text-zinc-200">
+          Estado visual — 4 fotos del vehículo
+        </h3>
+        <EstadoVisualFotos
+          value={
+            value.estadoVisual ?? {
+              fotos: emptyEstadoVisualSlots(),
+            }
+          }
+          onChange={(estadoVisual) => patch({ estadoVisual })}
         />
       </div>
 
@@ -243,24 +229,16 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
       </div>
 
       <div className="grid gap-4 border-t border-zinc-800 pt-5 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs text-zinc-500">Firma del cliente</label>
-          <input
-            value={value.firmaCliente ?? ""}
-            onChange={(e) => patch({ firmaCliente: e.target.value })}
-            placeholder="Nombre completo del propietario"
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-zinc-500">Firma del asesor de servicios</label>
-          <input
-            value={value.firmaAsesor ?? ""}
-            onChange={(e) => patch({ firmaAsesor: e.target.value })}
-            placeholder="Nombre del asesor"
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          />
-        </div>
+        <FirmaExpandible
+          label="Firma del cliente"
+          value={value.firmaCliente ?? ""}
+          onChange={(firmaCliente) => patch({ firmaCliente })}
+        />
+        <FirmaExpandible
+          label="Firma del asesor de servicios"
+          value={value.firmaAsesor ?? ""}
+          onChange={(firmaAsesor) => patch({ firmaAsesor })}
+        />
       </div>
     </section>
   );

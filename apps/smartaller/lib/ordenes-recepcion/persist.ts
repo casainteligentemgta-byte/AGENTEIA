@@ -48,7 +48,10 @@ export async function persistOrdenRecepcion(
       firma_asesor: orden.firmaAsesor?.trim() || null,
       firmado_cliente_at: orden.firmaCliente?.trim() ? now : null,
       firmado_asesor_at: orden.firmaAsesor?.trim() ? now : null,
-      esquema_danos_meta: { version: 1, vista_default: "superior" },
+      esquema_danos_meta: {
+        version: 2,
+        estadoVisual: orden.estadoVisual ?? { fotos: [] },
+      },
       updated_at: now,
     })
     .select("id")

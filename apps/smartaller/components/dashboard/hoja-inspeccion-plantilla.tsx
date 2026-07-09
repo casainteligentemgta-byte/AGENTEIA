@@ -4,10 +4,13 @@ import { Printer } from "lucide-react";
 import {
   RECEPCION_CHECKLIST_SECCION,
   RECEPCION_SECCION_LABELS,
-  RECEPCION_TIPO_DANO_SIMBOLO,
   NIVEL_COMBUSTIBLE_LABELS,
   NOTA_AUTORIZACION_PROPIETARIO,
 } from "@/lib/schemas/orden-recepcion";
+import {
+  ESTADO_VISUAL_VISTAS,
+  ESTADO_VISUAL_VISTA_LABELS,
+} from "@/lib/schemas/estado-visual-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
 
 function LineField({ label, wide }: { label: string; wide?: boolean }) {
@@ -154,33 +157,23 @@ export function HojaInspeccionPlantilla() {
 
         <section className="mt-8 break-inside-avoid">
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            3. Estado visual — esquema del vehículo
+            3. Estado visual — fotos del vehículo
           </h2>
-          <p className="mb-2 text-[10px] text-zinc-600">
-            Leyenda:{" "}
-            {Object.entries(RECEPCION_TIPO_DANO_SIMBOLO)
-              .map(([k, s]) => `${s} ${k.replace("_", " ")}`)
-              .join(" · ")}
+          <p className="mb-4 text-[10px] text-zinc-600">
+            Tome 4 fotos (frontal, trasero y laterales). Marque rayones, golpes u observaciones con
+            lápiz sobre cada imagen.
           </p>
-          <div className="mx-auto max-w-xs border-2 border-zinc-400 p-2">
-            <svg viewBox="0 0 200 360" className="w-full" aria-hidden>
-              <rect x="40" y="20" width="120" height="50" rx="6" fill="none" stroke="#52525b" />
-              <text x="100" y="50" textAnchor="middle" fill="#71717a" fontSize="9">
-                Capó
-              </text>
-              <rect x="30" y="75" width="140" height="180" rx="8" fill="none" stroke="#52525b" />
-              <text x="100" y="165" textAnchor="middle" fill="#71717a" fontSize="9">
-                Habitáculo
-              </text>
-              <rect x="40" y="260" width="120" height="55" rx="6" fill="none" stroke="#52525b" />
-              <text x="100" y="292" textAnchor="middle" fill="#71717a" fontSize="9">
-                Maletero
-              </text>
-              <ellipse cx="55" cy="55" rx="16" ry="26" fill="none" stroke="#a1a1aa" />
-              <ellipse cx="145" cy="55" rx="16" ry="26" fill="none" stroke="#a1a1aa" />
-              <ellipse cx="55" cy="305" rx="16" ry="26" fill="none" stroke="#a1a1aa" />
-              <ellipse cx="145" cy="305" rx="16" ry="26" fill="none" stroke="#a1a1aa" />
-            </svg>
+          <div className="grid grid-cols-2 gap-4">
+            {ESTADO_VISUAL_VISTAS.map((vista) => (
+              <div key={vista} className="break-inside-avoid">
+                <p className="mb-1 text-[10px] font-semibold text-zinc-700">
+                  {ESTADO_VISUAL_VISTA_LABELS[vista]}
+                </p>
+                <div className="flex aspect-[4/3] items-center justify-center border-2 border-dashed border-zinc-400 bg-zinc-50 text-[9px] text-zinc-500">
+                  Foto + anotaciones
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

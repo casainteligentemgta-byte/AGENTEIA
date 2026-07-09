@@ -51,7 +51,7 @@ export function VehiculoCreateForm() {
   const [documentos, setDocumentos] = useState<VehiculosDocumentos>({});
   const [ordenRecepcion, setOrdenRecepcion] = useState<OrdenRecepcionFormValue>({
     checklist: [],
-    danos: [],
+    estadoVisual: { fotos: [] },
   });
 
   const config = getConfigTipoVehiculo(tipo);

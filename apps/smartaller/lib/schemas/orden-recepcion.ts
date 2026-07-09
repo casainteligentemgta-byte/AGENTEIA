@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  estadoVisualRecepcionSchema,
+  tieneEstadoVisual,
+} from "@/lib/schemas/estado-visual-recepcion";
 
 /** Alineado con enums de 20250712100000_ordenes_recepcion.sql */
 
@@ -127,9 +131,10 @@ export const ordenRecepcionAltaSchema = z.object({
   motivoVisita: z.string().trim().max(500).optional().or(z.literal("")),
   autorizacionPropietario: z.boolean().default(false),
   checklist: z.array(checklistRespuestaSchema).default([]),
+  estadoVisual: estadoVisualRecepcionSchema.optional(),
   danos: z.array(danoVisualSchema).default([]),
-  firmaCliente: z.string().trim().max(120).optional().or(z.literal("")),
-  firmaAsesor: z.string().trim().max(120).optional().or(z.literal("")),
+  firmaCliente: z.string().trim().max(500_000).optional().or(z.literal("")),
+  firmaAsesor: z.string().trim().max(500_000).optional().or(z.literal("")),
 });
 
 /** Payload para crear una orden de recepción completa */
@@ -167,6 +172,7 @@ export function tieneDatosOrdenRecepcion(raw: unknown): boolean {
       o.nivelCombustible ||
       o.autorizacionPropietario ||
       o.checklist.some((c) => c.marca) ||
+      tieneEstadoVisual(o.estadoVisual) ||
       o.danos.length > 0
   );
 }

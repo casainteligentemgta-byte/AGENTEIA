@@ -9,6 +9,8 @@ import {
 } from "@/lib/schemas/orden-recepcion";
 import { RECEPCION_CHECKLIST_CATALOG } from "@/lib/recepcion/catalog";
 import type { OrdenRecepcionDetalle } from "@/lib/data/ordenes-recepcion";
+import { EstadoVisualDisplay } from "@/components/dashboard/estado-visual-display";
+import { isFirmaImagen } from "@/components/dashboard/firma-expandible";
 import { ClipboardCheck } from "lucide-react";
 import { formatKilometraje } from "@/lib/format";
 
@@ -144,9 +146,11 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
         </div>
       ))}
 
+      {orden.estadoVisual && <EstadoVisualDisplay estadoVisual={orden.estadoVisual} />}
+
       {orden.danos.length > 0 && (
         <div className="mt-5">
-          <p className="mb-2 text-xs font-medium text-zinc-500">Daños marcados en esquema</p>
+          <p className="mb-2 text-xs font-medium text-zinc-500">Daños marcados (esquema legacy)</p>
           <ul className="flex flex-wrap gap-2">
             {orden.danos.map((d, i) => (
               <li
@@ -169,17 +173,44 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
       )}
 
       {(orden.firma_cliente || orden.firma_asesor) && (
-        <div className="mt-5 border-t border-zinc-800 pt-4 text-sm">
-          {orden.firma_cliente && (
-            <p className="text-zinc-300">
-              Cliente: <span className="font-medium">{orden.firma_cliente}</span>
-            </p>
-          )}
-          {orden.firma_asesor && (
-            <p className="mt-1 text-zinc-300">
-              Asesor: <span className="font-medium">{orden.firma_asesor}</span>
-            </p>
-          )}
+        <div className="mt-5 border-t border-zinc-800 pt-4">
+          <p className="mb-3 text-xs font-medium text-zinc-500">Firmas</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {orden.firma_cliente && (
+              <div>
+                <p className="mb-2 text-xs text-zinc-500">Cliente</p>
+                {isFirmaImagen(orden.firma_cliente) ? (
+                  <div className="rounded-lg border border-zinc-700 bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={orden.firma_cliente}
+                      alt="Firma del cliente"
+                      className="mx-auto max-h-24 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-300">{orden.firma_cliente}</p>
+                )}
+              </div>
+            )}
+            {orden.firma_asesor && (
+              <div>
+                <p className="mb-2 text-xs text-zinc-500">Asesor</p>
+                {isFirmaImagen(orden.firma_asesor) ? (
+                  <div className="rounded-lg border border-zinc-700 bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={orden.firma_asesor}
+                      alt="Firma del asesor"
+                      className="mx-auto max-h-24 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-300">{orden.firma_asesor}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
