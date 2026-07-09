@@ -17,7 +17,10 @@ export type Vehiculo = {
   placa: string;
   nombre_cliente: string | null;
   telefono_cliente: string | null;
+  tipo_vehiculo: string | null;
+  unidad_odometro: string | null;
   kilometraje_ultimo: number | null;
+  horas_motor_ultimo: number | null;
   serial_motor: string | null;
   serial_carroceria: string | null;
   cedula_propietario: string | null;
