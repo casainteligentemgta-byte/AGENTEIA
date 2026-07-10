@@ -17,14 +17,22 @@ import {
 } from "@/lib/schemas/orden-recepcion";
 import { emptyEstadoVisualSlots } from "@/lib/schemas/estado-visual-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
+import { FichaVehiculoInspeccionResumen } from "@/components/dashboard/ficha-vehiculo-inspeccion-resumen";
+import type { FichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 
 type Props = {
   value: OrdenRecepcionFormValue;
   onChange: (value: OrdenRecepcionFormValue) => void;
   odometroLabel?: string;
+  fichaVehiculo?: FichaVehiculoInspeccion;
 };
 
-export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometraje" }: Props) {
+export function OrdenRecepcionForm({
+  value,
+  onChange,
+  odometroLabel = "Kilometraje",
+  fichaVehiculo,
+}: Props) {
   const checklistRecord = checklistToMarcaRecord(value.checklist ?? []);
   const today = new Date().toISOString().slice(0, 10);
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -52,10 +60,10 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
         </div>
       </div>
 
+      {fichaVehiculo && <FichaVehiculoInspeccionResumen ficha={fichaVehiculo} />}
+
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-        <p className="text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          SmartTaller · Orden de recepción
-        </p>
+        <h3 className="mb-3 text-sm font-semibold text-zinc-200">Ingreso al taller</h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Fecha de ingreso</label>
@@ -161,7 +169,7 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
         return (
           <div key={seccion} className="mb-6">
             <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-              {RECEPCION_SECCION_LABELS[seccion]}
+              2. {RECEPCION_SECCION_LABELS[seccion]}
             </h3>
             <p className="mb-2 text-xs text-zinc-500">Marque ✓ (correcto/presente) o X (falla/ausente)</p>
             <div className="overflow-x-auto">
@@ -204,7 +212,7 @@ export function OrdenRecepcionForm({ value, onChange, odometroLabel = "Kilometra
 
       <div className="mb-6">
         <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-          Estado visual — 4 fotos del vehículo
+          3. Estado visual — 4 fotos del vehículo
         </h3>
         <EstadoVisualFotos
           value={

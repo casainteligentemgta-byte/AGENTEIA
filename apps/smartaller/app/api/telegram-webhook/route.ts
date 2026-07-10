@@ -1,14 +1,8 @@
 import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
-import {
-  extractMantenimientoFromImage,
-  buildFacturaProcesadaMessage,
-} from "@/lib/extract-invoice";
-import { processInvoiceSafe } from "@/lib/process-invoice";
 import { processInspeccionTelegramPhoto } from "@/lib/process-inspeccion-telegram";
 import { vincularTelegramPorCodigo } from "@/lib/taller";
 import {
-  downloadTelegramFile,
   getImageFileId,
   isInspeccionPhotoRequest,
   parseVincularCommand,
@@ -31,7 +25,6 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
       await sendTelegramMessage(
         message.chat.id,
         `✅ Taller "${result.nombre}" vinculado correctamente.\n\n` +
-          "• Factura: envía foto de la factura\n" +
           "• Inspección: envía foto del vehículo con la palabra *inspeccion* en el pie de foto"
       );
     } else {
@@ -53,7 +46,6 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     await sendTelegramMessage(
       message.chat.id,
       "Comandos disponibles:\n\n" +
-        "📄 Factura — envía foto de la factura de servicio\n" +
         "🔍 Inspección — foto del vehículo con pie de foto: inspeccion\n" +
         "   (o escribe /inspeccion y luego la foto)\n\n" +
         "🔗 Vincular taller: /vincular TU_CODIGO\n" +
@@ -71,19 +63,12 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
     return;
   }
 
-  const fileId = getImageFileId(message);
-  if (!fileId) return;
-
-  const { buffer, mimeType } = await downloadTelegramFile(fileId);
-  const extraido = await extractMantenimientoFromImage(buffer, mimeType);
-
-  await processInvoiceSafe({
-    extraido,
-    telegramChatId: message.chat.id,
-    telegramMessageId: message.message_id,
-    telegramFileId: fileId,
-    confirmationMessage: buildFacturaProcesadaMessage(extraido),
-  });
+  await sendTelegramMessage(
+    message.chat.id,
+    "📷 Para abrir la planilla de inspección, envía la foto del vehículo con pie de foto:\n" +
+      "inspeccion\n\n" +
+      "También puedes escribir /inspeccion y luego enviar la foto."
+  );
 }
 
 export async function POST(req: Request) {

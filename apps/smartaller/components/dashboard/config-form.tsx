@@ -130,7 +130,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
             <p className="mt-1 text-sm text-zinc-500">
               {vinculado
                 ? "✅ Bot vinculado. Chat ID: " + taller.telegram_chat_id
-                : "Conecta tu bot para facturas e inspección de ingreso"}
+                : "Conecta tu bot para inspección de ingreso por foto de placa"}
             </p>
           </div>
           {!vinculado && (
@@ -184,11 +184,9 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
         {vinculado && (
           <ul className="mt-4 space-y-2 text-sm text-zinc-400">
             <li>
-              <strong className="text-zinc-300">Factura:</strong> envía foto de la factura de servicio
-            </li>
-            <li>
-              <strong className="text-zinc-300">Inspección:</strong> foto del vehículo con pie de foto{" "}
-              <code className="text-blue-400">inspeccion</code> — la IA lee la placa y abre la planilla
+              <strong className="text-zinc-300">Inspección de ingreso:</strong> foto del vehículo con
+              pie de foto <code className="text-blue-400">inspeccion</code> — la IA lee la placa y
+              abre la planilla con los datos de la ficha
             </li>
           </ul>
         )}

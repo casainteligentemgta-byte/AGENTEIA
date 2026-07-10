@@ -5,6 +5,7 @@ import { OrdenRecepcionCreateForm } from "@/components/dashboard/orden-recepcion
 import { getVehiculoDetalle } from "@/lib/data/vehiculos";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
+import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
       : vehiculo.kilometraje_ultimo;
   const odometroLabel =
     config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje";
+  const fichaVehiculo = buildFichaVehiculoInspeccion(vehiculo);
 
   return (
     <div className="p-4 sm:p-8">
@@ -51,6 +53,7 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         placa={vehiculo.placa}
         odometroInicial={odometroInicial}
         odometroLabel={odometroLabel}
+        fichaVehiculo={fichaVehiculo}
         recienRegistrado={false}
         desdeTelegram={searchParams.telegram === "1"}
       />

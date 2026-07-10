@@ -6,12 +6,14 @@ import { ClipboardCheck, Loader2 } from "lucide-react";
 import { createOrdenRecepcionAction } from "@/app/actions/ordenes-recepcion";
 import { OrdenRecepcionForm } from "@/components/dashboard/orden-recepcion-form";
 import type { OrdenRecepcionFormValue } from "@/lib/schemas/orden-recepcion";
+import type { FichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 
 type Props = {
   vehiculoId: string;
   placa: string;
   odometroInicial: number | null;
   odometroLabel: string;
+  fichaVehiculo: FichaVehiculoInspeccion;
   recienRegistrado?: boolean;
   desdeTelegram?: boolean;
 };
@@ -21,6 +23,7 @@ export function OrdenRecepcionCreateForm({
   placa,
   odometroInicial,
   odometroLabel,
+  fichaVehiculo,
   recienRegistrado,
   desdeTelegram,
 }: Props) {
@@ -73,6 +76,7 @@ export function OrdenRecepcionCreateForm({
         value={orden}
         onChange={setOrden}
         odometroLabel={odometroLabel}
+        fichaVehiculo={fichaVehiculo}
       />
 
       {error && (
