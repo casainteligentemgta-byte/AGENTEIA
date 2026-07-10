@@ -1,12 +1,13 @@
 import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
-import { processInspeccionTelegramPhoto } from "@/lib/process-inspeccion-telegram";
+import { processInspeccionTelegramPhoto, enviarEnlaceInspeccionPorPlaca } from "@/lib/process-inspeccion-telegram";
 import { vincularTelegramPorCodigo } from "@/lib/taller";
 import {
   getImageFileId,
   isInspeccionPhotoRequest,
   parseVincularCommand,
   parseInspeccionCommand,
+  parseInspeccionPlacaCommand,
   sendTelegramMessage,
   type TelegramUpdate,
 } from "@/lib/telegram";
@@ -25,7 +26,7 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
       await sendTelegramMessage(
         message.chat.id,
         `✅ Taller "${result.nombre}" vinculado correctamente.\n\n` +
-          "• Inspección: envía foto del vehículo con la palabra *inspeccion* en el pie de foto"
+          "• Inspección: /inspeccion PLACA — la foto frontal se toma en la app"
       );
     } else {
       await sendTelegramMessage(message.chat.id, `❌ ${result.error}`);
@@ -36,9 +37,16 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
   if (parseInspeccionCommand(message)) {
     await sendTelegramMessage(
       message.chat.id,
-      "📷 Envía ahora la foto del vehículo mostrando la placa.\n" +
-        "Escribe *inspeccion* en el pie de foto (caption) para abrir la planilla de ingreso."
+      "Escribe la placa del vehículo:\n/inspeccion ABC123\n\n" +
+        "O envía foto de la placa con pie de foto: inspeccion\n" +
+        "(la foto frontal del vehículo se toma en la app al abrir la planilla)"
     );
+    return;
+  }
+
+  const placaInspeccion = parseInspeccionPlacaCommand(message);
+  if (placaInspeccion) {
+    await enviarEnlaceInspeccionPorPlaca(message.chat.id, placaInspeccion);
     return;
   }
 
@@ -46,8 +54,8 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     await sendTelegramMessage(
       message.chat.id,
       "Comandos disponibles:\n\n" +
-        "🔍 Inspección — foto del vehículo con pie de foto: inspeccion\n" +
-        "   (o escribe /inspeccion y luego la foto)\n\n" +
+        "🔍 /inspeccion PLACA — abre planilla (foto frontal en la app)\n" +
+        "📷 Foto de placa + pie de foto: inspeccion\n\n" +
         "🔗 Vincular taller: /vincular TU_CODIGO\n" +
         "(Código en Dashboard → Configuración)"
     );
@@ -65,9 +73,9 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
 
   await sendTelegramMessage(
     message.chat.id,
-    "📷 Para abrir la planilla de inspección, envía la foto del vehículo con pie de foto:\n" +
-      "inspeccion\n\n" +
-      "También puedes escribir /inspeccion y luego enviar la foto."
+    "📷 Para abrir la planilla, escribe:\n/inspeccion PLACA\n\n" +
+      "O envía foto de la placa con pie de foto: inspeccion\n" +
+      "(la foto frontal del vehículo se toma en la app)"
   );
 }
 

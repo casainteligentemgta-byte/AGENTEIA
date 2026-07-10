@@ -60,8 +60,8 @@ export function OrdenRecepcionCreateForm({
     <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
       {desdeTelegram && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
-          Placa <span className="font-mono font-semibold">{placa}</span> identificada por Telegram.
-          Completa la planilla de inspección de ingreso.
+          Vehículo <span className="font-mono font-semibold">{placa}</span> listo para inspección.
+          Toma la <strong>foto frontal</strong> con la cámara de la app (se abrirá automáticamente).
         </div>
       )}
 
@@ -77,6 +77,8 @@ export function OrdenRecepcionCreateForm({
         onChange={setOrden}
         odometroLabel={odometroLabel}
         fichaVehiculo={fichaVehiculo}
+        vehiculoId={vehiculoId}
+        abrirCamaraFrontal
       />
 
       {error && (

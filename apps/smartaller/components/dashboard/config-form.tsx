@@ -184,9 +184,9 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
         {vinculado && (
           <ul className="mt-4 space-y-2 text-sm text-zinc-400">
             <li>
-              <strong className="text-zinc-300">Inspección de ingreso:</strong> foto del vehículo con
-              pie de foto <code className="text-blue-400">inspeccion</code> — la IA lee la placa y
-              abre la planilla con los datos de la ficha
+              <strong className="text-zinc-300">Inspección:</strong>{" "}
+              <code className="text-blue-400">/inspeccion PLACA</code> o foto de la placa con pie{" "}
+              <code className="text-blue-400">inspeccion</code> — la foto frontal se toma en la app
             </li>
           </ul>
         )}

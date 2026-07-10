@@ -64,6 +64,14 @@ export function parseInspeccionCommand(message: TelegramMessage): boolean {
   return /^\/inspeccion(?:@\w+)?$/i.test(text);
 }
 
+/** /inspeccion ABC123 — abre planilla por placa escrita */
+export function parseInspeccionPlacaCommand(message: TelegramMessage): string | null {
+  const text = message.text?.trim();
+  if (!text) return null;
+  const match = text.match(/^\/inspeccion(?:@\w+)?\s+([A-Za-z0-9-]{2,12})$/i);
+  return match ? match[1].toUpperCase().replace(/\s/g, "") : null;
+}
+
 /** Parsea /vincular CODIGO del mensaje de texto. */
 export function parseVincularCommand(message: TelegramMessage): string | null {
   const text = message.text?.trim();

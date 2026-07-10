@@ -25,6 +25,8 @@ type Props = {
   onChange: (value: OrdenRecepcionFormValue) => void;
   odometroLabel?: string;
   fichaVehiculo?: FichaVehiculoInspeccion;
+  vehiculoId?: string;
+  abrirCamaraFrontal?: boolean;
 };
 
 export function OrdenRecepcionForm({
@@ -32,6 +34,8 @@ export function OrdenRecepcionForm({
   onChange,
   odometroLabel = "Kilometraje",
   fichaVehiculo,
+  vehiculoId,
+  abrirCamaraFrontal,
 }: Props) {
   const checklistRecord = checklistToMarcaRecord(value.checklist ?? []);
   const today = new Date().toISOString().slice(0, 10);
@@ -61,6 +65,18 @@ export function OrdenRecepcionForm({
       </div>
 
       {fichaVehiculo && <FichaVehiculoInspeccionResumen ficha={fichaVehiculo} />}
+
+      <div className="mb-6">
+        <h3 className="mb-3 text-sm font-semibold text-zinc-200">
+          2. Estado visual — foto frontal y demás vistas
+        </h3>
+        <EstadoVisualFotos
+          value={value.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }}
+          onChange={(estadoVisual) => patch({ estadoVisual })}
+          vehiculoId={vehiculoId}
+          abrirCamaraFrontal={abrirCamaraFrontal}
+        />
+      </div>
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
         <h3 className="mb-3 text-sm font-semibold text-zinc-200">Ingreso al taller</h3>
@@ -169,7 +185,7 @@ export function OrdenRecepcionForm({
         return (
           <div key={seccion} className="mb-6">
             <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-              2. {RECEPCION_SECCION_LABELS[seccion]}
+              3. {RECEPCION_SECCION_LABELS[seccion]}
             </h3>
             <p className="mb-2 text-xs text-zinc-500">Marque ✓ (correcto/presente) o X (falla/ausente)</p>
             <div className="overflow-x-auto">
@@ -209,20 +225,6 @@ export function OrdenRecepcionForm({
           </div>
         );
       })}
-
-      <div className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-          3. Estado visual — 4 fotos del vehículo
-        </h3>
-        <EstadoVisualFotos
-          value={
-            value.estadoVisual ?? {
-              fotos: emptyEstadoVisualSlots(),
-            }
-          }
-          onChange={(estadoVisual) => patch({ estadoVisual })}
-        />
-      </div>
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
         <label className="flex items-start gap-3 text-sm text-zinc-300">

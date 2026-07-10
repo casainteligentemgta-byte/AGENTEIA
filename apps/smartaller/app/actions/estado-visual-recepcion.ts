@@ -25,6 +25,9 @@ export async function uploadEstadoVisualFotoAction(
 
   const vista = formData.get("vista");
   const file = formData.get("file");
+  const vehiculoIdRaw = formData.get("vehiculoId");
+  const vehiculoId =
+    typeof vehiculoIdRaw === "string" && vehiculoIdRaw.length > 0 ? vehiculoIdRaw : undefined;
 
   if (
     typeof vista !== "string" ||
@@ -47,6 +50,7 @@ export async function uploadEstadoVisualFotoAction(
       tallerId: taller.id,
       vista: vista as (typeof ESTADO_VISUAL_VISTAS)[number],
       file,
+      vehiculoId,
     });
     return { ok: true, foto: { ...foto, vista } };
   } catch (err) {
