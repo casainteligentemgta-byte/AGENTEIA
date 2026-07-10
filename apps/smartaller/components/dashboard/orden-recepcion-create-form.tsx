@@ -13,6 +13,7 @@ type Props = {
   odometroInicial: number | null;
   odometroLabel: string;
   recienRegistrado?: boolean;
+  desdeTelegram?: boolean;
 };
 
 export function OrdenRecepcionCreateForm({
@@ -21,6 +22,7 @@ export function OrdenRecepcionCreateForm({
   odometroInicial,
   odometroLabel,
   recienRegistrado,
+  desdeTelegram,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -53,6 +55,13 @@ export function OrdenRecepcionCreateForm({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
+      {desdeTelegram && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+          Placa <span className="font-mono font-semibold">{placa}</span> identificada por Telegram.
+          Completa la planilla de inspección de ingreso.
+        </div>
+      )}
+
       {recienRegistrado && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
           Vehículo <span className="font-mono font-semibold">{placa}</span> registrado. Ahora

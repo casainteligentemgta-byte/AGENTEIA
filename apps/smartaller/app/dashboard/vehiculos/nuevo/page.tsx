@@ -19,8 +19,8 @@ export default function NuevoVehiculoPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrar vehículo</h1>
           <p className="mt-1 text-zinc-500">
-            Registra los datos del vehículo y del propietario. La inspección de ingreso se realiza
-            en el paso siguiente.
+            Registra los datos del vehículo. La inspección se inicia después, desde la ficha del
+            vehículo o escaneando la placa por Telegram.
           </p>
         </div>
         <Link

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: { id: string };
-  searchParams: { nuevo?: string };
+  searchParams: { telegram?: string };
 };
 
 export default async function InspeccionVehiculoPage({ params, searchParams }: Props) {
@@ -51,7 +51,8 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         placa={vehiculo.placa}
         odometroInicial={odometroInicial}
         odometroLabel={odometroLabel}
-        recienRegistrado={searchParams.nuevo === "1"}
+        recienRegistrado={false}
+        desdeTelegram={searchParams.telegram === "1"}
       />
     </div>
   );

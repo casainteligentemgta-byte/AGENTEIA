@@ -51,6 +51,12 @@ export function getAppBaseUrl(): string {
   );
 }
 
+export function getInspeccionVehiculoUrl(vehiculoId: string): string {
+  const base = getAppBaseUrl();
+  if (!vehiculoId) return `${base}/dashboard/vehiculos/nuevo`;
+  return `${base}/dashboard/vehiculos/${vehiculoId}/inspeccion?telegram=1`;
+}
+
 export function getClientePortalUrl(placa: string): string {
   return `${getAppBaseUrl()}/cliente?placa=${encodeURIComponent(normalizePlaca(placa))}`;
 }

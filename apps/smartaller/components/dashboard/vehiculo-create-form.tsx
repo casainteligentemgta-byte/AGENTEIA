@@ -99,7 +99,7 @@ export function VehiculoCreateForm() {
         return;
       }
 
-      router.push(`/dashboard/vehiculos/${result.vehiculoId}/inspeccion?nuevo=1`);
+      router.push(`/dashboard/vehiculos/${result.vehiculoId}?registrado=1`);
       router.refresh();
     });
   }

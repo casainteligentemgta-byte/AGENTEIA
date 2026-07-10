@@ -27,6 +27,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: { id: string };
+  searchParams: { registrado?: string };
 };
 
 function estadoVariant(estado: string): "default" | "success" | "warning" | "danger" {
@@ -36,7 +37,7 @@ function estadoVariant(estado: string): "default" | "success" | "warning" | "dan
   return "default";
 }
 
-export default async function VehiculoDetallePage({ params }: Props) {
+export default async function VehiculoDetallePage({ params, searchParams }: Props) {
   const vehiculo = await getVehiculoDetalle(params.id);
   if (!vehiculo) notFound();
 
@@ -70,6 +71,14 @@ export default async function VehiculoDetallePage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" />
         Volver a vehículos
       </Link>
+
+      {searchParams.registrado === "1" && (
+        <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          Vehículo registrado correctamente. Cuando llegue al taller, inicia la{" "}
+          <strong className="text-emerald-100">inspección de ingreso</strong> con el botón de abajo
+          o envía una foto de la placa por Telegram (pie de foto: <em>inspeccion</em>).
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>

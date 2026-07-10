@@ -20,6 +20,7 @@ export type TelegramMessage = {
   message_id: number;
   chat: { id: number; type: string };
   text?: string;
+  caption?: string;
   photo?: TelegramPhotoSize[];
   document?: {
     file_id: string;
@@ -45,6 +46,22 @@ export function getImageFileId(message: TelegramMessage): string | null {
   }
 
   return null;
+}
+
+/** Indica si la foto es para inspección de ingreso (pie de foto o comando). */
+export function isInspeccionPhotoRequest(message: TelegramMessage): boolean {
+  const caption = message.caption?.trim().toLowerCase() ?? "";
+  if (/\b(inspeccion|inspección|recepcion|recepción|placa)\b/i.test(caption)) {
+    return true;
+  }
+  const text = message.text?.trim().toLowerCase() ?? "";
+  return /^\/inspeccion(?:@\w+)?$/i.test(text);
+}
+
+/** Comando /inspeccion sin foto adjunta. */
+export function parseInspeccionCommand(message: TelegramMessage): boolean {
+  const text = message.text?.trim() ?? "";
+  return /^\/inspeccion(?:@\w+)?$/i.test(text);
 }
 
 /** Parsea /vincular CODIGO del mensaje de texto. */

@@ -5,11 +5,14 @@ import {
   buildFacturaProcesadaMessage,
 } from "@/lib/extract-invoice";
 import { processInvoiceSafe } from "@/lib/process-invoice";
+import { processInspeccionTelegramPhoto } from "@/lib/process-inspeccion-telegram";
 import { vincularTelegramPorCodigo } from "@/lib/taller";
 import {
   downloadTelegramFile,
   getImageFileId,
+  isInspeccionPhotoRequest,
   parseVincularCommand,
+  parseInspeccionCommand,
   sendTelegramMessage,
   type TelegramUpdate,
 } from "@/lib/telegram";
@@ -27,7 +30,9 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     if (result.ok) {
       await sendTelegramMessage(
         message.chat.id,
-        `✅ Taller "${result.nombre}" vinculado correctamente. Ya puedes enviar fotos de facturas.`
+        `✅ Taller "${result.nombre}" vinculado correctamente.\n\n` +
+          "• Factura: envía foto de la factura\n" +
+          "• Inspección: envía foto del vehículo con la palabra *inspeccion* en el pie de foto"
       );
     } else {
       await sendTelegramMessage(message.chat.id, `❌ ${result.error}`);
@@ -35,10 +40,24 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     return;
   }
 
+  if (parseInspeccionCommand(message)) {
+    await sendTelegramMessage(
+      message.chat.id,
+      "📷 Envía ahora la foto del vehículo mostrando la placa.\n" +
+        "Escribe *inspeccion* en el pie de foto (caption) para abrir la planilla de ingreso."
+    );
+    return;
+  }
+
   if (!getImageFileId(message)) {
     await sendTelegramMessage(
       message.chat.id,
-      "Envía una foto de factura para registrarla.\n\nPara vincular tu taller: /vincular TU_CODIGO\n(Obtén el código en el dashboard → Configuración)"
+      "Comandos disponibles:\n\n" +
+        "📄 Factura — envía foto de la factura de servicio\n" +
+        "🔍 Inspección — foto del vehículo con pie de foto: inspeccion\n" +
+        "   (o escribe /inspeccion y luego la foto)\n\n" +
+        "🔗 Vincular taller: /vincular TU_CODIGO\n" +
+        "(Código en Dashboard → Configuración)"
     );
   }
 }
@@ -46,6 +65,11 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
 async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
   const message = update.message;
   if (!message) return;
+
+  if (isInspeccionPhotoRequest(message)) {
+    await processInspeccionTelegramPhoto(update);
+    return;
+  }
 
   const fileId = getImageFileId(message);
   if (!fileId) return;
