@@ -105,7 +105,11 @@ export function InspeccionWizardFotos({
       setStatusMsg(null);
 
       if (!result.ok) {
-        setError(result.error);
+        const detalle =
+          "placaDetectada" in result && result.placaDetectada
+            ? ` (leída: ${result.placaDetectada})`
+            : "";
+        setError(`${result.error}${detalle}`);
         return;
       }
 
@@ -122,7 +126,11 @@ export function InspeccionWizardFotos({
           ficha: result.ficha,
           odometroLabel: result.odometroLabel ?? "Kilometraje",
         });
-        setStatusMsg(`✓ Vehículo confirmado: ${result.placaDetectada}`);
+        setStatusMsg(
+          result.avisoPlaca
+            ? `✓ Vehículo: ${result.placaVehiculo}. ${result.avisoPlaca}`
+            : `✓ Vehículo confirmado: ${result.placaVehiculo}`
+        );
       }
 
       if (

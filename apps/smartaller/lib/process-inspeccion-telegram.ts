@@ -3,7 +3,7 @@ import { extractPlacaFromImage } from "@/lib/extract-placa";
 import { getAppBaseUrl, getInspeccionVehiculoUrl, formatDate } from "@/lib/format";
 import { getTallerByTelegramChat } from "@/lib/taller";
 import { downloadTelegramFile, sendTelegramMessage } from "@/lib/telegram";
-import { normalizarPlaca } from "@/lib/vehicles/link";
+import { normalizarPlaca, resolverPlacaEnFlota } from "@/lib/vehicles/placa";
 
 export async function enviarEnlaceInspeccionPorPlaca(
   chatId: number,
@@ -75,7 +75,7 @@ export async function processInspeccionTelegramPhoto(
   await sendTelegramMessage(chatId, "🔍 Leyendo placa…");
 
   const { buffer, mimeType } = await downloadTelegramFile(fileId);
-  const { placa, confianza } = await extractPlacaFromImage(buffer, mimeType);
+  const { placa, confianza } = await extractPlacaFromImage(buffer, mimeType, "placa");
 
   if (!placa || placa.length < 2) {
     await sendTelegramMessage(
@@ -85,9 +85,37 @@ export async function processInspeccionTelegramPhoto(
     return;
   }
 
+  const taller = await getTallerByTelegramChat(chatId);
+  if (!taller) {
+    await sendTelegramMessage(
+      chatId,
+      "❌ Este Telegram no está vinculado a un taller.\nUsa /vincular TU_CODIGO (código en Dashboard → Configuración)."
+    );
+    return;
+  }
+
+  const supabase = createAdminClient();
+  const { data: flota } = await supabase
+    .from("vehiculos")
+    .select("placa")
+    .eq("taller_id", taller.id);
+
+  const coincidencia = resolverPlacaEnFlota(
+    placa,
+    (flota ?? []).map((v) => v.placa)
+  );
+  const placaFinal = coincidencia?.placa ?? placa;
+
   if (confianza === "baja") {
     await sendTelegramMessage(chatId, "⚠️ Placa detectada con baja confianza — verifica al abrir la planilla.");
   }
 
-  await enviarEnlaceInspeccionPorPlaca(chatId, placa);
+  if (coincidencia && coincidencia.metodo !== "exacta") {
+    await sendTelegramMessage(
+      chatId,
+      `ℹ️ Placa leída ${placa} → usando ${placaFinal} de tu flota.`
+    );
+  }
+
+  await enviarEnlaceInspeccionPorPlaca(chatId, placaFinal);
 }

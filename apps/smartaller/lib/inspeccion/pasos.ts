@@ -16,7 +16,7 @@ export const INSPECCION_FOTO_PASOS: InspeccionFotoPasoConfig[] = [
     id: "frontal",
     titulo: "Foto frontal",
     instruccion:
-      "Toma la foto de frente mostrando la placa. La IA la leerá para confirmar el vehículo.",
+      "Enfoca el parachoques o portaplacas frontal. La placa debe verse clara; evita logos y stickers. La IA la leerá para confirmar el vehículo.",
     escanearPlaca: true,
     permitirAnotaciones: true,
   },

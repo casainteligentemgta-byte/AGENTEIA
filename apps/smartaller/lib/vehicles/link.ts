@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export function normalizarPlaca(placa: string): string {
-  return placa.trim().toUpperCase();
-}
+import { normalizarPlaca } from "@/lib/vehicles/placa";
+export { normalizarPlaca } from "@/lib/vehicles/placa";
 
 /**
  * Reasigna mantenimientos/recordatorios de duplicados con la misma placa

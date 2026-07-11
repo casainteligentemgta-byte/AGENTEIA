@@ -3,9 +3,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
-import { extractPlacaFromImage } from "@/lib/extract-placa";
 import { extractTableroFromImage } from "@/lib/extract-tablero";
 import { formatLlmAuthError } from "@/lib/ai/openai-config";
+import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolver-vehiculo-placa";
 import { ESTADO_VISUAL_VISTAS } from "@/lib/schemas/estado-visual-recepcion";
 import {
   uploadEstadoVisualFoto,
@@ -13,7 +13,7 @@ import {
   type EstadoVisualFotoRef,
 } from "@/lib/ordenes-recepcion/upload-estado-visual";
 import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
-import { normalizarPlaca } from "@/lib/vehicles/link";
+import { compactarPlaca } from "@/lib/vehicles/placa";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 
@@ -25,11 +25,12 @@ export type ProcesarFotoPasoInspeccionResult =
       placaCoincide?: boolean;
       vehiculoId?: string;
       placaVehiculo?: string;
+      avisoPlaca?: string;
       kilometrajeDetectado?: number | null;
       ficha?: ReturnType<typeof buildFichaVehiculoInspeccion>;
       odometroLabel?: string;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; placaDetectada?: string };
 
 async function bufferFromFile(file: File): Promise<{ buffer: Buffer; mimeType: string }> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -62,7 +63,7 @@ export async function procesarFotoPasoInspeccionAction(
     typeof vehiculoIdRaw === "string" && vehiculoIdRaw.length > 0 ? vehiculoIdRaw : undefined;
   const placaEsperada =
     typeof placaEsperadaRaw === "string" && placaEsperadaRaw.length > 0
-      ? normalizarPlaca(placaEsperadaRaw)
+      ? compactarPlaca(placaEsperadaRaw)
       : undefined;
 
   if (
@@ -92,61 +93,36 @@ export async function procesarFotoPasoInspeccionAction(
     const base = { ok: true as const, foto: { ...foto, vista } };
 
     if (vista === "frontal") {
-      const { placa, confianza } = await extractPlacaFromImage(buffer, mimeType);
-      if (!placa) {
+      const resolucion = await resolverVehiculoDesdeFotoFrontal(supabase, {
+        tallerId: taller.id,
+        imageBuffer: buffer,
+        mimeType,
+        vehiculoId,
+        placaEsperada,
+      });
+
+      if (!resolucion.ok) {
         return {
           ok: false,
-          error: "No se detectó la placa. Acerca la cámara a la matrícula frontal.",
+          error: resolucion.error,
+          placaDetectada: resolucion.placaDetectada,
         };
       }
 
-      const placaNorm = normalizarPlaca(placa);
-
-      const { data: vehiculo, error: vehError } = await supabase
-        .from("vehiculos")
-        .select(
-          "id, placa, nombre_cliente, telefono_cliente, marca, modelo, color, serial_carroceria, tipo_vehiculo, kilometraje_ultimo, horas_motor_ultimo"
-        )
-        .eq("taller_id", taller.id)
-        .eq("placa", placaNorm)
-        .maybeSingle();
-
-      if (vehError || !vehiculo) {
-        return {
-          ok: false,
-          error: `No encontré el vehículo ${placaNorm} en tu flota. Regístralo primero.`,
-        };
-      }
-
-      if (vehiculoId && vehiculo.id !== vehiculoId) {
-        return {
-          ok: false,
-          error: `La placa detectada (${placaNorm}) no coincide con el vehículo abierto.`,
-        };
-      }
-
-      if (placaEsperada && placaNorm !== placaEsperada) {
-        return {
-          ok: false,
-          error: `La placa detectada (${placaNorm}) no coincide con ${placaEsperada}.`,
-        };
-      }
-
+      const { vehiculo, placaDetectada, placaCoincide, aviso } = resolucion;
       const config = getConfigTipoVehiculo((vehiculo.tipo_vehiculo ?? "auto") as TipoVehiculo);
       const odometroLabel =
         config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje";
 
       return {
         ...base,
-        placaDetectada: placaNorm,
-        placaCoincide: true,
+        placaDetectada: placaDetectada ?? compactarPlaca(vehiculo.placa),
+        placaCoincide,
         vehiculoId: vehiculo.id,
         placaVehiculo: vehiculo.placa,
         ficha: buildFichaVehiculoInspeccion(vehiculo),
         odometroLabel,
-        ...(confianza === "baja"
-          ? {}
-          : {}),
+        avisoPlaca: aviso,
       };
     }
 
