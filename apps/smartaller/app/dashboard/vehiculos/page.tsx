@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Plus } from "lucide-react";
 import { getVehiculos } from "@/lib/data/dashboard";
 import { formatDate, formatOdometroDashboard } from "@/lib/utils";
 import { getEtiquetaTipo } from "@/lib/vehicles/format";
@@ -17,13 +17,22 @@ export default async function VehiculosPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Vehículos</h1>
           <p className="mt-1 text-zinc-500">Flota registrada en tu taller o concesionario</p>
         </div>
-        <Link
-          href="/dashboard/vehiculos/nuevo"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
-        >
-          <Plus className="h-4 w-4" />
-          Registrar vehículo
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/dashboard/inspeccion"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Inspección de ingreso
+          </Link>
+          <Link
+            href="/dashboard/vehiculos/nuevo"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+          >
+            <Plus className="h-4 w-4" />
+            Registrar vehículo
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

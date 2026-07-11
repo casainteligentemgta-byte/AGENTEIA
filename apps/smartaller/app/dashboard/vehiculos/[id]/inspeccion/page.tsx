@@ -45,6 +45,8 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         <p className="mt-1 text-zinc-500">
           {vehiculo.nombre_cliente ?? "Sin propietario"}
           {vehiculo.marca && vehiculo.modelo ? ` · ${vehiculo.marca} ${vehiculo.modelo}` : ""}
+          {" · "}
+          La cámara se abre paso a paso: frontal, laterales, tablero y protocolo.
         </p>
       </div>
 

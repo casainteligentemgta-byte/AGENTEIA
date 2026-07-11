@@ -66,32 +66,46 @@ function TrazosOverlay({
 }
 
 export function EstadoVisualDisplay({ estadoVisual }: Props) {
-  const fotosConUrl = ESTADO_VISUAL_VISTAS.map(
+  const fotosExterior = ESTADO_VISUAL_VISTAS.filter((v) => v !== "tablero").map(
     (vista) => estadoVisual.fotos.find((f) => f.vista === vista) ?? { vista, trazos: [] }
   ).filter((f) => f.url);
 
-  if (fotosConUrl.length === 0) return null;
+  const fotoTablero = estadoVisual.fotos.find((f) => f.vista === "tablero" && f.url);
+
+  if (fotosExterior.length === 0 && !fotoTablero) return null;
 
   return (
     <div className="mt-5">
       <p className="mb-3 text-xs font-medium text-zinc-500">Estado visual — fotos del vehículo</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {fotosConUrl.map((foto) => (
-          <div key={foto.vista}>
-            <p className="mb-2 text-xs text-zinc-400">
-              {ESTADO_VISUAL_VISTA_LABELS[foto.vista]}
-              {foto.trazos.length > 0 && (
-                <span className="ml-2 text-red-400">· con anotaciones</span>
-              )}
-            </p>
-            <TrazosOverlay
-              imageUrl={foto.url!}
-              trazos={foto.trazos}
-              label={ESTADO_VISUAL_VISTA_LABELS[foto.vista]}
-            />
-          </div>
-        ))}
-      </div>
+      {fotosExterior.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {fotosExterior.map((foto) => (
+            <div key={foto.vista}>
+              <p className="mb-2 text-xs text-zinc-400">
+                {ESTADO_VISUAL_VISTA_LABELS[foto.vista]}
+                {foto.trazos.length > 0 && (
+                  <span className="ml-2 text-red-400">· con anotaciones</span>
+                )}
+              </p>
+              <TrazosOverlay
+                imageUrl={foto.url!}
+                trazos={foto.trazos}
+                label={ESTADO_VISUAL_VISTA_LABELS[foto.vista]}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {fotoTablero && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs text-zinc-400">{ESTADO_VISUAL_VISTA_LABELS.tablero}</p>
+          <TrazosOverlay
+            imageUrl={fotoTablero.url!}
+            trazos={fotoTablero.trazos}
+            label={ESTADO_VISUAL_VISTA_LABELS.tablero}
+          />
+        </div>
+      )}
     </div>
   );
 }

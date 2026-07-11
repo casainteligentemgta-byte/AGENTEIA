@@ -27,6 +27,8 @@ type Props = {
   fichaVehiculo?: FichaVehiculoInspeccion;
   vehiculoId?: string;
   abrirCamaraFrontal?: boolean;
+  /** Solo checklist, ingreso y firmas (fotos van en el wizard) */
+  soloProtocolo?: boolean;
 };
 
 export function OrdenRecepcionForm({
@@ -36,6 +38,7 @@ export function OrdenRecepcionForm({
   fichaVehiculo,
   vehiculoId,
   abrirCamaraFrontal,
+  soloProtocolo,
 }: Props) {
   const checklistRecord = checklistToMarcaRecord(value.checklist ?? []);
   const today = new Date().toISOString().slice(0, 10);
@@ -51,35 +54,43 @@ export function OrdenRecepcionForm({
   }
 
   return (
-    <section className="glass rounded-2xl border border-blue-500/20 p-6">
-      <div className="mb-6 flex items-start gap-3 border-b border-zinc-800 pb-5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
-          <ClipboardCheck className="h-5 w-5" />
+    <section className={soloProtocolo ? "space-y-6" : "glass rounded-2xl border border-blue-500/20 p-6"}>
+      {!soloProtocolo && (
+        <div className="mb-6 flex items-start gap-3 border-b border-zinc-800 pb-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400">
+            <ClipboardCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-100">Orden de recepción del vehículo</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Formato de inspección al ingreso — checklist técnico, estado visual y firmas
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-100">Orden de recepción del vehículo</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Formato de inspección al ingreso — checklist técnico, estado visual y firmas
-          </p>
+      )}
+
+      {fichaVehiculo && !soloProtocolo && (
+        <FichaVehiculoInspeccionResumen ficha={fichaVehiculo} />
+      )}
+
+      {!soloProtocolo && (
+        <div className="mb-6">
+          <h3 className="mb-3 text-sm font-semibold text-zinc-200">
+            2. Estado visual — foto frontal y demás vistas
+          </h3>
+          <EstadoVisualFotos
+            value={value.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }}
+            onChange={(estadoVisual) => patch({ estadoVisual })}
+            vehiculoId={vehiculoId}
+            abrirCamaraFrontal={abrirCamaraFrontal}
+          />
         </div>
-      </div>
-
-      {fichaVehiculo && <FichaVehiculoInspeccionResumen ficha={fichaVehiculo} />}
-
-      <div className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-          2. Estado visual — foto frontal y demás vistas
-        </h3>
-        <EstadoVisualFotos
-          value={value.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }}
-          onChange={(estadoVisual) => patch({ estadoVisual })}
-          vehiculoId={vehiculoId}
-          abrirCamaraFrontal={abrirCamaraFrontal}
-        />
-      </div>
+      )}
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-zinc-200">Ingreso al taller</h3>
+        <h3 className="mb-3 text-sm font-semibold text-zinc-200">
+          {soloProtocolo ? "Datos de ingreso" : "Ingreso al taller"}
+        </h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Fecha de ingreso</label>
@@ -185,7 +196,7 @@ export function OrdenRecepcionForm({
         return (
           <div key={seccion} className="mb-6">
             <h3 className="mb-3 text-sm font-semibold text-zinc-200">
-              3. {RECEPCION_SECCION_LABELS[seccion]}
+              {soloProtocolo ? "Checklist de inspección" : `3. ${RECEPCION_SECCION_LABELS[seccion]}`}
             </h3>
             <p className="mb-2 text-xs text-zinc-500">Marque ✓ (correcto/presente) o X (falla/ausente)</p>
             <div className="overflow-x-auto">

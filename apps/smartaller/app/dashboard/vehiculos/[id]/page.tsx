@@ -75,8 +75,8 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
       {searchParams.registrado === "1" && (
         <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
           Vehículo registrado correctamente. Cuando llegue al taller, inicia la{" "}
-          <strong className="text-emerald-100">inspección de ingreso</strong> con el botón de abajo
-          o envía una foto de la placa por Telegram (pie de foto: <em>inspeccion</em>).
+          <strong className="text-emerald-100">inspección de ingreso</strong>: la app abrirá la
+          cámara frontal, leerá la placa y te guiará por fotos, tablero y checklist.
         </div>
       )}
 

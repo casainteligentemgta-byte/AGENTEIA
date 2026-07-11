@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-/** Cuatro vistas obligatorias del estado visual */
+/** Vistas del estado visual + tablero encendido */
 export const ESTADO_VISUAL_VISTAS = [
   "frontal",
   "trasero",
   "lateral_izquierdo",
   "lateral_derecho",
+  "tablero",
 ] as const;
 
 export type EstadoVisualVista = (typeof ESTADO_VISUAL_VISTAS)[number];
@@ -15,6 +16,7 @@ export const ESTADO_VISUAL_VISTA_LABELS: Record<EstadoVisualVista, string> = {
   trasero: "Trasero",
   lateral_izquierdo: "Lateral izquierdo",
   lateral_derecho: "Lateral derecho",
+  tablero: "Tablero (motor encendido)",
 };
 
 const puntoSchema = z.object({

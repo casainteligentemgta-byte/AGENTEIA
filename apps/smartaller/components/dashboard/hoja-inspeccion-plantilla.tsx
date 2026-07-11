@@ -160,11 +160,11 @@ export function HojaInspeccionPlantilla() {
             3. Estado visual — fotos del vehículo
           </h2>
           <p className="mb-4 text-[10px] text-zinc-600">
-            Tome 4 fotos (frontal, trasero y laterales). Marque rayones, golpes u observaciones con
-            lápiz sobre cada imagen.
+            Tome fotos frontal, trasera, laterales y tablero con motor encendido. Marque rayones,
+            golpes u observaciones con lápiz sobre las vistas exteriores.
           </p>
           <div className="grid grid-cols-2 gap-4">
-            {ESTADO_VISUAL_VISTAS.map((vista) => (
+            {ESTADO_VISUAL_VISTAS.filter((v) => v !== "tablero").map((vista) => (
               <div key={vista} className="break-inside-avoid">
                 <p className="mb-1 text-[10px] font-semibold text-zinc-700">
                   {ESTADO_VISUAL_VISTA_LABELS[vista]}
@@ -174,6 +174,14 @@ export function HojaInspeccionPlantilla() {
                 </div>
               </div>
             ))}
+            <div className="col-span-2 break-inside-avoid">
+              <p className="mb-1 text-[10px] font-semibold text-zinc-700">
+                {ESTADO_VISUAL_VISTA_LABELS.tablero}
+              </p>
+              <div className="flex aspect-[16/9] items-center justify-center border-2 border-dashed border-zinc-400 bg-zinc-50 text-[9px] text-zinc-500">
+                Foto tablero (kilometraje y luces)
+              </div>
+            </div>
           </div>
         </section>
 
