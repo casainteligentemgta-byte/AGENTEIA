@@ -1,4 +1,7 @@
-import OpenAI from "openai";
+import {
+  createOpenAIClient,
+  getVisionModelId,
+} from "@/lib/ai/openai-config";
 
 export type TableroExtraido = {
   kilometraje: number | null;
@@ -17,21 +20,15 @@ function parseKilometraje(value: unknown): number | null {
   return null;
 }
 
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
-  return new OpenAI({ apiKey });
-}
-
 export async function extractTableroFromImage(
   imageBuffer: Buffer,
   mimeType: string = "image/jpeg"
 ): Promise<TableroExtraido> {
   const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-  const openai = getOpenAIClient();
+  const openai = createOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: getVisionModelId(),
     response_format: { type: "json_object" },
     messages: [
       {

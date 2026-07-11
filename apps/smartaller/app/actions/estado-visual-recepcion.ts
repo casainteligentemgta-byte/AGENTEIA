@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 import { extractPlacaFromImage } from "@/lib/extract-placa";
 import { extractTableroFromImage } from "@/lib/extract-tablero";
+import { formatLlmAuthError } from "@/lib/ai/openai-config";
 import { ESTADO_VISUAL_VISTAS } from "@/lib/schemas/estado-visual-recepcion";
 import {
   uploadEstadoVisualFoto,
@@ -159,7 +160,7 @@ export async function procesarFotoPasoInspeccionAction(
 
     return base;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "No se pudo procesar la foto";
+    const message = formatLlmAuthError(err);
     return { ok: false, error: message };
   }
 }

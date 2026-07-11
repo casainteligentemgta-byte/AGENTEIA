@@ -1,4 +1,7 @@
-import OpenAI from "openai";
+import {
+  createOpenAIClient,
+  getVisionModelId,
+} from "@/lib/ai/openai-config";
 
 export type CedulaExtraida = {
   numero_cedula: string | null;
@@ -34,22 +37,14 @@ function parseCedulaDigits(value: unknown): string | null {
   return digits.length >= 6 ? digits : null;
 }
 
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
-  }
-  return new OpenAI({ apiKey });
-}
-
 async function extractJsonFromImage(
   imageDataUrl: string,
   prompt: string
 ): Promise<Record<string, unknown>> {
-  const openai = getOpenAIClient();
+  const openai = createOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: getVisionModelId(),
     response_format: { type: "json_object" },
     messages: [
       {

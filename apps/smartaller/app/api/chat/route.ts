@@ -11,6 +11,8 @@ import { buildSmartallerSystemPrompt } from "@/lib/ai/smartaller-prompt";
 import {
   getChatModelId,
   getLlmApiKey,
+  getOpenAIBaseURL,
+  getOpenRouterHeaders,
   isLlmConfigured,
 } from "@/lib/ai/openai-config";
 import { buildVehicleChatContext } from "@/lib/ai/vehicle-context";
@@ -72,13 +74,17 @@ export async function POST(req: Request) {
       return new Response(
         JSON.stringify({
           error:
-            "Falta OPENAI_API_KEY. Configúrala en .env.local para usar Chat Smartaller.",
+            "Falta OPENAI_API_KEY. Configúrala en .env.local (OpenAI sk-proj-... u OpenRouter sk-or-v1-...) o en Vercel.",
         }),
         { status: 503, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const openai = createOpenAI({ apiKey: getLlmApiKey() });
+    const openai = createOpenAI({
+      apiKey: getLlmApiKey(),
+      baseURL: getOpenAIBaseURL(),
+      headers: getOpenRouterHeaders(),
+    });
 
     const result = streamText({
       model: openai(getChatModelId()),

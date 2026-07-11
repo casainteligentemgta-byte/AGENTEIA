@@ -1,4 +1,9 @@
 import OpenAI from "openai";
+import {
+  createOpenAIClient,
+  formatLlmAuthError,
+  getVisionModelId,
+} from "@/lib/ai/openai-config";
 
 export type FacturaExtraida = {
   placa: string | null;
@@ -50,21 +55,13 @@ function parseOpenAIJson(raw: string): FacturaExtraida {
   };
 }
 
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
-  }
-  return new OpenAI({ apiKey });
-}
-
 /** Extrae datos de factura enviando la URL pública del archivo de Telegram a GPT-4o-mini. */
 export async function extractMantenimientoFromUrl(fileUrl: string): Promise<FacturaExtraida> {
-  const openai = getOpenAIClient();
+  const openai = createOpenAIClient();
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: getVisionModelId(),
       response_format: { type: "json_object" },
       messages: [
         {
@@ -86,7 +83,7 @@ export async function extractMantenimientoFromUrl(fileUrl: string): Promise<Fact
     return parseOpenAIJson(raw);
   } catch (err) {
     if (err instanceof OpenAI.APIError) {
-      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
+      throw new Error(formatLlmAuthError(err));
     }
     if (err instanceof SyntaxError) {
       throw new Error("OpenAI devolvió JSON inválido");
