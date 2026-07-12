@@ -8,11 +8,14 @@ import {
   ChevronRight,
   ScanLine,
   Gauge,
+  Pencil,
 } from "lucide-react";
 import { procesarFotoPasoInspeccionAction } from "@/app/actions/estado-visual-recepcion";
 import { FotoAnotacionCanvas } from "@/components/dashboard/foto-anotacion-canvas";
 import {
+  HINT_ANOTACIONES_FOTO,
   INSPECCION_FOTO_PASOS,
+  pasoPermiteAnotaciones,
   TOTAL_PASOS,
   type InspeccionFotoPasoId,
 } from "@/lib/inspeccion/pasos";
@@ -144,7 +147,7 @@ export function InspeccionWizardFotos({
         setStatusMsg(`✓ Kilometraje detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}`);
       }
 
-      if (paso.permitirAnotaciones === false) {
+      if (!pasoPermiteAnotaciones(paso)) {
         window.setTimeout(avanzarPaso, 800);
       }
     });
@@ -159,6 +162,8 @@ export function InspeccionWizardFotos({
   }, [pasoIndex, paso, hasPhoto, isPending]);
 
   if (!paso) return null;
+
+  const permiteAnotaciones = pasoPermiteAnotaciones(paso);
 
   return (
     <div className="space-y-4">
@@ -189,6 +194,12 @@ export function InspeccionWizardFotos({
           <div>
             <h3 className="text-lg font-semibold text-zinc-100">{paso.titulo}</h3>
             <p className="mt-1 text-sm text-zinc-400">{paso.instruccion}</p>
+            {permiteAnotaciones && hasPhoto && (
+              <p className="mt-2 inline-flex items-start gap-1.5 text-xs text-amber-200/90">
+                <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                {HINT_ANOTACIONES_FOTO}
+              </p>
+            )}
           </div>
           {paso.escanearPlaca && (
             <ScanLine className="h-6 w-6 shrink-0 text-blue-400" aria-hidden />
@@ -214,7 +225,7 @@ export function InspeccionWizardFotos({
               {isPending ? statusMsg ?? "Procesando…" : "Tomar foto"}
             </span>
           </button>
-        ) : paso.permitirAnotaciones ? (
+        ) : permiteAnotaciones ? (
           <FotoAnotacionCanvas
             vista={paso.id}
             imageUrl={slot!.url!}

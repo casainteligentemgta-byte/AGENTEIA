@@ -83,8 +83,9 @@ export function OrdenRecepcionCreateForm({
     <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
       {frontalDesdeTelegram && !enProtocolo && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-          Foto frontal recibida por Telegram. Continúa con las demás vistas; al finalizar
-          completarás la <strong className="text-emerald-100">hoja de inspección</strong>.
+          Foto frontal recibida por Telegram. Marca rayones o golpes con el lápiz en la vista
+          frontal y continúa con las demás fotos; al finalizar completarás la{" "}
+          <strong className="text-emerald-100">hoja de inspección</strong>.
         </div>
       )}
 

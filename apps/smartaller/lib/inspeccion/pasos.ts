@@ -8,15 +8,23 @@ export type InspeccionFotoPasoConfig = {
   instruccion: string;
   escanearPlaca?: boolean;
   extraerKilometraje?: boolean;
+  /** false solo en vistas sin marcado (ej. tablero). Por defecto: true. */
   permitirAnotaciones?: boolean;
 };
+
+export const HINT_ANOTACIONES_FOTO =
+  "Usa el lápiz o el dedo para marcar rayones, golpes o observaciones";
+
+export function pasoPermiteAnotaciones(paso: InspeccionFotoPasoConfig): boolean {
+  return paso.permitirAnotaciones !== false;
+}
 
 export const INSPECCION_FOTO_PASOS: InspeccionFotoPasoConfig[] = [
   {
     id: "frontal",
     titulo: "Foto frontal",
     instruccion:
-      "Enfoca el parachoques o portaplacas frontal. La placa debe verse clara; evita logos y stickers. La IA la leerá para confirmar el vehículo.",
+      "Enfoca el parachoques o portaplacas frontal. La placa debe verse clara; evita logos y stickers. La IA la leerá para confirmar el vehículo. Luego marca rayones o golpes con el lápiz.",
     escanearPlaca: true,
     permitirAnotaciones: true,
   },

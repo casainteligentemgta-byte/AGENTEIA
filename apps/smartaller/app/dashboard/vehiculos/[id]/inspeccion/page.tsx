@@ -41,7 +41,7 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         path: sesion.frontalPath,
       })
     : undefined;
-  const pasoInicial = sesion ? 1 : 0;
+  const pasoInicial = 0;
 
   return (
     <div className="p-4 sm:p-8">
@@ -62,7 +62,7 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
           {vehiculo.nombre_cliente ?? "Sin propietario"}
           {vehiculo.marca && vehiculo.modelo ? ` · ${vehiculo.marca} ${vehiculo.modelo}` : ""}
           {frontalDesdeTelegram
-            ? " · Foto frontal desde Telegram; continúa con el resto y la hoja de inspección."
+            ? " · Foto frontal desde Telegram; márcala con el lápiz y continúa con el resto."
             : " · La cámara guía paso a paso hasta el protocolo de inspección."}
         </p>
       </div>

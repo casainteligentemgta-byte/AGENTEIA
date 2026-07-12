@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eraser, Loader2 } from "lucide-react";
+import { Eraser, Loader2, Pencil } from "lucide-react";
+import { HINT_ANOTACIONES_FOTO } from "@/lib/inspeccion/pasos";
 import type { EstadoVisualVista, TrazoAnotacion } from "@/lib/schemas/estado-visual-recepcion";
 
 type Props = {
@@ -178,7 +179,10 @@ export function FotoAnotacionCanvas({
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-zinc-500">
-        <span>Usa el lápiz o el dedo para marcar rayones, golpes o observaciones</span>
+        <span className="inline-flex items-center gap-1.5">
+          <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {HINT_ANOTACIONES_FOTO}
+        </span>
         {trazos.length > 0 && (
           <button
             type="button"
