@@ -6,6 +6,7 @@ import {
   compactarPlaca,
   esPlacaPlausible,
   generarVariantesOcrPlaca,
+  puntajeEspecificidadPlaca,
 } from "@/lib/vehicles/placa";
 
 export type ContextoFotoPlaca = "frontal" | "placa";
@@ -17,36 +18,46 @@ export type PlacaExtraida = {
   placaAlternativa?: string | null;
 };
 
-const PROMPTS: Record<ContextoFotoPlaca, string> = {
-  frontal: `Eres un experto leyendo placas vehiculares en Colombia.
-La imagen es una foto FRONTAL del vehículo (se ve el auto completo o el frente).
-Tu ÚNICA tarea: leer la placa/matrícula del vehículo en el parachoques, parrilla o portaplacas delantero.
+const FORMATOS_PLACA = `Formatos frecuentes (lee de izquierda a derecha, carácter por carácter):
+- Colombia: ABC123 (3 letras + 3 números)
+- Venezuela / caribe: AA90N90 (2 letras + 2 números + 1 letra + 2 números). Ejemplo real: AA90N90
+- Motos Colombia: AB123C o ABC12D
+- Antiguas: AB1234, 123ABC`;
 
-REGLAS ESTRICTAS:
-- Lee SOLO la placa oficial del vehículo (lámina metálica o acrílica con letras y números).
-- IGNORA por completo: VIN, chasis, stickers, concesionario, marca del carro, parabrisas, motor, decoración.
-- Formato típico Colombia: 3 letras + 3 números (ej. ABC123). También motos AB123C o formatos antiguos.
-- Distingue bien: O vs 0, I vs 1, Z vs 2, S vs 5, B vs 8.
-- Si la placa no se lee con claridad, devuelve placa: null (no inventes).
+const REGLAS_OCR = `REGLAS ESTRICTAS:
+- Lee SOLO la placa oficial (lámina metálica o acrílica).
+- IGNORA: VIN, chasis, stickers, concesionario, marca, parabrisas, decoración.
+- Distingue bien: O vs 0, I vs 1, Z vs 2, S vs 5, B vs 8, N vs M, G vs 6.
+- Si la placa no se lee con claridad, devuelve placa: null (no inventes).`;
+
+const PROMPTS: Record<ContextoFotoPlaca, string> = {
+  frontal: `Eres un experto leyendo placas vehiculares en Colombia y Venezuela (LATAM).
+La imagen es una foto FRONTAL del vehículo (frente / parachoques / portaplacas).
+
+${FORMATOS_PLACA}
+
+${REGLAS_OCR}
+- En placas tipo AA90N90: la letra central (ej. N) va ENTRE números; no la confundas con 0 ni M.
 
 Responde SOLO JSON:
 {
-  "placa": "ABC123 o null",
+  "placa": "texto exacto o null",
   "confianza": "alta" | "baja" | null,
   "placa_alternativa": "otra lectura posible o null",
   "motivo": "breve: dónde viste la placa o por qué es null"
 }`,
 
-  placa: `Eres un experto leyendo placas vehiculares en Colombia.
-La imagen es un primer plano de la placa/matrícula del vehículo.
-Lee exactamente los caracteres visibles. Formato típico: ABC123 (3 letras + 3 números).
-IGNORA marcos, tornillos y texto que no sea la placa.
-Distingue: O/0, I/1, Z/2, S/5, B/8.
-Si no es legible: placa null.
+  placa: `Eres un experto leyendo placas vehiculares en Colombia y Venezuela (LATAM).
+La imagen es un primer plano de la placa/matrícula.
+
+${FORMATOS_PLACA}
+
+${REGLAS_OCR}
+- Transcribe EXACTAMENTE los caracteres visibles, sin espacios ni guiones.
 
 Responde SOLO JSON:
 {
-  "placa": "ABC123 o null",
+  "placa": "texto exacto o null",
   "confianza": "alta" | "baja" | null,
   "placa_alternativa": "otra lectura o null"
 }`,
@@ -56,14 +67,20 @@ function parseString(value: unknown): string | null {
   return typeof value === "string" ? value.trim() || null : null;
 }
 
+/** Patrones con estructura fija (no fallback genérico). */
+const PATRON_ESPECIFICO_MINIMO = 3;
+
 function elegirMejorPlaca(
   principal: string | null,
   alternativa: string | null
 ): { placa: string | null; confianza: "alta" | "baja" | null } {
-  const candidatos = [principal, alternativa]
+  const rawCandidatos = [principal, alternativa]
     .filter((p): p is string => Boolean(p))
-    .map(compactarPlaca)
-    .filter(esPlacaPlausible);
+    .map(compactarPlaca);
+
+  const candidatos = [...new Set(rawCandidatos)]
+    .filter(esPlacaPlausible)
+    .sort((a, b) => puntajeEspecificidadPlaca(b) - puntajeEspecificidadPlaca(a));
 
   if (candidatos.length === 0) {
     const fallback = principal ? compactarPlaca(principal) : null;
@@ -74,10 +91,13 @@ function elegirMejorPlaca(
   }
 
   const mejor = candidatos[0];
-  const plausiblePrincipal = principal && esPlacaPlausible(compactarPlaca(principal));
+  const plausiblePrincipal =
+    principal && esPlacaPlausible(compactarPlaca(principal));
+  const altaEspecificidad = puntajeEspecificidadPlaca(mejor) >= PATRON_ESPECIFICO_MINIMO;
+
   return {
     placa: mejor,
-    confianza: plausiblePrincipal ? "alta" : "baja",
+    confianza: plausiblePrincipal && altaEspecificidad ? "alta" : "baja",
   };
 }
 
