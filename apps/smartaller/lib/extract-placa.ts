@@ -18,26 +18,33 @@ export type PlacaExtraida = {
   placaAlternativa?: string | null;
 };
 
-const FORMATOS_PLACA = `Formatos frecuentes (lee de izquierda a derecha, carácter por carácter):
-- Colombia: ABC123 (3 letras + 3 números)
-- Venezuela / caribe: AA90N90 (2 letras + 2 números + 1 letra + 2 números). Ejemplo real: AA90N90
-- Motos Colombia: AB123C o ABC12D
-- Antiguas: AB1234, 123ABC`;
+const FORMATOS_PLACA = `CONTEXTO: placas de Venezuela (INTT). El taller trabaja con vehículos del país y régimen Puerto Libre (PL).
+
+Formatos Venezuela (lee de IZQUIERDA a DERECHA, carácter por carácter):
+- Particulares / serial común: AA90N90 → 2 letras + 2 números + 1 letra + 2 números (7 caracteres)
+- INTT clásico particulares: AB123CD → 2 letras + 3 números + 1 letra + código de estado (xx123xA)
+- Puerto Libre (PL): AA90N9O → igual estructura pero el ÚLTIMO carácter es la letra O (Nueva Esparta), NO el número cero
+- Motos VE: xx1x23G | PL motos: xx1234O
+- La última letra en placas INTT indica el estado (A=Distrito Capital, G=Carabobo, O=Nueva Esparta/PL, etc.)
+
+Secundario (otros países): Colombia ABC123, motos AB123C.`;
 
 const REGLAS_OCR = `REGLAS ESTRICTAS:
-- Lee SOLO la placa oficial (lámina metálica o acrílica).
-- IGNORA: VIN, chasis, stickers, concesionario, marca, parabrisas, decoración.
-- Distingue bien: O vs 0, I vs 1, Z vs 2, S vs 5, B vs 8, N vs M, G vs 6.
+- Lee SOLO la placa oficial (lámina aluminio, tricolor Venezuela, relieve negro).
+- IGNORA: VIN, chasis, stickers, QR, "República Bolivariana de Venezuela", nombre del estado abajo, concesionario.
+- En Venezuela el último dígito suele ser LETRA de estado: confunde mucho O (letra) con 0 (cero), sobre todo en placas PL.
+- Distingue: O vs 0, I vs 1, Z vs 2, S vs 5, B vs 8, N vs M, G vs 6.
 - Si la placa no se lee con claridad, devuelve placa: null (no inventes).`;
 
 const PROMPTS: Record<ContextoFotoPlaca, string> = {
-  frontal: `Eres un experto leyendo placas vehiculares en Colombia y Venezuela (LATAM).
-La imagen es una foto FRONTAL del vehículo (frente / parachoques / portaplacas).
+  frontal: `Eres un experto leyendo placas vehiculares de VENEZUELA (INTT y Puerto Libre / PL).
+La imagen es una foto FRONTAL del vehículo (parachoques / portaplacas).
 
 ${FORMATOS_PLACA}
 
 ${REGLAS_OCR}
-- En placas tipo AA90N90: la letra central (ej. N) va ENTRE números; no la confundas con 0 ni M.
+- Ejemplo real del taller: AA90N90 (o AA90N9O si el último parece cero pero es letra O de PL).
+- La letra central (posición 5, ej. N) va ENTRE números; no la confundas con 0 ni M.
 
 Responde SOLO JSON:
 {
@@ -47,13 +54,14 @@ Responde SOLO JSON:
   "motivo": "breve: dónde viste la placa o por qué es null"
 }`,
 
-  placa: `Eres un experto leyendo placas vehiculares en Colombia y Venezuela (LATAM).
-La imagen es un primer plano de la placa/matrícula.
+  placa: `Eres un experto leyendo placas vehiculares de VENEZUELA (INTT y Puerto Libre / PL).
+La imagen es un primer plano de la placa/matrícula venezolana.
 
 ${FORMATOS_PLACA}
 
 ${REGLAS_OCR}
-- Transcribe EXACTAMENTE los caracteres visibles, sin espacios ni guiones.
+- Transcribe EXACTAMENTE los 7 caracteres del serial central, sin espacios ni guiones.
+- Si ves "Puerto Libre" o placa de importación PL, el último carácter casi siempre es O (letra), no 0.
 
 Responde SOLO JSON:
 {
