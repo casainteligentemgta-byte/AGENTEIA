@@ -48,7 +48,7 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-zinc-800">
-                      {m.descripcion ?? m.descripcion_servicio ?? "Servicio registrado"}
+                      {m.descripcion ?? "Servicio registrado"}
                     </p>
                     <DiagnosticoMediaBadge count={media.length} />
                   </div>
