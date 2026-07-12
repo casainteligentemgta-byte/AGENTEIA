@@ -12,6 +12,7 @@ import {
   type EstadoVisualVista,
   type FotoEstadoVisual,
 } from "@/lib/schemas/estado-visual-recepcion";
+import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 const VISTAS_RESTANTES = ESTADO_VISUAL_VISTAS.filter((v) => v !== "frontal");
 
@@ -52,12 +53,14 @@ export function EstadoVisualFotos({
   function handleFile(vista: EstadoVisualVista, file: File) {
     setError(null);
     setPendingVista(vista);
-    const formData = new FormData();
-    formData.append("vista", vista);
-    formData.append("file", file);
-    if (vehiculoId) formData.append("vehiculoId", vehiculoId);
 
     startTransition(async () => {
+      const normalized = await normalizeImageFileForUpload(file);
+      const formData = new FormData();
+      formData.append("vista", vista);
+      formData.append("file", normalized);
+      if (vehiculoId) formData.append("vehiculoId", vehiculoId);
+
       const result = await uploadEstadoVisualFotoAction(formData);
       setPendingVista(null);
       if (!result.ok) {

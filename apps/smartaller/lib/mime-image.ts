@@ -49,11 +49,13 @@ function mimeFromFileName(fileName: string | undefined): ImageMimeType | null {
 }
 
 function mimeFromMagicBytes(buffer: Buffer): ImageMimeType | null {
-  if (buffer.length < 12) return null;
+  if (buffer.length < 2) return null;
 
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) {
     return "image/jpeg";
   }
+
+  if (buffer.length < 12) return null;
 
   if (
     buffer[0] === 0x89 &&
@@ -115,9 +117,18 @@ export function resolveImageMimeType(params: {
   if (params.buffer) {
     const fromBytes = mimeFromMagicBytes(params.buffer);
     if (fromBytes) return fromBytes;
+
+    // Cámara móvil: suele ser JPEG aunque el navegador reporte octet-stream
+    if (isGenericMimeType(declared) && params.buffer.length > 0) {
+      return "image/jpeg";
+    }
   }
 
   if (fromName) return fromName;
+
+  if (isGenericMimeType(declared)) {
+    return "image/jpeg";
+  }
 
   return null;
 }

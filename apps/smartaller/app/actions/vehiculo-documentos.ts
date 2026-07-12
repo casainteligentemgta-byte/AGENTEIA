@@ -11,6 +11,7 @@ import {
 } from "@/lib/extract-documento";
 import type { VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
+import { resolveImageMimeType } from "@/lib/mime-image";
 
 export type ScanDocumentoVehiculoResult =
   | {
@@ -60,6 +61,12 @@ export async function scanDocumentoVehiculoAction(
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const mimeType =
+      resolveImageMimeType({
+        declaredMime: file.type,
+        fileName: file.name,
+        buffer,
+      }) ?? "image/jpeg";
     const supabase = createAdminClient();
 
     const documento = await uploadVehiculoDocumento(supabase, {
@@ -70,11 +77,11 @@ export async function scanDocumentoVehiculoAction(
     });
 
     if (tipo === "cedula") {
-      const extraction = await extractCedulaFromImage(buffer, file.type);
+      const extraction = await extractCedulaFromImage(buffer, mimeType);
       return { ok: true, tipo: "cedula", extraction, documento };
     }
 
-    const extraction = await extractTituloPropiedadFromImage(buffer, file.type);
+    const extraction = await extractTituloPropiedadFromImage(buffer, mimeType);
     return { ok: true, tipo: "titulo", extraction, documento };
   } catch (err) {
     const message = err instanceof Error ? err.message : "No se pudo leer el documento";

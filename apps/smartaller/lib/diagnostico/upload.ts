@@ -3,39 +3,58 @@ import {
   type DiagnosticoMediaItem,
   MAX_DIAGNOSTICO_IMAGE_BYTES,
   MAX_DIAGNOSTICO_VIDEO_BYTES,
-  mediaTypeFromMime,
 } from "@/lib/schemas/diagnostico-media";
+import {
+  extensionFromImageMime,
+  isGenericMimeType,
+  resolveImageMimeType,
+  validateImageMimeResolved,
+} from "@/lib/mime-image";
 
 const BUCKET = "diagnosticos";
 
-function extensionFromMime(mime: string): string {
+const VIDEO_MIME = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+
+function extensionFromVideoMime(mime: string): string {
   const map: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/heic": "heic",
-    "image/heif": "heif",
     "video/mp4": "mp4",
     "video/quicktime": "mov",
     "video/webm": "webm",
   };
-  return map[mime] ?? "bin";
+  return map[mime] ?? "mp4";
 }
 
 export function validateDiagnosticoFile(file: File): string | null {
-  const mediaType = mediaTypeFromMime(file.type);
-  if (!mediaType) {
-    return `Formato no permitido: ${file.type || "desconocido"}`;
+  if (VIDEO_MIME.has(file.type)) {
+    if (file.size > MAX_DIAGNOSTICO_VIDEO_BYTES) {
+      const mb = Math.round(MAX_DIAGNOSTICO_VIDEO_BYTES / (1024 * 1024));
+      return `${file.name}: máximo ${mb} MB`;
+    }
+    if (file.size === 0) return `${file.name}: archivo vacío`;
+    return null;
   }
-  const max =
-    mediaType === "image" ? MAX_DIAGNOSTICO_IMAGE_BYTES : MAX_DIAGNOSTICO_VIDEO_BYTES;
-  if (file.size > max) {
-    const mb = Math.round(max / (1024 * 1024));
+
+  if (isGenericMimeType(file.type)) {
+    if (file.size > MAX_DIAGNOSTICO_IMAGE_BYTES) {
+      const mb = Math.round(MAX_DIAGNOSTICO_IMAGE_BYTES / (1024 * 1024));
+      return `${file.name}: máximo ${mb} MB`;
+    }
+    if (file.size === 0) return `${file.name}: archivo vacío`;
+    return null;
+  }
+
+  const mime = resolveImageMimeType({
+    declaredMime: file.type,
+    fileName: file.name,
+  });
+  const mimeError = validateImageMimeResolved(mime, file.type);
+  if (mimeError) return mimeError;
+
+  if (file.size > MAX_DIAGNOSTICO_IMAGE_BYTES) {
+    const mb = Math.round(MAX_DIAGNOSTICO_IMAGE_BYTES / (1024 * 1024));
     return `${file.name}: máximo ${mb} MB`;
   }
-  if (file.size === 0) {
-    return `${file.name}: archivo vacío`;
-  }
+  if (file.size === 0) return `${file.name}: archivo vacío`;
   return null;
 }
 
@@ -57,15 +76,23 @@ export async function uploadDiagnosticoFiles(
       continue;
     }
 
-    const mediaType = mediaTypeFromMime(file.type)!;
-    const ext = extensionFromMime(file.type);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const isVideo = VIDEO_MIME.has(file.type);
+    const mimeType = isVideo
+      ? file.type
+      : resolveImageMimeType({
+          declaredMime: file.type,
+          fileName: file.name,
+          buffer,
+        }) ?? "image/jpeg";
+    const mediaType = isVideo ? "video" : "image";
+    const ext = isVideo ? extensionFromVideoMime(mimeType) : extensionFromImageMime(mimeType);
     const path = `${params.tallerId}/${params.mantenimientoId}/${crypto.randomUUID()}.${ext}`;
 
-    const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(path, buffer, {
-        contentType: file.type,
+        contentType: mimeType,
         upsert: false,
       });
 

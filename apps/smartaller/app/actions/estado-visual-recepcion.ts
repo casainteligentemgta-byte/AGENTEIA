@@ -8,12 +8,12 @@ import { formatLlmAuthError } from "@/lib/ai/openai-config";
 import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolver-vehiculo-placa";
 import { ESTADO_VISUAL_VISTAS } from "@/lib/schemas/estado-visual-recepcion";
 import {
-  uploadEstadoVisualFoto,
+  uploadEstadoVisualFotoBuffer,
   type EstadoVisualFotoRef,
 } from "@/lib/ordenes-recepcion/upload-estado-visual";
 import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 import { compactarPlaca } from "@/lib/vehicles/placa";
-import { resolveImageMimeType, validateImageMimeResolved } from "@/lib/mime-image";
+import { resolveImageMimeType } from "@/lib/mime-image";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 
@@ -92,20 +92,12 @@ export async function procesarFotoPasoInspeccionAction(
     const supabase = createAdminClient();
     const { buffer, mimeType } = await bufferFromFile(file);
 
-    const mimeError = validateImageMimeResolved(
-      resolveImageMimeType({
-        declaredMime: file.type,
-        fileName: file.name,
-        buffer,
-      }),
-      file.type
-    );
-    if (mimeError) return { ok: false, error: mimeError };
-
-    const foto = await uploadEstadoVisualFoto(supabase, {
+    const foto = await uploadEstadoVisualFotoBuffer(supabase, {
       tallerId: taller.id,
       vista: vista as (typeof ESTADO_VISUAL_VISTAS)[number],
-      file,
+      buffer,
+      mimeType,
+      fileName: file.name,
       vehiculoId,
     });
 

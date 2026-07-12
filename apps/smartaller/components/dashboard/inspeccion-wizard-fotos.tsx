@@ -23,6 +23,7 @@ import {
 } from "@/lib/schemas/estado-visual-recepcion";
 import type { FichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 import { FichaVehiculoInspeccionResumen } from "@/components/dashboard/ficha-vehiculo-inspeccion-resumen";
+import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type Props = {
   estadoVisual: EstadoVisualRecepcion;
@@ -94,13 +95,14 @@ export function InspeccionWizardFotos({
           : "Guardando foto…"
     );
 
-    const formData = new FormData();
-    formData.append("vista", paso.id);
-    formData.append("file", file);
-    if (vehiculoId) formData.append("vehiculoId", vehiculoId);
-    if (placaEsperada) formData.append("placaEsperada", placaEsperada);
-
     startTransition(async () => {
+      const normalized = await normalizeImageFileForUpload(file);
+      const formData = new FormData();
+      formData.append("vista", paso.id);
+      formData.append("file", normalized);
+      if (vehiculoId) formData.append("vehiculoId", vehiculoId);
+      if (placaEsperada) formData.append("placaEsperada", placaEsperada);
+
       const result = await procesarFotoPasoInspeccionAction(formData);
       setStatusMsg(null);
 
@@ -230,7 +232,7 @@ export function InspeccionWizardFotos({
         <input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          accept="image/*"
           capture="environment"
           className="hidden"
           disabled={disabled || isPending}

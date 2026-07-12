@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Camera, CheckCircle2, Loader2 } from "lucide-react";
 import { scanDocumentoVehiculoAction } from "@/app/actions/vehiculo-documentos";
 import type { VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
+import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type DocumentoScanInputProps = {
   tipo: "cedula" | "titulo";
@@ -26,11 +27,12 @@ export function DocumentoScanInput({ tipo, label, hint, onScanned }: DocumentoSc
     setError(null);
     setDone(false);
 
-    const formData = new FormData();
-    formData.set("tipo", tipo);
-    formData.set("file", file);
-
     startTransition(async () => {
+      const normalized = await normalizeImageFileForUpload(file);
+      const formData = new FormData();
+      formData.set("tipo", tipo);
+      formData.set("file", normalized);
+
       const result = await scanDocumentoVehiculoAction(formData);
       if (!result.ok) {
         setError(result.error);
