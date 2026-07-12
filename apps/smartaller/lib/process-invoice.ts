@@ -194,7 +194,6 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
       placa: extraido.placa,
       kilometraje: extraido.kilometraje,
       descripcion: extraido.descripcion,
-      descripcion_servicio: extraido.descripcion,
       costo: extraido.costo,
       nombre_cliente: extraido.nombre_cliente ?? vehiculo.nombre_cliente,
       telefono_cliente: extraido.telefono_cliente ?? vehiculo.telefono_cliente,

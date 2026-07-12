@@ -155,7 +155,6 @@ export async function createRevisionMantenimiento(
       placa: vehiculo.placa,
       kilometraje,
       descripcion: data.descripcion,
-      descripcion_servicio: data.descripcion,
       detalle_revision: detalle,
     })
     .select("id")
@@ -245,7 +244,6 @@ export async function createMantenimientoB2C(
       placa: vehiculo.placa,
       kilometraje: vehiculo.unidad_odometro === "km" ? data.odometro : null,
       descripcion: data.descripcion,
-      descripcion_servicio: data.descripcion,
       costo: data.costo,
     })
     .select("id")
@@ -414,7 +412,6 @@ async function resolverMantenimientoIdB2C(
       placa: vehiculo.placa,
       kilometraje,
       descripcion: "Estado del vehículo",
-      descripcion_servicio: "Estado del vehículo",
       detalle_revision: {},
     })
     .select("id")

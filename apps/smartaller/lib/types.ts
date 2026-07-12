@@ -4,7 +4,7 @@ export type Mantenimiento = {
   placa: string | null;
   kilometraje: number | null;
   descripcion: string | null;
-  descripcion_servicio: string | null;
+  descripcion_servicio?: string | null;
   costo: number | null;
   nombre_cliente: string | null;
   telefono_cliente: string | null;

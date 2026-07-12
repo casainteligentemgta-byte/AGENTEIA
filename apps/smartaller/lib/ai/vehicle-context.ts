@@ -49,7 +49,7 @@ function formatHistorialResumido(resumen: ResumenTallerVehiculo): string {
       month: "2-digit",
       year: "2-digit",
     }).format(new Date(m.created_at));
-    const servicio = m.descripcion_servicio || m.descripcion || "Servicio";
+    const servicio = m.descripcion || "Servicio";
     const centro = m.taller_nombre ? ` · ${m.taller_nombre}` : "";
     const km = m.kilometraje != null ? ` · ${m.kilometraje.toLocaleString("es-CO")} km` : "";
     return `${i + 1}. ${fecha} — ${servicio}${centro}${km}`;

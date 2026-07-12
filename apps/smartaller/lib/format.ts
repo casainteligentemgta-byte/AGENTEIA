@@ -39,7 +39,7 @@ export function normalizePlaca(placa: string): string {
 
 export function getDescripcion(m: {
   descripcion: string | null;
-  descripcion_servicio: string | null;
+  descripcion_servicio?: string | null;
 }): string {
   return m.descripcion ?? m.descripcion_servicio ?? "Sin descripción";
 }

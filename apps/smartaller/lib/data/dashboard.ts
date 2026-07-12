@@ -10,7 +10,7 @@ export type Mantenimiento = {
   placa: string | null;
   kilometraje: number | null;
   descripcion: string | null;
-  descripcion_servicio: string | null;
+  descripcion_servicio?: string | null;
   costo: number | null;
   nombre_cliente: string | null;
 };
@@ -144,7 +144,7 @@ export async function getMantenimientos(limit = 20): Promise<Mantenimiento[]> {
     const supabase = getSupabase();
     const { data } = await supabase
       .from("mantenimientos")
-      .select("id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, nombre_cliente")
+      .select("id, created_at, placa, kilometraje, descripcion, costo, nombre_cliente")
       .order("created_at", { ascending: false })
       .limit(limit);
     return (data ?? []) as Mantenimiento[];

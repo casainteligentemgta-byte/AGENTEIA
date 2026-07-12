@@ -35,7 +35,7 @@ export async function getTimelineUsuario(
   const { data, error } = await supabase
     .from("mantenimientos")
     .select(
-      "id, created_at, descripcion, descripcion_servicio, costo, kilometraje, vehiculo_id, taller_id, detalle_revision"
+      "id, created_at, descripcion, costo, kilometraje, vehiculo_id, taller_id, detalle_revision"
     )
     .in("vehiculo_id", vehiculoIds)
     .order("created_at", { ascending: false })
@@ -50,14 +50,14 @@ export async function getTimelineUsuario(
     const meta = labelMap.get(m.vehiculo_id) ?? { label: "Vehículo", placa: "—" };
     const categorias = inferirCategoriasEvento(
       m.descripcion,
-      m.descripcion_servicio,
+      null,
       m.detalle_revision
     );
 
     return {
       id: m.id,
       fecha: m.created_at,
-      descripcion: m.descripcion_servicio || m.descripcion || "Servicio",
+      descripcion: m.descripcion || "Servicio",
       costo: m.costo,
       kilometraje: m.kilometraje,
       vehiculoId: m.vehiculo_id,

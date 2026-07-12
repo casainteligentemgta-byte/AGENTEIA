@@ -9,7 +9,6 @@ export type MantenimientoHistorial = {
   placa: string | null;
   kilometraje: number | null;
   descripcion: string | null;
-  descripcion_servicio: string | null;
   costo: number | null;
   taller_id: string | null;
   taller_nombre: string | null;
@@ -52,7 +51,7 @@ export async function getResumenTallerVehiculo(
   const { data: mantenimientos, error } = await supabase
     .from("mantenimientos")
     .select(
-      "id, created_at, placa, kilometraje, descripcion, descripcion_servicio, costo, taller_id, detalle_revision"
+      "id, created_at, placa, kilometraje, descripcion, costo, taller_id, detalle_revision"
     )
     .eq("vehiculo_id", vehiculoId)
     .order("created_at", { ascending: false })
@@ -95,7 +94,6 @@ export async function getResumenTallerVehiculo(
       placa: m.placa,
       kilometraje: m.kilometraje,
       descripcion: m.descripcion,
-      descripcion_servicio: m.descripcion_servicio,
       costo: m.costo,
       taller_id: m.taller_id,
       taller_nombre: m.taller_id ? talleresMap.get(m.taller_id) ?? null : null,

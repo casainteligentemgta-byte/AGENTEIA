@@ -107,7 +107,6 @@ export async function persistOrdenRecepcion(
       placa: orden.placa.trim().toUpperCase(),
       kilometraje: orden.kilometraje ?? null,
       descripcion,
-      descripcion_servicio: descripcion,
       detalle_revision: {
         tipo: "orden_recepcion",
         orden_recepcion_id: ordenRow.id,

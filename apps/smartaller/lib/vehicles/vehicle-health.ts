@@ -93,7 +93,7 @@ function buscarUltimoMantenimientoCategoria(
 ): MantenimientoHistorial | null {
   const palabras = palabrasParaCategoria(categoria);
   for (const m of historial) {
-    const texto = `${m.descripcion ?? ""} ${m.descripcion_servicio ?? ""}`.toLowerCase();
+    const texto = (m.descripcion ?? "").toLowerCase();
     if (palabras.some((p) => texto.includes(p))) return m;
   }
   return null;
