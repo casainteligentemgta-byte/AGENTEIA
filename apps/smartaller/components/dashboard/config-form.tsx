@@ -184,9 +184,14 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
         {vinculado && (
           <ul className="mt-4 space-y-2 text-sm text-zinc-400">
             <li>
-              <strong className="text-zinc-300">Inspección:</strong>{" "}
+              <strong className="text-zinc-300">Recepción:</strong>{" "}
+              <code className="text-blue-400">/recepcion</code> — el bot pide la foto frontal del
+              vehículo, lee la placa y abre la inspección en la app
+            </li>
+            <li>
+              <strong className="text-zinc-300">Inspección rápida:</strong>{" "}
               <code className="text-blue-400">/inspeccion PLACA</code> o foto de la placa con pie{" "}
-              <code className="text-blue-400">inspeccion</code> — la foto frontal se toma en la app
+              <code className="text-blue-400">inspeccion</code>
             </li>
           </ul>
         )}

@@ -48,14 +48,29 @@ export function getImageFileId(message: TelegramMessage): string | null {
   return null;
 }
 
-/** Indica si la foto es para inspección de ingreso (pie de foto o comando). */
+/** Indica si la foto es recepción (foto frontal del vehículo). */
+export function isRecepcionPhotoCaption(message: TelegramMessage): boolean {
+  const caption = message.caption?.trim().toLowerCase() ?? "";
+  return /\b(recepcion|recepción)\b/i.test(caption);
+}
+
+/** Indica si la foto es para inspección por placa (primer plano). */
 export function isInspeccionPhotoRequest(message: TelegramMessage): boolean {
   const caption = message.caption?.trim().toLowerCase() ?? "";
-  if (/\b(inspeccion|inspección|recepcion|recepción|placa)\b/i.test(caption)) {
+  if (isRecepcionPhotoCaption(message) && !/\b(inspeccion|inspección)\b/i.test(caption)) {
+    return false;
+  }
+  if (/\b(inspeccion|inspección|placa)\b/i.test(caption)) {
     return true;
   }
   const text = message.text?.trim().toLowerCase() ?? "";
   return /^\/inspeccion(?:@\w+)?$/i.test(text);
+}
+
+/** Comando /recepcion — inicia flujo de foto frontal. */
+export function parseRecepcionCommand(message: TelegramMessage): boolean {
+  const text = message.text?.trim() ?? "";
+  return /^\/recepcion(?:@\w+)?$/i.test(text);
 }
 
 /** Comando /inspeccion sin foto adjunta. */

@@ -1,13 +1,20 @@
 import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { processInspeccionTelegramPhoto, enviarEnlaceInspeccionPorPlaca } from "@/lib/process-inspeccion-telegram";
+import {
+  processRecepcionTelegramPhoto,
+  solicitarFotoFrontalRecepcion,
+} from "@/lib/process-recepcion-telegram";
 import { vincularTelegramPorCodigo } from "@/lib/taller";
+import { getTelegramPendingAction } from "@/lib/telegram-pending";
 import {
   getImageFileId,
   isInspeccionPhotoRequest,
+  isRecepcionPhotoCaption,
   parseVincularCommand,
   parseInspeccionCommand,
   parseInspeccionPlacaCommand,
+  parseRecepcionCommand,
   sendTelegramMessage,
   type TelegramUpdate,
 } from "@/lib/telegram";
@@ -26,7 +33,8 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
       await sendTelegramMessage(
         message.chat.id,
         `✅ Taller "${result.nombre}" vinculado correctamente.\n\n` +
-          "• Inspección: /inspeccion PLACA — la foto frontal se toma en la app"
+          "• Recepción: /recepcion — envía foto frontal del vehículo\n" +
+          "• Inspección rápida: /inspeccion PLACA"
       );
     } else {
       await sendTelegramMessage(message.chat.id, `❌ ${result.error}`);
@@ -34,12 +42,17 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     return;
   }
 
+  if (parseRecepcionCommand(message)) {
+    await solicitarFotoFrontalRecepcion(message.chat.id);
+    return;
+  }
+
   if (parseInspeccionCommand(message)) {
     await sendTelegramMessage(
       message.chat.id,
       "Escribe la placa del vehículo:\n/inspeccion ABC123\n\n" +
-        "O envía foto de la placa con pie de foto: inspeccion\n" +
-        "(la foto frontal del vehículo se toma en la app al abrir la planilla)"
+        "O envía foto de la placa con pie de foto: inspeccion\n\n" +
+        "Para foto frontal del vehículo usa: /recepcion"
     );
     return;
   }
@@ -54,7 +67,8 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     await sendTelegramMessage(
       message.chat.id,
       "Comandos disponibles:\n\n" +
-        "🔍 /inspeccion PLACA — abre planilla (foto frontal en la app)\n" +
+        "📷 /recepcion — foto frontal del vehículo (lee placa y abre inspección)\n" +
+        "🔍 /inspeccion PLACA — abre planilla por placa escrita\n" +
         "📷 Foto de placa + pie de foto: inspeccion\n\n" +
         "🔗 Vincular taller: /vincular TU_CODIGO\n" +
         "(Código en Dashboard → Configuración)"
@@ -66,16 +80,26 @@ async function processTelegramPhoto(update: TelegramUpdate): Promise<void> {
   const message = update.message;
   if (!message) return;
 
+  const chatId = message.chat.id;
+  const pending = await getTelegramPendingAction(chatId);
+  const esRecepcion =
+    pending === "recepcion_foto_frontal" || isRecepcionPhotoCaption(message);
+
+  if (esRecepcion) {
+    await processRecepcionTelegramPhoto(update);
+    return;
+  }
+
   if (isInspeccionPhotoRequest(message)) {
     await processInspeccionTelegramPhoto(update);
     return;
   }
 
   await sendTelegramMessage(
-    message.chat.id,
-    "📷 Para abrir la planilla, escribe:\n/inspeccion PLACA\n\n" +
-      "O envía foto de la placa con pie de foto: inspeccion\n" +
-      "(la foto frontal del vehículo se toma en la app)"
+    chatId,
+    "📷 Para recepción con foto frontal:\n/recepcion\n\n" +
+      "Para abrir por placa escrita:\n/inspeccion PLACA\n\n" +
+      "O foto de la placa con pie de foto: inspeccion"
   );
 }
 
