@@ -1,3 +1,5 @@
+import { resolveImageMimeType } from "@/lib/mime-image";
+
 const TELEGRAM_API = "https://api.telegram.org";
 
 function getBotToken(): string {
@@ -146,15 +148,12 @@ export async function downloadTelegramFile(fileId: string): Promise<{ buffer: Bu
   const arrayBuffer = await downloadRes.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const ext = filePath.split(".").pop()?.toLowerCase();
   const mimeType =
-    ext === "png"
-      ? "image/png"
-      : ext === "webp"
-        ? "image/webp"
-        : ext === "gif"
-          ? "image/gif"
-          : "image/jpeg";
+    resolveImageMimeType({
+      declaredMime: downloadRes.headers.get("content-type"),
+      fileName: filePath,
+      buffer,
+    }) ?? "image/jpeg";
 
   return { buffer, mimeType };
 }

@@ -9,11 +9,11 @@ import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolv
 import { ESTADO_VISUAL_VISTAS } from "@/lib/schemas/estado-visual-recepcion";
 import {
   uploadEstadoVisualFoto,
-  validateEstadoVisualFile,
   type EstadoVisualFotoRef,
 } from "@/lib/ordenes-recepcion/upload-estado-visual";
 import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 import { compactarPlaca } from "@/lib/vehicles/placa";
+import { resolveImageMimeType, validateImageMimeResolved } from "@/lib/mime-image";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 
@@ -34,7 +34,13 @@ export type ProcesarFotoPasoInspeccionResult =
 
 async function bufferFromFile(file: File): Promise<{ buffer: Buffer; mimeType: string }> {
   const buffer = Buffer.from(await file.arrayBuffer());
-  return { buffer, mimeType: file.type || "image/jpeg" };
+  const mimeType =
+    resolveImageMimeType({
+      declaredMime: file.type,
+      fileName: file.name,
+      buffer,
+    }) ?? "image/jpeg";
+  return { buffer, mimeType };
 }
 
 export async function uploadEstadoVisualFotoAction(
@@ -75,13 +81,26 @@ export async function procesarFotoPasoInspeccionAction(
   if (!(file instanceof File)) {
     return { ok: false, error: "Selecciona una foto" };
   }
-
-  const validationError = validateEstadoVisualFile(file);
-  if (validationError) return { ok: false, error: validationError };
+  if (file.size === 0) {
+    return { ok: false, error: "Archivo vacío" };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false, error: "La foto supera 10 MB" };
+  }
 
   try {
     const supabase = createAdminClient();
     const { buffer, mimeType } = await bufferFromFile(file);
+
+    const mimeError = validateImageMimeResolved(
+      resolveImageMimeType({
+        declaredMime: file.type,
+        fileName: file.name,
+        buffer,
+      }),
+      file.type
+    );
+    if (mimeError) return { ok: false, error: mimeError };
 
     const foto = await uploadEstadoVisualFoto(supabase, {
       tallerId: taller.id,
