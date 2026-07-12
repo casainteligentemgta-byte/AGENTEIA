@@ -147,6 +147,10 @@ export function InspeccionWizardFotos({
         setStatusMsg(`✓ Kilometraje detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}`);
       }
 
+      if (paso.extraerKilometraje && result.avisoTablero) {
+        setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
+      }
+
       if (!pasoPermiteAnotaciones(paso)) {
         window.setTimeout(avanzarPaso, 800);
       }

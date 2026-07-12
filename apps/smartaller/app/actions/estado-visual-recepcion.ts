@@ -29,6 +29,7 @@ export type ProcesarFotoPasoInspeccionResult =
       kilometrajeDetectado?: number | null;
       ficha?: ReturnType<typeof buildFichaVehiculoInspeccion>;
       odometroLabel?: string;
+      avisoTablero?: string;
     }
   | { ok: false; error: string; placaDetectada?: string };
 
@@ -138,11 +139,19 @@ export async function procesarFotoPasoInspeccionAction(
     }
 
     if (vista === "tablero") {
-      const tablero = await extractTableroFromImage(buffer, mimeType);
-      return {
-        ...base,
-        kilometrajeDetectado: tablero.kilometraje,
-      };
+      try {
+        const tablero = await extractTableroFromImage(buffer, mimeType);
+        return {
+          ...base,
+          kilometrajeDetectado: tablero.kilometraje,
+        };
+      } catch (ocrError) {
+        return {
+          ...base,
+          kilometrajeDetectado: null,
+          avisoTablero: formatLlmAuthError(ocrError),
+        };
+      }
     }
 
     return base;

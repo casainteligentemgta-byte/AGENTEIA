@@ -1,7 +1,4 @@
-import {
-  createOpenAIClient,
-  getVisionModelId,
-} from "@/lib/ai/openai-config";
+import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 
 export type TableroExtraido = {
   kilometraje: number | null;
@@ -24,28 +21,13 @@ export async function extractTableroFromImage(
   imageBuffer: Buffer,
   mimeType: string = "image/jpeg"
 ): Promise<TableroExtraido> {
-  const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-  const openai = createOpenAIClient();
-
-  const response = await openai.chat.completions.create({
-    model: getVisionModelId(),
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: TABLERO_PROMPT },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-    max_tokens: 200,
+  const parsed = await createVisionJsonCompletion({
+    prompt: TABLERO_PROMPT,
+    imageBuffer,
+    mimeType,
+    maxTokens: 200,
   });
 
-  const raw = response.choices[0]?.message?.content;
-  if (!raw) throw new Error("La IA no pudo leer el tablero");
-
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
   return {
     kilometraje: parseKilometraje(parsed.kilometraje),
     lucesEncendidas:
