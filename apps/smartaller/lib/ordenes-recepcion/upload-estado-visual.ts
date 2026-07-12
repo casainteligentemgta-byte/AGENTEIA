@@ -57,15 +57,42 @@ export async function uploadEstadoVisualFoto(
     throw new Error(validationError);
   }
 
-  const ext = extensionFromMime(params.file.type);
+  const buffer = Buffer.from(await params.file.arrayBuffer());
+  return uploadEstadoVisualFotoBuffer(supabase, {
+    ...params,
+    buffer,
+    mimeType: params.file.type,
+  });
+}
+
+export async function uploadEstadoVisualFotoBuffer(
+  supabase: SupabaseClient,
+  params: {
+    tallerId: string;
+    vista: EstadoVisualVista;
+    buffer: Buffer;
+    mimeType: string;
+    vehiculoId?: string;
+  }
+): Promise<EstadoVisualFotoRef> {
+  if (!ALLOWED_MIME.has(params.mimeType)) {
+    throw new Error(`Formato no permitido: ${params.mimeType || "desconocido"}`);
+  }
+  if (params.buffer.length > MAX_BYTES) {
+    throw new Error("La foto supera 10 MB");
+  }
+  if (params.buffer.length === 0) {
+    throw new Error("Archivo vacío");
+  }
+
+  const ext = extensionFromMime(params.mimeType);
   const folder = params.vehiculoId ?? "temp";
   const path = `${params.tallerId}/${folder}/${params.vista}-${crypto.randomUUID()}.${ext}`;
 
-  const buffer = Buffer.from(await params.file.arrayBuffer());
   const { error } = await supabase.storage
     .from(RECEPCION_ESTADO_VISUAL_BUCKET)
-    .upload(path, buffer, {
-      contentType: params.file.type,
+    .upload(path, params.buffer, {
+      contentType: params.mimeType,
       upsert: false,
     });
 

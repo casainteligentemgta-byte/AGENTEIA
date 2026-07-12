@@ -51,10 +51,17 @@ export function getAppBaseUrl(): string {
   );
 }
 
-export function getInspeccionVehiculoUrl(vehiculoId: string): string {
+export function getInspeccionVehiculoUrl(
+  vehiculoId: string,
+  options?: { sesionToken?: string }
+): string {
   const base = getAppBaseUrl();
   if (!vehiculoId) return `${base}/dashboard/vehiculos/nuevo`;
-  return `${base}/dashboard/vehiculos/${vehiculoId}/inspeccion?telegram=1`;
+  const params = new URLSearchParams({ telegram: "1" });
+  if (options?.sesionToken) {
+    params.set("sesion", options.sesionToken);
+  }
+  return `${base}/dashboard/vehiculos/${vehiculoId}/inspeccion?${params.toString()}`;
 }
 
 export function getClientePortalUrl(placa: string): string {

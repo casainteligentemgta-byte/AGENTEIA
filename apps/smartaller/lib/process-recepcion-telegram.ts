@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getInspeccionVehiculoUrl } from "@/lib/format";
 import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolver-vehiculo-placa";
+import { uploadEstadoVisualFotoBuffer } from "@/lib/ordenes-recepcion/upload-estado-visual";
+import { crearTelegramRecepcionSesion } from "@/lib/telegram-recepcion-sesion";
 import { getTallerByTelegramChat } from "@/lib/taller";
 import { downloadTelegramFile, sendTelegramMessage } from "@/lib/telegram";
 import {
@@ -25,7 +27,7 @@ export async function solicitarFotoFrontalRecepcion(chatId: number): Promise<voi
     chatId,
     "📷 Recepción de vehículo\n\n" +
       "Envía la foto frontal del vehículo (parachoques o portaplacas visible).\n\n" +
-      "La IA leerá la placa, buscará el vehículo en tu flota y te enviará el enlace para continuar la inspección en la app.\n\n" +
+      "La IA leerá la placa y te enviará el enlace para completar la hoja de inspección en la app (fotos restantes + checklist).\n\n" +
       "Tienes 15 minutos para enviar la foto."
   );
 }
@@ -83,7 +85,24 @@ export async function processRecepcionTelegramPhoto(
     }
 
     const { vehiculo, placaDetectada, aviso } = resolucion;
-    const url = getInspeccionVehiculoUrl(vehiculo.id);
+
+    const fotoFrontal = await uploadEstadoVisualFotoBuffer(supabase, {
+      tallerId: taller.id,
+      vista: "frontal",
+      buffer,
+      mimeType,
+      vehiculoId: vehiculo.id,
+    });
+
+    const sesionToken = await crearTelegramRecepcionSesion({
+      vehiculoId: vehiculo.id,
+      tallerId: taller.id,
+      frontalUrl: fotoFrontal.url,
+      frontalPath: fotoFrontal.path,
+      placa: vehiculo.placa,
+    });
+
+    const url = getInspeccionVehiculoUrl(vehiculo.id, { sesionToken });
     const nombre = vehiculo.nombre_cliente ?? "Sin propietario";
     const modelo =
       vehiculo.marca && vehiculo.modelo ? `${vehiculo.marca} ${vehiculo.modelo}` : "";
@@ -100,7 +119,8 @@ export async function processRecepcionTelegramPhoto(
       texto += `ℹ️ ${aviso}\n`;
     }
 
-    texto += `\nContinúa en la app (laterales, tablero y checklist):\n${url}`;
+    texto +=
+      `\nAbre el enlace para continuar (fotos restantes + hoja de inspección):\n${url}`;
 
     await sendTelegramMessage(chatId, texto);
   } catch (err) {

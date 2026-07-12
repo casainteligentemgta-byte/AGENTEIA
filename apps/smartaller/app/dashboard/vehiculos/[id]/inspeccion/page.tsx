@@ -6,12 +6,14 @@ import { getVehiculoDetalle } from "@/lib/data/vehiculos";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
+import { obtenerTelegramRecepcionSesion } from "@/lib/telegram-recepcion-sesion";
+import { estadoVisualConFrontalPrefill } from "@/lib/schemas/estado-visual-recepcion";
 
 export const dynamic = "force-dynamic";
 
 type Props = {
   params: { id: string };
-  searchParams: { telegram?: string };
+  searchParams: { telegram?: string; sesion?: string };
 };
 
 export default async function InspeccionVehiculoPage({ params, searchParams }: Props) {
@@ -26,6 +28,20 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
   const odometroLabel =
     config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje";
   const fichaVehiculo = buildFichaVehiculoInspeccion(vehiculo);
+
+  const sesion =
+    searchParams.sesion && searchParams.telegram === "1"
+      ? await obtenerTelegramRecepcionSesion(searchParams.sesion, vehiculo.id)
+      : null;
+
+  const frontalDesdeTelegram = Boolean(sesion);
+  const estadoVisualInicial = sesion
+    ? estadoVisualConFrontalPrefill({
+        url: sesion.frontalUrl,
+        path: sesion.frontalPath,
+      })
+    : undefined;
+  const pasoInicial = sesion ? 1 : 0;
 
   return (
     <div className="p-4 sm:p-8">
@@ -45,8 +61,9 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         <p className="mt-1 text-zinc-500">
           {vehiculo.nombre_cliente ?? "Sin propietario"}
           {vehiculo.marca && vehiculo.modelo ? ` · ${vehiculo.marca} ${vehiculo.modelo}` : ""}
-          {" · "}
-          La cámara se abre paso a paso: frontal, laterales, tablero y protocolo.
+          {frontalDesdeTelegram
+            ? " · Foto frontal desde Telegram; continúa con el resto y la hoja de inspección."
+            : " · La cámara guía paso a paso hasta el protocolo de inspección."}
         </p>
       </div>
 
@@ -58,6 +75,9 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
         fichaVehiculo={fichaVehiculo}
         recienRegistrado={false}
         desdeTelegram={searchParams.telegram === "1"}
+        frontalDesdeTelegram={frontalDesdeTelegram}
+        estadoVisualInicial={estadoVisualInicial}
+        pasoInicial={pasoInicial}
       />
     </div>
   );

@@ -59,3 +59,16 @@ export function tieneEstadoVisual(raw: unknown): boolean {
 export function emptyEstadoVisualSlots(): FotoEstadoVisual[] {
   return ESTADO_VISUAL_VISTAS.map((vista) => ({ vista, trazos: [] }));
 }
+
+export function estadoVisualConFrontalPrefill(frontal: {
+  url: string;
+  path: string;
+}): EstadoVisualRecepcion {
+  return {
+    fotos: emptyEstadoVisualSlots().map((foto) =>
+      foto.vista === "frontal"
+        ? { ...foto, url: frontal.url, path: frontal.path, trazos: [] }
+        : foto
+    ),
+  };
+}
