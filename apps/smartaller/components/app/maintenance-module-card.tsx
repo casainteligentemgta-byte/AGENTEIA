@@ -37,7 +37,7 @@ function buscarUltimoServicioModulo(
 ): MantenimientoHistorial | null {
   const palabras = PALABRAS_MODULO[moduloId] ?? [moduloId];
   for (const m of historial) {
-    const texto = `${m.descripcion ?? ""} ${m.descripcion_servicio ?? ""}`.toLowerCase();
+    const texto = (m.descripcion ?? "").toLowerCase();
     if (palabras.some((p) => texto.includes(p))) return m;
   }
   return null;

@@ -4,6 +4,9 @@
 alter table public.mantenimientos
   add column if not exists descripcion text;
 
+alter table public.mantenimientos
+  add column if not exists descripcion_servicio text;
+
 -- Migrar datos legacy si aun existe descripcion_servicio
 do $$
 begin
@@ -21,3 +24,12 @@ begin
     $sql$;
   end if;
 end $$;
+
+-- Mantener descripcion_servicio alineada con descripcion (compatibilidad)
+update public.mantenimientos
+set descripcion_servicio = descripcion
+where descripcion_servicio is null and descripcion is not null;
+
+update public.mantenimientos
+set descripcion = descripcion_servicio
+where descripcion is null and descripcion_servicio is not null;
