@@ -42,6 +42,9 @@ type Props = {
     odometroLabel: string;
   }) => void;
   onKilometrajeDetectado?: (km: number) => void;
+  kilometraje?: number | null;
+  odometroLabel?: string;
+  onKilometrajeChange?: (km: number | null) => void;
   fichaVehiculo?: FichaVehiculoInspeccion;
   disabled?: boolean;
 };
@@ -59,6 +62,9 @@ export function InspeccionWizardFotos({
   onPasoIndexChange,
   onVehiculoResuelto,
   onKilometrajeDetectado,
+  kilometraje,
+  odometroLabel = "Kilometraje",
+  onKilometrajeChange,
   fichaVehiculo,
   disabled,
 }: Props) {
@@ -144,14 +150,17 @@ export function InspeccionWizardFotos({
         result.kilometrajeDetectado > 0
       ) {
         onKilometrajeDetectado?.(result.kilometrajeDetectado);
-        setStatusMsg(`✓ Kilometraje detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}`);
+        onKilometrajeChange?.(result.kilometrajeDetectado);
+        setStatusMsg(
+          `✓ ${odometroLabel} detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}. Revisa y corrige si hace falta.`
+        );
       }
 
       if (paso.extraerKilometraje && result.avisoTablero) {
         setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
       }
 
-      if (!pasoPermiteAnotaciones(paso)) {
+      if (!pasoPermiteAnotaciones(paso) && !paso.extraerKilometraje) {
         window.setTimeout(avanzarPaso, 800);
       }
     });
@@ -238,9 +247,38 @@ export function InspeccionWizardFotos({
             disabled={disabled || isPending}
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-zinc-700">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={slot!.url} alt={paso.titulo} className="w-full" />
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-xl border border-zinc-700">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={slot!.url} alt={paso.titulo} className="w-full" />
+            </div>
+            {paso.extraerKilometraje && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                <label
+                  htmlFor="kilometraje-tablero"
+                  className="mb-1.5 block text-sm font-medium text-amber-100"
+                >
+                  {odometroLabel} al ingreso
+                </label>
+                <p className="mb-2 text-xs text-zinc-500">
+                  Leído desde la foto del tablero. Corrígelo si la IA se equivocó.
+                </p>
+                <input
+                  id="kilometraje-tablero"
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={kilometraje ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    onKilometrajeChange?.(val);
+                  }}
+                  disabled={disabled || isPending}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-lg font-mono text-zinc-100 outline-none focus:border-amber-500"
+                  placeholder="Ej. 85420"
+                />
+              </div>
+            )}
           </div>
         )}
 

@@ -22,18 +22,18 @@ function TrazosOverlay({
   label: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const w = container.clientWidth;
-      const h = Math.round((img.height / img.width) * w);
+    const sync = () => {
+      const rect = img.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      if (w < 1 || h < 1) return;
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
@@ -53,14 +53,26 @@ function TrazosOverlay({
         ctx.stroke();
       }
     };
-    img.src = imageUrl;
+
+    img.addEventListener("load", sync);
+    if (img.complete) sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(img);
+
+    return () => {
+      img.removeEventListener("load", sync);
+      observer.disconnect();
+    };
   }, [imageUrl, trazos]);
 
   return (
-    <div ref={containerRef} className="relative overflow-hidden rounded-lg border border-zinc-700">
+    <div className="relative overflow-hidden rounded-lg border border-zinc-700">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={imageUrl} alt={label} className="block w-full" />
-      <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      <img ref={imgRef} src={imageUrl} alt={label} className="block w-full" />
+      <canvas
+        ref={canvasRef}
+        className="pointer-events-none absolute left-0 top-0 h-full w-full"
+      />
     </div>
   );
 }

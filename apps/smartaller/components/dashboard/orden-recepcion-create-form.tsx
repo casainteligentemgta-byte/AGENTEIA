@@ -120,6 +120,11 @@ export function OrdenRecepcionCreateForm({
           onKilometrajeDetectado={(km) =>
             setOrden((o) => ({ ...o, kilometraje: km }))
           }
+          kilometraje={orden.kilometraje}
+          odometroLabel={odometroLabel}
+          onKilometrajeChange={(km) =>
+            setOrden((o) => ({ ...o, kilometraje: km }))
+          }
         />
       ) : (
         <>

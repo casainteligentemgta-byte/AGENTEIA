@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Eraser, Loader2, Pencil } from "lucide-react";
 import { HINT_ANOTACIONES_FOTO } from "@/lib/inspeccion/pasos";
 import type { EstadoVisualVista, TrazoAnotacion } from "@/lib/schemas/estado-visual-recepcion";
@@ -24,29 +24,48 @@ export function FotoAnotacionCanvas({
   disabled,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const drawingRef = useRef(false);
   const currentPointsRef = useRef<{ x: number; y: number }[]>([]);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
+  const syncCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    const img = imgRef.current;
+    if (!canvas || !img || !img.complete || img.naturalWidth === 0) return;
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const w = container.clientWidth;
-      const h = Math.round((img.height / img.width) * w);
+    const rect = img.getBoundingClientRect();
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
+    if (w < 1 || h < 1) return;
+
+    if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
-      setReady(true);
-    };
-    img.onerror = () => setReady(false);
+    }
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
     setReady(false);
-    img.src = imageUrl;
   }, [imageUrl, vista]);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+
+    const onLoad = () => syncCanvasSize();
+    img.addEventListener("load", onLoad);
+    if (img.complete) onLoad();
+
+    const observer = new ResizeObserver(() => syncCanvasSize());
+    observer.observe(img);
+
+    return () => {
+      img.removeEventListener("load", onLoad);
+      observer.disconnect();
+    };
+  }, [imageUrl, vista, syncCanvasSize]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -99,6 +118,7 @@ export function FotoAnotacionCanvas({
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (disabled || !ready) return;
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     drawingRef.current = true;
     const pt = getPoint(e);
@@ -151,12 +171,10 @@ export function FotoAnotacionCanvas({
 
   return (
     <div className="space-y-2">
-      <div
-        ref={containerRef}
-        className="relative overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950"
-      >
+      <div className="relative overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
+          ref={imgRef}
           src={imageUrl}
           alt={`Vista ${vista}`}
           className="block w-full select-none"
@@ -164,12 +182,13 @@ export function FotoAnotacionCanvas({
         />
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 h-full w-full touch-none cursor-crosshair"
-          style={{ touchAction: "none" }}
+          className="absolute left-0 top-0 touch-none cursor-crosshair"
+          style={{ touchAction: "none", width: "100%", height: "100%" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           aria-label={`Anotar daños en vista ${vista}`}
         />
         {!ready && (
@@ -178,7 +197,7 @@ export function FotoAnotacionCanvas({
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between text-xs text-zinc-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
         <span className="inline-flex items-center gap-1.5">
           <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
           {HINT_ANOTACIONES_FOTO}
@@ -191,7 +210,7 @@ export function FotoAnotacionCanvas({
             className="inline-flex items-center gap-1 text-red-400 hover:text-red-300"
           >
             <Eraser className="h-3.5 w-3.5" />
-            Borrar marcas
+            Borrar marcas ({trazos.length})
           </button>
         )}
       </div>

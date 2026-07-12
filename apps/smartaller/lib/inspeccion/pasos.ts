@@ -13,7 +13,7 @@ export type InspeccionFotoPasoConfig = {
 };
 
 export const HINT_ANOTACIONES_FOTO =
-  "Usa el lápiz o el dedo para marcar rayones, golpes o observaciones";
+  "Usa el lápiz o el dedo para marcar rayones, golpes, desperfectos u observaciones";
 
 export function pasoPermiteAnotaciones(paso: InspeccionFotoPasoConfig): boolean {
   return paso.permitirAnotaciones !== false;
