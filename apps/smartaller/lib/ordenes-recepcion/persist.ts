@@ -99,21 +99,41 @@ export async function persistOrdenRecepcion(
   const descripcion =
     orden.motivoVisita?.trim() || "Acta de recepción — ingreso al taller";
 
-  const { data: mantenimiento, error: mantError } = await supabase
+  const detalleRevision: Record<string, unknown> = {
+    tipo: "orden_recepcion",
+    orden_recepcion_id: ordenRow.id,
+  };
+  if (orden.kilometraje != null) {
+    detalleRevision.kilometraje = orden.kilometraje;
+  }
+
+  const mantenimientoRow: Record<string, unknown> = {
+    taller_id: tallerId,
+    vehiculo_id: orden.vehiculoId,
+    placa: orden.placa.trim().toUpperCase(),
+    descripcion,
+    detalle_revision: detalleRevision,
+  };
+
+  let { data: mantenimiento, error: mantError } = await supabase
     .from("mantenimientos")
     .insert({
-      taller_id: tallerId,
-      vehiculo_id: orden.vehiculoId,
-      placa: orden.placa.trim().toUpperCase(),
+      ...mantenimientoRow,
       kilometraje: orden.kilometraje ?? null,
-      descripcion,
-      detalle_revision: {
-        tipo: "orden_recepcion",
-        orden_recepcion_id: ordenRow.id,
-      },
     })
     .select("id")
     .single();
+
+  if (
+    mantError?.message?.includes("kilometraje") &&
+    mantError.message.includes("schema cache")
+  ) {
+    ({ data: mantenimiento, error: mantError } = await supabase
+      .from("mantenimientos")
+      .insert(mantenimientoRow)
+      .select("id")
+      .single());
+  }
 
   if (mantError || !mantenimiento) {
     throw new Error(mantError?.message ?? "No se pudo vincular el mantenimiento");
