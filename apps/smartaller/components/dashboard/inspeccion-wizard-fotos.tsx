@@ -21,6 +21,7 @@ import {
 } from "@/lib/inspeccion/pasos";
 import {
   emptyEstadoVisualSlots,
+  upsertEstadoVisualFoto,
   type EstadoVisualRecepcion,
   type FotoEstadoVisual,
 } from "@/lib/schemas/estado-visual-recepcion";
@@ -80,8 +81,9 @@ export function InspeccionWizardFotos({
   const hasPhoto = Boolean(slot?.url);
 
   function updateSlot(vista: InspeccionFotoPasoId, patch: Partial<FotoEstadoVisual>) {
-    const next = fotos.map((f) => (f.vista === vista ? { ...f, ...patch } : f));
-    onEstadoVisualChange({ fotos: next });
+    onEstadoVisualChange({
+      fotos: upsertEstadoVisualFoto(estadoVisual.fotos, vista, patch),
+    });
   }
 
   function avanzarPaso() {

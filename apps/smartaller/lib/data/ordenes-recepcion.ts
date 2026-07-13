@@ -8,8 +8,10 @@ import type {
 import { dbValorToMarca } from "@/lib/schemas/orden-recepcion";
 import {
   parseEstadoVisualRecepcion,
+  ensureEstadoVisualFotoUrls,
   type EstadoVisualRecepcion,
 } from "@/lib/schemas/estado-visual-recepcion";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 
 export type OrdenRecepcionDetalle = {
   id: string;
@@ -51,7 +53,10 @@ function mapOrdenRow(
   danos: OrdenRecepcionDanoVisual[]
 ): OrdenRecepcionDetalle {
   const meta = orden.esquema_danos_meta as { estadoVisual?: unknown } | null | undefined;
-  const estadoVisual = parseEstadoVisualRecepcion(meta?.estadoVisual);
+  const estadoVisual = ensureEstadoVisualFotoUrls(
+    parseEstadoVisualRecepcion(meta?.estadoVisual),
+    getSupabaseUrl()
+  );
 
   return {
     id: String(orden.id),

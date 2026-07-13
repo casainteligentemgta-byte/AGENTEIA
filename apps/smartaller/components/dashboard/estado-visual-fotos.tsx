@@ -8,6 +8,7 @@ import {
   ESTADO_VISUAL_VISTAS,
   ESTADO_VISUAL_VISTA_LABELS,
   emptyEstadoVisualSlots,
+  upsertEstadoVisualFoto,
   type EstadoVisualRecepcion,
   type EstadoVisualVista,
   type FotoEstadoVisual,
@@ -46,8 +47,9 @@ export function EstadoVisualFotos({
   const tieneFrontal = Boolean(slotForVista(fotos, "frontal").url);
 
   function updateSlot(vista: EstadoVisualVista, patch: Partial<FotoEstadoVisual>) {
-    const next = fotos.map((f) => (f.vista === vista ? { ...f, ...patch } : f));
-    onChange({ fotos: next });
+    onChange({
+      fotos: upsertEstadoVisualFoto(value.fotos, vista, patch),
+    });
   }
 
   function handleFile(vista: EstadoVisualVista, file: File) {

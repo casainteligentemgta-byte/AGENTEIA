@@ -13,6 +13,12 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+-- Lectura pública del bucket (las URLs getPublicUrl deben funcionar en <img> sin sesión).
+drop policy if exists "recepcion visual public read" on storage.objects;
+create policy "recepcion visual public read"
+  on storage.objects for select
+  using (bucket_id = 'recepcion-estado-visual');
+
 drop policy if exists "recepcion visual insert taller" on storage.objects;
 create policy "recepcion visual insert taller"
   on storage.objects for insert to authenticated
