@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
-import { extractTableroFromImage } from "@/lib/extract-tablero";
+import { extractTableroFromImage, AVISO_TABLERO_MANUAL } from "@/lib/extract-tablero";
 import { formatLlmAuthError } from "@/lib/ai/openai-config";
 import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolver-vehiculo-placa";
 import { ESTADO_VISUAL_VISTAS } from "@/lib/schemas/estado-visual-recepcion";
@@ -139,19 +139,14 @@ export async function procesarFotoPasoInspeccionAction(
     }
 
     if (vista === "tablero") {
-      try {
-        const tablero = await extractTableroFromImage(buffer, mimeType);
-        return {
-          ...base,
-          kilometrajeDetectado: tablero.kilometraje,
-        };
-      } catch (ocrError) {
-        return {
-          ...base,
-          kilometrajeDetectado: null,
-          avisoTablero: formatLlmAuthError(ocrError),
-        };
-      }
+      const tablero = await extractTableroFromImage(buffer, mimeType);
+      return {
+        ...base,
+        kilometrajeDetectado: tablero.kilometraje,
+        ...(tablero.kilometraje == null || tablero.aviso
+          ? { avisoTablero: tablero.aviso ?? AVISO_TABLERO_MANUAL }
+          : {}),
+      };
     }
 
     return base;

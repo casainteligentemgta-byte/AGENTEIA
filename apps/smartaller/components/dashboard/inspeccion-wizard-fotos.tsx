@@ -156,8 +156,14 @@ export function InspeccionWizardFotos({
         );
       }
 
-      if (paso.extraerKilometraje && result.avisoTablero) {
-        setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
+      if (paso.extraerKilometraje) {
+        if (result.avisoTablero) {
+          setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
+        } else if (result.kilometrajeDetectado == null) {
+          setStatusMsg(
+            "✓ Foto del tablero guardada. Ingresa el kilometraje manualmente en el campo de abajo."
+          );
+        }
       }
 
       if (!pasoPermiteAnotaciones(paso) && !paso.extraerKilometraje) {

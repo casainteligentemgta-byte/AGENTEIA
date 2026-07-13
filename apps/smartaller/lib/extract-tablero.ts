@@ -6,7 +6,7 @@ export type TableroExtraido = {
 };
 
 const TABLERO_PROMPT =
-  "Analiza esta foto del tablero de un vehículo con el motor encendido. Extrae en JSON: kilometraje (number entero, odómetro en km u horas si aplica), luces_encendidas (boolean si se aprecian luces o testigos encendidos). Si no es legible, usa null. Responde solo JSON.";
+  'Lee el odómetro en esta foto del tablero. JSON: {"kilometraje": number|null, "luces_encendidas": boolean|null}. Si no es legible, null.';
 
 function parseKilometraje(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
@@ -17,20 +17,36 @@ function parseKilometraje(value: unknown): number | null {
   return null;
 }
 
+export const AVISO_TABLERO_MANUAL =
+  "No se pudo leer el kilometraje automáticamente. Ingrésalo en el campo de abajo.";
+
 export async function extractTableroFromImage(
   imageBuffer: Buffer,
   mimeType: string = "image/jpeg"
-): Promise<TableroExtraido> {
-  const parsed = await createVisionJsonCompletion({
-    prompt: TABLERO_PROMPT,
-    imageBuffer,
-    mimeType,
-    maxTokens: 200,
-  });
+): Promise<TableroExtraido & { aviso?: string }> {
+  try {
+    const parsed = await createVisionJsonCompletion({
+      prompt: TABLERO_PROMPT,
+      imageBuffer,
+      mimeType,
+      maxTokens: 120,
+      softFail: true,
+    });
 
-  return {
-    kilometraje: parseKilometraje(parsed.kilometraje),
-    lucesEncendidas:
-      typeof parsed.luces_encendidas === "boolean" ? parsed.luces_encendidas : null,
-  };
+    const kilometraje = parseKilometraje(parsed.kilometraje);
+    const lucesEncendidas =
+      typeof parsed.luces_encendidas === "boolean" ? parsed.luces_encendidas : null;
+
+    if (kilometraje == null) {
+      return { kilometraje: null, lucesEncendidas, aviso: AVISO_TABLERO_MANUAL };
+    }
+
+    return { kilometraje, lucesEncendidas };
+  } catch {
+    return {
+      kilometraje: null,
+      lucesEncendidas: null,
+      aviso: AVISO_TABLERO_MANUAL,
+    };
+  }
 }

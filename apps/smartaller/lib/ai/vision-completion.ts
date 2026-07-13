@@ -48,6 +48,8 @@ export async function createVisionJsonCompletion(params: {
   imageBuffer: Buffer;
   mimeType: string;
   maxTokens?: number;
+  /** Si true, devuelve {} cuando el proveedor rechaza la imagen (p. ej. tablero). */
+  softFail?: boolean;
 }): Promise<Record<string, unknown>> {
   const prepared = prepareImageForVision(params.imageBuffer, params.mimeType);
   const dataUrl = `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`;
@@ -65,15 +67,20 @@ export async function createVisionJsonCompletion(params: {
   } catch (firstError) {
     if (!isProviderVisionError(firstError)) throw firstError;
 
-    const raw = await requestVisionCompletion({
-      prompt: `${params.prompt}\n\nResponde ÚNICAMENTE con un objeto JSON válido, sin markdown.`,
-      dataUrl,
-      detail: "low",
-      maxTokens,
-      jsonMode: false,
-    });
+    try {
+      const raw = await requestVisionCompletion({
+        prompt: `${params.prompt}\n\nResponde ÚNICAMENTE con un objeto JSON válido, sin markdown.`,
+        dataUrl,
+        detail: "low",
+        maxTokens,
+        jsonMode: false,
+      });
 
-    const trimmed = raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
-    return JSON.parse(trimmed) as Record<string, unknown>;
+      const trimmed = raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
+      return JSON.parse(trimmed) as Record<string, unknown>;
+    } catch (secondError) {
+      if (params.softFail) return {};
+      throw secondError;
+    }
   }
 }
