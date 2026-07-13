@@ -1,3 +1,10 @@
+import {
+  getAppBaseUrl,
+  getAppHost,
+  PRODUCTION_APP_HOST,
+  PRODUCTION_APP_URL,
+} from "@/lib/app-url";
+
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null) return "—";
   return new Intl.NumberFormat("es-CO", {
@@ -44,12 +51,7 @@ export function getDescripcion(m: {
   return m.descripcion ?? m.descripcion_servicio ?? "Sin descripción";
 }
 
-export function getAppBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3003")
-  );
-}
+export { getAppBaseUrl, getAppHost, PRODUCTION_APP_HOST, PRODUCTION_APP_URL };
 
 export function getInspeccionVehiculoUrl(
   vehiculoId: string,

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 /** Config OpenAI directo o vía OpenRouter (clave sk-or-v1-...). */
 
@@ -46,10 +47,7 @@ export function requireLlmApiKey(): string {
 /** Headers recomendados para OpenRouter (Referer exigido en producción). */
 export function getOpenRouterHeaders(): Record<string, string> | undefined {
   if (!isOpenRouterKey()) return undefined;
-  const raw =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3003");
-  const siteUrl = raw.startsWith("http") ? raw : `https://${raw.replace(/^https?:\/\//, "")}`;
+  const siteUrl = getAppBaseUrl();
   return {
     "HTTP-Referer": siteUrl,
     "X-Title": "SmartTaller",

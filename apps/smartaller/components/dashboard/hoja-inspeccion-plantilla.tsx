@@ -12,6 +12,7 @@ import {
   ESTADO_VISUAL_VISTA_LABELS,
 } from "@/lib/schemas/estado-visual-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
+import { getAppHost } from "@/lib/app-url";
 
 function LineField({ label, wide }: { label: string; wide?: boolean }) {
   return (
@@ -210,7 +211,7 @@ export function HojaInspeccionPlantilla() {
         </section>
 
         <footer className="mt-8 text-center text-[9px] text-zinc-400">
-          Documento generado por SmartTaller · smartaller.vercel.app
+          Documento generado por SmartTaller · {getAppHost()}
         </footer>
       </article>
 

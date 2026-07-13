@@ -1,5 +1,15 @@
 # Deploy Vercel — SmartTaller (apps/smartaller)
 
+## Dominio de producción
+
+**https://smarttaller.xyz**
+
+Configura el dominio en Vercel (Settings → Domains) y define en Production:
+
+```
+NEXT_PUBLIC_APP_URL=https://smarttaller.xyz
+```
+
 ## Proyecto Vercel
 
 | Campo | Valor |
@@ -23,7 +33,7 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
-NEXT_PUBLIC_APP_URL          # URL pública del deploy (sin barra final)
+NEXT_PUBLIC_APP_URL          # https://smarttaller.xyz (sin barra final)
 CRON_SECRET
 ```
 
