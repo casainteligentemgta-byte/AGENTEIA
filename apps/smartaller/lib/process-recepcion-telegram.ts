@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatLlmAuthError } from "@/lib/ai/openai-config";
 import { getInspeccionVehiculoUrl } from "@/lib/format";
 import { resolverVehiculoDesdeFotoFrontal } from "@/lib/ordenes-recepcion/resolver-vehiculo-placa";
 import { uploadEstadoVisualFotoBuffer } from "@/lib/ordenes-recepcion/upload-estado-visual";
@@ -125,7 +126,7 @@ export async function processRecepcionTelegramPhoto(
     await sendTelegramMessage(chatId, texto);
   } catch (err) {
     await clearTelegramPendingAction(chatId);
-    const msg = err instanceof Error ? err.message : "Error al procesar la foto";
+    const msg = formatLlmAuthError(err);
     await sendTelegramMessage(chatId, `❌ ${msg}`);
   }
 }

@@ -1,7 +1,4 @@
-import {
-  createOpenAIClient,
-  getVisionModelId,
-} from "@/lib/ai/openai-config";
+import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import {
   compactarPlaca,
   esPlacaPlausible,
@@ -114,34 +111,13 @@ export async function extractPlacaFromImage(
   mimeType: string = "image/jpeg",
   contexto: ContextoFotoPlaca = "frontal"
 ): Promise<PlacaExtraida> {
-  const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-  const openai = createOpenAIClient();
-
-  const response = await openai.chat.completions.create({
-    model: getVisionModelId(),
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: PROMPTS[contexto] },
-          {
-            type: "image_url",
-            image_url: { url: dataUrl, detail: "high" },
-          },
-        ],
-      },
-    ],
-    max_tokens: 300,
-    temperature: 0,
+  const parsed = await createVisionJsonCompletion({
+    prompt: PROMPTS[contexto],
+    imageBuffer,
+    mimeType,
+    maxTokens: 300,
   });
 
-  const raw = response.choices[0]?.message?.content;
-  if (!raw) {
-    throw new Error("La IA no detectó placa en la imagen");
-  }
-
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
   const placaRaw = parseString(parsed.placa);
   const alternativaRaw = parseString(parsed.placa_alternativa);
   const confianzaRaw = parseString(parsed.confianza);

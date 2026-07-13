@@ -1,3 +1,4 @@
+import { formatLlmAuthError } from "@/lib/ai/openai-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractPlacaFromImage } from "@/lib/extract-placa";
 import { getAppBaseUrl, getInspeccionVehiculoUrl, formatDate } from "@/lib/format";
@@ -74,8 +75,18 @@ export async function processInspeccionTelegramPhoto(
 
   await sendTelegramMessage(chatId, "🔍 Leyendo placa…");
 
-  const { buffer, mimeType } = await downloadTelegramFile(fileId);
-  const { placa, confianza } = await extractPlacaFromImage(buffer, mimeType, "placa");
+  let placa: string | null = null;
+  let confianza: "alta" | "baja" | null = null;
+
+  try {
+    const { buffer, mimeType } = await downloadTelegramFile(fileId);
+    const ocr = await extractPlacaFromImage(buffer, mimeType, "placa");
+    placa = ocr.placa;
+    confianza = ocr.confianza;
+  } catch (err) {
+    await sendTelegramMessage(chatId, `❌ ${formatLlmAuthError(err)}`);
+    return;
+  }
 
   if (!placa || placa.length < 2) {
     await sendTelegramMessage(

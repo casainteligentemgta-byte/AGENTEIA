@@ -1,18 +1,31 @@
+import { isOpenRouterKey } from "@/lib/ai/openai-config";
+import { resolveImageMimeType } from "@/lib/mime-image";
+
 /** Tamaño a partir del cual usar detail "low" en visión (evita 400 en OpenRouter). */
-const LOW_DETAIL_THRESHOLD_BYTES = 400 * 1024;
+const LOW_DETAIL_THRESHOLD_BYTES = 200 * 1024;
+
+export type PreparedVisionImage = {
+  buffer: Buffer;
+  mimeType: string;
+  detail: "low" | "high";
+};
 
 /**
- * Prepara imagen para API de visión: fuerza MIME JPEG en data URL.
- * La reducción de tamaño la hace OpenAI/OpenRouter con detail "auto"/"low".
+ * Prepara imagen para API de visión: MIME real por magic bytes y detail acorde al proveedor.
  */
 export function prepareImageForVision(
   buffer: Buffer,
   mimeType: string
-): { buffer: Buffer; mimeType: "image/jpeg"; detail: "low" | "high" } {
-  const detail = buffer.length > LOW_DETAIL_THRESHOLD_BYTES ? "low" : "high";
+): PreparedVisionImage {
+  const resolved =
+    resolveImageMimeType({ declaredMime: mimeType, buffer }) ?? "image/jpeg";
+
+  const preferLow =
+    isOpenRouterKey() || buffer.length > LOW_DETAIL_THRESHOLD_BYTES;
+
   return {
     buffer,
-    mimeType: "image/jpeg",
-    detail,
+    mimeType: resolved,
+    detail: preferLow ? "low" : "high",
   };
 }

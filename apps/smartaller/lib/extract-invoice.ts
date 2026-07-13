@@ -3,7 +3,9 @@ import {
   createOpenAIClient,
   formatLlmAuthError,
   getVisionModelId,
+  isOpenRouterKey,
 } from "@/lib/ai/openai-config";
+import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 
 export type FacturaExtraida = {
   placa: string | null;
@@ -68,7 +70,10 @@ export async function extractMantenimientoFromUrl(fileUrl: string): Promise<Fact
           role: "user",
           content: [
             { type: "text", text: EXTRACTION_PROMPT },
-            { type: "image_url", image_url: { url: fileUrl } },
+            {
+              type: "image_url",
+              image_url: { url: fileUrl, detail: isOpenRouterKey() ? "low" : "auto" },
+            },
           ],
         },
       ],
@@ -97,8 +102,23 @@ export async function extractMantenimientoFromImage(
   imageBuffer: Buffer,
   mimeType: string = "image/jpeg"
 ): Promise<FacturaExtraida> {
-  const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-  return extractMantenimientoFromUrl(dataUrl);
+  const parsed = await createVisionJsonCompletion({
+    prompt: EXTRACTION_PROMPT,
+    imageBuffer,
+    mimeType,
+    maxTokens: 500,
+  });
+  return {
+    placa: parseString(parsed.placa)?.toUpperCase() ?? null,
+    kilometraje: parseKilometraje(parsed.kilometraje),
+    descripcion:
+      parseString(parsed.descripcion) ??
+      parseString(parsed.descripcion_servicio) ??
+      parseString(parsed["descripción del servicio"]),
+    costo: parseCosto(parsed.costo ?? parsed.costo_total),
+    nombre_cliente: parseString(parsed.nombre_cliente),
+    telefono_cliente: parseString(parsed.telefono_cliente),
+  };
 }
 
 export function buildFacturaProcesadaMessage(extraido: FacturaExtraida): string {

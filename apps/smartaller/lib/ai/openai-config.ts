@@ -66,15 +66,18 @@ export function createOpenAIClient(): OpenAI {
 
 /** Mensaje amigable para errores de API de visión/chat. */
 export function formatLlmAuthError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
+  let msg = err instanceof Error ? err.message : String(err);
+  if (err instanceof OpenAI.APIError) {
+    msg = [err.status, err.message].filter(Boolean).join(" ");
+  }
   if (/401|incorrect api key|invalid api key/i.test(msg)) {
     if (isOpenRouterKey()) {
       return "Clave OpenRouter inválida o expirada. Revisa OPENAI_API_KEY en Vercel (debe ser sk-or-v1-...).";
     }
     return "Clave OpenAI inválida. Usa sk-proj-... de OpenAI o sk-or-v1-... de OpenRouter en OPENAI_API_KEY.";
   }
-  if (/400|provider returned error/i.test(msg)) {
-    return "No se pudo analizar la imagen con la IA (error del proveedor). La foto puede guardarse; ingresa el kilometraje manualmente.";
+  if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
+    return "No se pudo analizar la imagen con la IA. La foto se puede guardar igual; completa placa o kilometraje manualmente si hace falta.";
   }
   return msg;
 }
