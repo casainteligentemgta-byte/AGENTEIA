@@ -13,6 +13,7 @@ import {
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
 import { crearOrdenRecepcionSchema, tieneDatosOrdenRecepcion } from "@/lib/schemas/orden-recepcion";
 import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
+import { datosClienteOrdenRecepcion } from "@/lib/ordenes-recepcion/cliente-orden";
 import type { OrdenRecepcionAltaInput } from "@/lib/schemas/orden-recepcion";
 
 async function registrarOrdenRecepcion(
@@ -32,11 +33,15 @@ async function registrarOrdenRecepcion(
   }
 ): Promise<void> {
   const km = params.orden.kilometraje ?? params.odometro;
-  const payload = crearOrdenRecepcionSchema.parse({
+  const { clienteNombre, clienteTelefono } = datosClienteOrdenRecepcion(
+    params.nombreCliente,
+    params.telefonoCliente
+  );
+  const payloadResult = crearOrdenRecepcionSchema.safeParse({
     ...params.orden,
     vehiculoId: params.vehiculoId,
-    clienteNombre: params.nombreCliente,
-    clienteTelefono: params.telefonoCliente,
+    clienteNombre,
+    clienteTelefono,
     placa: params.placa,
     modelo: params.modelo ?? "",
     color: params.color ?? "",
@@ -44,10 +49,14 @@ async function registrarOrdenRecepcion(
     kilometraje: km,
   });
 
+  if (!payloadResult.success) {
+    throw new Error(payloadResult.error.errors[0]?.message ?? "Datos de inspección inválidos");
+  }
+
   await persistOrdenRecepcion(supabase, {
     tallerId: params.tallerId,
     userId: params.userId,
-    orden: payload,
+    orden: payloadResult.data,
   });
 }
 

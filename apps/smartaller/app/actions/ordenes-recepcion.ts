@@ -11,6 +11,7 @@ import {
   tieneDatosOrdenRecepcion,
 } from "@/lib/schemas/orden-recepcion";
 import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
+import { datosClienteOrdenRecepcion } from "@/lib/ordenes-recepcion/cliente-orden";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 
@@ -61,19 +62,32 @@ export async function createOrdenRecepcionAction(
 
   const today = new Date().toISOString().slice(0, 10);
   const nowTime = new Date().toTimeString().slice(0, 5);
+  const { clienteNombre, clienteTelefono } = datosClienteOrdenRecepcion(
+    vehiculo.nombre_cliente,
+    vehiculo.telefono_cliente
+  );
 
-  const payload = crearOrdenRecepcionSchema.parse({
+  const payloadResult = crearOrdenRecepcionSchema.safeParse({
     ...ordenFields,
     fechaIngreso: ordenFields.fechaIngreso || today,
     horaIngreso: ordenFields.horaIngreso || nowTime,
     vehiculoId,
-    clienteNombre: vehiculo.nombre_cliente,
-    clienteTelefono: vehiculo.telefono_cliente,
+    clienteNombre,
+    clienteTelefono,
     placa: vehiculo.placa,
     modelo: vehiculo.modelo ?? "",
     color: vehiculo.color ?? "",
     chasis: vehiculo.serial_carroceria ?? "",
   });
+
+  if (!payloadResult.success) {
+    return {
+      ok: false,
+      error: payloadResult.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const payload = payloadResult.data;
 
   try {
     const { ordenId } = await persistOrdenRecepcion(supabase, {

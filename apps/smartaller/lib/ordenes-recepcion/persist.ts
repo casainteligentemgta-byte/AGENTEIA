@@ -1,6 +1,7 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { CrearOrdenRecepcionInput } from "@/lib/schemas/orden-recepcion";
 import { marcaToDbValor } from "@/lib/schemas/orden-recepcion";
+import { insertMantenimientoOrdenRecepcion } from "@/lib/ordenes-recepcion/insert-mantenimiento";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -115,42 +116,40 @@ export async function persistOrdenRecepcion(
     detalle_revision: detalleRevision,
   };
 
-  let { data: mantenimiento, error: mantError } = await supabase
-    .from("mantenimientos")
-    .insert({
-      ...mantenimientoRow,
-      kilometraje: orden.kilometraje ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (
-    mantError?.message?.includes("kilometraje") &&
-    mantError.message.includes("schema cache")
-  ) {
-    ({ data: mantenimiento, error: mantError } = await supabase
-      .from("mantenimientos")
-      .insert(mantenimientoRow)
-      .select("id")
-      .single());
-  }
-
-  if (mantError || !mantenimiento) {
-    throw new Error(mantError?.message ?? "No se pudo vincular el mantenimiento");
-  }
+  const mantenimiento = await insertMantenimientoOrdenRecepcion(supabase, [
+    { ...mantenimientoRow, kilometraje: orden.kilometraje ?? null },
+    mantenimientoRow,
+    {
+      taller_id: tallerId,
+      vehiculo_id: orden.vehiculoId,
+      placa: orden.placa.trim().toUpperCase(),
+      descripcion,
+    },
+  ]);
 
   await supabase
     .from("ordenes_recepcion")
     .update({ mantenimiento_id: mantenimiento.id, updated_at: now })
     .eq("id", ordenRow.id);
 
-  await supabase
+  const vehiculoUpdate = await supabase
     .from("vehiculos")
     .update({
       ultima_orden_recepcion_id: ordenRow.id,
       updated_at: now,
     })
     .eq("id", orden.vehiculoId);
+
+  if (
+    vehiculoUpdate.error &&
+    (vehiculoUpdate.error.message.includes("ultima_orden_recepcion_id") ||
+      vehiculoUpdate.error.message.includes("schema cache"))
+  ) {
+    await supabase
+      .from("vehiculos")
+      .update({ updated_at: now })
+      .eq("id", orden.vehiculoId);
+  }
 
   return { ordenId: ordenRow.id, mantenimientoId: mantenimiento.id };
 }
