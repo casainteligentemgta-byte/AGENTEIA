@@ -23,92 +23,100 @@ export const recordatorioEstadoSchema = z.object({
   estado: z.enum(["completado", "cancelado", "pendiente"]),
 });
 
-export const createVehiculoTallerSchema = z
-  .object({
-    tipo_vehiculo: z.enum(TIPOS_VEHICULO),
-    placa: z
-      .string()
-      .trim()
-      .min(2, "La placa o identificador es obligatorio")
-      .max(20, "Máximo 20 caracteres")
-      .transform((v) => v.toUpperCase()),
-    marca: z.string().trim().max(80).optional().or(z.literal("")),
-    modelo: z.string().trim().max(80).optional().or(z.literal("")),
-    color: z.string().trim().max(40).optional().or(z.literal("")),
-    nombreCliente: z
-      .string()
-      .trim()
-      .min(1, "Ingresa el nombre del comprador")
-      .max(120),
-    telefonoCliente: z
-      .string()
-      .trim()
-      .min(7, "Ingresa un teléfono válido")
-      .max(20),
-    serialMotor: z.string().trim().max(80).optional().or(z.literal("")),
-    serialCarroceria: z.string().trim().max(80).optional().or(z.literal("")),
-    cedulaPropietario: z
-      .string()
-      .trim()
-      .max(20)
-      .optional()
-      .or(z.literal(""))
-      .transform((v) => {
-        if (!v) return "";
-        return v.replace(/\D/g, "");
-      }),
-    emailPropietario: z
-      .string()
-      .trim()
-      .max(120)
-      .optional()
-      .or(z.literal(""))
-      .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
-        message: "Ingresa un correo válido",
-      }),
-    fechaNacimientoPropietario: z
-      .string()
-      .trim()
-      .optional()
-      .or(z.literal(""))
-      .refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), {
-        message: "Fecha de nacimiento inválida",
-      }),
-    documentos: z
-      .object({
-        cedula: z.object({ url: z.string(), path: z.string(), scanned_at: z.string().optional() }).optional(),
-        titulo: z.object({ url: z.string(), path: z.string(), scanned_at: z.string().optional() }).optional(),
-      })
-      .optional(),
+const vehiculoTallerFieldsSchema = z.object({
+  tipo_vehiculo: z.enum(TIPOS_VEHICULO),
+  placa: z
+    .string()
+    .trim()
+    .min(2, "La placa o identificador es obligatorio")
+    .max(20, "Máximo 20 caracteres")
+    .transform((v) => v.toUpperCase()),
+  marca: z.string().trim().max(80).optional().or(z.literal("")),
+  modelo: z.string().trim().max(80).optional().or(z.literal("")),
+  color: z.string().trim().max(40).optional().or(z.literal("")),
+  nombreCliente: z
+    .string()
+    .trim()
+    .min(1, "Ingresa el nombre del comprador")
+    .max(120),
+  telefonoCliente: z
+    .string()
+    .trim()
+    .min(7, "Ingresa un teléfono válido")
+    .max(20),
+  serialMotor: z.string().trim().max(80).optional().or(z.literal("")),
+  serialCarroceria: z.string().trim().max(80).optional().or(z.literal("")),
+  cedulaPropietario: z
+    .string()
+    .trim()
+    .max(20)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return "";
+      return v.replace(/\D/g, "");
+    }),
+  emailPropietario: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+      message: "Ingresa un correo válido",
+    }),
+  fechaNacimientoPropietario: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+      message: "Fecha de nacimiento inválida",
+    }),
+  documentos: z
+    .object({
+      cedula: z.object({ url: z.string(), path: z.string(), scanned_at: z.string().optional() }).optional(),
+      titulo: z.object({ url: z.string(), path: z.string(), scanned_at: z.string().optional() }).optional(),
+    })
+    .optional(),
+  odometro: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v || v.trim() === "") return null;
+      const n = Number(v.replace(/\./g, "").replace(",", "."));
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+    }),
+});
+
+function refineOdometroHoras<T extends { tipo_vehiculo: (typeof TIPOS_VEHICULO)[number]; odometro: number | null }>(
+  data: T,
+  ctx: z.RefinementCtx
+) {
+  const config = getConfigTipoVehiculo(data.tipo_vehiculo);
+  if (config.unidadOdometro === "horas" && data.odometro != null && data.odometro > 100000) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Revisa las horas de motor ingresadas",
+      path: ["odometro"],
+    });
+  }
+}
+
+export const createVehiculoTallerSchema = vehiculoTallerFieldsSchema
+  .extend({
     ordenRecepcion: ordenRecepcionAltaSchema.optional(),
-    odometro: z
-      .string()
-      .optional()
-      .or(z.literal(""))
-      .transform((v) => {
-        if (!v || v.trim() === "") return null;
-        const n = Number(v.replace(/\./g, "").replace(",", "."));
-        return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
-      }),
   })
-  .superRefine((data, ctx) => {
-    const config = getConfigTipoVehiculo(data.tipo_vehiculo);
-    if (config.unidadOdometro === "horas" && data.odometro != null && data.odometro > 100000) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Revisa las horas de motor ingresadas",
-        path: ["odometro"],
-      });
-    }
-  });
+  .superRefine(refineOdometroHoras);
 
 export type CreateVehiculoTallerInput = z.input<typeof createVehiculoTallerSchema>;
 
-export const updateVehiculoTallerSchema = createVehiculoTallerSchema
-  .omit({ ordenRecepcion: true })
+export const updateVehiculoTallerSchema = vehiculoTallerFieldsSchema
   .extend({
     vehiculoId: z.string().uuid("ID de vehículo inválido"),
-  });
+  })
+  .superRefine(refineOdometroHoras);
 
 export type UpdateVehiculoTallerInput = z.input<typeof updateVehiculoTallerSchema>;
 
