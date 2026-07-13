@@ -10,7 +10,7 @@ type Props = {
 
 export default function DashboardError({ error, reset }: Props) {
   useEffect(() => {
-    console.error("[dashboard]", error);
+    console.error("[dashboard]", error?.message, error?.digest, error);
   }, [error]);
 
   return (
@@ -19,6 +19,9 @@ export default function DashboardError({ error, reset }: Props) {
       <p className="mt-2 max-w-md text-sm text-zinc-500">
         No se pudo cargar esta pantalla del taller. Prueba de nuevo o vuelve al listado.
       </p>
+      {error.message && process.env.NODE_ENV !== "production" && (
+        <p className="mt-2 max-w-lg break-words text-xs text-red-400">{error.message}</p>
+      )}
       {error.digest && (
         <p className="mt-2 font-mono text-xs text-zinc-600">Digest: {error.digest}</p>
       )}

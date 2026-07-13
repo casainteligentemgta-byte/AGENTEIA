@@ -10,12 +10,15 @@ import { VehiculoEditForm } from "@/components/dashboard/vehiculo-edit-form";
 import { VehiculoDeleteSection } from "@/components/dashboard/vehiculo-delete-section";
 import { getRepuestosPorMantenimientoIds, getRepuestosTaller } from "@/lib/data/repuestos";
 import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
-import { getVehiculoDetalle } from "@/lib/data/vehiculos";
+import { getVehiculoDetalle, type VehiculoDetalle } from "@/lib/data/vehiculos";
 import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { parseRecepcionVehiculo, tieneDatosRecepcion } from "@/lib/schemas/recepcion-vehiculo";
 import { RecepcionVehiculoDisplay } from "@/components/dashboard/recepcion-vehiculo-display";
 import { OrdenRecepcionDisplay } from "@/components/dashboard/orden-recepcion-display";
-import { getUltimaOrdenRecepcionVehiculo } from "@/lib/data/ordenes-recepcion";
+import {
+  getUltimaOrdenRecepcionVehiculo,
+  type OrdenRecepcionDetalle,
+} from "@/lib/data/ordenes-recepcion";
 import {
   formatCurrency,
   formatDate,
@@ -24,6 +27,8 @@ import {
   getDescripcion,
 } from "@/lib/format";
 import { normalizeTipoVehiculo } from "@/lib/vehicles/templates";
+import type { MantenimientoRepuestoLinea } from "@/lib/repuestos/types";
+import type { Repuesto } from "@/lib/repuestos/types";
 
 export const dynamic = "force-dynamic";
 
@@ -39,21 +44,74 @@ function estadoVariant(estado: string): "default" | "success" | "warning" | "dan
   return "default";
 }
 
+function PageLoadError({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-[40vh] flex-col items-center justify-center p-8 text-center">
+      <h1 className="text-xl font-semibold text-zinc-100">No se pudo cargar el vehículo</h1>
+      <p className="mt-2 max-w-lg text-sm text-zinc-500">{message}</p>
+      <Link
+        href="/dashboard/vehiculos"
+        className="mt-6 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm text-zinc-300 hover:border-zinc-500"
+      >
+        Ir a vehículos
+      </Link>
+    </div>
+  );
+}
+
 export default async function VehiculoDetallePage({ params, searchParams }: Props) {
-  const vehiculo = await getVehiculoDetalle(params.id);
+  let vehiculo: VehiculoDetalle | null = null;
+  let catalogoRepuestos: Repuesto[] = [];
+  let repuestosMap = new Map<string, MantenimientoRepuestoLinea[]>();
+  let ordenRecepcion: OrdenRecepcionDetalle | null = null;
+  let loadError: string | null = null;
+
+  try {
+    vehiculo = await getVehiculoDetalle(params.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    console.error("VehiculoDetallePage getVehiculoDetalle:", message);
+    loadError = message;
+  }
+
+  if (loadError) {
+    return <PageLoadError message={loadError} />;
+  }
+
   if (!vehiculo) notFound();
 
-  const [catalogoRepuestos, repuestosMap, ordenRecepcion] = await Promise.all([
-    getRepuestosTaller(),
-    getRepuestosPorMantenimientoIds(vehiculo.mantenimientos.map((m) => m.id)),
-    getUltimaOrdenRecepcionVehiculo(vehiculo.id, vehiculo.ultima_orden_recepcion_id),
-  ]);
+  try {
+    const results = await Promise.allSettled([
+      getRepuestosTaller(),
+      getRepuestosPorMantenimientoIds(vehiculo.mantenimientos.map((m) => m.id)),
+      getUltimaOrdenRecepcionVehiculo(vehiculo.id, vehiculo.ultima_orden_recepcion_id),
+    ]);
 
-  const proximoRecordatorio = vehiculo.recordatorios.find(
+    if (results[0].status === "fulfilled") catalogoRepuestos = results[0].value;
+    if (results[1].status === "fulfilled") repuestosMap = results[1].value;
+    if (results[2].status === "fulfilled") ordenRecepcion = results[2].value;
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("VehiculoDetallePage side-load:", result.reason);
+      }
+    }
+  } catch (err) {
+    console.error("VehiculoDetallePage side-load:", err);
+  }
+
+  const proximoRecordatorio = (vehiculo.recordatorios ?? []).find(
     (r) => r.estado === "pendiente" || r.estado === "enviado"
   );
-  const documentos = parseVehiculosDocumentos(vehiculo.documentos);
-  const recepcionInicial = parseRecepcionVehiculo(vehiculo.recepcion_inicial);
+
+  let documentos: ReturnType<typeof parseVehiculosDocumentos> = {};
+  let recepcionInicial: ReturnType<typeof parseRecepcionVehiculo> = null;
+  try {
+    documentos = parseVehiculosDocumentos(vehiculo.documentos);
+    recepcionInicial = parseRecepcionVehiculo(vehiculo.recepcion_inicial);
+  } catch (err) {
+    console.error("VehiculoDetallePage parse:", err);
+  }
 
   return (
     <div className="p-4 sm:p-8">
@@ -116,7 +174,13 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
             telefonoCliente={vehiculo.telefono_cliente}
             cedulaPropietario={vehiculo.cedula_propietario}
             emailPropietario={vehiculo.email_propietario}
-            fechaNacimientoPropietario={vehiculo.fecha_nacimiento_propietario}
+            fechaNacimientoPropietario={
+              typeof vehiculo.fecha_nacimiento_propietario === "string"
+                ? vehiculo.fecha_nacimiento_propietario
+                : vehiculo.fecha_nacimiento_propietario
+                  ? String(vehiculo.fecha_nacimiento_propietario)
+                  : null
+            }
             unidadOdometro={vehiculo.unidad_odometro}
             kilometrajeUltimo={vehiculo.kilometraje_ultimo}
             horasMotorUltimo={vehiculo.horas_motor_ultimo}
@@ -146,7 +210,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">Historial de servicios</h2>
-          {vehiculo.mantenimientos.length === 0 ? (
+          {(vehiculo.mantenimientos ?? []).length === 0 ? (
             <p className="glass rounded-2xl p-6 text-sm text-zinc-500">
               Sin mantenimientos registrados aún.
             </p>
@@ -157,45 +221,45 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
                 const repuestos = repuestosMap.get(m.id) ?? [];
 
                 return (
-                <li key={m.id} className="glass rounded-2xl p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-medium text-zinc-100">{getDescripcion(m)}</p>
-                      <p className="mt-1 text-sm text-zinc-500">{formatDateTime(m.created_at)}</p>
+                  <li key={m.id} className="glass rounded-2xl p-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-medium text-zinc-100">{getDescripcion(m)}</p>
+                        <p className="mt-1 text-sm text-zinc-500">{formatDateTime(m.created_at)}</p>
+                      </div>
+                      <p className="text-lg font-semibold text-zinc-100">{formatCurrency(m.costo)}</p>
                     </div>
-                    <p className="text-lg font-semibold text-zinc-100">{formatCurrency(m.costo)}</p>
-                  </div>
-                  {m.kilometraje != null && (
-                    <p className="mt-2 text-sm text-zinc-400">
-                      Kilometraje: {formatKilometraje(m.kilometraje)}
-                    </p>
-                  )}
+                    {m.kilometraje != null && (
+                      <p className="mt-2 text-sm text-zinc-400">
+                        Kilometraje: {formatKilometraje(m.kilometraje)}
+                      </p>
+                    )}
 
-                  {media.length > 0 && (
-                    <div className="mt-4">
-                      <DiagnosticoGaleria
-                        media={media}
-                        variant="dark"
-                        compact
-                        titulo="Evidencia visual"
-                      />
-                    </div>
-                  )}
+                    {media.length > 0 && (
+                      <div className="mt-4">
+                        <DiagnosticoGaleria
+                          media={media}
+                          variant="dark"
+                          compact
+                          titulo="Evidencia visual"
+                        />
+                      </div>
+                    )}
 
-                  {repuestos.length > 0 && (
-                    <div className="mt-4">
-                      <RepuestosLista lineas={repuestos} variant="dark" />
-                    </div>
-                  )}
+                    {repuestos.length > 0 && (
+                      <div className="mt-4">
+                        <RepuestosLista lineas={repuestos} variant="dark" />
+                      </div>
+                    )}
 
-                  <MantenimientoRepuestosEditor
-                    mantenimientoId={m.id}
-                    catalogo={catalogoRepuestos}
-                  />
+                    <MantenimientoRepuestosEditor
+                      mantenimientoId={m.id}
+                      catalogo={catalogoRepuestos}
+                    />
 
-                  <DiagnosticoMediaUpload mantenimientoId={m.id} compact />
-                </li>
-              );
+                    <DiagnosticoMediaUpload mantenimientoId={m.id} compact />
+                  </li>
+                );
               })}
             </ul>
           )}
@@ -203,7 +267,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
 
         <section>
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">Recordatorios</h2>
-          {vehiculo.recordatorios.length === 0 ? (
+          {(vehiculo.recordatorios ?? []).length === 0 ? (
             <p className="glass rounded-2xl p-6 text-sm text-zinc-500">Sin recordatorios.</p>
           ) : (
             <ul className="space-y-2">
@@ -220,7 +284,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
                       </p>
                     )}
                   </div>
-                  <Badge variant={estadoVariant(r.estado)}>{r.estado}</Badge>
+                  <Badge variant={estadoVariant(String(r.estado ?? ""))}>{r.estado}</Badge>
                 </li>
               ))}
             </ul>
@@ -231,8 +295,8 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
           vehiculoId={vehiculo.id}
           placa={vehiculo.placa}
           vinculadoApp={Boolean(vehiculo.user_id)}
-          mantenimientosCount={vehiculo.mantenimientos.length}
-          recordatoriosCount={vehiculo.recordatorios.length}
+          mantenimientosCount={(vehiculo.mantenimientos ?? []).length}
+          recordatoriosCount={(vehiculo.recordatorios ?? []).length}
           tieneInspeccion={Boolean(ordenRecepcion || vehiculo.ultima_orden_recepcion_id)}
         />
       </div>

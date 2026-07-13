@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Eraser, PenLine, X } from "lucide-react";
+import { isFirmaImagen } from "@/lib/firma";
+
+export { isFirmaImagen };
 
 type Props = {
   label: string;
@@ -12,10 +15,6 @@ type Props = {
 
 const STROKE_COLOR = "#18181b";
 const STROKE_WIDTH = 3;
-
-export function isFirmaImagen(value: string | null | undefined): boolean {
-  return Boolean(value?.startsWith("data:image/"));
-}
 
 function FirmaModal({
   label,

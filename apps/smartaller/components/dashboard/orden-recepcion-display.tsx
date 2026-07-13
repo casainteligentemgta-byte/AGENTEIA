@@ -10,7 +10,7 @@ import {
 import { RECEPCION_CHECKLIST_CATALOG } from "@/lib/recepcion/catalog";
 import type { OrdenRecepcionDetalle } from "@/lib/data/ordenes-recepcion";
 import { EstadoVisualDisplay } from "@/components/dashboard/estado-visual-display";
-import { isFirmaImagen } from "@/components/dashboard/firma-expandible";
+import { isFirmaImagen } from "@/lib/firma";
 import { ClipboardCheck } from "lucide-react";
 import { formatKilometraje, formatHoraIngreso } from "@/lib/format";
 
