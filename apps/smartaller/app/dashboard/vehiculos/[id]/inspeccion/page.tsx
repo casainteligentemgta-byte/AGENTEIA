@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { OrdenRecepcionCreateForm } from "@/components/dashboard/orden-recepcion-create-form";
 import { getVehiculoDetalle } from "@/lib/data/vehiculos";
-import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-import type { TipoVehiculo } from "@/lib/vehicles/types";
+import { getConfigTipoVehiculo, normalizeTipoVehiculo } from "@/lib/vehicles/templates";
 import { buildFichaVehiculoInspeccion } from "@/lib/ordenes-recepcion/ficha-vehiculo";
 import { obtenerTelegramRecepcionSesion } from "@/lib/telegram-recepcion-sesion";
 import { estadoVisualConFrontalPrefill } from "@/lib/schemas/estado-visual-recepcion";
@@ -20,7 +19,7 @@ export default async function InspeccionVehiculoPage({ params, searchParams }: P
   const vehiculo = await getVehiculoDetalle(params.id);
   if (!vehiculo) notFound();
 
-  const config = getConfigTipoVehiculo((vehiculo.tipo_vehiculo ?? "auto") as TipoVehiculo);
+  const config = getConfigTipoVehiculo(vehiculo.tipo_vehiculo);
   const odometroInicial =
     config.unidadOdometro === "horas"
       ? vehiculo.horas_motor_ultimo

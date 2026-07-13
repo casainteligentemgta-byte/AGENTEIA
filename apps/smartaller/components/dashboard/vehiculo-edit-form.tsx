@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { updateVehiculoTallerAction } from "@/app/actions/vehiculos";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
-import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { getConfigTipoVehiculo, normalizeTipoVehiculo } from "@/lib/vehicles/templates";
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
@@ -72,7 +72,7 @@ export function VehiculoEditForm({
   horasMotorUltimo,
   documentos: documentosIniciales,
 }: VehiculoEditFormProps) {
-  const [tipo, setTipo] = useState<TipoVehiculo>(tipoVehiculo);
+  const [tipo, setTipo] = useState<TipoVehiculo>(() => normalizeTipoVehiculo(tipoVehiculo));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

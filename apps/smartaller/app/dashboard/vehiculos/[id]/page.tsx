@@ -23,7 +23,7 @@ import {
   formatKilometraje,
   getDescripcion,
 } from "@/lib/format";
-import type { TipoVehiculo } from "@/lib/vehicles/types";
+import { normalizeTipoVehiculo } from "@/lib/vehicles/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +105,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">Editar vehículo</h2>
           <VehiculoEditForm
             vehiculoId={vehiculo.id}
-            tipoVehiculo={(vehiculo.tipo_vehiculo ?? "auto") as TipoVehiculo}
+            tipoVehiculo={normalizeTipoVehiculo(vehiculo.tipo_vehiculo)}
             placa={vehiculo.placa}
             marca={vehiculo.marca}
             modelo={vehiculo.modelo}

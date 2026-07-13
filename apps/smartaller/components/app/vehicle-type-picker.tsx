@@ -58,6 +58,6 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
 }
 
 export function VehicleTypeIcon({ tipo, className }: { tipo: TipoVehiculo; className?: string }) {
-  const Icon = ICONOS[tipo];
+  const Icon = ICONOS[tipo] ?? Car;
   return <Icon className={className} />;
 }

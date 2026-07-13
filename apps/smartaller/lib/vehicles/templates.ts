@@ -125,8 +125,17 @@ export const CONFIG_TIPOS_VEHICULO: Record<TipoVehiculo, ConfigTipoVehiculo> = {
   },
 };
 
-export function getConfigTipoVehiculo(tipo: TipoVehiculo): ConfigTipoVehiculo {
-  return CONFIG_TIPOS_VEHICULO[tipo];
+export function normalizeTipoVehiculo(tipo: string | null | undefined): TipoVehiculo {
+  if (tipo && tipo in CONFIG_TIPOS_VEHICULO) {
+    return tipo as TipoVehiculo;
+  }
+  return "auto";
+}
+
+export function getConfigTipoVehiculo(
+  tipo: TipoVehiculo | string | null | undefined
+): ConfigTipoVehiculo {
+  return CONFIG_TIPOS_VEHICULO[normalizeTipoVehiculo(tipo)];
 }
 
 export function listarTiposVehiculo(): ConfigTipoVehiculo[] {
