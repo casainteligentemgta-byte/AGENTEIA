@@ -45,26 +45,34 @@ export async function obtenerTelegramRecepcionSesion(
   token: string,
   vehiculoId: string
 ): Promise<TelegramRecepcionSesion | null> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("telegram_recepcion_sesiones")
-    .select("token, vehiculo_id, taller_id, frontal_url, frontal_path, placa, expires_at")
-    .eq("token", token)
-    .eq("vehiculo_id", vehiculoId)
-    .maybeSingle();
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("telegram_recepcion_sesiones")
+      .select("token, vehiculo_id, taller_id, frontal_url, frontal_path, placa, expires_at")
+      .eq("token", token)
+      .eq("vehiculo_id", vehiculoId)
+      .maybeSingle();
 
-  if (error || !data) return null;
+    if (error || !data) return null;
 
-  if (new Date(data.expires_at).getTime() < Date.now()) {
+    if (new Date(data.expires_at).getTime() < Date.now()) {
+      return null;
+    }
+
+    return {
+      token: data.token,
+      vehiculoId: data.vehiculo_id,
+      tallerId: data.taller_id,
+      frontalUrl: data.frontal_url,
+      frontalPath: data.frontal_path,
+      placa: data.placa,
+    };
+  } catch (err) {
+    console.error(
+      "obtenerTelegramRecepcionSesion:",
+      err instanceof Error ? err.message : err
+    );
     return null;
   }
-
-  return {
-    token: data.token,
-    vehiculoId: data.vehiculo_id,
-    tallerId: data.taller_id,
-    frontalUrl: data.frontal_url,
-    frontalPath: data.frontal_path,
-    placa: data.placa,
-  };
 }

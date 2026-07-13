@@ -2,20 +2,25 @@ import { createClient } from "@/lib/supabase/server";
 import type { MantenimientoRepuestoLinea, Repuesto } from "@/lib/repuestos/types";
 
 export async function getRepuestosTaller(): Promise<Repuesto[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("repuestos")
-    .select(
-      "id, taller_id, nombre, sku, unidad, precio_venta, stock_actual, stock_minimo, activo, created_at"
-    )
-    .eq("activo", true)
-    .order("nombre");
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("repuestos")
+      .select(
+        "id, taller_id, nombre, sku, unidad, precio_venta, stock_actual, stock_minimo, activo, created_at"
+      )
+      .eq("activo", true)
+      .order("nombre");
 
-  if (error) {
-    console.error("getRepuestosTaller:", error.message);
+    if (error) {
+      console.error("getRepuestosTaller:", error.message);
+      return [];
+    }
+    return (data ?? []) as Repuesto[];
+  } catch (err) {
+    console.error("getRepuestosTaller:", err instanceof Error ? err.message : err);
     return [];
   }
-  return (data ?? []) as Repuesto[];
 }
 
 export async function getRepuestosPorMantenimiento(
@@ -40,25 +45,33 @@ export async function getRepuestosPorMantenimientoIds(
   const map = new Map<string, MantenimientoRepuestoLinea[]>();
   if (mantenimientoIds.length === 0) return map;
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("mantenimiento_repuestos")
-    .select(
-      "id, mantenimiento_id, repuesto_id, nombre, cantidad, precio_unitario, subtotal, created_at"
-    )
-    .in("mantenimiento_id", mantenimientoIds)
-    .order("created_at");
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("mantenimiento_repuestos")
+      .select(
+        "id, mantenimiento_id, repuesto_id, nombre, cantidad, precio_unitario, subtotal, created_at"
+      )
+      .in("mantenimiento_id", mantenimientoIds)
+      .order("created_at");
 
-  if (error) {
-    console.error("getRepuestosPorMantenimientoIds:", error.message);
+    if (error) {
+      console.error("getRepuestosPorMantenimientoIds:", error.message);
+      return map;
+    }
+
+    for (const row of (data ?? []) as MantenimientoRepuestoLinea[]) {
+      const list = map.get(row.mantenimiento_id) ?? [];
+      list.push(row);
+      map.set(row.mantenimiento_id, list);
+    }
+
+    return map;
+  } catch (err) {
+    console.error(
+      "getRepuestosPorMantenimientoIds:",
+      err instanceof Error ? err.message : err
+    );
     return map;
   }
-
-  for (const row of (data ?? []) as MantenimientoRepuestoLinea[]) {
-    const list = map.get(row.mantenimiento_id) ?? [];
-    list.push(row);
-    map.set(row.mantenimiento_id, list);
-  }
-
-  return map;
 }

@@ -12,7 +12,7 @@ import type { OrdenRecepcionDetalle } from "@/lib/data/ordenes-recepcion";
 import { EstadoVisualDisplay } from "@/components/dashboard/estado-visual-display";
 import { isFirmaImagen } from "@/components/dashboard/firma-expandible";
 import { ClipboardCheck } from "lucide-react";
-import { formatKilometraje } from "@/lib/format";
+import { formatKilometraje, formatHoraIngreso } from "@/lib/format";
 
 type Props = {
   orden: OrdenRecepcionDetalle;
@@ -22,6 +22,7 @@ type Props = {
 export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: Props) {
   const checklistMap = checklistToMarcaRecord(orden.checklist);
   const itemsMarcados = RECEPCION_CHECKLIST_CATALOG.filter((i) => checklistMap[i.id]);
+  const horaIngreso = formatHoraIngreso(orden.hora_ingreso);
 
   const porSeccion = itemsMarcados.reduce<Record<string, typeof itemsMarcados>>((acc, item) => {
     const key = item.seccion;
@@ -44,7 +45,7 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
           <h2 className="text-lg font-semibold text-zinc-100">Orden de recepción</h2>
           <p className="mt-1 text-sm text-zinc-500">
             {orden.fecha_ingreso}
-            {orden.hora_ingreso ? ` · ${orden.hora_ingreso.slice(0, 5)}` : ""}
+            {horaIngreso ? ` · ${horaIngreso}` : ""}
           </p>
         </div>
       </div>
@@ -128,7 +129,7 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
           </p>
           <ul className="space-y-1">
             {items.map((item) => {
-              const marca = checklistMap[item.id]!;
+              const marca = checklistMap[item.id];
               return (
                 <li key={item.id} className="flex justify-between gap-3 text-sm">
                   <span className="text-zinc-300">{item.etiqueta}</span>
@@ -137,7 +138,7 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
                       marca === "check" ? "font-bold text-emerald-400" : "font-bold text-red-400"
                     }
                   >
-                    {CHECKLIST_MARCA_SIMBOLO[marca]}
+                    {marca ? CHECKLIST_MARCA_SIMBOLO[marca] : "—"}
                   </span>
                 </li>
               );
@@ -157,8 +158,9 @@ export function OrdenRecepcionDisplay({ orden, odometroLabel = "Kilometraje" }: 
                 key={`${d.posicionX}-${i}`}
                 className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-200"
               >
-                {RECEPCION_TIPO_DANO_SIMBOLO[d.tipo]} ({d.posicionX.toFixed(0)}%,{" "}
-                {d.posicionY.toFixed(0)}%)
+                {RECEPCION_TIPO_DANO_SIMBOLO[d.tipo] ?? "?"}{" "}
+                ({Number.isFinite(d.posicionX) ? d.posicionX.toFixed(0) : "—"}%,{" "}
+                {Number.isFinite(d.posicionY) ? d.posicionY.toFixed(0) : "—"}%)
               </li>
             ))}
           </ul>

@@ -20,12 +20,15 @@ export function formatCurrencyCompact(value: number): string {
   return formatCurrency(value);
 }
 
-export function formatDate(date: string): string {
+export function formatDate(date: string | null | undefined): string {
+  if (!date) return "—";
+  const parsed = new Date(date.includes("T") ? date : `${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "—";
   return new Intl.DateTimeFormat("es-CO", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsed);
 }
 
 export function formatKm(km: number | null): string {

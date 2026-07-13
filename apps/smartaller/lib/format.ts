@@ -40,6 +40,36 @@ export function formatKilometraje(km: number | null | undefined): string {
   return `${km.toLocaleString("es-CO")} km`;
 }
 
+/** Normaliza `time` de Postgres / valores legacy a string HH:MM(:SS). */
+export function normalizeHoraIngreso(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed || null;
+  }
+  if (typeof raw === "object") {
+    const record = raw as Record<string, unknown>;
+    const hours = record.hours ?? record.hour;
+    const minutes = record.minutes ?? record.minute;
+    if (typeof hours === "number" && typeof minutes === "number") {
+      const hh = String(hours).padStart(2, "0");
+      const mm = String(minutes).padStart(2, "0");
+      const seconds = record.seconds ?? record.second;
+      const ss =
+        typeof seconds === "number" ? `:${String(seconds).padStart(2, "0")}` : ":00";
+      return `${hh}:${mm}${ss}`;
+    }
+  }
+  return String(raw);
+}
+
+/** Muestra hora de ingreso (ej. 14:30) sin asumir que el valor es string. */
+export function formatHoraIngreso(raw: unknown): string {
+  const hora = normalizeHoraIngreso(raw);
+  if (!hora) return "";
+  return hora.slice(0, 5);
+}
+
 export function normalizePlaca(placa: string): string {
   return placa.trim().toUpperCase().replace(/\s+/g, "");
 }
