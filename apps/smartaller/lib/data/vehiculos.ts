@@ -10,21 +10,13 @@ export async function getVehiculoDetalle(id: string): Promise<VehiculoDetalle | 
   try {
     const supabase = createClient();
 
-    const selectWithUser =
-      "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, ultima_orden_recepcion_id, marca, modelo, color, user_id, created_at, updated_at";
-    const selectBase = selectWithUser.replace(", user_id", "");
-
-    let { data: vehiculo, error } = await supabase
+    const { data: vehiculo, error } = await supabase
       .from("vehiculos")
-      .select(selectWithUser)
+      .select(
+        "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, ultima_orden_recepcion_id, marca, modelo, color, user_id, created_at, updated_at"
+      )
       .eq("id", id)
       .maybeSingle();
-
-    if (error?.message.includes("user_id")) {
-      const retry = await supabase.from("vehiculos").select(selectBase).eq("id", id).maybeSingle();
-      vehiculo = retry.data;
-      error = retry.error;
-    }
 
     if (error || !vehiculo) return null;
 
