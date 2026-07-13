@@ -9,6 +9,8 @@ import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link"
 import {
   createVehiculoTallerSchema,
   updateVehiculoContactoSchema,
+  updateVehiculoTallerSchema,
+  deleteVehiculoTallerSchema,
 } from "@/lib/validations/vehiculo";
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
 import { crearOrdenRecepcionSchema, tieneDatosOrdenRecepcion } from "@/lib/schemas/orden-recepcion";
@@ -311,5 +313,139 @@ export async function updateVehiculoContactoAction(input: {
 
   revalidatePath("/dashboard/vehiculos");
   revalidatePath(`/dashboard/vehiculos/${parsed.data.vehiculoId}`);
+  return { ok: true };
+}
+
+export type UpdateVehiculoTallerResult =
+  | { ok: true }
+  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+
+export async function updateVehiculoTallerAction(
+  raw: unknown
+): Promise<UpdateVehiculoTallerResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+
+  const parsed = updateVehiculoTallerSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors as Record<string, string[]>;
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+      fieldErrors,
+    };
+  }
+
+  const { taller } = await ensureTallerForUser(user.id);
+  if (!taller) return { ok: false, error: "No se encontró tu taller" };
+
+  const data = parsed.data;
+  const config = getConfigTipoVehiculo(data.tipo_vehiculo);
+  const placaNorm = normalizarPlaca(data.placa);
+  const supabase = createAdminClient();
+
+  const { data: vehiculo } = await supabase
+    .from("vehiculos")
+    .select("id, taller_id, user_id")
+    .eq("id", data.vehiculoId)
+    .maybeSingle();
+
+  if (!vehiculo || vehiculo.taller_id !== taller.id) {
+    return { ok: false, error: "Vehículo no encontrado" };
+  }
+
+  const { data: placaDuplicada } = await supabase
+    .from("vehiculos")
+    .select("id")
+    .eq("placa", placaNorm)
+    .eq("taller_id", taller.id)
+    .neq("id", data.vehiculoId)
+    .maybeSingle();
+
+  if (placaDuplicada) {
+    return {
+      ok: false,
+      error: "Ya tienes otro vehículo con esta placa.",
+      fieldErrors: { placa: ["Placa duplicada en tu flota"] },
+    };
+  }
+
+  const km = data.odometro;
+  const payload = {
+    tipo_vehiculo: data.tipo_vehiculo,
+    placa: placaNorm,
+    marca: data.marca?.trim() || null,
+    modelo: data.modelo?.trim() || null,
+    color: data.color?.trim() || null,
+    nombre_cliente: data.nombreCliente.trim(),
+    telefono_cliente: data.telefonoCliente.trim(),
+    serial_motor: data.serialMotor?.trim() || null,
+    serial_carroceria: data.serialCarroceria?.trim() || null,
+    cedula_propietario: data.cedulaPropietario?.trim() || null,
+    email_propietario: data.emailPropietario?.trim() || null,
+    fecha_nacimiento_propietario: data.fechaNacimientoPropietario?.trim() || null,
+    documentos: data.documentos ?? {},
+    unidad_odometro: config.unidadOdometro,
+    kilometraje_ultimo: config.unidadOdometro === "km" ? km : null,
+    horas_motor_ultimo: config.unidadOdometro === "horas" ? km : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("vehiculos")
+    .update(payload)
+    .eq("id", data.vehiculoId);
+
+  if (error) return { ok: false, error: error.message };
+
+  if (data.tipo_vehiculo === "bicicleta" && vehiculo.user_id) {
+    await ensureBikeForVehiculo(supabase, {
+      id: data.vehiculoId,
+      user_id: vehiculo.user_id,
+      placa: placaNorm,
+      marca: data.marca,
+      modelo: data.modelo,
+      color: data.color,
+    });
+  }
+
+  revalidatePath("/dashboard/vehiculos");
+  revalidatePath(`/dashboard/vehiculos/${data.vehiculoId}`);
+  return { ok: true };
+}
+
+export async function deleteVehiculoTallerAction(
+  vehiculoId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+
+  const parsed = deleteVehiculoTallerSchema.safeParse({ vehiculoId });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const { taller } = await ensureTallerForUser(user.id);
+  if (!taller) return { ok: false, error: "No se encontró tu taller" };
+
+  const supabase = createAdminClient();
+  const { data: vehiculo } = await supabase
+    .from("vehiculos")
+    .select("id, taller_id")
+    .eq("id", parsed.data.vehiculoId)
+    .maybeSingle();
+
+  if (!vehiculo || vehiculo.taller_id !== taller.id) {
+    return { ok: false, error: "Vehículo no encontrado" };
+  }
+
+  const { error } = await supabase
+    .from("vehiculos")
+    .delete()
+    .eq("id", parsed.data.vehiculoId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/vehiculos");
   return { ok: true };
 }

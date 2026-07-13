@@ -103,3 +103,15 @@ export const createVehiculoTallerSchema = z
   });
 
 export type CreateVehiculoTallerInput = z.input<typeof createVehiculoTallerSchema>;
+
+export const updateVehiculoTallerSchema = createVehiculoTallerSchema
+  .omit({ ordenRecepcion: true })
+  .extend({
+    vehiculoId: z.string().uuid("ID de vehículo inválido"),
+  });
+
+export type UpdateVehiculoTallerInput = z.input<typeof updateVehiculoTallerSchema>;
+
+export const deleteVehiculoTallerSchema = z.object({
+  vehiculoId: z.string().uuid("ID de vehículo inválido"),
+});
