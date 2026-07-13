@@ -62,7 +62,7 @@ async function fetchMantenimientos(
 
     if (!error) {
       return (data ?? []).map((row) => {
-        const item = row as Record<string, unknown>;
+        const item = row as unknown as Record<string, unknown>;
         return {
           ...item,
           descripcion:
