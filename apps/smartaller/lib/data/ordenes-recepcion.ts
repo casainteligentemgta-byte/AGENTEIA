@@ -39,11 +39,11 @@ export type OrdenRecepcionDetalle = {
   estadoVisual: EstadoVisualRecepcion | null;
 };
 
-const ORDEN_SELECT_VARIANTS = [
+const ORDEN_SELECT_VARIANTS: string[] = [
   "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, nivel_combustible, autorizacion_propietario, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id, esquema_danos_meta",
   "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, llego_grua, vehiculo_sucio, estado_ingreso_notas, motivo_visita, firma_cliente, firma_asesor, firmado_cliente_at, firmado_asesor_at, mantenimiento_id",
   "id, created_at, cliente_nombre, cliente_telefono, placa, modelo, color, chasis, kilometraje, fecha_ingreso, hora_ingreso, motivo_visita, mantenimiento_id",
-] as const;
+];
 
 function mapOrdenRow(
   orden: Record<string, unknown>,
@@ -94,7 +94,7 @@ async function fetchOrdenRow(
       .maybeSingle();
 
     if (!error && data) {
-      return data as Record<string, unknown>;
+      return data as unknown as Record<string, unknown>;
     }
 
     if (error && !isMissingSchemaError(error.message)) {

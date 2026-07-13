@@ -7,17 +7,17 @@ export type VehiculoDetalle = Vehiculo & {
   recordatorios: Recordatorio[];
 };
 
-const VEHICULO_SELECT_VARIANTS = [
+const VEHICULO_SELECT_VARIANTS: string[] = [
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, ultima_orden_recepcion_id, marca, modelo, color, user_id, created_at, updated_at",
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, marca, modelo, color, user_id, created_at, updated_at",
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, marca, modelo, color, created_at, updated_at",
-] as const;
+];
 
-const MANTENIMIENTO_SELECT_VARIANTS = [
+const MANTENIMIENTO_SELECT_VARIANTS: string[] = [
   "id, created_at, placa, kilometraje, descripcion, costo, nombre_cliente, telefono_cliente, vehiculo_id, detalle_revision",
   "id, created_at, placa, kilometraje, descripcion_servicio, costo, nombre_cliente, telefono_cliente, vehiculo_id",
   "id, created_at, placa, costo, vehiculo_id, descripcion",
-] as const;
+];
 
 async function fetchVehiculoRow(
   supabase: ReturnType<typeof createClient>,
@@ -33,7 +33,7 @@ async function fetchVehiculoRow(
       .maybeSingle();
 
     if (!error && data) {
-      return data as Record<string, unknown>;
+      return data as unknown as Record<string, unknown>;
     }
 
     lastError = error?.message;
