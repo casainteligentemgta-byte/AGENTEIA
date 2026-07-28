@@ -1,11 +1,30 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { NuevoStickerForm } from "@/components/nfc/NuevoStickerForm";
-import { getUser } from "@/lib/supabase/server";
+import { NuevoStickerForm, type NfcVehiculoOption } from "@/components/nfc/NuevoStickerForm";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 
 export const dynamic = "force-dynamic";
+
+async function loadVehiculosTaller(): Promise<NfcVehiculoOption[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("vehiculos")
+    .select("id, placa, marca, modelo, color, nombre_cliente")
+    .order("placa", { ascending: true });
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    id: row.id as string,
+    placa: (row.placa as string) ?? "",
+    marca: (row.marca as string | null) ?? null,
+    modelo: (row.modelo as string | null) ?? null,
+    color: (row.color as string | null) ?? null,
+    nombreCliente: (row.nombre_cliente as string | null) ?? null,
+  }));
+}
 
 export default async function NuevoPuertoLibrePage() {
   const user = await getUser();
@@ -21,6 +40,8 @@ export default async function NuevoPuertoLibrePage() {
       </main>
     );
   }
+
+  const vehiculos = await loadVehiculosTaller();
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
@@ -38,13 +59,14 @@ export default async function NuevoPuertoLibrePage() {
             Nuevo sticker NFC
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Genera un token único, QR y archivo para grabar la URI en el tag NFC.
+            Vincula un vehículo de tu taller (recomendado) o carga datos manuales. Genera token, QR
+            y archivo para el tag NFC.
           </p>
           <p className="mt-1 text-xs text-zinc-600">{taller.nombre}</p>
         </header>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-          <NuevoStickerForm />
+          <NuevoStickerForm vehiculos={vehiculos} />
         </div>
       </div>
     </main>
