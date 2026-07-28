@@ -10,6 +10,9 @@ import {
   DOCUMENTO_TIPOS,
   documentoTipoSchema,
   importacionSchema,
+  diasHasta,
+  esProximoNacionalizar,
+  esProximoSeniat,
   parseImportacion,
   parseVehiculosDocumentos,
   serializeImportacion,
@@ -286,6 +289,14 @@ export type PuertoLibreVehiculoListItem = {
   docsCount: number;
   stickerToken: string | null;
   regimen: string | null;
+  estadoNacionalizacion: string | null;
+  fechaLimiteNacionalizacion: string | null;
+  estadoSeniat: string | null;
+  fechaPresentacionSeniat: string | null;
+  diasNacionalizacion: number | null;
+  diasSeniat: number | null;
+  proximoNacionalizar: boolean;
+  proximoSeniat: boolean;
 };
 
 export async function listPuertoLibreVehiculos(): Promise<
@@ -378,6 +389,14 @@ function mapListItem(
     docsCount,
     stickerToken: stickers.get(id) ?? null,
     regimen: importacion.regimen ?? null,
+    estadoNacionalizacion: importacion.estadoNacionalizacion ?? null,
+    fechaLimiteNacionalizacion: importacion.fechaLimiteNacionalizacion ?? null,
+    estadoSeniat: importacion.estadoSeniat ?? null,
+    fechaPresentacionSeniat: importacion.fechaPresentacionSeniat ?? null,
+    diasNacionalizacion: diasHasta(importacion.fechaLimiteNacionalizacion),
+    diasSeniat: diasHasta(importacion.fechaPresentacionSeniat),
+    proximoNacionalizar: esProximoNacionalizar(importacion),
+    proximoSeniat: esProximoSeniat(importacion),
   };
 }
 

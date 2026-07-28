@@ -12,7 +12,14 @@ import {
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { NFCQRCode } from "@/components/nfc/NFCQRCode";
-import { IMPORT_DOCUMENTO_TIPOS, type VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import {
+  ESTADOS_NACIONALIZACION,
+  ESTADOS_SENIAT,
+  ESTADO_NACIONALIZACION_LABELS,
+  ESTADO_SENIAT_LABELS,
+  IMPORT_DOCUMENTO_TIPOS,
+  type VehiculosDocumentos,
+} from "@/lib/schemas/vehiculo-documentos";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -97,6 +104,13 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
                 valorCif: valorRaw ? Number(valorRaw) : null,
                 agenteAduanal: String(fd.get("agenteAduanal") ?? "") || null,
                 observaciones: String(fd.get("observaciones") ?? "") || null,
+                estadoNacionalizacion:
+                  String(fd.get("estadoNacionalizacion") ?? "") || "pendiente",
+                fechaLimiteNacionalizacion:
+                  String(fd.get("fechaLimiteNacionalizacion") ?? "") || null,
+                estadoSeniat: String(fd.get("estadoSeniat") ?? "") || "pendiente",
+                fechaPresentacionSeniat:
+                  String(fd.get("fechaPresentacionSeniat") ?? "") || null,
               });
               if (!result.success) flash(null, result.error);
               else {
@@ -142,6 +156,49 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             defaultValue={ficha.importacion.agenteAduanal ?? ""}
             className="sm:col-span-2"
           />
+
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Estado nacionalización</span>
+            <select
+              name="estadoNacionalizacion"
+              defaultValue={ficha.importacion.estadoNacionalizacion ?? "pendiente"}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            >
+              {ESTADOS_NACIONALIZACION.map((estado) => (
+                <option key={estado} value={estado}>
+                  {ESTADO_NACIONALIZACION_LABELS[estado]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field
+            label="Fecha límite nacionalización"
+            name="fechaLimiteNacionalizacion"
+            type="date"
+            defaultValue={ficha.importacion.fechaLimiteNacionalizacion ?? ""}
+          />
+
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Estado SENIAT</span>
+            <select
+              name="estadoSeniat"
+              defaultValue={ficha.importacion.estadoSeniat ?? "pendiente"}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            >
+              {ESTADOS_SENIAT.map((estado) => (
+                <option key={estado} value={estado}>
+                  {ESTADO_SENIAT_LABELS[estado]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field
+            label="Fecha presentación SENIAT"
+            name="fechaPresentacionSeniat"
+            type="date"
+            defaultValue={ficha.importacion.fechaPresentacionSeniat ?? ""}
+          />
+
           <label className="block space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Observaciones</span>
             <textarea
