@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Package,
+  Nfc,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { BrandLogo } from "@/components/app/brand-logo";
@@ -23,6 +24,7 @@ const links = [
   { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
   { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
+  { href: "/puerto-libre", label: "Puerto Libre NFC", icon: Nfc },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
 
