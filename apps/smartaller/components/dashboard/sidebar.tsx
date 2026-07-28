@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Package,
+  ShieldCheck,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { BrandLogo } from "@/components/app/brand-logo";
@@ -23,6 +24,7 @@ const links = [
   { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
   { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
+  { href: "/puerto-libre", label: "Módulo Puerto Libre NFC", icon: ShieldCheck },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
 
@@ -43,19 +45,22 @@ function NavLinks({
       {links.map(({ href, label, icon: Icon }) => {
         const active =
           pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+        const isPuertoLibre = href === "/puerto-libre";
         return (
           <Link
             key={href}
             href={href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+            className={`flex items-center gap-2 rounded-lg p-2 text-sm transition ${
               active
                 ? "bg-blue-600/15 text-blue-400"
-                : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
+                : "text-slate-300 hover:bg-zinc-900 hover:text-white"
             }`}
           >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
+            <Icon
+              className={`h-4 w-4 shrink-0 ${isPuertoLibre && !active ? "text-blue-400" : ""}`}
+            />
+            <span>{label}</span>
           </Link>
         );
       })}
