@@ -62,11 +62,11 @@ export function ImportDocumentoUpload({
               rel="noreferrer"
               className="mt-0.5 inline-block truncate text-xs text-cyan-400 hover:text-cyan-300"
             >
-              {existingUrl ? "Ver documento en el perfil" : "Guardado en el perfil del vehículo"}
+              {existingUrl ? "Ver PDF en el perfil" : "PDF guardado en el perfil del vehículo"}
             </a>
           ) : (
             <p className="mt-0.5 text-xs text-slate-500">
-              Escanea con la cámara o sube JPG/PNG/PDF · se guarda en este vehículo
+              Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB
             </p>
           )}
         </div>
@@ -83,7 +83,7 @@ export function ImportDocumentoUpload({
           ) : (
             <Camera className="h-4 w-4" />
           )}
-          {pending ? "Guardando…" : done ? "Reescanear" : "Escanear"}
+          {pending ? "Generando PDF…" : done ? "Reescanear" : "Escanear / PDF"}
         </button>
       </div>
       <input

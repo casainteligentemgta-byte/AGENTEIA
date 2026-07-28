@@ -58,7 +58,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Documentos de importación</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Carga el expediente aduanero y de propiedad del vehículo.
+          Escanea o sube cada pieza: las fotos se convierten a PDF y quedan en el perfil del vehículo.
         </p>
         <div className="mt-4 grid gap-3">
           {IMPORT_DOCUMENTO_TIPOS.map((tipo) => (
