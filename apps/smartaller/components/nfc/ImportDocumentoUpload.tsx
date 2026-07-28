@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Upload } from "lucide-react";
+import { Camera, CheckCircle2, Loader2 } from "lucide-react";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import {
   DOCUMENTO_LABELS,
@@ -62,10 +62,12 @@ export function ImportDocumentoUpload({
               rel="noreferrer"
               className="mt-0.5 inline-block truncate text-xs text-cyan-400 hover:text-cyan-300"
             >
-              {existingUrl ? "Ver documento cargado" : "Documento actualizado"}
+              {existingUrl ? "Ver documento en el perfil" : "Guardado en el perfil del vehículo"}
             </a>
           ) : (
-            <p className="mt-0.5 text-xs text-slate-500">JPG, PNG o PDF · máx. 10 MB</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Escanea con la cámara o sube JPG/PNG/PDF · se guarda en este vehículo
+            </p>
           )}
         </div>
         <button
@@ -79,15 +81,16 @@ export function ImportDocumentoUpload({
           ) : done ? (
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           ) : (
-            <Upload className="h-4 w-4" />
+            <Camera className="h-4 w-4" />
           )}
-          {pending ? "Subiendo…" : done ? "Reemplazar" : "Cargar"}
+          {pending ? "Guardando…" : done ? "Reescanear" : "Escanear"}
         </button>
       </div>
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+        capture="environment"
         className="hidden"
         onChange={(e) => {
           handleFile(e.target.files?.[0] ?? null);

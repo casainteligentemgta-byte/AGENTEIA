@@ -10,14 +10,18 @@ import {
   DOCUMENTO_TIPOS,
   documentoTipoSchema,
   importacionSchema,
+  seguroSchema,
   diasHasta,
   esProximoNacionalizar,
   esProximoSeniat,
   parseImportacion,
+  parseSeguro,
   parseVehiculosDocumentos,
   serializeImportacion,
+  serializeSeguro,
   type DocumentoTipo,
   type ImportacionData,
+  type SeguroData,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
@@ -68,7 +72,7 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("vehiculos")
-    .select("id, taller_id, documentos, importacion")
+    .select("id, taller_id, documentos, importacion, seguro")
     .eq("id", vehiculoId)
     .maybeSingle();
   if (!data || data.taller_id !== tallerId) return null;
@@ -105,6 +109,39 @@ export async function updatePuertoLibreImportacionAction(
   const { error } = await admin
     .from("vehiculos")
     .update({ importacion: merged, updated_at: new Date().toISOString() })
+    .eq("id", vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(vehiculoId);
+  return { success: true };
+}
+
+export async function updatePuertoLibreSeguroAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const schema = seguroSchema.extend({ vehiculoId: z.string().uuid() });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const { vehiculoId, ...seguro } = parsed.data;
+  const existing = parseSeguro(row.seguro);
+  const merged = serializeSeguro({ ...existing, ...seguro });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ seguro: merged, updated_at: new Date().toISOString() })
     .eq("id", vehiculoId)
     .eq("taller_id", auth.taller.id);
 
@@ -417,6 +454,7 @@ export type PuertoLibreFicha = {
   tienePin: boolean;
   documentos: VehiculosDocumentos;
   importacion: ImportacionData;
+  seguro: SeguroData;
   sticker: { id: string; token: string; activo: boolean } | null;
 };
 
@@ -432,12 +470,61 @@ export async function getPuertoLibreFicha(
   const { data, error } = await admin
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, taller_id"
+      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, seguro, taller_id"
     )
     .eq("id", vehiculoId)
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    // Fallback si falta columna seguro
+    const { data: fallback, error: fallbackError } = await admin
+      .from("vehiculos")
+      .select(
+        "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, taller_id"
+      )
+      .eq("id", vehiculoId)
+      .maybeSingle();
+
+    if (fallbackError || !fallback || fallback.taller_id !== auth.taller.id) {
+      return { success: false, error: error.message };
+    }
+
+    const { data: stickerFb } = await admin
+      .from("nfc_stickers")
+      .select("id, token, activo")
+      .eq("taller_id", auth.taller.id)
+      .eq("vehiculo_id", vehiculoId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return {
+      success: true,
+      ficha: {
+        id: fallback.id,
+        placa: fallback.placa,
+        marca: fallback.marca,
+        modelo: fallback.modelo,
+        color: fallback.color,
+        serial_motor: fallback.serial_motor,
+        serial_carroceria: fallback.serial_carroceria,
+        kilometraje_ultimo: fallback.kilometraje_ultimo,
+        nombre_cliente: fallback.nombre_cliente,
+        telefono_cliente: fallback.telefono_cliente,
+        cedula_propietario: fallback.cedula_propietario,
+        email_propietario: fallback.email_propietario,
+        fecha_nacimiento_propietario: fallback.fecha_nacimiento_propietario,
+        tienePin: Boolean(fallback.pin_hash),
+        documentos: parseVehiculosDocumentos(fallback.documentos),
+        importacion: parseImportacion(fallback.importacion),
+        seguro: {},
+        sticker: stickerFb
+          ? { id: stickerFb.id, token: stickerFb.token, activo: stickerFb.activo }
+          : null,
+      },
+    };
+  }
+
   if (!data || data.taller_id !== auth.taller.id) {
     return { success: false, error: "Vehículo no encontrado" };
   }
@@ -470,6 +557,7 @@ export async function getPuertoLibreFicha(
       tienePin: Boolean(data.pin_hash),
       documentos: parseVehiculosDocumentos(data.documentos),
       importacion: parseImportacion(data.importacion),
+      seguro: parseSeguro(data.seguro),
       sticker: sticker
         ? { id: sticker.id, token: sticker.token, activo: sticker.activo }
         : null,

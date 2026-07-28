@@ -7,7 +7,7 @@ export const vehiculoDocumentoRefSchema = z.object({
   file_name: z.string().optional(),
 });
 
-/** Documentos base + expediente Puerto Libre / importación. */
+/** Documentos base + expediente Puerto Libre / importación / seguro. */
 export const DOCUMENTO_TIPOS = [
   "cedula",
   "titulo",
@@ -17,6 +17,10 @@ export const DOCUMENTO_TIPOS = [
   "permiso_importacion",
   "nacionalizacion",
   "otro_importacion",
+  "poliza_seguro",
+  "certificado_seguro",
+  "recibo_seguro",
+  "rcv_seguro",
 ] as const;
 
 export type DocumentoTipo = (typeof DOCUMENTO_TIPOS)[number];
@@ -32,6 +36,10 @@ export const vehiculosDocumentosSchema = z.object({
   permiso_importacion: vehiculoDocumentoRefSchema.optional(),
   nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   otro_importacion: vehiculoDocumentoRefSchema.optional(),
+  poliza_seguro: vehiculoDocumentoRefSchema.optional(),
+  certificado_seguro: vehiculoDocumentoRefSchema.optional(),
+  recibo_seguro: vehiculoDocumentoRefSchema.optional(),
+  rcv_seguro: vehiculoDocumentoRefSchema.optional(),
 });
 
 export type VehiculoDocumentoRef = z.infer<typeof vehiculoDocumentoRefSchema>;
@@ -51,6 +59,10 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   permiso_importacion: "Permiso de importación",
   nacionalizacion: "Nacionalización / aduana",
   otro_importacion: "Otro documento de importación",
+  poliza_seguro: "Póliza de seguro",
+  certificado_seguro: "Certificado de cobertura",
+  recibo_seguro: "Recibo / pago de prima",
+  rcv_seguro: "RCV / responsabilidad civil",
 };
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -61,6 +73,13 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "nacionalizacion",
   "titulo",
   "otro_importacion",
+];
+
+export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  "poliza_seguro",
+  "certificado_seguro",
+  "recibo_seguro",
+  "rcv_seguro",
 ];
 
 export const ESTADOS_NACIONALIZACION = [
@@ -190,4 +209,57 @@ export function esProximoNacionalizar(data: ImportacionData): boolean {
 export function esProximoSeniat(data: ImportacionData): boolean {
   const estado = data.estadoSeniat ?? "pendiente";
   return estado === "pendiente" || estado === "agendada";
+}
+
+export const seguroSchema = z.object({
+  aseguradora: z.string().trim().max(120).optional().nullable(),
+  numeroPoliza: z.string().trim().max(80).optional().nullable(),
+  tipoCobertura: z.string().trim().max(80).optional().nullable(),
+  vigenciaDesde: z.string().trim().max(32).optional().nullable(),
+  vigenciaHasta: z.string().trim().max(32).optional().nullable(),
+  montoAsegurado: z.union([z.number(), z.nan()]).optional().nullable(),
+  telefonoAseguradora: z.string().trim().max(40).optional().nullable(),
+  corredor: z.string().trim().max(120).optional().nullable(),
+  observaciones: z.string().trim().max(1000).optional().nullable(),
+});
+
+export type SeguroData = z.infer<typeof seguroSchema>;
+
+export function parseSeguro(raw: unknown): SeguroData {
+  if (!raw || typeof raw !== "object") return {};
+  const row = raw as Record<string, unknown>;
+  const parsed = seguroSchema.safeParse({
+    aseguradora: row.aseguradora,
+    numeroPoliza: row.numeroPoliza ?? row.numero_poliza,
+    tipoCobertura: row.tipoCobertura ?? row.tipo_cobertura,
+    vigenciaDesde: row.vigenciaDesde ?? row.vigencia_desde,
+    vigenciaHasta: row.vigenciaHasta ?? row.vigencia_hasta,
+    montoAsegurado:
+      typeof row.montoAsegurado === "number"
+        ? row.montoAsegurado
+        : typeof row.monto_asegurado === "number"
+          ? row.monto_asegurado
+          : row.montoAsegurado ?? row.monto_asegurado,
+    telefonoAseguradora: row.telefonoAseguradora ?? row.telefono_aseguradora,
+    corredor: row.corredor,
+    observaciones: row.observaciones,
+  });
+  return parsed.success ? parsed.data : {};
+}
+
+export function serializeSeguro(data: SeguroData): Record<string, unknown> {
+  return {
+    aseguradora: data.aseguradora?.trim() || null,
+    numero_poliza: data.numeroPoliza?.trim() || null,
+    tipo_cobertura: data.tipoCobertura?.trim() || null,
+    vigencia_desde: data.vigenciaDesde?.trim() || null,
+    vigencia_hasta: data.vigenciaHasta?.trim() || null,
+    monto_asegurado:
+      data.montoAsegurado != null && !Number.isNaN(data.montoAsegurado)
+        ? data.montoAsegurado
+        : null,
+    telefono_aseguradora: data.telefonoAseguradora?.trim() || null,
+    corredor: data.corredor?.trim() || null,
+    observaciones: data.observaciones?.trim() || null,
+  };
 }

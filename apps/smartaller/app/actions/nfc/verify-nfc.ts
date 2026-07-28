@@ -67,6 +67,10 @@ function mapDocuments(raw: unknown): NfcDocumentPublic[] {
     { key: "permiso_importacion", label: "Permiso de importación" },
     { key: "nacionalizacion", label: "Nacionalización" },
     { key: "otro_importacion", label: "Otro importación" },
+    { key: "poliza_seguro", label: "Póliza de seguro" },
+    { key: "certificado_seguro", label: "Certificado de cobertura" },
+    { key: "recibo_seguro", label: "Recibo de seguro" },
+    { key: "rcv_seguro", label: "RCV" },
   ];
 
   for (const { key, label } of entries) {

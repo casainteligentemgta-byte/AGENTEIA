@@ -6,6 +6,7 @@ import {
   setPuertoLibrePinAction,
   updatePuertoLibreImportacionAction,
   updatePuertoLibrePropietarioAction,
+  updatePuertoLibreSeguroAction,
   updatePuertoLibreVehiculoAction,
   type PuertoLibreFicha,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
@@ -18,6 +19,7 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   IMPORT_DOCUMENTO_TIPOS,
+  SEGURO_DOCUMENTO_TIPOS,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 
@@ -214,7 +216,122 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </form>
       </section>
 
-      {/* 3. Datos del vehículo */}
+      {/* 3. Seguro */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Seguro del vehículo</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Datos de la póliza y documentos escaneados, guardados en el perfil de este vehículo.
+        </p>
+
+        <form
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          action={(fd) => {
+            startTransition(async () => {
+              const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
+              const result = await updatePuertoLibreSeguroAction({
+                vehiculoId: ficha.id,
+                aseguradora: String(fd.get("aseguradora") ?? "") || null,
+                numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
+                tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
+                vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
+                vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
+                montoAsegurado: montoRaw ? Number(montoRaw) : null,
+                telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
+                corredor: String(fd.get("corredor") ?? "") || null,
+                observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
+              });
+              if (!result.success) flash(null, result.error);
+              else {
+                flash("Seguro actualizado", null);
+                router.refresh();
+              }
+            });
+          }}
+        >
+          <Field
+            label="Aseguradora"
+            name="aseguradora"
+            defaultValue={ficha.seguro.aseguradora ?? ""}
+          />
+          <Field
+            label="Nº de póliza"
+            name="numeroPoliza"
+            defaultValue={ficha.seguro.numeroPoliza ?? ""}
+          />
+          <Field
+            label="Tipo de cobertura"
+            name="tipoCobertura"
+            defaultValue={ficha.seguro.tipoCobertura ?? ""}
+            placeholder="RCV, todo riesgo…"
+          />
+          <Field
+            label="Teléfono aseguradora"
+            name="telefonoAseguradora"
+            defaultValue={ficha.seguro.telefonoAseguradora ?? ""}
+          />
+          <Field
+            label="Vigencia desde"
+            name="vigenciaDesde"
+            type="date"
+            defaultValue={ficha.seguro.vigenciaDesde ?? ""}
+          />
+          <Field
+            label="Vigencia hasta"
+            name="vigenciaHasta"
+            type="date"
+            defaultValue={ficha.seguro.vigenciaHasta ?? ""}
+          />
+          <Field
+            label="Monto asegurado (USD)"
+            name="montoAsegurado"
+            type="number"
+            defaultValue={
+              ficha.seguro.montoAsegurado != null ? String(ficha.seguro.montoAsegurado) : ""
+            }
+          />
+          <Field
+            label="Corredor / agente"
+            name="corredor"
+            defaultValue={ficha.seguro.corredor ?? ""}
+          />
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones del seguro</span>
+            <textarea
+              name="observacionesSeguro"
+              rows={3}
+              defaultValue={ficha.seguro.observaciones ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <div className="sm:col-span-2">
+            <SaveButton pending={pending} label="Guardar seguro" />
+          </div>
+        </form>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-slate-300">Documentos del seguro</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Escanea cada documento; se almacena en el perfil del vehículo.
+          </p>
+          <div className="mt-3 grid gap-3">
+            {SEGURO_DOCUMENTO_TIPOS.map((tipo) => (
+              <ImportDocumentoUpload
+                key={tipo}
+                vehiculoId={ficha.id}
+                tipo={tipo}
+                existingUrl={docs[tipo]?.url}
+                onUploaded={(next) => {
+                  setDocs(next);
+                  flash("Documento de seguro guardado en el perfil", null);
+                  router.refresh();
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Datos del vehículo */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Datos del vehículo</h2>
         <p className="mt-1 text-sm text-slate-500">Identificación y estado del automóvil.</p>
@@ -268,7 +385,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </form>
       </section>
 
-      {/* 4. Propietario */}
+      {/* 5. Propietario */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Propietario</h2>
         <p className="mt-1 text-sm text-slate-500">Datos del titular del vehículo.</p>
@@ -327,7 +444,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </form>
       </section>
 
-      {/* 5. NFC */}
+      {/* 6. NFC */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Sticker NFC</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -435,12 +552,14 @@ function Field({
   defaultValue,
   type = "text",
   className = "",
+  placeholder,
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   type?: string;
   className?: string;
+  placeholder?: string;
 }) {
   return (
     <label className={`block space-y-1.5 ${className}`}>
@@ -449,6 +568,7 @@ function Field({
         name={name}
         type={type}
         defaultValue={defaultValue}
+        placeholder={placeholder}
         className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
       />
     </label>
