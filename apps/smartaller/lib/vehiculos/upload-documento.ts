@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
+import type { DocumentoTipo, VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
 import {
   extensionFromImageMime,
   isGenericMimeType,
@@ -41,7 +41,7 @@ export async function uploadVehiculoDocumento(
   params: {
     tallerId: string;
     vehiculoId: string | "temp";
-    tipo: "cedula" | "titulo";
+    tipo: DocumentoTipo;
     file: File;
   }
 ): Promise<VehiculoDocumentoRef> {
@@ -80,5 +80,6 @@ export async function uploadVehiculoDocumento(
     url: urlData.publicUrl,
     path,
     scanned_at: new Date().toISOString(),
+    file_name: params.file.name || undefined,
   };
 }
