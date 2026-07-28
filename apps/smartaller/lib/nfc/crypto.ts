@@ -1,29 +1,31 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import bcrypt from "bcryptjs";
 
-const SCRYPT_KEYLEN = 64;
-const SCRYPT_N = 16384;
-const SCRYPT_R = 8;
-const SCRYPT_P = 1;
+const BCRYPT_ROUNDS = 10;
 
-/** Formato: scrypt$N$r$p$saltHex$hashHex */
-export function hashPin(pin: string): string {
-  const salt = randomBytes(16);
-  const hash = scryptSync(pin, salt, SCRYPT_KEYLEN, {
-    N: SCRYPT_N,
-    r: SCRYPT_R,
-    p: SCRYPT_P,
-  });
-  return [
-    "scrypt",
-    String(SCRYPT_N),
-    String(SCRYPT_R),
-    String(SCRYPT_P),
-    salt.toString("hex"),
-    hash.toString("hex"),
-  ].join("$");
+/** Hash bcrypt del PIN (compatible con verifyNFCAndPin). */
+export async function hashPin(pin: string): Promise<string> {
+  return bcrypt.hash(pin, BCRYPT_ROUNDS);
 }
 
-export function verifyPin(pin: string, storedHash: string): boolean {
+/**
+ * Compara PIN contra hash bcrypt (preferido) o scrypt legado (scrypt$...).
+ */
+export async function verifyPin(pin: string, storedHash: string): Promise<boolean> {
+  if (!storedHash) return false;
+
+  if (storedHash.startsWith("scrypt$")) {
+    return verifyScryptLegacy(pin, storedHash);
+  }
+
+  try {
+    return await bcrypt.compare(pin, storedHash);
+  } catch {
+    return false;
+  }
+}
+
+function verifyScryptLegacy(pin: string, storedHash: string): boolean {
   const parts = storedHash.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt") return false;
 
@@ -32,16 +34,13 @@ export function verifyPin(pin: string, storedHash: string): boolean {
   const p = Number(parts[3]);
   const saltHex = parts[4];
   const hashHex = parts[5];
-
-  if (!Number.isFinite(n) || !Number.isFinite(r) || !Number.isFinite(p)) return false;
-  if (!saltHex || !hashHex) return false;
+  if (!Number.isFinite(n) || !saltHex || !hashHex) return false;
 
   try {
     const salt = Buffer.from(saltHex, "hex");
     const expected = Buffer.from(hashHex, "hex");
     const actual = scryptSync(pin, salt, expected.length, { N: n, r, p });
-    if (actual.length !== expected.length) return false;
-    return timingSafeEqual(actual, expected);
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
   } catch {
     return false;
   }

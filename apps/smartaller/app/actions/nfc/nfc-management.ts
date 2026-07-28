@@ -40,9 +40,18 @@ function mapListItem(row: {
   activo: boolean;
   notas: string | null;
   last_verified_at: string | null;
+  last_scanned_at: string | null;
+  vehiculos?: { pin_hash: string | null } | { pin_hash: string | null }[] | null;
 }): NfcStickerListItem {
-  const { pin_hash, ...rest } = row;
-  return { ...rest, tienePin: Boolean(pin_hash) };
+  const { pin_hash, vehiculos, ...rest } = row;
+  const vehiclePin = Array.isArray(vehiculos)
+    ? vehiculos[0]?.pin_hash
+    : vehiculos?.pin_hash;
+  return {
+    ...rest,
+    last_scanned_at: rest.last_scanned_at ?? null,
+    tienePin: Boolean(pin_hash || vehiclePin),
+  };
 }
 
 async function requireTaller() {
@@ -64,7 +73,7 @@ export async function listNfcStickers(): Promise<ListNfcResult> {
   const { data, error } = await supabase
     .from("nfc_stickers")
     .select(
-      "id, created_at, updated_at, taller_id, vehiculo_id, token, etiqueta, placa, marca, modelo, color, nombre_titular, pin_hash, activo, notas, last_verified_at"
+      "id, created_at, updated_at, taller_id, vehiculo_id, token, etiqueta, placa, marca, modelo, color, nombre_titular, pin_hash, activo, notas, last_verified_at, last_scanned_at, vehiculos(pin_hash)"
     )
     .eq("taller_id", auth.taller.id)
     .order("created_at", { ascending: false });
@@ -91,9 +100,9 @@ export async function createNfcStickerAction(raw: unknown): Promise<CreateNfcRes
   }
 
   const data = parsed.data;
+  const admin = createAdminClient();
 
   if (data.vehiculoId) {
-    const admin = createAdminClient();
     const { data: vehiculo } = await admin
       .from("vehiculos")
       .select("id, taller_id")
@@ -105,8 +114,20 @@ export async function createNfcStickerAction(raw: unknown): Promise<CreateNfcRes
   }
 
   const token = generateNfcToken();
-  const pin_hash = data.pin ? hashPin(data.pin) : null;
+  const pin_hash = data.pin ? await hashPin(data.pin) : null;
   const now = new Date().toISOString();
+
+  // PIN vive en el vehículo cuando hay vínculo (flujo verifyNFCAndPin).
+  if (data.vehiculoId && pin_hash) {
+    const { error: pinError } = await admin
+      .from("vehiculos")
+      .update({ pin_hash, updated_at: now })
+      .eq("id", data.vehiculoId)
+      .eq("taller_id", auth.taller.id);
+    if (pinError) {
+      return { success: false, error: pinError.message };
+    }
+  }
 
   const supabase = createClient();
   const { data: row, error } = await supabase
@@ -121,7 +142,8 @@ export async function createNfcStickerAction(raw: unknown): Promise<CreateNfcRes
       modelo: data.modelo?.trim() || null,
       color: data.color?.trim() || null,
       nombre_titular: data.nombreTitular?.trim() || null,
-      pin_hash,
+      // Solo en sticker si aún no hay vehículo vinculado.
+      pin_hash: data.vehiculoId ? null : pin_hash,
       notas: data.notas?.trim() || null,
       activo: true,
       created_at: now,
@@ -150,9 +172,9 @@ export async function updateNfcStickerAction(raw: unknown): Promise<NfcActionRes
   }
 
   const data = parsed.data;
-  const patch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = { updated_at: now };
 
   if (data.etiqueta !== undefined) patch.etiqueta = data.etiqueta?.trim() || null;
   if (data.placa !== undefined) patch.placa = data.placa?.trim().toUpperCase() || null;
@@ -164,9 +186,10 @@ export async function updateNfcStickerAction(raw: unknown): Promise<NfcActionRes
   }
   if (data.notas !== undefined) patch.notas = data.notas?.trim() || null;
   if (data.activo !== undefined) patch.activo = data.activo;
+
+  let vehiculoId = data.vehiculoId;
   if (data.vehiculoId !== undefined) {
     if (data.vehiculoId) {
-      const admin = createAdminClient();
       const { data: vehiculo } = await admin
         .from("vehiculos")
         .select("id, taller_id")
@@ -177,11 +200,38 @@ export async function updateNfcStickerAction(raw: unknown): Promise<NfcActionRes
       }
     }
     patch.vehiculo_id = data.vehiculoId;
+  } else {
+    const supabasePeek = createClient();
+    const { data: existing } = await supabasePeek
+      .from("nfc_stickers")
+      .select("vehiculo_id")
+      .eq("id", data.id)
+      .eq("taller_id", auth.taller.id)
+      .maybeSingle();
+    vehiculoId = existing?.vehiculo_id ?? null;
   }
+
   if (data.clearPin) {
     patch.pin_hash = null;
+    if (vehiculoId) {
+      await admin
+        .from("vehiculos")
+        .update({ pin_hash: null, updated_at: now })
+        .eq("id", vehiculoId)
+        .eq("taller_id", auth.taller.id);
+    }
   } else if (data.pin) {
-    patch.pin_hash = hashPin(data.pin);
+    const pin_hash = await hashPin(data.pin);
+    if (vehiculoId) {
+      await admin
+        .from("vehiculos")
+        .update({ pin_hash, updated_at: now })
+        .eq("id", vehiculoId)
+        .eq("taller_id", auth.taller.id);
+      patch.pin_hash = null;
+    } else {
+      patch.pin_hash = pin_hash;
+    }
   }
 
   const supabase = createClient();

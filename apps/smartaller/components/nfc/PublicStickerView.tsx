@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { ShieldCheck } from "lucide-react";
+import { ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import { verifyNfcPin } from "@/app/actions/nfc/verify-nfc";
-import type { NfcStickerPublic } from "@/lib/nfc/types";
+import type { NfcStickerPublic, NfcVerifiedVehicle } from "@/lib/nfc/types";
 
 type Props = {
   token: string;
@@ -17,6 +17,7 @@ export function PublicStickerView({ token, initial }: Props) {
   const [pending, startTransition] = useTransition();
 
   const showSensitive = !sticker.requierePin || sticker.verificado;
+  const vehicle = sticker.vehicle;
 
   function onVerify(e: FormEvent) {
     e.preventDefault();
@@ -53,33 +54,12 @@ export function PublicStickerView({ token, initial }: Props) {
           {sticker.etiqueta ? <Row label="Etiqueta" value={sticker.etiqueta} /> : null}
 
           {showSensitive ? (
-            <>
-              {sticker.placa ? (
-                <Row label="Placa" value={sticker.placa} mono highlight />
-              ) : (
-                <Row label="Placa" value="Sin placa registrada" muted />
-              )}
-              <Row
-                label="Vehículo"
-                value={
-                  [sticker.marca, sticker.modelo].filter(Boolean).join(" ") || "No indicado"
-                }
-              />
-              {sticker.color ? <Row label="Color" value={sticker.color} /> : null}
-              {sticker.nombre_titular ? (
-                <Row label="Titular" value={sticker.nombre_titular} />
-              ) : null}
-              {sticker.verificado ? (
-                <p className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-                  <ShieldCheck className="h-4 w-4" />
-                  PIN verificado
-                </p>
-              ) : null}
-            </>
+            <VerifiedDetails sticker={sticker} vehicle={vehicle} />
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-zinc-400">
-                Este sticker está protegido. Introduce el PIN para ver los datos del vehículo.
+                Este sticker está protegido. Introduce el PIN para ver los datos del vehículo y
+                documentos de Puerto Libre.
               </p>
               <form onSubmit={onVerify} className="space-y-3">
                 <input
@@ -107,6 +87,91 @@ export function PublicStickerView({ token, initial }: Props) {
         </div>
       </section>
     </div>
+  );
+}
+
+function VerifiedDetails({
+  sticker,
+  vehicle,
+}: {
+  sticker: NfcStickerPublic;
+  vehicle: NfcVerifiedVehicle | null;
+}) {
+  const plate = vehicle?.plate ?? sticker.placa;
+  const brandModel =
+    [vehicle?.brand ?? sticker.marca, vehicle?.model ?? sticker.modelo]
+      .filter(Boolean)
+      .join(" ") || "No indicado";
+  const color = vehicle?.color ?? sticker.color;
+  const titular = vehicle?.nombreTitular ?? sticker.nombre_titular;
+
+  return (
+    <>
+      {plate ? (
+        <Row label="Placa" value={plate} mono highlight />
+      ) : (
+        <Row label="Placa" value="Sin placa registrada" muted />
+      )}
+      <Row label="Vehículo" value={brandModel} />
+      {vehicle?.year != null ? <Row label="Año" value={String(vehicle.year)} /> : null}
+      {color ? <Row label="Color" value={color} /> : null}
+      {titular ? <Row label="Titular" value={titular} /> : null}
+      {vehicle?.vin ? <Row label="VIN / chasis" value={vehicle.vin} mono /> : null}
+      {vehicle ? (
+        <Row
+          label="Kilometraje"
+          value={vehicle.mileage > 0 ? `${vehicle.mileage.toLocaleString("es-VE")} km` : "Sin dato"}
+        />
+      ) : null}
+      {vehicle?.entryDate ? (
+        <Row
+          label="Ingreso"
+          value={new Date(vehicle.entryDate).toLocaleDateString("es-VE", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        />
+      ) : null}
+
+      {vehicle?.documents && vehicle.documents.length > 0 ? (
+        <div className="space-y-2 pt-2">
+          <p className="text-sm text-zinc-500">Documentos Puerto Libre</p>
+          <ul className="space-y-2">
+            {vehicle.documents.map((doc) => (
+              <li key={doc.id}>
+                {doc.url ? (
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2.5 text-sm text-zinc-200 transition hover:border-cyan-700 hover:text-cyan-200"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-cyan-400" />
+                      {doc.fileName}
+                    </span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                  </a>
+                ) : (
+                  <span className="flex items-center gap-2 rounded-xl border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400">
+                    <FileText className="h-4 w-4" />
+                    {doc.fileName}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {sticker.verificado ? (
+        <p className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+          <ShieldCheck className="h-4 w-4" />
+          PIN verificado
+        </p>
+      ) : null}
+    </>
   );
 }
 

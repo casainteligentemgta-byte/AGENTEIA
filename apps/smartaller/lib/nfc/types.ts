@@ -15,6 +15,29 @@ export type NfcSticker = {
   activo: boolean;
   notas: string | null;
   last_verified_at: string | null;
+  last_scanned_at: string | null;
+};
+
+export type NfcDocumentPublic = {
+  id: string;
+  docType: string;
+  fileName: string;
+  filePath: string;
+  url: string | null;
+};
+
+/** Datos del vehículo desbloqueados tras verificar PIN. */
+export type NfcVerifiedVehicle = {
+  brand: string | null;
+  model: string | null;
+  year: number | null;
+  plate: string | null;
+  vin: string | null;
+  entryDate: string | null;
+  mileage: number;
+  color: string | null;
+  nombreTitular: string | null;
+  documents: NfcDocumentPublic[];
 };
 
 /** Vista pública sin exponer pin_hash ni notas internas. */
@@ -30,6 +53,7 @@ export type NfcStickerPublic = {
   requierePin: boolean;
   tallerNombre: string | null;
   verificado: boolean;
+  vehicle: NfcVerifiedVehicle | null;
 };
 
 export type NfcStickerListItem = Omit<NfcSticker, "pin_hash"> & {

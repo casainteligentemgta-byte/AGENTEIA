@@ -6,7 +6,7 @@ import { hashPinBodySchema } from "@/lib/validations/nfc";
 export const dynamic = "force-dynamic";
 
 /**
- * Hashea un PIN con scrypt (mismo formato que nfc_stickers.pin_hash).
+ * Hashea un PIN con bcrypt (mismo formato que vehiculos.pin_hash / nfc_stickers.pin_hash).
  * Solo autenticado; no persiste nada. Preferible asignar PIN vía Server Action.
  */
 export async function POST(req: Request) {
@@ -30,6 +30,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const hash = hashPin(parsed.data.pin);
+  const hash = await hashPin(parsed.data.pin);
   return NextResponse.json({ hash });
 }
