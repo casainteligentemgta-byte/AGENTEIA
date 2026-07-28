@@ -1,24 +1,74 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getUser } from "@/lib/supabase/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcTokenSchema } from "@/lib/validations/nfc";
 
 export const dynamic = "force-dynamic";
 
-const querySchema = z.object({
+const SIGNED_URL_TTL_SECONDS = 60;
+
+const stickerQuerySchema = z.object({
   token: nfcTokenSchema.optional(),
   id: z.string().uuid().optional(),
   format: z.enum(["json", "ndef", "txt"]).default("json"),
 });
 
 /**
- * Descarga payload NFC (URI) para grabar en el sticker.
- * Auth + ownership del taller. Asume RLS en nfc_stickers.
+ * GET /api/nfc/download
+ * - ?path=... → enlace firmado (60s) al documento en storage
+ * - ?id=... | ?token=... → payload URI/NDEF del sticker NFC
  */
-export async function GET(req: Request) {
+export async function GET(request: NextRequest) {
+  const filePath = request.nextUrl.searchParams.get("path");
+
+  if (filePath) {
+    return downloadSignedDocument(filePath);
+  }
+
+  return downloadNfcPayload(request);
+}
+
+async function downloadSignedDocument(filePath: string) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
+  if (!filePath.trim()) {
+    return NextResponse.json({ error: "Ruta no especificada." }, { status: 400 });
+  }
+
+  // Evita path traversal / buckets ajenos
+  if (filePath.includes("..") || filePath.startsWith("/")) {
+    return NextResponse.json({ error: "Ruta no válida." }, { status: 400 });
+  }
+
+  const taller = await getMyTaller();
+  if (!taller) {
+    return NextResponse.json({ error: "No se encontró tu taller" }, { status: 403 });
+  }
+
+  // Los docs se guardan como `{tallerId}/...`
+  if (!filePath.startsWith(`${taller.id}/`)) {
+    return NextResponse.json({ error: "Acceso denegado al archivo." }, { status: 403 });
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.storage
+    .from(VEHICULO_DOCS_BUCKET)
+    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    return NextResponse.json({ error: "Acceso denegado al archivo." }, { status: 403 });
+  }
+
+  return NextResponse.redirect(data.signedUrl);
+}
+
+async function downloadNfcPayload(request: NextRequest) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -29,11 +79,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No se encontró tu taller" }, { status: 403 });
   }
 
-  const url = new URL(req.url);
-  const parsed = querySchema.safeParse({
-    token: url.searchParams.get("token") ?? undefined,
-    id: url.searchParams.get("id") ?? undefined,
-    format: url.searchParams.get("format") ?? "json",
+  const parsed = stickerQuerySchema.safeParse({
+    token: request.nextUrl.searchParams.get("token") ?? undefined,
+    id: request.nextUrl.searchParams.get("id") ?? undefined,
+    format: request.nextUrl.searchParams.get("format") ?? "json",
   });
 
   if (!parsed.success) {
@@ -44,7 +93,7 @@ export async function GET(req: Request) {
   }
 
   if (!parsed.data.token && !parsed.data.id) {
-    return NextResponse.json({ error: "Indica token o id" }, { status: 400 });
+    return NextResponse.json({ error: "Ruta no especificada." }, { status: 400 });
   }
 
   const supabase = createClient();

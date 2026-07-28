@@ -8,6 +8,7 @@ import type {
   NfcVerifiedVehicle,
 } from "@/lib/nfc/types";
 import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcTokenSchema, verifyNfcSchema } from "@/lib/validations/nfc";
 
 export type VerifyNfcResult =
@@ -78,7 +79,31 @@ function mapDocuments(raw: unknown): NfcDocumentPublic[] {
   return out;
 }
 
-function toVerifiedVehicle(vehicle: VehicleRow): NfcVerifiedVehicle {
+const SIGNED_DOC_TTL_SECONDS = 60;
+
+/** Tras verificar PIN, sustituye URLs públicas por firmadas (60s). */
+async function withSignedDocumentUrls(
+  documents: NfcDocumentPublic[]
+): Promise<NfcDocumentPublic[]> {
+  if (documents.length === 0) return documents;
+
+  const supabase = createAdminClient();
+  return Promise.all(
+    documents.map(async (doc) => {
+      if (!doc.filePath) return { ...doc, url: null };
+      const { data } = await supabase.storage
+        .from(VEHICULO_DOCS_BUCKET)
+        .createSignedUrl(doc.filePath, SIGNED_DOC_TTL_SECONDS);
+      return {
+        ...doc,
+        url: data?.signedUrl ?? null,
+      };
+    })
+  );
+}
+
+async function toVerifiedVehicle(vehicle: VehicleRow): Promise<NfcVerifiedVehicle> {
+  const documents = await withSignedDocumentUrls(mapDocuments(vehicle.documentos));
   return {
     brand: vehicle.marca,
     model: vehicle.modelo,
@@ -89,7 +114,7 @@ function toVerifiedVehicle(vehicle: VehicleRow): NfcVerifiedVehicle {
     mileage: vehicle.kilometraje_ultimo ?? 0,
     color: vehicle.color,
     nombreTitular: vehicle.nombre_cliente,
-    documents: mapDocuments(vehicle.documentos),
+    documents,
   };
 }
 
@@ -161,7 +186,7 @@ export async function getNfcStickerPublic(token: string): Promise<VerifyNfcResul
     sticker: toPublicPreview(tag, {
       requierePin,
       verificado: !requierePin,
-      vehicle: vehicle && !requierePin ? toVerifiedVehicle(vehicle) : null,
+      vehicle: vehicle && !requierePin ? await toVerifiedVehicle(vehicle) : null,
     }),
   };
 }
@@ -239,8 +264,8 @@ export async function verifyNFCAndPin(
     return { success: false, message: "PIN incorrecto." };
   }
 
-  // 4. Documentos Puerto Libre (vehiculos.documentos jsonb)
-  const data = toVerifiedVehicle(vehicle);
+  // 4. Documentos Puerto Libre (URLs firmadas 60s)
+  const data = await toVerifiedVehicle(vehicle);
 
   // 5. Registrar escaneo
   const now = new Date().toISOString();
