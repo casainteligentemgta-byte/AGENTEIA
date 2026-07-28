@@ -311,7 +311,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         <div className="mt-6">
           <h3 className="text-sm font-medium text-slate-300">Documentos del seguro</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Escanea cada documento; se almacena en el perfil del vehículo.
+            Escanea (foto → PDF) o sube PDF; se almacena en el perfil del vehículo.
           </p>
           <div className="mt-3 grid gap-3">
             {SEGURO_DOCUMENTO_TIPOS.map((tipo) => (
