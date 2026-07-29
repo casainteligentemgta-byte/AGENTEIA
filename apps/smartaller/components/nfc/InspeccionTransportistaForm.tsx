@@ -1,10 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { CheckCheck } from "lucide-react";
 import { saveInspeccionTransportistaAction } from "@/app/actions/nfc/inspeccion-transportista";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { InspeccionWizardFotos } from "@/components/dashboard/inspeccion-wizard-fotos";
+import {
+  opcionesParaSeccion,
+  PlanillaChecklistProgress,
+  PlanillaChecklistRow,
+} from "@/components/nfc/PlanillaChecklistTap";
 import {
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
@@ -60,16 +66,44 @@ export function InspeccionTransportistaForm({
   const [kilometraje, setKilometraje] = useState<number | null>(
     initial?.kilometraje ?? prefill?.kilometraje ?? null
   );
-  const [checklist, setChecklist] = useState<Record<string, ChecklistRespuesta>>(() => {
-    const base: Record<string, ChecklistRespuesta> = {};
+  const [checklist, setChecklist] = useState<Record<string, ChecklistRespuesta | "">>(() => {
+    const base: Record<string, ChecklistRespuesta | ""> = {};
     for (const item of TRANSPORTISTA_CHECKLIST) {
-      base[item.id] = initial?.checklist?.[item.id] ?? "na";
+      base[item.id] = initial?.checklist?.[item.id] ?? "";
     }
     return base;
   });
 
   function setItem(id: string, value: ChecklistRespuesta) {
-    setChecklist((prev) => ({ ...prev, [id]: value }));
+    setChecklist((prev) => ({
+      ...prev,
+      [id]: prev[id] === value ? "" : value,
+    }));
+  }
+
+  function marcarSeccionOk(seccion: (typeof TRANSPORTISTA_SECCIONES)[number]) {
+    setChecklist((prev) => {
+      const next = { ...prev };
+      for (const item of transportistaPorSeccion(seccion)) {
+        next[item.id] = "sin_dano";
+      }
+      return next;
+    });
+  }
+
+  const progresoGlobal = useMemo(() => {
+    const items = TRANSPORTISTA_CHECKLIST.filter((i) => i.seccion !== "evidencia");
+    const marked = items.filter((i) => Boolean(checklist[i.id])).length;
+    return { marked, total: items.length };
+  }, [checklist]);
+
+  function checklistParaGuardar(): Record<string, ChecklistRespuesta> {
+    const out: Record<string, ChecklistRespuesta> = {};
+    for (const item of TRANSPORTISTA_CHECKLIST) {
+      const v = checklist[item.id];
+      out[item.id] = v === "sin_dano" || v === "falla" || v === "na" ? v : "na";
+    }
+    return out;
   }
 
   return (
@@ -93,7 +127,7 @@ export function InspeccionTransportistaForm({
             kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
             blDocumentoUrl: blUrl,
             fotoPlacaUrl,
-            checklist,
+            checklist: checklistParaGuardar(),
             estadoVisual,
             danosReportados: String(fd.get("danosReportados") ?? "") || null,
             observaciones: String(fd.get("observaciones") ?? "") || null,
@@ -204,68 +238,65 @@ export function InspeccionTransportistaForm({
         </div>
       </section>
 
+      <div className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 px-4 py-3">
+        <p className="text-sm text-cyan-100">
+          Rellena con un toque: ✓ / ✗ en recepcionista; OK / Daño / N/A en el resto.
+        </p>
+        <div className="mt-2">
+          <PlanillaChecklistProgress
+            marked={progresoGlobal.marked}
+            total={progresoGlobal.total}
+            tone="dark"
+          />
+        </div>
+      </div>
+
       {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => {
+        const items = transportistaPorSeccion(seccion);
+        const opciones = opcionesParaSeccion(seccion);
+        const marked = items.filter((i) => Boolean(checklist[i.id])).length;
         const esRecepcionista = seccion === "datos_recepcion";
-        const opciones = esRecepcionista
-          ? ([
-              ["sin_dano", "✓"],
-              ["falla", "✗"],
-            ] as const)
-          : ([
-              ["sin_dano", "Sin daño"],
-              ["falla", "Con daño"],
-              ["na", "N/A"],
-            ] as const);
 
         return (
           <section
             key={seccion}
             className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5"
           >
-            <h2 className="text-lg font-semibold text-slate-100">
-              {TRANSPORTISTA_SECCION_LABELS[seccion]}
-            </h2>
-            {esRecepcionista ? (
-              <p className="mt-1 text-sm text-slate-500">
-                Marca ✓ si corresponde o ✗ si no.
-              </p>
-            ) : null}
-            <ul className="mt-4 space-y-3">
-              {transportistaPorSeccion(seccion).map((item) => (
-                <li
-                  key={item.id}
-                  className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-100">
+                  {TRANSPORTISTA_SECCION_LABELS[seccion]}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {esRecepcionista
+                    ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
+                    : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                </p>
+              </div>
+              {!esRecepcionista ? (
+                <button
+                  type="button"
+                  onClick={() => marcarSeccionOk(seccion)}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40"
                 >
-                  <span className="text-sm text-slate-200">{item.etiqueta}</span>
-                  <div className="flex gap-2">
-                    {opciones.map(([value, label]) => {
-                      const active = checklist[item.id] === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setItem(item.id, value)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            active
-                              ? value === "sin_dano"
-                                ? "bg-emerald-600 text-white"
-                                : value === "falla"
-                                  ? "bg-red-600 text-white"
-                                  : "bg-slate-600 text-white"
-                              : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                          } ${esRecepcionista ? "min-w-[2.75rem] text-base" : ""}`}
-                          aria-label={
-                            esRecepcionista
-                              ? `${item.etiqueta}: ${value === "sin_dano" ? "sí" : "no"}`
-                              : undefined
-                          }
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </li>
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Todo OK
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-3">
+              <PlanillaChecklistProgress marked={marked} total={items.length} tone="dark" />
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {items.map((item) => (
+                <PlanillaChecklistRow
+                  key={item.id}
+                  etiqueta={item.etiqueta}
+                  value={checklist[item.id]}
+                  opciones={opciones}
+                  onChange={(v) => setItem(item.id, v)}
+                  tone="dark"
+                />
               ))}
             </ul>
           </section>

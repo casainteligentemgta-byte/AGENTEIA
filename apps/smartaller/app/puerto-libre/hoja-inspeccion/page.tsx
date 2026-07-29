@@ -22,9 +22,8 @@ export default function PuertoLibreHojaInspeccionPage() {
         </div>
 
         <p className="mb-4 text-sm text-zinc-400 print:hidden">
-          Plantilla rellenable para imprimir. Para guardar importadora, transportista, BL, fecha,
-          lugar, placa, VIN y kilometraje en Supabase, abre la planilla desde la ficha del
-          vehículo.
+          Nueva forma de rellenar: botones grandes ✓ / ✗ / OK / Daño. Para guardar en Supabase,
+          abre la planilla desde la ficha del vehículo.
         </p>
 
         <HojaInspeccionTransportista />
