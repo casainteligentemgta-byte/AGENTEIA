@@ -17,7 +17,7 @@ import {
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
-import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 function FillField({
   label,
@@ -52,6 +52,49 @@ function FillField({
   );
 }
 
+function AdjuntoCampo({
+  vehiculoId,
+  tipo,
+  url,
+  onUrl,
+  actionLabel,
+  hint,
+  sinVehiculoMsg,
+}: {
+  vehiculoId: string | null;
+  tipo: DocumentoTipo;
+  url: string | null;
+  onUrl: (url: string | null) => void;
+  actionLabel: string;
+  hint: string;
+  sinVehiculoMsg: string;
+}) {
+  return (
+    <>
+      {vehiculoId ? (
+        <ImportDocumentoUpload
+          vehiculoId={vehiculoId}
+          tipo={tipo}
+          existingUrl={url}
+          tone="light"
+          hint={hint}
+          actionLabel={actionLabel}
+          onUploaded={(docs) => onUrl(docs[tipo]?.url ?? null)}
+        />
+      ) : (
+        <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-xs text-zinc-600 print:hidden">
+          {sinVehiculoMsg}
+        </p>
+      )}
+      {url ? (
+        <p className="hidden text-[11px] text-zinc-600 print:block">
+          Archivo adjunto en expediente digital.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function defaultMarks(): Record<string, ChecklistRespuesta | ""> {
   const init: Record<string, ChecklistRespuesta | ""> = {};
   for (const item of TRANSPORTISTA_CHECKLIST) {
@@ -72,6 +115,12 @@ export function HojaInspeccionTransportista({
   const [marks, setMarks] = useState(defaultMarks);
   const [blUrl, setBlUrl] = useState<string | null>(
     initialDocumentos?.bl_guia?.url ?? null
+  );
+  const [fotoPlacaUrl, setFotoPlacaUrl] = useState<string | null>(
+    initialDocumentos?.foto_placa?.url ?? null
+  );
+  const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
+    initialDocumentos?.foto_odometro?.url ?? null
   );
 
   function setMark(id: string, value: ChecklistRespuesta) {
@@ -145,27 +194,15 @@ export function HojaInspeccionTransportista({
             <FillField label="Transportista" name="transportista" />
             <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
               <FillField label="Nº guía / BL" name="numeroGuia" />
-              {vehiculoId ? (
-                <ImportDocumentoUpload
-                  vehiculoId={vehiculoId}
-                  tipo="bl_guia"
-                  existingUrl={blUrl}
-                  tone="light"
-                  hint="Foto o PDF del BL · se guarda en el expediente del vehículo"
-                  actionLabel="Cargar foto o PDF del BL"
-                  onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
-                />
-              ) : (
-                <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-xs text-zinc-600 print:hidden">
-                  Para cargar foto o PDF del BL y guardarlo, abre esta planilla desde la ficha del
-                  vehículo.
-                </p>
-              )}
-              {blUrl ? (
-                <p className="hidden text-[11px] text-zinc-600 print:block">
-                  BL adjunto en expediente digital.
-                </p>
-              ) : null}
+              <AdjuntoCampo
+                vehiculoId={vehiculoId}
+                tipo="bl_guia"
+                url={blUrl}
+                onUrl={setBlUrl}
+                actionLabel="Cargar foto o PDF del BL"
+                hint="Foto o PDF del BL · se guarda en el expediente del vehículo"
+                sinVehiculoMsg="Para cargar foto o PDF del BL y guardarlo, abre esta planilla desde la ficha del vehículo."
+              />
             </div>
             <FillField
               label="Fecha de recepción"
@@ -174,19 +211,36 @@ export function HojaInspeccionTransportista({
               hint="Seleccionar en calendario"
             />
             <FillField label="Lugar de recepción" name="lugarRecepcion" />
-            <FillField
-              label="Placa del vehículo"
-              name="placaTexto"
-              hint="Adjuntar foto o PDF de la placa al expediente digital"
-              wide
-            />
+            <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
+              <FillField label="Placa del vehículo" name="placaTexto" />
+              <AdjuntoCampo
+                vehiculoId={vehiculoId}
+                tipo="foto_placa"
+                url={fotoPlacaUrl}
+                onUrl={setFotoPlacaUrl}
+                actionLabel="Cargar foto o PDF de la placa"
+                hint="Foto o PDF de la placa · se guarda en el expediente"
+                sinVehiculoMsg="Para cargar la foto de la placa, abre esta planilla desde la ficha del vehículo."
+              />
+            </div>
             <FillField label="VIN / chasis" name="vin" />
-            <FillField
-              label="Kilometraje al recibir"
-              name="kilometraje"
-              type="number"
-              hint="Solo números"
-            />
+            <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
+              <FillField
+                label="Kilometraje al recibir"
+                name="kilometraje"
+                type="number"
+                hint="Solo números"
+              />
+              <AdjuntoCampo
+                vehiculoId={vehiculoId}
+                tipo="foto_odometro"
+                url={fotoTableroUrl}
+                onUrl={setFotoTableroUrl}
+                actionLabel="Cargar foto o PDF del tablero"
+                hint="Foto del odómetro / tablero · se guarda en el expediente"
+                sinVehiculoMsg="Para cargar la foto del tablero, abre esta planilla desde la ficha del vehículo."
+              />
+            </div>
             <FillField label="Contenedor / remolque" name="contenedor" wide />
           </div>
         </section>
