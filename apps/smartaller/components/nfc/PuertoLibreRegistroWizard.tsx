@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileText, Ship, Wrench } from "lucide-react";
 import { VehiculoCreateForm } from "@/components/dashboard/vehiculo-create-form";
+import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
 
 export type RegistrationType = "importacion_puerto_libre" | "taller_postventa_garantia";
 
@@ -49,9 +50,8 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
                 Recién importado / Puerto Libre
               </h2>
               <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
-                  Unidades por ingresar o recién llegadas. Planilla de importación (SENIAT, fotos y
-                  documentos) e inspección en transportista.
-                </p>
+                Planilla con vehículo, importador, comprador, fotos y documentos.
+              </p>
             </div>
           </button>
 
@@ -94,26 +94,12 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
             Cambiar tipo de registro
           </button>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-            {isPuertoLibre ? "Registro Puerto Libre" : "Registro servicio / garantía"}
+            {isPuertoLibre ? "Planilla Puerto Libre" : "Registro servicio / garantía"}
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            {isPuertoLibre ? (
-              <>
-                Tras el alta continuarás con la{" "}
-                <strong className="font-medium text-zinc-200">
-                  planilla de importación
-                </strong>{" "}
-                (datos SENIAT, fotos y documentos).
-              </>
-            ) : (
-              <>
-                Tras el alta irás a la ficha del vehículo para la{" "}
-                <strong className="font-medium text-zinc-200">
-                  inspección de ingreso al taller
-                </strong>
-                .
-              </>
-            )}
+            {isPuertoLibre
+              ? "Completa vehículo, importador y comprador. Luego fotos y documentos."
+              : "Tras el alta irás a la ficha para la inspección de ingreso al taller."}
           </p>
         </div>
         <Link
@@ -127,23 +113,17 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
 
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
         {isPuertoLibre ? (
-          <p className="mb-5 rounded-xl border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100/90">
-            Paso 1: identifica el vehículo. Luego completarás importación, memoria fotográfica y
-            documentos. Si no tiene placa, usa un identificador temporal (VIN corto o PENDIENTE).
-          </p>
+          <PlanillaAltaPuertoLibre />
         ) : (
-          <p className="mb-5 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
-            Este flujo usa la planilla de ingreso a taller (no la de recepción en transportista).
-          </p>
+          <>
+            <p className="mb-5 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
+              Este flujo usa la planilla de ingreso a taller (no la de recepción en transportista).
+            </p>
+            <VehiculoCreateForm
+              redirectAfterCreate={(id) => `/dashboard/vehiculos/${id}?registrado=1`}
+            />
+          </>
         )}
-
-        <VehiculoCreateForm
-          redirectAfterCreate={(id) =>
-            isPuertoLibre
-              ? `/puerto-libre/${id}/planilla`
-              : `/dashboard/vehiculos/${id}?registrado=1`
-          }
-        />
       </div>
     </div>
   );

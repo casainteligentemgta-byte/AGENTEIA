@@ -43,17 +43,25 @@ export default async function PlanillaRegistroImportacionPage({ params }: Props)
         <header className="mb-8">
           <p className="font-mono text-sm text-cyan-400">{ficha.placa}</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-            Planilla de registro — importación
+            Fotos y documentos
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Datos de importación, memoria fotográfica y carga de documentos del expediente Puerto
-            Libre.
+            Memoria fotográfica (4 lados, motor, impronta) y carga de manual, BL, factura y
+            documento de importación.
           </p>
         </header>
 
         <PlanillaRegistroImportacion
           vehiculoId={ficha.id}
           placa={ficha.placa}
+          marca={ficha.marca}
+          modelo={ficha.modelo}
+          color={ficha.color}
+          serialMotor={ficha.serial_motor}
+          serialCarroceria={ficha.serial_carroceria}
+          compradorNombre={ficha.nombre_cliente}
+          compradorTelefono={ficha.telefono_cliente}
+          compradorCedula={ficha.cedula_propietario}
           initialImportacion={ficha.importacion}
           initialDocumentos={ficha.documentos}
         />

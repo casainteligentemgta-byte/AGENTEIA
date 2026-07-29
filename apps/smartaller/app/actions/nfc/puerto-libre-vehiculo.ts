@@ -26,6 +26,7 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
+import { puertoLibreAltaSchema } from "@/lib/schemas/puerto-libre-alta";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -83,6 +84,91 @@ function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
   revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+}
+
+export type CreatePuertoLibreResult =
+  | { success: true; vehiculoId: string }
+  | { success: false; error: string };
+
+export async function createPuertoLibreVehiculoAction(
+  raw: unknown
+): Promise<CreatePuertoLibreResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = puertoLibreAltaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const data = parsed.data;
+  const placa =
+    data.placa ||
+    data.serialCarroceria.slice(0, 12).toUpperCase() ||
+    `PL${Date.now().toString(36).toUpperCase()}`;
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("placa", placa)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      success: false,
+      error: "Ya existe un vehículo con esa placa/identificador en tu taller.",
+    };
+  }
+
+  const importacion = serializeImportacion({
+    regimen: "Puerto Libre",
+    fechaIngreso: data.fechaIngresoPl,
+    anio: data.anio,
+    importadorNombre: data.importadorNombre,
+    importadorDocumento: data.importadorDocumento || null,
+    importadorTelefono: data.importadorTelefono || null,
+    importadorEmail: data.importadorEmail || null,
+    estadoNacionalizacion: "pendiente",
+    estadoSeniat: "pendiente",
+  });
+
+  const { data: created, error } = await admin
+    .from("vehiculos")
+    .insert({
+      taller_id: auth.taller.id,
+      tipo_vehiculo: "auto",
+      placa,
+      marca: data.marca,
+      modelo: data.modelo,
+      color: data.color,
+      serial_motor: data.serialMotor,
+      serial_carroceria: data.serialCarroceria,
+      nombre_cliente: data.compradorNombre,
+      telefono_cliente: data.compradorTelefono,
+      cedula_propietario: data.compradorCedula || null,
+      email_propietario: data.compradorEmail || null,
+      documentos: {},
+      importacion,
+      seguro: {},
+      unidad_odometro: "km",
+      telegram_chat_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (error || !created) {
+    return { success: false, error: error?.message ?? "No se pudo registrar el vehículo" };
+  }
+
+  revalidatePath("/puerto-libre");
+  revalidatePath(`/puerto-libre/${created.id}/planilla`);
+  return { success: true, vehiculoId: created.id };
 }
 
 export async function updatePuertoLibreImportacionAction(
