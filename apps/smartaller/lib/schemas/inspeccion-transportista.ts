@@ -22,6 +22,8 @@ export const inspeccionTransportistaSchema = z.object({
   kilometraje: z.coerce.number().int().min(0).optional().nullable(),
   blDocumentoUrl: z.string().trim().max(500).optional().nullable(),
   fotoPlacaUrl: z.string().trim().max(500).optional().nullable(),
+  /** Foto del odómetro / tablero al recibir. */
+  fotoTableroUrl: z.string().trim().max(500).optional().nullable(),
   checklist: z.record(z.string(), checklistRespuestaSchema),
   estadoVisual: estadoVisualRecepcionSchema.optional(),
   danosReportados: z.string().trim().max(2000).optional().nullable(),
@@ -59,6 +61,7 @@ export function parseInspeccionTransportista(raw: unknown): InspeccionTransporti
 
   const blUrl = row.blDocumentoUrl ?? row.bl_documento_url;
   const fotoPlaca = row.fotoPlacaUrl ?? row.foto_placa_url;
+  const fotoTablero = row.fotoTableroUrl ?? row.foto_tablero_url;
 
   const parsed = inspeccionTransportistaSchema.safeParse({
     vehiculoId: row.vehiculoId ?? row.vehiculo_id,
@@ -73,6 +76,8 @@ export function parseInspeccionTransportista(raw: unknown): InspeccionTransporti
     kilometraje: row.kilometraje,
     blDocumentoUrl: typeof blUrl === "string" && blUrl.trim() ? blUrl : null,
     fotoPlacaUrl: typeof fotoPlaca === "string" && fotoPlaca.trim() ? fotoPlaca : null,
+    fotoTableroUrl:
+      typeof fotoTablero === "string" && fotoTablero.trim() ? fotoTablero : null,
     checklist,
     estadoVisual: row.estadoVisual ?? row.estado_visual,
     danosReportados: row.danosReportados ?? row.danos_reportados,

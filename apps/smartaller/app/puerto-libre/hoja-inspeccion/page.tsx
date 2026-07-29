@@ -49,10 +49,10 @@ export default async function PuertoLibreHojaInspeccionPage({ searchParams }: Pr
         </div>
 
         <p className="mb-4 text-sm text-zinc-400 print:hidden">
-          Después del Nº BL puedes cargar foto o PDF.{" "}
+          Tras BL, placa y kilometraje puedes cargar foto o PDF.{" "}
           {vehiculoId
-            ? "El archivo se guarda en el expediente del vehículo."
-            : "Para guardar el BL, abre la planilla desde la ficha del vehículo."}
+            ? "Los archivos se guardan en el expediente del vehículo."
+            : "Para guardar adjuntos, abre la planilla desde la ficha del vehículo."}
         </p>
 
         <HojaInspeccionTransportista

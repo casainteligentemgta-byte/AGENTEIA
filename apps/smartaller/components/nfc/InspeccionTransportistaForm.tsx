@@ -59,6 +59,9 @@ export function InspeccionTransportistaForm({
   const [fotoPlacaUrl, setFotoPlacaUrl] = useState<string | null>(
     initial?.fotoPlacaUrl || documentos?.foto_placa?.url || null
   );
+  const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
+    initial?.fotoTableroUrl || documentos?.foto_odometro?.url || null
+  );
   const [estadoVisual, setEstadoVisual] = useState<EstadoVisualRecepcion>(
     () => initial?.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }
   );
@@ -127,6 +130,7 @@ export function InspeccionTransportistaForm({
             kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
             blDocumentoUrl: blUrl,
             fotoPlacaUrl,
+            fotoTableroUrl,
             checklist: checklistParaGuardar(),
             estadoVisual,
             danosReportados: String(fd.get("danosReportados") ?? "") || null,
@@ -204,7 +208,7 @@ export function InspeccionTransportistaForm({
               tipo="foto_placa"
               existingUrl={fotoPlacaUrl}
               hint="Cargar foto o PDF de la placa"
-              actionLabel="Cargar foto / PDF de la placa"
+              actionLabel="Cargar foto o PDF de la placa"
               onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
             />
           </div>
@@ -213,23 +217,33 @@ export function InspeccionTransportistaForm({
             name="vin"
             defaultValue={initial?.vin ?? prefill?.vin ?? ""}
           />
-          <label className="block min-w-0 space-y-1.5">
-            <span className="text-sm text-slate-400">Kilometraje al recibir</span>
-            <input
-              name="kilometraje"
-              type="number"
-              min={0}
-              step={1}
-              inputMode="numeric"
-              value={kilometraje ?? ""}
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                setKilometraje(v ? Number(v) : null);
-              }}
-              className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-              placeholder="Solo números"
+          <div className="space-y-3 md:col-span-2">
+            <label className="block min-w-0 space-y-1.5">
+              <span className="text-sm text-slate-400">Kilometraje al recibir</span>
+              <input
+                name="kilometraje"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={kilometraje ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setKilometraje(v ? Number(v) : null);
+                }}
+                className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+                placeholder="Solo números"
+              />
+            </label>
+            <ImportDocumentoUpload
+              vehiculoId={vehiculoId}
+              tipo="foto_odometro"
+              existingUrl={fotoTableroUrl}
+              hint="Cargar foto o PDF del odómetro / tablero"
+              actionLabel="Cargar foto o PDF del tablero"
+              onUploaded={(docs) => setFotoTableroUrl(docs.foto_odometro?.url ?? null)}
             />
-          </label>
+          </div>
           <div className="md:col-span-2">
             <Field
               label="Contenedor / remolque"
