@@ -16,9 +16,14 @@ export default function PuertoLibreHojaInspeccionPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100 uppercase">
-            Planilla recepción en puerto
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-100 uppercase">
+              Planilla recepción en puerto
+            </h1>
+            <p className="mt-1 text-sm text-zinc-400 print:hidden">
+              Completa los campos en pantalla; luego imprime o guarda como PDF.
+            </p>
+          </div>
         </div>
 
         <HojaInspeccionTransportista />
