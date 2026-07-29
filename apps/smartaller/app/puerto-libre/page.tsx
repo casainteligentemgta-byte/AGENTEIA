@@ -87,7 +87,7 @@ export default async function PuertoLibrePage() {
 
   return (
     <PuertoLibreShell>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-8 space-y-5">
         <div>
           <PuertoLibreDashboardEyebrow />
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
@@ -97,19 +97,19 @@ export default async function PuertoLibrePage() {
             Expediente de importación, próximos a nacionalizar y presentaciones SENIAT.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:items-end">
+        <div className="flex max-w-md flex-col gap-2">
           <Link
             href="/puerto-libre/vehiculos/nuevo"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
           >
             <Plus className="h-4 w-4" />
             Registrar vehículo
           </Link>
           <Link
             href="/puerto-libre/hoja-inspeccion"
-            className="inline-flex items-center justify-center gap-2 text-xs text-zinc-500 transition hover:text-cyan-300"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/40 px-4 py-2.5 text-sm text-zinc-300 transition hover:border-cyan-500/50 hover:text-cyan-300"
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-4 w-4" />
             Planilla recepción transportista
           </Link>
         </div>
