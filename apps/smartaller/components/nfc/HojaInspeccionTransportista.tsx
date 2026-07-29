@@ -33,16 +33,18 @@ function FillField({
   defaultValue?: string;
 }) {
   return (
-    <label className={wide ? "col-span-2 block" : "block"}>
-      <span className="text-[11px] font-medium text-zinc-600">{label}</span>
-      {hint ? <p className="text-[10px] text-zinc-500">{hint}</p> : null}
+    <label
+      className={`flex min-w-0 flex-col gap-1 ${wide ? "md:col-span-2" : ""}`}
+    >
+      <span className="text-xs font-semibold text-zinc-700">{label}</span>
+      {hint ? <span className="text-[11px] leading-snug text-zinc-500">{hint}</span> : null}
       <input
         name={name}
         type={type}
         defaultValue={defaultValue}
         inputMode={type === "number" ? "numeric" : undefined}
         min={type === "number" ? 0 : undefined}
-        className="mt-0.5 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
+        className="box-border w-full min-w-0 border-0 border-b-2 border-zinc-300 bg-transparent px-0 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
       />
     </label>
   );
@@ -107,7 +109,7 @@ export function HojaInspeccionTransportista() {
         </button>
       </div>
 
-      <article className="mx-auto max-w-4xl bg-white p-5 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
+      <article className="mx-auto max-w-4xl overflow-x-hidden bg-white p-4 text-zinc-900 shadow-xl print:max-w-none print:overflow-visible print:p-0 print:shadow-none sm:p-8 md:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             SmartTaller · Puerto Libre
@@ -121,16 +123,18 @@ export function HojaInspeccionTransportista() {
         </header>
 
         <section className="mt-6">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
+          <h2 className="mb-4 text-sm font-bold uppercase text-zinc-800">
             1. Datos de la recepción
           </h2>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+          {/* 1 columna en móvil (evita solapes); 2 cols desde md / impresión */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-8 md:gap-y-5 print:grid-cols-2">
             <FillField label="Importadora" name="importadora" />
             <FillField label="Transportista" name="transportista" />
             <FillField
               label="Nº guía / BL"
               name="numeroGuia"
               hint="Adjuntar foto o PDF del BL al expediente digital"
+              wide
             />
             <FillField
               label="Fecha de recepción"
@@ -140,9 +144,10 @@ export function HojaInspeccionTransportista() {
             />
             <FillField label="Lugar de recepción" name="lugarRecepcion" />
             <FillField
-              label="Placa del vehículo (texto)"
+              label="Placa del vehículo"
               name="placaTexto"
               hint="Adjuntar foto o PDF de la placa al expediente digital"
+              wide
             />
             <FillField label="VIN / chasis" name="vin" />
             <FillField
