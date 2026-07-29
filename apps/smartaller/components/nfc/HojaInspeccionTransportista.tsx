@@ -65,6 +65,7 @@ function CampoConFoto({
   url,
   onUrl,
   fotoLabel = "Foto",
+  fotoMode = "file",
 }: {
   label: string;
   name: string;
@@ -76,7 +77,9 @@ function CampoConFoto({
   url: string | null;
   onUrl: (url: string | null) => void;
   fotoLabel?: string;
+  fotoMode?: "file" | "camera" | "both";
 }) {
+  const wideChip = fotoMode === "both";
   return (
     <div className="md:col-span-2">
       <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3 sm:flex-row sm:items-end sm:justify-between print:border-zinc-300 print:bg-white">
@@ -94,7 +97,7 @@ function CampoConFoto({
             className="box-border w-full min-w-0 border-0 border-b-2 border-zinc-300 bg-transparent px-0 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
           />
         </label>
-        <div className="w-full shrink-0 sm:w-28">
+        <div className={`w-full shrink-0 print:hidden ${wideChip ? "sm:w-56" : "sm:w-28"}`}>
           {vehiculoId ? (
             <PlanillaFotoChip
               vehiculoId={vehiculoId}
@@ -102,11 +105,12 @@ function CampoConFoto({
               existingUrl={url}
               tone="light"
               label={fotoLabel}
+              mode={fotoMode}
               onUploaded={(docs) => onUrl(docs[tipo]?.url ?? null)}
             />
           ) : (
-            <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-2 py-2 text-center text-[10px] text-zinc-500 print:hidden">
-              Foto desde ficha
+            <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-2 py-2 text-center text-[10px] text-zinc-500">
+              Abre desde la ficha del vehículo para tomar foto y guardar
             </p>
           )}
         </div>
@@ -226,11 +230,13 @@ export function HojaInspeccionTransportista({
             <CampoConFoto
               label="Nº guía / BL"
               name="numeroGuia"
+              hint="Toma foto del BL o sube un PDF · se guarda al instante"
               vehiculoId={vehiculoId}
               tipo="bl_guia"
               url={blUrl}
               onUrl={setBlUrl}
               fotoLabel="Foto"
+              fotoMode="both"
             />
             <FillField
               label="Fecha de recepción"
