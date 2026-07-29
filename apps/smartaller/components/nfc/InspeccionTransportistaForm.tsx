@@ -156,7 +156,7 @@ export function InspeccionTransportistaForm({
         <p className="mt-1 text-sm text-slate-500">
           Campos editables. Al guardar se almacenan en Supabase (acta + ficha del vehículo).
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field
             label="Importadora"
             name="importadora"
@@ -167,7 +167,7 @@ export function InspeccionTransportistaForm({
             name="transportista"
             defaultValue={initial?.transportista ?? ""}
           />
-          <div className="space-y-3">
+          <div className="space-y-3 md:col-span-2">
             <Field
               label="Nº guía / BL"
               name="numeroGuia"
@@ -193,7 +193,7 @@ export function InspeccionTransportistaForm({
             name="lugarRecepcion"
             defaultValue={initial?.lugarRecepcion ?? ""}
           />
-          <div className="space-y-3">
+          <div className="space-y-3 md:col-span-2">
             <Field
               label="Placa del vehículo"
               name="placaTexto"
@@ -213,7 +213,7 @@ export function InspeccionTransportistaForm({
             name="vin"
             defaultValue={initial?.vin ?? prefill?.vin ?? ""}
           />
-          <label className="block space-y-1.5">
+          <label className="block min-w-0 space-y-1.5">
             <span className="text-sm text-slate-400">Kilometraje al recibir</span>
             <input
               name="kilometraje"
@@ -226,15 +226,17 @@ export function InspeccionTransportistaForm({
                 const v = e.target.value.trim();
                 setKilometraje(v ? Number(v) : null);
               }}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+              className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
               placeholder="Solo números"
             />
           </label>
-          <Field
-            label="Contenedor / remolque"
-            name="contenedor"
-            defaultValue={initial?.contenedor ?? ""}
-          />
+          <div className="md:col-span-2">
+            <Field
+              label="Contenedor / remolque"
+              name="contenedor"
+              defaultValue={initial?.contenedor ?? ""}
+            />
+          </div>
         </div>
       </section>
 
@@ -397,13 +399,13 @@ function Field({
   type?: string;
 }) {
   return (
-    <label className="block space-y-1.5">
+    <label className="block min-w-0 space-y-1.5">
       <span className="text-sm text-slate-400">{label}</span>
       <input
         name={name}
         type={type}
         defaultValue={defaultValue}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+        className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
       />
     </label>
   );
