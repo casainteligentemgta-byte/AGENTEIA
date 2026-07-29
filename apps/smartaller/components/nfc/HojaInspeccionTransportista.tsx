@@ -10,7 +10,7 @@ import {
 } from "@/lib/puerto-libre/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
 
-type ChecklistMark = "" | "dano" | "na";
+type ChecklistMark = "" | "ok" | "fail" | "dano" | "na";
 
 function FillField({
   label,
@@ -127,6 +127,7 @@ export function HojaInspeccionTransportista() {
 
         {TRANSPORTISTA_SECCIONES.map((seccion, idx) => {
           const items = transportistaPorSeccion(seccion);
+          const esRecepcionista = seccion === "datos_recepcion";
           return (
             <section key={seccion} className="mt-6 break-inside-avoid">
               <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
@@ -136,15 +137,49 @@ export function HojaInspeccionTransportista() {
                 <thead>
                   <tr className="bg-zinc-100">
                     <th className="border border-zinc-300 px-2 py-1.5 text-left">Ítem</th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-20">
-                      Con daño
-                    </th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">N/A</th>
+                    {esRecepcionista ? (
+                      <>
+                        <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">✓</th>
+                        <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">✗</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="border border-zinc-300 px-2 py-1.5 text-center w-20">
+                          Con daño
+                        </th>
+                        <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">N/A</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => {
                     const mark = marks[item.id] ?? "";
+                    if (esRecepcionista) {
+                      return (
+                        <tr key={item.id}>
+                          <td className="border border-zinc-300 px-2 py-1.5">{item.etiqueta}</td>
+                          <td className="border border-zinc-300 text-center">
+                            <input
+                              type="checkbox"
+                              checked={mark === "ok"}
+                              onChange={() => toggleMark(item.id, "ok")}
+                              aria-label={`${item.etiqueta}: sí`}
+                              className="h-4 w-4 accent-emerald-600"
+                            />
+                          </td>
+                          <td className="border border-zinc-300 text-center">
+                            <input
+                              type="checkbox"
+                              checked={mark === "fail"}
+                              onChange={() => toggleMark(item.id, "fail")}
+                              aria-label={`${item.etiqueta}: no`}
+                              className="h-4 w-4 accent-red-600"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    }
                     return (
                       <tr key={item.id}>
                         <td className="border border-zinc-300 px-2 py-1.5">{item.etiqueta}</td>

@@ -204,55 +204,73 @@ export function InspeccionTransportistaForm({
         </div>
       </section>
 
-      {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => (
-        <section
-          key={seccion}
-          className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5"
-        >
-          <h2 className="text-lg font-semibold text-slate-100">
-            {TRANSPORTISTA_SECCION_LABELS[seccion]}
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {transportistaPorSeccion(seccion).map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span className="text-sm text-slate-200">{item.etiqueta}</span>
-                <div className="flex gap-2">
-                  {(
-                    [
-                      ["sin_dano", "Sin daño"],
-                      ["falla", "Con daño"],
-                      ["na", "N/A"],
-                    ] as const
-                  ).map(([value, label]) => {
-                    const active = checklist[item.id] === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setItem(item.id, value)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                          active
-                            ? value === "sin_dano"
-                              ? "bg-emerald-600 text-white"
-                              : value === "falla"
-                                ? "bg-red-600 text-white"
-                                : "bg-slate-600 text-white"
-                            : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => {
+        const esRecepcionista = seccion === "datos_recepcion";
+        const opciones = esRecepcionista
+          ? ([
+              ["sin_dano", "✓"],
+              ["falla", "✗"],
+            ] as const)
+          : ([
+              ["sin_dano", "Sin daño"],
+              ["falla", "Con daño"],
+              ["na", "N/A"],
+            ] as const);
+
+        return (
+          <section
+            key={seccion}
+            className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5"
+          >
+            <h2 className="text-lg font-semibold text-slate-100">
+              {TRANSPORTISTA_SECCION_LABELS[seccion]}
+            </h2>
+            {esRecepcionista ? (
+              <p className="mt-1 text-sm text-slate-500">
+                Marca ✓ si corresponde o ✗ si no.
+              </p>
+            ) : null}
+            <ul className="mt-4 space-y-3">
+              {transportistaPorSeccion(seccion).map((item) => (
+                <li
+                  key={item.id}
+                  className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="text-sm text-slate-200">{item.etiqueta}</span>
+                  <div className="flex gap-2">
+                    {opciones.map(([value, label]) => {
+                      const active = checklist[item.id] === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setItem(item.id, value)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                            active
+                              ? value === "sin_dano"
+                                ? "bg-emerald-600 text-white"
+                                : value === "falla"
+                                  ? "bg-red-600 text-white"
+                                  : "bg-slate-600 text-white"
+                              : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                          } ${esRecepcionista ? "min-w-[2.75rem] text-base" : ""}`}
+                          aria-label={
+                            esRecepcionista
+                              ? `${item.etiqueta}: ${value === "sin_dano" ? "sí" : "no"}`
+                              : undefined
+                          }
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
         <h2 className="text-lg font-semibold text-slate-100">
