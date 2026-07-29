@@ -1,7 +1,10 @@
 "use client";
 
 import type { TransportistaSeccion } from "@/lib/puerto-libre/inspeccion/catalog";
+import { exteriorTieneFoto } from "@/lib/puerto-libre/inspeccion/catalog";
 import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
+import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
 
 export type ChecklistOpcion = {
   value: ChecklistRespuesta;
@@ -52,6 +55,24 @@ export const OPCIONES_ESTADO: ChecklistOpcion[] = [
   },
 ];
 
+/** Exterior con foto: sin N/A (la tercera columna es carga de foto). */
+export const OPCIONES_ESTADO_CON_FOTO: ChecklistOpcion[] = [
+  {
+    value: "sin_dano",
+    label: "OK",
+    shortLabel: "✓",
+    activeClass: "bg-emerald-600 text-white ring-2 ring-emerald-400/50",
+    idleClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+  },
+  {
+    value: "falla",
+    label: "Daño",
+    shortLabel: "✗",
+    activeClass: "bg-red-600 text-white ring-2 ring-red-400/50",
+    idleClass: "bg-red-50 text-red-800 border border-red-200",
+  },
+];
+
 export const OPCIONES_EVIDENCIA: ChecklistOpcion[] = [
   {
     value: "sin_dano",
@@ -76,11 +97,24 @@ export const OPCIONES_EVIDENCIA: ChecklistOpcion[] = [
   },
 ];
 
-export function opcionesParaSeccion(seccion: TransportistaSeccion): ChecklistOpcion[] {
+export function opcionesParaSeccion(
+  seccion: TransportistaSeccion,
+  itemId?: string
+): ChecklistOpcion[] {
   if (seccion === "datos_recepcion") return OPCIONES_RECEPCIONISTA;
   if (seccion === "evidencia") return OPCIONES_EVIDENCIA;
+  if (seccion === "estado_exterior" && itemId && exteriorTieneFoto(itemId)) {
+    return OPCIONES_ESTADO_CON_FOTO;
+  }
   return OPCIONES_ESTADO;
 }
+
+type FotoSlot = {
+  vehiculoId: string;
+  tipo: DocumentoTipo;
+  url?: string | null;
+  onUploaded?: (documentos: VehiculosDocumentos) => void;
+};
 
 type RowProps = {
   etiqueta: string;
@@ -89,6 +123,8 @@ type RowProps = {
   onChange: (value: ChecklistRespuesta) => void;
   /** Tema oscuro (formulario digital) vs claro (planilla imprimible). */
   tone?: "dark" | "light";
+  /** Si existe, reemplaza la columna N/A por carga de foto. */
+  foto?: FotoSlot | null;
 };
 
 export function PlanillaChecklistRow({
@@ -97,8 +133,10 @@ export function PlanillaChecklistRow({
   opciones,
   onChange,
   tone = "dark",
+  foto = null,
 }: RowProps) {
   const dark = tone === "dark";
+  const cols = opciones.length + (foto ? 1 : 0);
 
   return (
     <li
@@ -115,7 +153,7 @@ export function PlanillaChecklistRow({
       </span>
       <div
         className="grid gap-2 sm:flex sm:shrink-0"
-        style={{ gridTemplateColumns: `repeat(${opciones.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {opciones.map((op) => {
           const active = value === op.value;
@@ -140,6 +178,16 @@ export function PlanillaChecklistRow({
             </button>
           );
         })}
+        {foto ? (
+          <PlanillaFotoChip
+            vehiculoId={foto.vehiculoId}
+            tipo={foto.tipo}
+            existingUrl={foto.url}
+            onUploaded={foto.onUploaded}
+            tone={tone}
+            label="Foto"
+          />
+        ) : null}
       </div>
     </li>
   );

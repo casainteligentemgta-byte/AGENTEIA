@@ -73,3 +73,18 @@ export const TRANSPORTISTA_SECCIONES: TransportistaSeccion[] = [
   "inventario",
   "evidencia",
 ];
+
+/** Ítems de exterior donde N/A se reemplaza por carga de foto. */
+export const EXTERIOR_FOTO_POR_ITEM: Record<
+  string,
+  "foto_frontal" | "foto_trasera" | "foto_lateral_izq" | "foto_lateral_der"
+> = {
+  ext_frontal: "foto_frontal",
+  ext_trasero: "foto_trasera",
+  ext_lat_izq: "foto_lateral_izq",
+  ext_lat_der: "foto_lateral_der",
+};
+
+export function exteriorTieneFoto(itemId: string): boolean {
+  return itemId in EXTERIOR_FOTO_POR_ITEM;
+}
