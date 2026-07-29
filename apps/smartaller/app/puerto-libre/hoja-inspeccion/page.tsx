@@ -1,16 +1,43 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { HojaInspeccionTransportista } from "@/components/nfc/HojaInspeccionTransportista";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
+import { getMyTaller } from "@/lib/taller";
+import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 export const dynamic = "force-dynamic";
 
-export default function PuertoLibreHojaInspeccionPage() {
+type Props = {
+  searchParams?: { vehiculoId?: string };
+};
+
+export default async function PuertoLibreHojaInspeccionPage({ searchParams }: Props) {
+  const vehiculoId = searchParams?.vehiculoId?.trim() || null;
+  let documentos = null;
+
+  if (vehiculoId) {
+    const user = await getUser();
+    const taller = user ? await getMyTaller() : null;
+    if (taller) {
+      const admin = createAdminClient();
+      const { data } = await admin
+        .from("vehiculos")
+        .select("id, taller_id, documentos")
+        .eq("id", vehiculoId)
+        .maybeSingle();
+      if (data && data.taller_id === taller.id) {
+        documentos = parseVehiculosDocumentos(data.documentos);
+      }
+    }
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center gap-3 print:hidden">
           <Link
-            href="/puerto-libre"
+            href={vehiculoId ? `/puerto-libre/${vehiculoId}` : "/puerto-libre"}
             className="inline-flex rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
             aria-label="Volver"
           >
@@ -22,11 +49,16 @@ export default function PuertoLibreHojaInspeccionPage() {
         </div>
 
         <p className="mb-4 text-sm text-zinc-400 print:hidden">
-          Nueva forma de rellenar: botones grandes ✓ / ✗ / OK / Daño. Para guardar en Supabase,
-          abre la planilla desde la ficha del vehículo.
+          Después del Nº BL puedes cargar foto o PDF.{" "}
+          {vehiculoId
+            ? "El archivo se guarda en el expediente del vehículo."
+            : "Para guardar el BL, abre la planilla desde la ficha del vehículo."}
         </p>
 
-        <HojaInspeccionTransportista />
+        <HojaInspeccionTransportista
+          vehiculoId={vehiculoId}
+          initialDocumentos={documentos}
+        />
       </div>
     </main>
   );
