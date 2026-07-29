@@ -16,6 +16,8 @@ export const DOCUMENTO_TIPOS = [
   "certificado_origen",
   "permiso_importacion",
   "nacionalizacion",
+  "documento_importacion",
+  "manual_vehiculo",
   "otro_importacion",
   "poliza_seguro",
   "certificado_seguro",
@@ -28,6 +30,8 @@ export const DOCUMENTO_TIPOS = [
   "foto_vin",
   "foto_odometro",
   "foto_danos",
+  "foto_motor",
+  "foto_impronta",
 ] as const;
 
 export type DocumentoTipo = (typeof DOCUMENTO_TIPOS)[number];
@@ -42,6 +46,8 @@ export const vehiculosDocumentosSchema = z.object({
   certificado_origen: vehiculoDocumentoRefSchema.optional(),
   permiso_importacion: vehiculoDocumentoRefSchema.optional(),
   nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  documento_importacion: vehiculoDocumentoRefSchema.optional(),
+  manual_vehiculo: vehiculoDocumentoRefSchema.optional(),
   otro_importacion: vehiculoDocumentoRefSchema.optional(),
   poliza_seguro: vehiculoDocumentoRefSchema.optional(),
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
@@ -54,6 +60,8 @@ export const vehiculosDocumentosSchema = z.object({
   foto_vin: vehiculoDocumentoRefSchema.optional(),
   foto_odometro: vehiculoDocumentoRefSchema.optional(),
   foto_danos: vehiculoDocumentoRefSchema.optional(),
+  foto_motor: vehiculoDocumentoRefSchema.optional(),
+  foto_impronta: vehiculoDocumentoRefSchema.optional(),
 });
 
 export type VehiculoDocumentoRef = z.infer<typeof vehiculoDocumentoRefSchema>;
@@ -65,13 +73,15 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 }
 
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
-  cedula: "Cédula del propietario",
+  cedula: "Cédula del comprador",
   titulo: "Título de propiedad",
-  factura_comercial: "Factura comercial",
+  factura_comercial: "Factura",
   bl_guia: "BL / Guía de embarque",
   certificado_origen: "Certificado de origen",
   permiso_importacion: "Permiso de importación",
   nacionalizacion: "Nacionalización / aduana",
+  documento_importacion: "Documento de importación",
+  manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
   poliza_seguro: "Póliza de seguro",
   certificado_seguro: "Certificado de cobertura",
@@ -84,26 +94,39 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   foto_vin: "Foto VIN / chasis",
   foto_odometro: "Foto odómetro / tablero",
   foto_danos: "Foto de daños (si aplica)",
+  foto_motor: "Foto del motor",
+  foto_impronta: "Foto de la impronta",
 };
+
+/** Documentos de la planilla de registro Puerto Libre. */
+export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  "manual_vehiculo",
+  "bl_guia",
+  "factura_comercial",
+  "documento_importacion",
+  "cedula",
+];
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "bl_guia",
   "certificado_origen",
   "permiso_importacion",
+  "documento_importacion",
+  "manual_vehiculo",
   "nacionalizacion",
   "titulo",
   "otro_importacion",
 ];
 
+/** Memoria fotográfica al registrar en Puerto Libre. */
 export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
   "foto_lateral_der",
-  "foto_vin",
-  "foto_odometro",
-  "foto_danos",
+  "foto_motor",
+  "foto_impronta",
 ];
 
 export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -157,6 +180,12 @@ export const importacionSchema = z.object({
   fechaLimiteNacionalizacion: z.string().trim().max(32).optional().nullable(),
   estadoSeniat: z.enum(ESTADOS_SENIAT).optional().nullable(),
   fechaPresentacionSeniat: z.string().trim().max(32).optional().nullable(),
+  /** Año del vehículo (modelo). */
+  anio: z.coerce.number().int().min(1950).max(2100).optional().nullable(),
+  importadorNombre: z.string().trim().max(120).optional().nullable(),
+  importadorDocumento: z.string().trim().max(40).optional().nullable(),
+  importadorTelefono: z.string().trim().max(40).optional().nullable(),
+  importadorEmail: z.string().trim().max(120).optional().nullable(),
 });
 
 export type ImportacionData = z.infer<typeof importacionSchema>;
@@ -168,6 +197,15 @@ function asOptionalEnum<T extends string>(
   return typeof value === "string" && (allowed as readonly string[]).includes(value)
     ? (value as T)
     : null;
+}
+
+function asOptionalAnio(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : null;
+  }
+  return null;
 }
 
 export function parseImportacion(raw: unknown): ImportacionData {
@@ -199,6 +237,11 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     fechaPresentacionSeniat:
       row.fechaPresentacionSeniat ?? row.fecha_presentacion_seniat,
+    anio: asOptionalAnio(row.anio ?? row.anio_vehiculo),
+    importadorNombre: row.importadorNombre ?? row.importador_nombre,
+    importadorDocumento: row.importadorDocumento ?? row.importador_documento,
+    importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
+    importadorEmail: row.importadorEmail ?? row.importador_email,
   });
   return parsed.success ? parsed.data : {};
 }
@@ -218,6 +261,11 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     fecha_limite_nacionalizacion: data.fechaLimiteNacionalizacion?.trim() || null,
     estado_seniat: data.estadoSeniat || null,
     fecha_presentacion_seniat: data.fechaPresentacionSeniat?.trim() || null,
+    anio: data.anio != null && !Number.isNaN(data.anio) ? data.anio : null,
+    importador_nombre: data.importadorNombre?.trim() || null,
+    importador_documento: data.importadorDocumento?.trim() || null,
+    importador_telefono: data.importadorTelefono?.trim() || null,
+    importador_email: data.importadorEmail?.trim() || null,
   };
 }
 
