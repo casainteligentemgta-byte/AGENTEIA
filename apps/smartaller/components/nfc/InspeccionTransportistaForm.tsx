@@ -185,14 +185,18 @@ export function InspeccionTransportistaForm({
                 name="numeroGuia"
                 defaultValue={initial?.numeroGuia ?? ""}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Toma foto del BL con la cámara o sube un PDF. Se guarda al instante en Supabase.
+              </p>
             </div>
-            <div className="w-full shrink-0 sm:w-28">
+            <div className="w-full shrink-0 sm:w-56">
               <PlanillaFotoChip
                 vehiculoId={vehiculoId}
                 tipo="bl_guia"
                 existingUrl={blUrl}
                 tone="dark"
                 label="Foto"
+                mode="both"
                 onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
               />
             </div>
