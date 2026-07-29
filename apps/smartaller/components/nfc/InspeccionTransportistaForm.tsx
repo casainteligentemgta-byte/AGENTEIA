@@ -165,7 +165,7 @@ export function InspeccionTransportistaForm({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
         <h2 className="text-lg font-semibold text-slate-100">1. Datos de la recepción</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Campos editables. Al guardar se almacenan en Supabase (acta + ficha del vehículo).
+          Campos editables. El botón Foto guarda al instante en Supabase (Storage + documentos).
         </p>
         <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field

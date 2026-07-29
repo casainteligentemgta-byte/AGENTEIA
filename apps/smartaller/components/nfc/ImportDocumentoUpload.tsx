@@ -44,22 +44,26 @@ export function ImportDocumentoUpload({
     setError(null);
 
     startTransition(async () => {
-      const normalized =
-        file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
-      const formData = new FormData();
-      formData.set("vehiculoId", vehiculoId);
-      formData.set("tipo", tipo);
-      formData.set("file", normalized);
+      try {
+        const normalized =
+          file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
+        const formData = new FormData();
+        formData.set("vehiculoId", vehiculoId);
+        formData.set("tipo", tipo);
+        formData.set("file", normalized);
 
-      const result = await uploadPuertoLibreDocumentoAction(formData);
-      if (!result.success) {
-        setError(result.error);
-        return;
+        const result = await uploadPuertoLibreDocumentoAction(formData);
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        setDone(true);
+        const nextUrl = result.documentos[tipo]?.url ?? null;
+        setUrl(nextUrl);
+        onUploaded?.(result.documentos);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al subir el archivo");
       }
-      setDone(true);
-      const nextUrl = result.documentos[tipo]?.url ?? null;
-      setUrl(nextUrl);
-      onUploaded?.(result.documentos);
     });
   }
 
@@ -120,8 +124,7 @@ export function ImportDocumentoUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-        capture="environment"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf"
         className="hidden"
         onChange={(e) => {
           handleFile(e.target.files?.[0] ?? null);

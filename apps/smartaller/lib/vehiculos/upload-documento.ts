@@ -82,12 +82,9 @@ export async function uploadVehiculoDocumento(
         buffer: originalBuffer,
       }) ?? "image/jpeg";
 
-    if (convertToPdf) {
-      if (mimeType !== "image/jpeg" && mimeType !== "image/png") {
-        throw new Error(
-          "Para convertir a PDF usa foto JPG/PNG, o sube un PDF. Al escanear desde el móvil se normaliza a JPG."
-        );
-      }
+    const canEmbedInPdf = mimeType === "image/jpeg" || mimeType === "image/png";
+
+    if (convertToPdf && canEmbedInPdf) {
       try {
         uploadBuffer = await imageBufferToPdf(originalBuffer, mimeType);
       } catch (err) {
@@ -98,12 +95,19 @@ export async function uploadVehiculoDocumento(
       fileName = pdfFileNameFromOriginal(params.file.name, params.tipo);
       path = `${params.tallerId}/${folder}/${params.tipo}-${id}.pdf`;
     } else {
+      // HEIC/WebP (u otros): guardar imagen tal cual para no fallar en móvil
       uploadBuffer = originalBuffer;
       contentType = mimeType;
-      fileName = params.file.name || `${params.tipo}.jpg`;
-      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.${
-        mimeType === "image/png" ? "png" : "jpg"
-      }`;
+      const ext =
+        mimeType === "image/png"
+          ? "png"
+          : mimeType === "image/webp"
+            ? "webp"
+            : mimeType === "image/heic" || mimeType === "image/heif"
+              ? "heic"
+              : "jpg";
+      fileName = params.file.name || `${params.tipo}.${ext}`;
+      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.${ext}`;
     }
   }
 
