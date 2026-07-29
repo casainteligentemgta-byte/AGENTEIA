@@ -56,7 +56,27 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </div>
       )}
 
-      {/* 0. Inspección recepción transportista */}
+      {/* 0. Planilla de registro importación */}
+      <section className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">
+              Planilla de registro — importación
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Datos SENIAT, memoria fotográfica y carga de documentos del expediente.
+            </p>
+          </div>
+          <Link
+            href={`/puerto-libre/${ficha.id}/planilla`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
+          >
+            Abrir planilla
+          </Link>
+        </div>
+      </section>
+
+      {/* 0b. Inspección recepción transportista */}
       <section className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

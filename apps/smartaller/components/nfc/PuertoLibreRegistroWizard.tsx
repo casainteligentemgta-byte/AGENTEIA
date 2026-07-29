@@ -49,9 +49,9 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
                 Recién importado / Puerto Libre
               </h2>
               <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
-                Unidades por ingresar o recién llegadas. Expediente SENIAT, importación e
-                inspección al recibir en la transportista.
-              </p>
+                  Unidades por ingresar o recién llegadas. Planilla de importación (SENIAT, fotos y
+                  documentos) e inspección en transportista.
+                </p>
             </div>
           </button>
 
@@ -101,9 +101,9 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
               <>
                 Tras el alta continuarás con la{" "}
                 <strong className="font-medium text-zinc-200">
-                  inspección al recibir en la transportista
-                </strong>
-                .
+                  planilla de importación
+                </strong>{" "}
+                (datos SENIAT, fotos y documentos).
               </>
             ) : (
               <>
@@ -128,8 +128,8 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
         {isPuertoLibre ? (
           <p className="mb-5 rounded-xl border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100/90">
-            Si aún no tiene placa de tránsito, usa un identificador temporal (p. ej. parte del VIN o
-            PENDIENTE). Documentos SENIAT y PIN NFC se completan en la ficha después.
+            Paso 1: identifica el vehículo. Luego completarás importación, memoria fotográfica y
+            documentos. Si no tiene placa, usa un identificador temporal (VIN corto o PENDIENTE).
           </p>
         ) : (
           <p className="mb-5 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100/90">
@@ -140,7 +140,7 @@ export function PuertoLibreRegistroWizard({ tallerNombre }: Props) {
         <VehiculoCreateForm
           redirectAfterCreate={(id) =>
             isPuertoLibre
-              ? `/puerto-libre/${id}/inspeccion`
+              ? `/puerto-libre/${id}/planilla`
               : `/dashboard/vehiculos/${id}?registrado=1`
           }
         />

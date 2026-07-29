@@ -15,6 +15,10 @@ type Props = {
   tipo: DocumentoTipo;
   existingUrl?: string | null;
   onUploaded?: (documentos: VehiculosDocumentos) => void;
+  /** Texto auxiliar bajo el título (fotos vs documentos). */
+  hint?: string;
+  /** Etiqueta del botón cuando no hay archivo. */
+  actionLabel?: string;
 };
 
 export function ImportDocumentoUpload({
@@ -22,6 +26,8 @@ export function ImportDocumentoUpload({
   tipo,
   existingUrl,
   onUploaded,
+  hint = "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB",
+  actionLabel = "Escanear / PDF",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -65,9 +71,7 @@ export function ImportDocumentoUpload({
               {existingUrl ? "Ver PDF en el perfil" : "PDF guardado en el perfil del vehículo"}
             </a>
           ) : (
-            <p className="mt-0.5 text-xs text-slate-500">
-              Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB
-            </p>
+            <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
           )}
         </div>
         <button
@@ -83,7 +87,7 @@ export function ImportDocumentoUpload({
           ) : (
             <Camera className="h-4 w-4" />
           )}
-          {pending ? "Generando PDF…" : done ? "Reescanear" : "Escanear / PDF"}
+          {pending ? "Generando PDF…" : done ? "Reescanear" : actionLabel}
         </button>
       </div>
       <input

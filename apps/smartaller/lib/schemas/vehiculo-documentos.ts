@@ -7,7 +7,7 @@ export const vehiculoDocumentoRefSchema = z.object({
   file_name: z.string().optional(),
 });
 
-/** Documentos base + expediente Puerto Libre / importación / seguro. */
+/** Documentos base + expediente Puerto Libre / importación / seguro / memoria fotográfica. */
 export const DOCUMENTO_TIPOS = [
   "cedula",
   "titulo",
@@ -21,6 +21,13 @@ export const DOCUMENTO_TIPOS = [
   "certificado_seguro",
   "recibo_seguro",
   "rcv_seguro",
+  "foto_frontal",
+  "foto_trasera",
+  "foto_lateral_izq",
+  "foto_lateral_der",
+  "foto_vin",
+  "foto_odometro",
+  "foto_danos",
 ] as const;
 
 export type DocumentoTipo = (typeof DOCUMENTO_TIPOS)[number];
@@ -40,6 +47,13 @@ export const vehiculosDocumentosSchema = z.object({
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
   rcv_seguro: vehiculoDocumentoRefSchema.optional(),
+  foto_frontal: vehiculoDocumentoRefSchema.optional(),
+  foto_trasera: vehiculoDocumentoRefSchema.optional(),
+  foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
+  foto_lateral_der: vehiculoDocumentoRefSchema.optional(),
+  foto_vin: vehiculoDocumentoRefSchema.optional(),
+  foto_odometro: vehiculoDocumentoRefSchema.optional(),
+  foto_danos: vehiculoDocumentoRefSchema.optional(),
 });
 
 export type VehiculoDocumentoRef = z.infer<typeof vehiculoDocumentoRefSchema>;
@@ -63,6 +77,13 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
   rcv_seguro: "RCV / responsabilidad civil",
+  foto_frontal: "Foto frontal",
+  foto_trasera: "Foto trasera",
+  foto_lateral_izq: "Foto lateral izquierdo",
+  foto_lateral_der: "Foto lateral derecho",
+  foto_vin: "Foto VIN / chasis",
+  foto_odometro: "Foto odómetro / tablero",
+  foto_danos: "Foto de daños (si aplica)",
 };
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -73,6 +94,16 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "nacionalizacion",
   "titulo",
   "otro_importacion",
+];
+
+export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
+  "foto_frontal",
+  "foto_trasera",
+  "foto_lateral_izq",
+  "foto_lateral_der",
+  "foto_vin",
+  "foto_odometro",
+  "foto_danos",
 ];
 
 export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [

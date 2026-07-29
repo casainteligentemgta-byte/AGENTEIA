@@ -82,6 +82,7 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
 function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
 }
 
 export async function updatePuertoLibreImportacionAction(
