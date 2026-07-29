@@ -46,8 +46,7 @@ export default async function PlanillaRegistroImportacionPage({ params }: Props)
             Fotos y documentos
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Memoria fotográfica (placa, 4 lados, motor, impronta) y carga de manual, BL, factura y
-            documento de importación.
+            Memoria fotográfica, documentos, y seguro / datos de seguridad del vehículo.
           </p>
         </header>
 
@@ -63,6 +62,7 @@ export default async function PlanillaRegistroImportacionPage({ params }: Props)
           compradorTelefono={ficha.telefono_cliente}
           compradorCedula={ficha.cedula_propietario}
           initialImportacion={ficha.importacion}
+          initialSeguro={ficha.seguro}
           initialDocumentos={ficha.documentos}
         />
       </div>

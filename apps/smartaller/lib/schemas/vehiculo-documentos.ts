@@ -304,9 +304,23 @@ export const seguroSchema = z.object({
   telefonoAseguradora: z.string().trim().max(40).optional().nullable(),
   corredor: z.string().trim().max(120).optional().nullable(),
   observaciones: z.string().trim().max(1000).optional().nullable(),
+  /** Equipos / dispositivos de seguridad del vehículo */
+  tieneAlarma: z.boolean().optional().nullable(),
+  tieneGps: z.boolean().optional().nullable(),
+  tieneInmovilizador: z.boolean().optional().nullable(),
+  dispositivosSeguridad: z.string().trim().max(500).optional().nullable(),
+  contactoEmergencia: z.string().trim().max(120).optional().nullable(),
+  telefonoEmergencia: z.string().trim().max(40).optional().nullable(),
 });
 
 export type SeguroData = z.infer<typeof seguroSchema>;
+
+function asOptionalBool(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "1" || value === 1) return true;
+  if (value === "false" || value === "0" || value === 0) return false;
+  return null;
+}
 
 export function parseSeguro(raw: unknown): SeguroData {
   if (!raw || typeof raw !== "object") return {};
@@ -326,6 +340,15 @@ export function parseSeguro(raw: unknown): SeguroData {
     telefonoAseguradora: row.telefonoAseguradora ?? row.telefono_aseguradora,
     corredor: row.corredor,
     observaciones: row.observaciones,
+    tieneAlarma: asOptionalBool(row.tieneAlarma ?? row.tiene_alarma),
+    tieneGps: asOptionalBool(row.tieneGps ?? row.tiene_gps),
+    tieneInmovilizador: asOptionalBool(
+      row.tieneInmovilizador ?? row.tiene_inmovilizador
+    ),
+    dispositivosSeguridad:
+      row.dispositivosSeguridad ?? row.dispositivos_seguridad,
+    contactoEmergencia: row.contactoEmergencia ?? row.contacto_emergencia,
+    telefonoEmergencia: row.telefonoEmergencia ?? row.telefono_emergencia,
   });
   return parsed.success ? parsed.data : {};
 }
@@ -344,5 +367,11 @@ export function serializeSeguro(data: SeguroData): Record<string, unknown> {
     telefono_aseguradora: data.telefonoAseguradora?.trim() || null,
     corredor: data.corredor?.trim() || null,
     observaciones: data.observaciones?.trim() || null,
+    tiene_alarma: data.tieneAlarma ?? null,
+    tiene_gps: data.tieneGps ?? null,
+    tiene_inmovilizador: data.tieneInmovilizador ?? null,
+    dispositivos_seguridad: data.dispositivosSeguridad?.trim() || null,
+    contacto_emergencia: data.contactoEmergencia?.trim() || null,
+    telefono_emergencia: data.telefonoEmergencia?.trim() || null,
   };
 }
