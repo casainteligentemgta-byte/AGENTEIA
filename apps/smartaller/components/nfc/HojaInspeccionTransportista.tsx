@@ -77,9 +77,8 @@ export function HojaInspeccionTransportista() {
   }
 
   const totales = useMemo(() => {
-    const checklistItems = TRANSPORTISTA_CHECKLIST.filter((i) => i.seccion !== "evidencia");
-    const marked = checklistItems.filter((i) => Boolean(marks[i.id])).length;
-    return { marked, total: checklistItems.length };
+    const marked = TRANSPORTISTA_CHECKLIST.filter((i) => Boolean(marks[i.id])).length;
+    return { marked, total: TRANSPORTISTA_CHECKLIST.length };
   }, [marks]);
 
   return (
@@ -156,11 +155,13 @@ export function HojaInspeccionTransportista() {
           </div>
         </section>
 
-        {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion, idx) => {
+        {TRANSPORTISTA_SECCIONES.map((seccion, idx) => {
           const items = transportistaPorSeccion(seccion);
           const opciones = opcionesParaSeccion(seccion);
           const marked = items.filter((i) => Boolean(marks[i.id])).length;
           const esRecepcionista = seccion === "datos_recepcion";
+          const esEvidencia = seccion === "evidencia";
+          const puedeTodoOk = !esRecepcionista;
 
           return (
             <section key={seccion} className="mt-8 break-inside-avoid">
@@ -172,17 +173,19 @@ export function HojaInspeccionTransportista() {
                   <p className="mt-0.5 text-[11px] text-zinc-500 print:hidden">
                     {esRecepcionista
                       ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
-                      : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                      : esEvidencia
+                        ? "Marca si la foto ya está tomada. Las fotos se capturan en el expediente digital."
+                        : "OK si está bien, Daño si hay falla, N/A si no aplica."}
                   </p>
                 </div>
-                {!esRecepcionista ? (
+                {puedeTodoOk ? (
                   <button
                     type="button"
                     onClick={() => marcarSeccionOk(seccion)}
                     className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 print:hidden"
                   >
                     <CheckCheck className="h-3.5 w-3.5" />
-                    Todo OK
+                    {esEvidencia ? "Todas tomadas" : "Todo OK"}
                   </button>
                 ) : null}
               </div>
@@ -209,29 +212,12 @@ export function HojaInspeccionTransportista() {
 
         <section className="mt-8">
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").length + 2}. Evidencia
-            fotográfica y daños
-          </h2>
-          <p className="mb-2 text-[11px] text-zinc-600">
-            Fotos frontal / trasera / laterales / VIN / odómetro. Marca daños sobre la foto en el
-            expediente digital del vehículo.
-          </p>
-          <textarea
-            name="evidenciaNotas"
-            rows={3}
-            placeholder="Notas de evidencia o daños visibles…"
-            className="min-h-[72px] w-full resize-y rounded-xl border border-zinc-300 bg-transparent px-3 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm"
-          />
-        </section>
-
-        <section className="mt-6">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").length + 3}. Observaciones
+            {TRANSPORTISTA_SECCIONES.length + 2}. Observaciones
           </h2>
           <textarea
             name="observaciones"
             rows={3}
-            placeholder="Observaciones de la recepción…"
+            placeholder="Observaciones de la recepción o daños visibles…"
             className="min-h-[72px] w-full resize-y rounded-xl border border-zinc-300 bg-transparent px-3 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm"
           />
         </section>

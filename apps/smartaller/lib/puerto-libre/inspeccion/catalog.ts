@@ -18,7 +18,7 @@ export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> 
   datos_recepcion: "Datos del recepcionista",
   estado_exterior: "Estado exterior al recibir",
   inventario: "Inventario / elementos entregados",
-  evidencia: "Evidencia fotográfica / verificación",
+  evidencia: "Evidencia fotográfica",
   observaciones: "Observaciones",
 };
 

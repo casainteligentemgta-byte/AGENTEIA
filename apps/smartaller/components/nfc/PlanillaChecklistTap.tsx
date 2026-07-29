@@ -52,8 +52,34 @@ export const OPCIONES_ESTADO: ChecklistOpcion[] = [
   },
 ];
 
+export const OPCIONES_EVIDENCIA: ChecklistOpcion[] = [
+  {
+    value: "sin_dano",
+    label: "Tomada",
+    shortLabel: "✓",
+    activeClass: "bg-emerald-600 text-white ring-2 ring-emerald-400/50",
+    idleClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+  },
+  {
+    value: "falla",
+    label: "Falta",
+    shortLabel: "✗",
+    activeClass: "bg-red-600 text-white ring-2 ring-red-400/50",
+    idleClass: "bg-red-50 text-red-800 border border-red-200",
+  },
+  {
+    value: "na",
+    label: "N/A",
+    shortLabel: "—",
+    activeClass: "bg-zinc-600 text-white ring-2 ring-zinc-400/40",
+    idleClass: "bg-zinc-100 text-zinc-600 border border-zinc-200",
+  },
+];
+
 export function opcionesParaSeccion(seccion: TransportistaSeccion): ChecklistOpcion[] {
-  return seccion === "datos_recepcion" ? OPCIONES_RECEPCIONISTA : OPCIONES_ESTADO;
+  if (seccion === "datos_recepcion") return OPCIONES_RECEPCIONISTA;
+  if (seccion === "evidencia") return OPCIONES_EVIDENCIA;
+  return OPCIONES_ESTADO;
 }
 
 type RowProps = {
