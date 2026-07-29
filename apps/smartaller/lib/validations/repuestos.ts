@@ -11,6 +11,12 @@ export const createRepuestoSchema = z.object({
 
 export type CreateRepuestoInput = z.infer<typeof createRepuestoSchema>;
 
+export const updateRepuestoSchema = createRepuestoSchema.extend({
+  id: z.string().uuid("ID de repuesto inválido"),
+});
+
+export type UpdateRepuestoInput = z.infer<typeof updateRepuestoSchema>;
+
 export const repuestoLineaSchema = z.object({
   repuestoId: z.string().uuid().optional(),
   nombre: z.string().trim().min(1, "Nombre del repuesto obligatorio").max(120),

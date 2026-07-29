@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Package,
+  Bike,
   ShieldCheck,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
@@ -23,6 +24,7 @@ const links = [
   { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
   { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
   { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
+  { href: "/dashboard/smartbike", label: "SmartBike", icon: Bike },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
   { href: "/puerto-libre", label: "Módulo Puerto Libre NFC", icon: ShieldCheck },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },

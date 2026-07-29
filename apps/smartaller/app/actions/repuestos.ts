@@ -8,6 +8,7 @@ import type { RepuestoLineaInput } from "@/lib/repuestos/types";
 import {
   createRepuestoSchema,
   repuestosLineasSchema,
+  updateRepuestoSchema,
   type RepuestoLineaParsed,
 } from "@/lib/validations/repuestos";
 
@@ -54,6 +55,65 @@ export async function createRepuestoAction(raw: unknown): Promise<CreateRepuesto
 
   revalidatePath("/dashboard/repuestos");
   return { success: true, repuestoId: repuesto.id };
+}
+
+export async function updateRepuestoAction(raw: unknown): Promise<RepuestoActionResult> {
+  const user = await getUser();
+  if (!user) return { success: false, error: "Debes iniciar sesión" };
+
+  const taller = await getMyTaller();
+  if (!taller) return { success: false, error: "No se encontró tu taller" };
+
+  const parsed = updateRepuestoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const data = parsed.data;
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("repuestos")
+    .update({
+      nombre: data.nombre.trim(),
+      sku: data.sku?.trim() || null,
+      unidad: data.unidad?.trim() || "und",
+      precio_venta: data.precioVenta,
+      stock_actual: data.stockActual ?? 0,
+      stock_minimo: data.stockMinimo ?? 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", data.id)
+    .eq("taller_id", taller.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/repuestos");
+  return { success: true };
+}
+
+export async function deactivateRepuestoAction(repuestoId: string): Promise<RepuestoActionResult> {
+  const user = await getUser();
+  if (!user) return { success: false, error: "Debes iniciar sesión" };
+
+  const taller = await getMyTaller();
+  if (!taller) return { success: false, error: "No se encontró tu taller" };
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("repuestos")
+    .update({ activo: false, updated_at: new Date().toISOString() })
+    .eq("id", repuestoId)
+    .eq("taller_id", taller.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/repuestos");
+  return { success: true };
 }
 
 async function verifyMantenimientoTaller(
