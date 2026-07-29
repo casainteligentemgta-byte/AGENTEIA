@@ -276,11 +276,11 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </form>
       </section>
 
-      {/* 3. Seguro */}
+      {/* 3. Seguro y datos de seguridad */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="text-lg font-semibold text-slate-100">Seguro del vehículo</h2>
+        <h2 className="text-lg font-semibold text-slate-100">Seguro y datos de seguridad</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Datos de la póliza y documentos escaneados, guardados en el perfil de este vehículo.
+          Póliza, coberturas, dispositivos de seguridad y documentos escaneados.
         </p>
 
         <form
@@ -299,10 +299,17 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
                 telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
                 corredor: String(fd.get("corredor") ?? "") || null,
                 observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
+                tieneAlarma: fd.get("tieneAlarma") === "on",
+                tieneGps: fd.get("tieneGps") === "on",
+                tieneInmovilizador: fd.get("tieneInmovilizador") === "on",
+                dispositivosSeguridad:
+                  String(fd.get("dispositivosSeguridad") ?? "") || null,
+                contactoEmergencia: String(fd.get("contactoEmergencia") ?? "") || null,
+                telefonoEmergencia: String(fd.get("telefonoEmergencia") ?? "") || null,
               });
               if (!result.success) flash(null, result.error);
               else {
-                flash("Seguro actualizado", null);
+                flash("Seguro y seguridad actualizados", null);
                 router.refresh();
               }
             });
@@ -354,6 +361,54 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             name="corredor"
             defaultValue={ficha.seguro.corredor ?? ""}
           />
+
+          <p className="sm:col-span-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Dispositivos de seguridad
+          </p>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              name="tieneAlarma"
+              defaultChecked={Boolean(ficha.seguro.tieneAlarma)}
+              className="rounded border-slate-600"
+            />
+            Alarma
+          </label>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              name="tieneGps"
+              defaultChecked={Boolean(ficha.seguro.tieneGps)}
+              className="rounded border-slate-600"
+            />
+            GPS / rastreador
+          </label>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="tieneInmovilizador"
+              defaultChecked={Boolean(ficha.seguro.tieneInmovilizador)}
+              className="rounded border-slate-600"
+            />
+            Inmovilizador
+          </label>
+          <Field
+            label="Otros dispositivos / notas"
+            name="dispositivosSeguridad"
+            defaultValue={ficha.seguro.dispositivosSeguridad ?? ""}
+            placeholder="Ej. candado de volante…"
+            className="sm:col-span-2"
+          />
+          <Field
+            label="Contacto de emergencia"
+            name="contactoEmergencia"
+            defaultValue={ficha.seguro.contactoEmergencia ?? ""}
+          />
+          <Field
+            label="Teléfono de emergencia"
+            name="telefonoEmergencia"
+            defaultValue={ficha.seguro.telefonoEmergencia ?? ""}
+          />
           <label className="block space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Observaciones del seguro</span>
             <textarea
@@ -364,7 +419,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             />
           </label>
           <div className="sm:col-span-2">
-            <SaveButton pending={pending} label="Guardar seguro" />
+            <SaveButton pending={pending} label="Guardar seguro y seguridad" />
           </div>
         </form>
 

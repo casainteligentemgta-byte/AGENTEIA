@@ -3,13 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Camera, ClipboardList, FileUp, Ship, User } from "lucide-react";
-import { updatePuertoLibreImportacionAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { Camera, ClipboardList, FileUp, Shield, Ship, User } from "lucide-react";
+import {
+  updatePuertoLibreImportacionAction,
+  updatePuertoLibreSeguroAction,
+} from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
+  SEGURO_DOCUMENTO_TIPOS,
   type ImportacionData,
+  type SeguroData,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 
@@ -25,6 +30,7 @@ type Props = {
   compradorTelefono: string | null;
   compradorCedula: string | null;
   initialImportacion: ImportacionData;
+  initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
 };
 
@@ -40,6 +46,7 @@ export function PlanillaRegistroImportacion({
   compradorTelefono,
   compradorCedula,
   initialImportacion,
+  initialSeguro,
   initialDocumentos,
 }: Props) {
   const router = useRouter();
@@ -255,6 +262,223 @@ export function PlanillaRegistroImportacion({
               }}
             />
           ))}
+        </div>
+      </section>
+
+      {/* Seguro y datos de seguridad */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Shield className="h-5 w-5 text-cyan-400" />
+          Seguro y datos de seguridad
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Póliza, coberturas y dispositivos de seguridad del vehículo.
+        </p>
+
+        <form
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          action={(fd) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
+              const result = await updatePuertoLibreSeguroAction({
+                vehiculoId,
+                aseguradora: String(fd.get("aseguradora") ?? "") || null,
+                numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
+                tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
+                vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
+                vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
+                montoAsegurado: montoRaw ? Number(montoRaw) : null,
+                telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
+                corredor: String(fd.get("corredor") ?? "") || null,
+                observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
+                tieneAlarma: fd.get("tieneAlarma") === "on",
+                tieneGps: fd.get("tieneGps") === "on",
+                tieneInmovilizador: fd.get("tieneInmovilizador") === "on",
+                dispositivosSeguridad:
+                  String(fd.get("dispositivosSeguridad") ?? "") || null,
+                contactoEmergencia: String(fd.get("contactoEmergencia") ?? "") || null,
+                telefonoEmergencia: String(fd.get("telefonoEmergencia") ?? "") || null,
+              });
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Seguro y seguridad guardados");
+              router.refresh();
+            });
+          }}
+        >
+          <p className="sm:col-span-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Póliza
+          </p>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Aseguradora</span>
+            <input
+              name="aseguradora"
+              defaultValue={initialSeguro.aseguradora ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Nº de póliza</span>
+            <input
+              name="numeroPoliza"
+              defaultValue={initialSeguro.numeroPoliza ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Tipo de cobertura</span>
+            <input
+              name="tipoCobertura"
+              placeholder="RCV, todo riesgo…"
+              defaultValue={initialSeguro.tipoCobertura ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Teléfono aseguradora</span>
+            <input
+              name="telefonoAseguradora"
+              defaultValue={initialSeguro.telefonoAseguradora ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Vigencia desde</span>
+            <input
+              name="vigenciaDesde"
+              type="date"
+              defaultValue={initialSeguro.vigenciaDesde ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Vigencia hasta</span>
+            <input
+              name="vigenciaHasta"
+              type="date"
+              defaultValue={initialSeguro.vigenciaHasta ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Monto asegurado (USD)</span>
+            <input
+              name="montoAsegurado"
+              type="number"
+              defaultValue={
+                initialSeguro.montoAsegurado != null
+                  ? String(initialSeguro.montoAsegurado)
+                  : ""
+              }
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Corredor / agente</span>
+            <input
+              name="corredor"
+              defaultValue={initialSeguro.corredor ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+
+          <p className="sm:col-span-2 mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Dispositivos de seguridad
+          </p>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              name="tieneAlarma"
+              defaultChecked={Boolean(initialSeguro.tieneAlarma)}
+              className="rounded border-slate-600"
+            />
+            Alarma
+          </label>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              name="tieneGps"
+              defaultChecked={Boolean(initialSeguro.tieneGps)}
+              className="rounded border-slate-600"
+            />
+            GPS / rastreador
+          </label>
+          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="tieneInmovilizador"
+              defaultChecked={Boolean(initialSeguro.tieneInmovilizador)}
+              className="rounded border-slate-600"
+            />
+            Inmovilizador
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Otros dispositivos / notas</span>
+            <input
+              name="dispositivosSeguridad"
+              placeholder="Ej. candado de volante, corte de combustible…"
+              defaultValue={initialSeguro.dispositivosSeguridad ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Contacto de emergencia</span>
+            <input
+              name="contactoEmergencia"
+              defaultValue={initialSeguro.contactoEmergencia ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Teléfono de emergencia</span>
+            <input
+              name="telefonoEmergencia"
+              defaultValue={initialSeguro.telefonoEmergencia ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones</span>
+            <textarea
+              name="observacionesSeguro"
+              rows={3}
+              defaultValue={initialSeguro.observaciones ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <div className="sm:col-span-2">
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
+            >
+              {pending ? "Guardando…" : "Guardar seguro y seguridad"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-slate-300">Documentos del seguro</h3>
+          <div className="mt-3 grid gap-3">
+            {SEGURO_DOCUMENTO_TIPOS.map((tipo) => (
+              <ImportDocumentoUpload
+                key={tipo}
+                vehiculoId={vehiculoId}
+                tipo={tipo}
+                existingUrl={docs[tipo]?.url}
+                onUploaded={(next) => {
+                  setDocs(next);
+                  setMessage("Documento de seguro guardado");
+                  setError(null);
+                  router.refresh();
+                }}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
