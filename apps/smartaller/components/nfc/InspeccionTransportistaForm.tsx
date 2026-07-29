@@ -178,7 +178,7 @@ export function InspeccionTransportistaForm({
               tipo="bl_guia"
               existingUrl={blUrl}
               hint="Cargar foto o PDF del BL"
-              actionLabel="Cargar foto / PDF del BL"
+              actionLabel="Cargar foto o PDF del BL"
               onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
             />
           </div>

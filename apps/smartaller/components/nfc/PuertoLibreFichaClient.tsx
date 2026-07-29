@@ -104,7 +104,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
               {ficha.tieneInspeccionTransportista ? "Ver / editar acta" : "Completar inspección"}
             </Link>
             <Link
-              href="/puerto-libre/hoja-inspeccion"
+              href={`/puerto-libre/hoja-inspeccion?vehiculoId=${ficha.id}`}
               className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-300"
             >
               <FileText className="h-3.5 w-3.5" />
