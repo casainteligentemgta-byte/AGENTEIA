@@ -84,6 +84,8 @@ function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
   revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/inspeccion`);
+  revalidatePath(`/puerto-libre/hoja-inspeccion`);
 }
 
 export type CreatePuertoLibreResult =
@@ -384,15 +386,26 @@ export async function uploadPuertoLibreDocumentoAction(
       .eq("id", vehiculoId)
       .eq("taller_id", auth.taller.id);
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      return {
+        success: false,
+        error: `Archivo subido pero no se guardó en documentos: ${error.message}`,
+      };
+    }
 
     revalidateFicha(vehiculoId);
     return { success: true, tipo: tipoParsed.data, documentos: next };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "No se pudo subir el documento",
-    };
+    const msg = err instanceof Error ? err.message : "No se pudo subir el documento";
+    const lower = msg.toLowerCase();
+    if (lower.includes("bucket") || lower.includes("not found") || lower.includes("vehiculos-documentos")) {
+      return {
+        success: false,
+        error:
+          "Falta el bucket Storage 'vehiculos-documentos' en Supabase. Ejecuta la migración 20250711100000_vehiculos_documentos.sql.",
+      };
+    }
+    return { success: false, error: msg };
   }
 }
 

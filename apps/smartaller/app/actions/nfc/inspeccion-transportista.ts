@@ -9,7 +9,7 @@ import {
   inspeccionTransportistaSchema,
   type InspeccionTransportistaStored,
 } from "@/lib/schemas/inspeccion-transportista";
-import { parseImportacion, serializeImportacion } from "@/lib/schemas/vehiculo-documentos";
+import { parseImportacion, parseVehiculosDocumentos, serializeImportacion } from "@/lib/schemas/vehiculo-documentos";
 
 export type InspeccionTransportistaResult =
   | { success: true }
@@ -32,7 +32,7 @@ export async function saveInspeccionTransportistaAction(
   const admin = createAdminClient();
   const { data: vehiculo } = await admin
     .from("vehiculos")
-    .select("id, taller_id, placa, serial_carroceria, kilometraje_ultimo, importacion")
+    .select("id, taller_id, placa, serial_carroceria, kilometraje_ultimo, importacion, documentos")
     .eq("id", parsed.data.vehiculoId)
     .maybeSingle();
 
@@ -50,6 +50,30 @@ export async function saveInspeccionTransportistaAction(
     inspeccion_transportista: stored,
     updated_at: stored.updated_at,
   };
+
+  // Sincroniza URLs de adjuntos en vehiculos.documentos (además del JSON del acta)
+  const docs = parseVehiculosDocumentos(vehiculo.documentos);
+  let docsChanged = false;
+  const syncUrl = (
+    key: "bl_guia" | "foto_placa" | "foto_odometro",
+    url: string | null | undefined
+  ) => {
+    if (!url?.trim()) return;
+    if (docs[key]?.url === url) return;
+    docs[key] = {
+      url,
+      path: docs[key]?.path || `inspeccion/${key}`,
+      scanned_at: new Date().toISOString(),
+      file_name: docs[key]?.file_name || `${key}.pdf`,
+    };
+    docsChanged = true;
+  };
+  syncUrl("bl_guia", parsed.data.blDocumentoUrl);
+  syncUrl("foto_placa", parsed.data.fotoPlacaUrl);
+  syncUrl("foto_odometro", parsed.data.fotoTableroUrl);
+  if (docsChanged) {
+    updatePayload.documentos = docs;
+  }
 
   const placaNueva = parsed.data.placaTexto?.trim()
     ? normalizePlaca(parsed.data.placaTexto)
