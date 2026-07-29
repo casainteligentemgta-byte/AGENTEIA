@@ -40,7 +40,7 @@ export async function saveInspeccionTransportistaAction(
 
   const stored: InspeccionTransportistaStored = {
     ...parsed.data,
-    version: 1,
+    version: 2,
     updated_at: new Date().toISOString(),
   };
 

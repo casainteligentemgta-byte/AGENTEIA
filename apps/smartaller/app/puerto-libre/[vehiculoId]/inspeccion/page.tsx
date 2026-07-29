@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { parseInspeccionTransportista } from "@/lib/schemas/inspeccion-transportista";
+import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { InspeccionTransportistaForm } from "@/components/nfc/InspeccionTransportistaForm";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function InspeccionTransportistaPage({ params }: Props) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("vehiculos")
-    .select("id, placa, taller_id, inspeccion_transportista")
+    .select("id, placa, taller_id, inspeccion_transportista, documentos")
     .eq("id", params.vehiculoId)
     .maybeSingle();
 
@@ -58,40 +59,32 @@ export default async function InspeccionTransportistaPage({ params }: Props) {
     vehiculoId: data.id,
   });
 
+  const documentos = parseVehiculosDocumentos(data.documentos);
+
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-6 flex items-center gap-3">
           <Link
             href={`/puerto-libre/${params.vehiculoId}`}
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200"
+            className="inline-flex rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
+            aria-label="Volver"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Volver a la ficha
+            <ArrowLeft className="h-5 w-5" />
           </Link>
-          <Link
-            href="/puerto-libre/hoja-inspeccion"
-            className="inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300"
-          >
-            <FileText className="h-4 w-4" />
-            Planilla en blanco (PDF)
-          </Link>
+          <div>
+            <p className="font-mono text-sm text-cyan-400">{data.placa}</p>
+            <h1 className="text-2xl font-semibold uppercase tracking-tight text-zinc-50">
+              Planilla recepción en puerto
+            </h1>
+          </div>
         </div>
-
-        <header className="mb-8">
-          <p className="font-mono text-sm text-cyan-400">{data.placa}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-zinc-50">
-            Inspección en transportista
-          </h1>
-          <p className="mt-2 text-sm text-zinc-400">
-            Acta digital al recibir el vehículo de la transportista (Puerto Libre).
-          </p>
-        </header>
 
         <InspeccionTransportistaForm
           vehiculoId={data.id}
           placa={data.placa}
           initial={initial}
+          documentos={documentos}
         />
       </div>
     </main>

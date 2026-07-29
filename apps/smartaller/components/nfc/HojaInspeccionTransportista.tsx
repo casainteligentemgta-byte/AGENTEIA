@@ -9,10 +9,19 @@ import {
 } from "@/lib/puerto-libre/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
 
-function LineField({ label, wide }: { label: string; wide?: boolean }) {
+function LineField({
+  label,
+  hint,
+  wide,
+}: {
+  label: string;
+  hint?: string;
+  wide?: boolean;
+}) {
   return (
     <div className={wide ? "col-span-2" : ""}>
       <span className="text-[11px] font-medium text-zinc-600">{label}</span>
+      {hint ? <p className="text-[10px] text-zinc-500">{hint}</p> : null}
       <div className="mt-0.5 border-b border-zinc-400 pb-4" />
     </div>
   );
@@ -21,11 +30,7 @@ function LineField({ label, wide }: { label: string; wide?: boolean }) {
 export function HojaInspeccionTransportista() {
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <p className="text-sm text-zinc-400">
-          Planilla de <strong className="text-zinc-200">recepción en transportista</strong> (Puerto
-          Libre) — distinta a la inspección de ingreso al taller
-        </p>
+      <div className="mb-6 flex justify-end print:hidden">
         <button
           type="button"
           onClick={() => window.print()}
@@ -42,11 +47,10 @@ export function HojaInspeccionTransportista() {
             SmartTaller · Puerto Libre
           </p>
           <h1 className="mt-1 text-xl font-bold uppercase tracking-wide">
-            Inspección al recibir en transportista
+            Planilla recepción en puerto
           </h1>
           <p className="mt-1 text-xs text-zinc-600">
-            Acta de recepción del vehículo en la empresa transportista / puerto — no sustituye la
-            inspección de ingreso al taller
+            Acta de recepción del vehículo en la empresa transportista / puerto
           </p>
         </header>
 
@@ -56,13 +60,19 @@ export function HojaInspeccionTransportista() {
           </h2>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <LineField label="Transportista" />
-            <LineField label="Nº guía / BL" />
-            <LineField label="Fecha de recepción" />
+            <LineField
+              label="Nº guía / BL"
+              hint="Adjuntar foto o PDF del BL"
+            />
+            <LineField label="Fecha de recepción" hint="Seleccionar en calendario" />
             <LineField label="Lugar de recepción" />
             <LineField label="Contenedor / remolque" />
-            <LineField label="Placa del vehículo" />
+            <LineField
+              label="Placa del vehículo (texto)"
+              hint="Adjuntar foto o PDF de la placa"
+            />
             <LineField label="VIN / chasis" />
-            <LineField label="Kilometraje al recibir" />
+            <LineField label="Kilometraje al recibir" hint="Solo números" />
           </div>
         </section>
 
@@ -77,8 +87,9 @@ export function HojaInspeccionTransportista() {
                 <thead>
                   <tr className="bg-zinc-100">
                     <th className="border border-zinc-300 px-2 py-1.5 text-left">Ítem</th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-14">OK</th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-14">Falla</th>
+                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">
+                      Con daño
+                    </th>
                     <th className="border border-zinc-300 px-2 py-1.5 text-center w-14">N/A</th>
                   </tr>
                 </thead>
@@ -86,7 +97,6 @@ export function HojaInspeccionTransportista() {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <td className="border border-zinc-300 px-2 py-1.5">{item.etiqueta}</td>
-                      <td className="border border-zinc-300" />
                       <td className="border border-zinc-300" />
                       <td className="border border-zinc-300" />
                     </tr>
@@ -99,8 +109,12 @@ export function HojaInspeccionTransportista() {
 
         <section className="mt-6">
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.length + 2}. Daños reportados al recibir
+            {TRANSPORTISTA_SECCIONES.length + 2}. Evidencia fotográfica y daños
           </h2>
+          <p className="mb-2 text-[11px] text-zinc-600">
+            Fotos frontal / trasera / laterales / VIN / odómetro. Marcar daños sobre la foto
+            (mismo flujo que la recepción en taller).
+          </p>
           <div className="min-h-[72px] border border-zinc-300" />
         </section>
 
@@ -125,8 +139,7 @@ export function HojaInspeccionTransportista() {
         </section>
 
         <footer className="mt-8 border-t border-zinc-200 pt-3 text-center text-[10px] text-zinc-500">
-          {getAppHost()} · Planilla Puerto Libre · {TRANSPORTISTA_CHECKLIST.length} ítems · No es
-          inspección de taller
+          {getAppHost()} · Planilla recepción en puerto · {TRANSPORTISTA_CHECKLIST.length} ítems
         </footer>
       </article>
     </>

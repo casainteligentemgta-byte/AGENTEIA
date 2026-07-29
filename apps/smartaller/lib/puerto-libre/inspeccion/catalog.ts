@@ -23,8 +23,7 @@ export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> 
 };
 
 /**
- * Planilla de inspección al recibir el vehículo en la transportista (Puerto Libre).
- * Distinta de la inspección de ingreso al taller.
+ * Planilla de recepción del vehículo en puerto / transportista (Puerto Libre).
  */
 export const TRANSPORTISTA_CHECKLIST: TransportistaChecklistItem[] = [
   // Datos recepción — textos en form, ticks aquí como verificación
@@ -34,14 +33,14 @@ export const TRANSPORTISTA_CHECKLIST: TransportistaChecklistItem[] = [
   { id: "rec_hora_llegada", seccion: "datos_recepcion", etiqueta: "Hora de llegada registrada", orden: 40 },
 
   // Estado exterior
-  { id: "ext_frontal", seccion: "estado_exterior", etiqueta: "Frontal sin daños nuevos visibles", orden: 10 },
-  { id: "ext_trasero", seccion: "estado_exterior", etiqueta: "Trasero sin daños nuevos visibles", orden: 20 },
-  { id: "ext_lat_izq", seccion: "estado_exterior", etiqueta: "Lateral izquierdo OK", orden: 30 },
-  { id: "ext_lat_der", seccion: "estado_exterior", etiqueta: "Lateral derecho OK", orden: 40 },
-  { id: "ext_techo", seccion: "estado_exterior", etiqueta: "Techo / capot OK", orden: 50 },
-  { id: "ext_cristales", seccion: "estado_exterior", etiqueta: "Cristales / parabrisas OK", orden: 60 },
-  { id: "ext_llantas", seccion: "estado_exterior", etiqueta: "Llantas / rines OK", orden: 70 },
-  { id: "ext_luces", seccion: "estado_exterior", etiqueta: "Luces exteriores OK", orden: 80 },
+  { id: "ext_frontal", seccion: "estado_exterior", etiqueta: "Frontal sin daños visibles", orden: 10 },
+  { id: "ext_trasero", seccion: "estado_exterior", etiqueta: "Trasero sin daños visibles", orden: 20 },
+  { id: "ext_lat_izq", seccion: "estado_exterior", etiqueta: "Lateral izquierdo sin daños visibles", orden: 30 },
+  { id: "ext_lat_der", seccion: "estado_exterior", etiqueta: "Lateral derecho sin daños visibles", orden: 40 },
+  { id: "ext_techo", seccion: "estado_exterior", etiqueta: "Techo / capot sin daños visibles", orden: 50 },
+  { id: "ext_cristales", seccion: "estado_exterior", etiqueta: "Cristales / parabrisas sin daños visibles", orden: 60 },
+  { id: "ext_llantas", seccion: "estado_exterior", etiqueta: "Llantas / rines sin daños visibles", orden: 70 },
+  { id: "ext_luces", seccion: "estado_exterior", etiqueta: "Luces exteriores operativas", orden: 80 },
   { id: "ext_fuga", seccion: "estado_exterior", etiqueta: "Sin fugas visibles de fluidos", orden: 90 },
 
   // Inventario
