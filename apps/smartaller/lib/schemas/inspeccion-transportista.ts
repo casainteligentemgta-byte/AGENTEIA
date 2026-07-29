@@ -10,6 +10,8 @@ export const checklistRespuestaSchema = z.enum(["sin_dano", "falla", "na"]);
 
 export const inspeccionTransportistaSchema = z.object({
   vehiculoId: z.string().uuid(),
+  /** Empresa importadora / consignataria del vehículo. */
+  importadora: z.string().trim().max(120).optional().nullable(),
   transportista: z.string().trim().max(120).optional().nullable(),
   numeroGuia: z.string().trim().max(80).optional().nullable(),
   fechaRecepcion: z.string().trim().max(32).optional().nullable(),
@@ -60,6 +62,7 @@ export function parseInspeccionTransportista(raw: unknown): InspeccionTransporti
 
   const parsed = inspeccionTransportistaSchema.safeParse({
     vehiculoId: row.vehiculoId ?? row.vehiculo_id,
+    importadora: row.importadora ?? row.importadora_nombre,
     transportista: row.transportista,
     numeroGuia: row.numeroGuia ?? row.numero_guia,
     fechaRecepcion: row.fechaRecepcion ?? row.fecha_recepcion,

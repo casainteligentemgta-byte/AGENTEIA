@@ -21,11 +21,19 @@ import {
 } from "@/lib/schemas/estado-visual-recepcion";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
+type Prefill = {
+  importadora?: string | null;
+  vin?: string | null;
+  kilometraje?: number | null;
+};
+
 type Props = {
   vehiculoId: string;
   placa: string;
   initial?: InspeccionTransportistaStored | null;
   documentos?: VehiculosDocumentos | null;
+  /** Valores del vehículo / importación si aún no hay acta guardada. */
+  prefill?: Prefill;
 };
 
 export function InspeccionTransportistaForm({
@@ -33,6 +41,7 @@ export function InspeccionTransportistaForm({
   placa,
   initial,
   documentos,
+  prefill,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -49,7 +58,7 @@ export function InspeccionTransportistaForm({
   );
   const [pasoFotos, setPasoFotos] = useState(0);
   const [kilometraje, setKilometraje] = useState<number | null>(
-    initial?.kilometraje ?? null
+    initial?.kilometraje ?? prefill?.kilometraje ?? null
   );
   const [checklist, setChecklist] = useState<Record<string, ChecklistRespuesta>>(() => {
     const base: Record<string, ChecklistRespuesta> = {};
@@ -73,6 +82,7 @@ export function InspeccionTransportistaForm({
           const kmRaw = String(fd.get("kilometraje") ?? "").trim();
           const result = await saveInspeccionTransportistaAction({
             vehiculoId,
+            importadora: String(fd.get("importadora") ?? "") || null,
             transportista: String(fd.get("transportista") ?? "") || null,
             numeroGuia: String(fd.get("numeroGuia") ?? "") || null,
             fechaRecepcion: String(fd.get("fechaRecepcion") ?? "") || null,
@@ -109,7 +119,15 @@ export function InspeccionTransportistaForm({
     >
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
         <h2 className="text-lg font-semibold text-slate-100">1. Datos de la recepción</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Campos editables. Al guardar se almacenan en Supabase (acta + ficha del vehículo).
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Importadora"
+            name="importadora"
+            defaultValue={initial?.importadora ?? prefill?.importadora ?? ""}
+          />
           <Field
             label="Transportista"
             name="transportista"
@@ -141,11 +159,6 @@ export function InspeccionTransportistaForm({
             name="lugarRecepcion"
             defaultValue={initial?.lugarRecepcion ?? ""}
           />
-          <Field
-            label="Contenedor / remolque"
-            name="contenedor"
-            defaultValue={initial?.contenedor ?? ""}
-          />
           <div className="space-y-3">
             <Field
               label="Placa del vehículo"
@@ -161,7 +174,11 @@ export function InspeccionTransportistaForm({
               onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
             />
           </div>
-          <Field label="VIN / chasis" name="vin" defaultValue={initial?.vin ?? ""} />
+          <Field
+            label="VIN / chasis"
+            name="vin"
+            defaultValue={initial?.vin ?? prefill?.vin ?? ""}
+          />
           <label className="block space-y-1.5">
             <span className="text-sm text-slate-400">Kilometraje al recibir</span>
             <input
@@ -179,6 +196,11 @@ export function InspeccionTransportistaForm({
               placeholder="Solo números"
             />
           </label>
+          <Field
+            label="Contenedor / remolque"
+            name="contenedor"
+            defaultValue={initial?.contenedor ?? ""}
+          />
         </div>
       </section>
 
