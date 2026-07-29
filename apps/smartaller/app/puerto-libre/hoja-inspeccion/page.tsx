@@ -21,6 +21,11 @@ export default function PuertoLibreHojaInspeccionPage() {
           </h1>
         </div>
 
+        <p className="mb-4 text-sm text-zinc-400 print:hidden">
+          Nueva forma de rellenar: botones grandes ✓ / ✗ / OK / Daño. Para guardar en Supabase,
+          abre la planilla desde la ficha del vehículo.
+        </p>
+
         <HojaInspeccionTransportista />
       </div>
     </main>

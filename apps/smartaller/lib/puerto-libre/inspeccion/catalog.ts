@@ -15,10 +15,10 @@ export type TransportistaChecklistItem = {
 };
 
 export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> = {
-  datos_recepcion: "Datos de recepción (transportista)",
+  datos_recepcion: "Datos del recepcionista",
   estado_exterior: "Estado exterior al recibir",
   inventario: "Inventario / elementos entregados",
-  evidencia: "Evidencia fotográfica / verificación",
+  evidencia: "Evidencia fotográfica",
   observaciones: "Observaciones",
 };
 
@@ -26,11 +26,10 @@ export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> 
  * Planilla de recepción del vehículo en puerto / transportista (Puerto Libre).
  */
 export const TRANSPORTISTA_CHECKLIST: TransportistaChecklistItem[] = [
-  // Datos recepción — textos en form, ticks aquí como verificación
+  // Datos del recepcionista — verificación con ✓ / ✗
   { id: "rec_guia_bl", seccion: "datos_recepcion", etiqueta: "Coincide guía / BL con el vehículo", orden: 10 },
   { id: "rec_placa_vin", seccion: "datos_recepcion", etiqueta: "Placa / VIN verificados vs documentos", orden: 20 },
   { id: "rec_precintos", seccion: "datos_recepcion", etiqueta: "Precintos / sellos íntegros (si aplica)", orden: 30 },
-  { id: "rec_hora_llegada", seccion: "datos_recepcion", etiqueta: "Hora de llegada registrada", orden: 40 },
 
   // Estado exterior
   { id: "ext_frontal", seccion: "estado_exterior", etiqueta: "Frontal sin daños visibles", orden: 10 },

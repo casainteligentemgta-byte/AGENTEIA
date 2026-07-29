@@ -1,47 +1,113 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCheck, Printer } from "lucide-react";
 import {
   TRANSPORTISTA_CHECKLIST,
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
   transportistaPorSeccion,
+  type TransportistaSeccion,
 } from "@/lib/puerto-libre/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
+import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
+import {
+  opcionesParaSeccion,
+  PlanillaChecklistProgress,
+  PlanillaChecklistRow,
+} from "@/components/nfc/PlanillaChecklistTap";
 
-function LineField({
+function FillField({
   label,
   hint,
   wide,
+  type = "text",
+  name,
+  defaultValue,
 }: {
   label: string;
   hint?: string;
   wide?: boolean;
+  type?: "text" | "date" | "number";
+  name: string;
+  defaultValue?: string;
 }) {
   return (
-    <div className={wide ? "col-span-2" : ""}>
+    <label className={wide ? "col-span-2 block" : "block"}>
       <span className="text-[11px] font-medium text-zinc-600">{label}</span>
       {hint ? <p className="text-[10px] text-zinc-500">{hint}</p> : null}
-      <div className="mt-0.5 border-b border-zinc-400 pb-4" />
-    </div>
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        inputMode={type === "number" ? "numeric" : undefined}
+        min={type === "number" ? 0 : undefined}
+        className="mt-0.5 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
+      />
+    </label>
   );
 }
 
+function defaultMarks(): Record<string, ChecklistRespuesta | ""> {
+  const init: Record<string, ChecklistRespuesta | ""> = {};
+  for (const item of TRANSPORTISTA_CHECKLIST) {
+    init[item.id] = "";
+  }
+  return init;
+}
+
 export function HojaInspeccionTransportista() {
+  const [marks, setMarks] = useState(defaultMarks);
+
+  function setMark(id: string, value: ChecklistRespuesta) {
+    setMarks((prev) => ({
+      ...prev,
+      [id]: prev[id] === value ? "" : value,
+    }));
+  }
+
+  function marcarSeccionOk(seccion: TransportistaSeccion) {
+    setMarks((prev) => {
+      const next = { ...prev };
+      for (const item of transportistaPorSeccion(seccion)) {
+        next[item.id] = "sin_dano";
+      }
+      return next;
+    });
+  }
+
+  const totales = useMemo(() => {
+    const marked = TRANSPORTISTA_CHECKLIST.filter((i) => Boolean(marks[i.id])).length;
+    return { marked, total: TRANSPORTISTA_CHECKLIST.length };
+  }, [marks]);
+
   return (
     <>
-      <div className="mb-6 flex justify-end print:hidden">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="min-w-[12rem] flex-1">
+          <p className="text-sm text-zinc-400">
+            Toca ✓ / ✗ en cada ítem. Luego{" "}
+            <strong className="font-medium text-zinc-200">Imprimir / PDF</strong>.
+          </p>
+          <div className="mt-2 max-w-xs">
+            <PlanillaChecklistProgress
+              marked={totales.marked}
+              total={totales.total}
+              tone="dark"
+            />
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
         >
           <Printer className="h-4 w-4" />
           Imprimir / PDF
         </button>
       </div>
 
-      <article className="mx-auto max-w-4xl bg-white p-6 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
+      <article className="mx-auto max-w-4xl bg-white p-5 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             SmartTaller · Puerto Libre
@@ -58,83 +124,124 @@ export function HojaInspeccionTransportista() {
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
             1. Datos de la recepción
           </h2>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <LineField label="Transportista" />
-            <LineField
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            <FillField label="Importadora" name="importadora" />
+            <FillField label="Transportista" name="transportista" />
+            <FillField
               label="Nº guía / BL"
-              hint="Adjuntar foto o PDF del BL"
+              name="numeroGuia"
+              hint="Adjuntar foto o PDF del BL al expediente digital"
             />
-            <LineField label="Fecha de recepción" hint="Seleccionar en calendario" />
-            <LineField label="Lugar de recepción" />
-            <LineField label="Contenedor / remolque" />
-            <LineField
+            <FillField
+              label="Fecha de recepción"
+              name="fechaRecepcion"
+              type="date"
+              hint="Seleccionar en calendario"
+            />
+            <FillField label="Lugar de recepción" name="lugarRecepcion" />
+            <FillField
               label="Placa del vehículo (texto)"
-              hint="Adjuntar foto o PDF de la placa"
+              name="placaTexto"
+              hint="Adjuntar foto o PDF de la placa al expediente digital"
             />
-            <LineField label="VIN / chasis" />
-            <LineField label="Kilometraje al recibir" hint="Solo números" />
+            <FillField label="VIN / chasis" name="vin" />
+            <FillField
+              label="Kilometraje al recibir"
+              name="kilometraje"
+              type="number"
+              hint="Solo números"
+            />
+            <FillField label="Contenedor / remolque" name="contenedor" wide />
           </div>
         </section>
 
         {TRANSPORTISTA_SECCIONES.map((seccion, idx) => {
           const items = transportistaPorSeccion(seccion);
+          const opciones = opcionesParaSeccion(seccion);
+          const marked = items.filter((i) => Boolean(marks[i.id])).length;
+          const esRecepcionista = seccion === "datos_recepcion";
+          const esEvidencia = seccion === "evidencia";
+          const puedeTodoOk = !esRecepcionista;
+
           return (
-            <section key={seccion} className="mt-6">
-              <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-                {idx + 2}. {TRANSPORTISTA_SECCION_LABELS[seccion]}
-              </h2>
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-zinc-100">
-                    <th className="border border-zinc-300 px-2 py-1.5 text-left">Ítem</th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">
-                      Con daño
-                    </th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-14">N/A</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="border border-zinc-300 px-2 py-1.5">{item.etiqueta}</td>
-                      <td className="border border-zinc-300" />
-                      <td className="border border-zinc-300" />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <section key={seccion} className="mt-8 break-inside-avoid">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold uppercase text-zinc-800">
+                    {idx + 2}. {TRANSPORTISTA_SECCION_LABELS[seccion]}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 print:hidden">
+                    {esRecepcionista
+                      ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
+                      : esEvidencia
+                        ? "Marca si la foto ya está tomada. Las fotos se capturan en el expediente digital."
+                        : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                  </p>
+                </div>
+                {puedeTodoOk ? (
+                  <button
+                    type="button"
+                    onClick={() => marcarSeccionOk(seccion)}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 print:hidden"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" />
+                    {esEvidencia ? "Todas tomadas" : "Todo OK"}
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mb-3 print:hidden">
+                <PlanillaChecklistProgress marked={marked} total={items.length} tone="light" />
+              </div>
+
+              <ul className="space-y-2.5">
+                {items.map((item) => (
+                  <PlanillaChecklistRow
+                    key={item.id}
+                    etiqueta={item.etiqueta}
+                    value={marks[item.id]}
+                    opciones={opciones}
+                    onChange={(v) => setMark(item.id, v)}
+                    tone="light"
+                  />
+                ))}
+              </ul>
             </section>
           );
         })}
 
-        <section className="mt-6">
+        <section className="mt-8">
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.length + 2}. Evidencia fotográfica y daños
+            {TRANSPORTISTA_SECCIONES.length + 2}. Observaciones
           </h2>
-          <p className="mb-2 text-[11px] text-zinc-600">
-            Fotos frontal / trasera / laterales / VIN / odómetro. Marcar daños sobre la foto
-            (mismo flujo que la recepción en taller).
-          </p>
-          <div className="min-h-[72px] border border-zinc-300" />
+          <textarea
+            name="observaciones"
+            rows={3}
+            placeholder="Observaciones de la recepción o daños visibles…"
+            className="min-h-[72px] w-full resize-y rounded-xl border border-zinc-300 bg-transparent px-3 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm"
+          />
         </section>
 
-        <section className="mt-6">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.length + 3}. Observaciones
-          </h2>
-          <div className="min-h-[72px] border border-zinc-300" />
-        </section>
-
-        <section className="mt-8 grid grid-cols-2 gap-8">
+        <section className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
           <div>
             <p className="text-xs font-semibold text-zinc-700">Receptor (SmartTaller / cliente)</p>
+            <input
+              name="receptorNombre"
+              placeholder="Nombre"
+              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base outline-none focus:border-cyan-600 sm:text-sm"
+            />
             <div className="mt-8 border-b border-zinc-400" />
-            <p className="mt-1 text-[10px] text-zinc-500">Nombre y firma</p>
+            <p className="mt-1 text-[10px] text-zinc-500">Firma</p>
           </div>
           <div>
             <p className="text-xs font-semibold text-zinc-700">Transportista</p>
+            <input
+              name="transportistaNombre"
+              placeholder="Nombre"
+              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base outline-none focus:border-cyan-600 sm:text-sm"
+            />
             <div className="mt-8 border-b border-zinc-400" />
-            <p className="mt-1 text-[10px] text-zinc-500">Nombre y firma</p>
+            <p className="mt-1 text-[10px] text-zinc-500">Firma</p>
           </div>
         </section>
 
