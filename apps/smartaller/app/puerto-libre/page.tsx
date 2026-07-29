@@ -15,6 +15,7 @@ import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { PuertoLibreDashboardEyebrow } from "@/components/nfc/PuertoLibreDashboardEyebrow";
 import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
@@ -88,10 +89,7 @@ export default async function PuertoLibrePage() {
     <PuertoLibreShell>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 text-cyan-400">
-            <ShieldCheck className="h-5 w-5" />
-            <span className="text-sm font-medium tracking-wide uppercase">Dashboard</span>
-          </div>
+          <PuertoLibreDashboardEyebrow />
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
             Puerto Libre NFC
           </h1>
@@ -351,10 +349,7 @@ function PuertoLibreShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <nav className="mb-8 flex items-center justify-between text-sm">
-          <Link href="/dashboard" className="text-zinc-500 transition hover:text-zinc-300">
-            ← Dashboard
-          </Link>
+        <nav className="mb-8 flex items-center justify-end text-sm">
           <Link href="/" className="text-zinc-500 transition hover:text-zinc-300">
             SmartTaller
           </Link>
