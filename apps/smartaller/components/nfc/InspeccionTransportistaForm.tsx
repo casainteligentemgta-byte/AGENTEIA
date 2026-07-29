@@ -219,14 +219,18 @@ export function InspeccionTransportistaForm({
                 name="placaTexto"
                 defaultValue={initial?.placaTexto ?? placa}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Toma foto de la placa o sube archivo. Se guarda al instante en Supabase.
+              </p>
             </div>
-            <div className="w-full shrink-0 sm:w-28">
+            <div className="w-full shrink-0 sm:w-56">
               <PlanillaFotoChip
                 vehiculoId={vehiculoId}
                 tipo="foto_placa"
                 existingUrl={fotoPlacaUrl}
                 tone="dark"
                 label="Foto"
+                mode="both"
                 onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
               />
             </div>
@@ -251,16 +255,20 @@ export function InspeccionTransportistaForm({
                   setKilometraje(v ? Number(v) : null);
                 }}
                 className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-                placeholder="Solo números · foto del tablero"
+                placeholder="Solo números"
               />
+              <p className="text-xs text-slate-500">
+                Toma foto del tablero / odómetro. Se guarda al instante en Supabase.
+              </p>
             </label>
-            <div className="w-full shrink-0 sm:w-28">
+            <div className="w-full shrink-0 sm:w-56">
               <PlanillaFotoChip
                 vehiculoId={vehiculoId}
                 tipo="foto_odometro"
                 existingUrl={fotoTableroUrl}
                 tone="dark"
                 label="Foto"
+                mode="both"
                 onUploaded={(docs) => setFotoTableroUrl(docs.foto_odometro?.url ?? null)}
               />
             </div>
@@ -308,7 +316,7 @@ export function InspeccionTransportistaForm({
                   {esRecepcionista
                     ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
                     : esExterior
-                      ? "OK / Daño. En frontal, trasero y laterales la 3ª columna es Foto."
+                      ? "OK / Daño. En frontal, trasero y laterales: Tomar foto o PDF/archivo."
                       : "OK si está bien, Daño si hay falla, N/A si no aplica."}
                 </p>
               </div>
@@ -343,6 +351,7 @@ export function InspeccionTransportistaForm({
                             vehiculoId,
                             tipo: fotoTipo,
                             url: fotosLados[fotoTipo],
+                            mode: "both",
                             onUploaded: (docs) =>
                               setFotosLados((prev) => ({
                                 ...prev,

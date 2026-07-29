@@ -65,7 +65,7 @@ function CampoConFoto({
   url,
   onUrl,
   fotoLabel = "Foto",
-  fotoMode = "file",
+  fotoMode = "both",
 }: {
   label: string;
   name: string;
@@ -248,23 +248,26 @@ export function HojaInspeccionTransportista({
             <CampoConFoto
               label="Placa del vehículo"
               name="placaTexto"
+              hint="Toma foto de la placa o sube archivo · se guarda al instante"
               vehiculoId={vehiculoId}
               tipo="foto_placa"
               url={fotoPlacaUrl}
               onUrl={setFotoPlacaUrl}
               fotoLabel="Foto"
+              fotoMode="both"
             />
             <FillField label="VIN / chasis" name="vin" />
             <CampoConFoto
               label="Kilometraje al recibir"
               name="kilometraje"
               type="number"
-              hint="Solo números · foto del tablero/odómetro"
+              hint="Solo números · toma foto del tablero/odómetro"
               vehiculoId={vehiculoId}
               tipo="foto_odometro"
               url={fotoTableroUrl}
               onUrl={setFotoTableroUrl}
               fotoLabel="Foto"
+              fotoMode="both"
             />
             <FillField label="Contenedor / remolque" name="contenedor" wide />
           </div>
@@ -291,7 +294,7 @@ export function HojaInspeccionTransportista({
                       : esEvidencia
                         ? "Marca si la foto ya está tomada. Las fotos se capturan en el expediente digital."
                         : esExterior
-                          ? "OK / Daño. En frontal, trasero y laterales la 3ª columna es Foto."
+                          ? "OK / Daño. En frontal, trasero y laterales: Tomar foto o PDF/archivo."
                           : "OK si está bien, Daño si hay falla, N/A si no aplica."}
                   </p>
                 </div>
@@ -328,6 +331,7 @@ export function HojaInspeccionTransportista({
                               vehiculoId,
                               tipo: fotoTipo,
                               url: fotosLados[fotoTipo],
+                              mode: "both",
                               onUploaded: (docs) =>
                                 setFotosLados((prev) => ({
                                   ...prev,

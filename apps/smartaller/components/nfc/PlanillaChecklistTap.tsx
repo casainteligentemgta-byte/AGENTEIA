@@ -114,6 +114,7 @@ type FotoSlot = {
   tipo: DocumentoTipo;
   url?: string | null;
   onUploaded?: (documentos: VehiculosDocumentos) => void;
+  mode?: "file" | "camera" | "both";
 };
 
 type RowProps = {
@@ -136,49 +137,66 @@ export function PlanillaChecklistRow({
   foto = null,
 }: RowProps) {
   const dark = tone === "dark";
-  const cols = opciones.length + (foto ? 1 : 0);
+  const fotoMode = foto?.mode ?? "both";
+  const fotoDebajo = Boolean(foto) && fotoMode === "both";
+  const cols = opciones.length + (foto && !fotoDebajo ? 1 : 0);
 
   return (
     <li
-      className={`flex flex-col gap-3 rounded-2xl px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
+      className={`flex flex-col gap-3 rounded-2xl px-3 py-3 ${
         dark
           ? "border border-slate-800 bg-slate-950/60"
           : "border border-zinc-200 bg-zinc-50/80 print:border-zinc-300 print:bg-white"
       }`}
     >
-      <span
-        className={`text-sm leading-snug ${dark ? "text-slate-200" : "text-zinc-800"}`}
-      >
-        {etiqueta}
-      </span>
-      <div
-        className="grid gap-2 sm:flex sm:shrink-0"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {opciones.map((op) => {
-          const active = value === op.value;
-          const idle = dark
-            ? "bg-slate-800 text-slate-400 hover:bg-slate-700"
-            : op.idleClass ?? "bg-white text-zinc-600 border border-zinc-200";
-          return (
-            <button
-              key={op.value}
-              type="button"
-              onClick={() => onChange(op.value)}
-              aria-pressed={active}
-              aria-label={`${etiqueta}: ${op.label}`}
-              className={`min-h-11 rounded-xl px-3 py-2.5 text-sm font-semibold transition active:scale-[0.98] print:min-h-0 print:py-1 print:text-xs ${
-                active ? op.activeClass : idle
-              }`}
-            >
-              <span className="mr-1.5 text-base leading-none print:mr-1" aria-hidden>
-                {op.shortLabel}
-              </span>
-              {op.label}
-            </button>
-          );
-        })}
-        {foto ? (
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span
+          className={`text-sm leading-snug ${dark ? "text-slate-200" : "text-zinc-800"}`}
+        >
+          {etiqueta}
+        </span>
+        <div
+          className="grid gap-2 sm:flex sm:shrink-0"
+          style={{ gridTemplateColumns: `repeat(${Math.max(cols, 1)}, minmax(0, 1fr))` }}
+        >
+          {opciones.map((op) => {
+            const active = value === op.value;
+            const idle = dark
+              ? "bg-slate-800 text-slate-400 hover:bg-slate-700"
+              : op.idleClass ?? "bg-white text-zinc-600 border border-zinc-200";
+            return (
+              <button
+                key={op.value}
+                type="button"
+                onClick={() => onChange(op.value)}
+                aria-pressed={active}
+                aria-label={`${etiqueta}: ${op.label}`}
+                className={`min-h-11 rounded-xl px-3 py-2.5 text-sm font-semibold transition active:scale-[0.98] print:min-h-0 print:py-1 print:text-xs ${
+                  active ? op.activeClass : idle
+                }`}
+              >
+                <span className="mr-1.5 text-base leading-none print:mr-1" aria-hidden>
+                  {op.shortLabel}
+                </span>
+                {op.label}
+              </button>
+            );
+          })}
+          {foto && !fotoDebajo ? (
+            <PlanillaFotoChip
+              vehiculoId={foto.vehiculoId}
+              tipo={foto.tipo}
+              existingUrl={foto.url}
+              onUploaded={foto.onUploaded}
+              tone={tone}
+              label="Foto"
+              mode={fotoMode}
+            />
+          ) : null}
+        </div>
+      </div>
+      {foto && fotoDebajo ? (
+        <div className="print:hidden">
           <PlanillaFotoChip
             vehiculoId={foto.vehiculoId}
             tipo={foto.tipo}
@@ -186,9 +204,10 @@ export function PlanillaChecklistRow({
             onUploaded={foto.onUploaded}
             tone={tone}
             label="Foto"
+            mode={fotoMode}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </li>
   );
 }
