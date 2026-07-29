@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { CheckCheck } from "lucide-react";
 import { saveInspeccionTransportistaAction } from "@/app/actions/nfc/inspeccion-transportista";
-import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { InspeccionWizardFotos } from "@/components/dashboard/inspeccion-wizard-fotos";
 import {
   opcionesParaSeccion,
   PlanillaChecklistProgress,
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
 import {
   EXTERIOR_FOTO_POR_ITEM,
   TRANSPORTISTA_SECCION_LABELS,
@@ -178,20 +178,24 @@ export function InspeccionTransportistaForm({
             name="transportista"
             defaultValue={initial?.transportista ?? ""}
           />
-          <div className="space-y-3 md:col-span-2">
-            <Field
-              label="Nº guía / BL"
-              name="numeroGuia"
-              defaultValue={initial?.numeroGuia ?? ""}
-            />
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="bl_guia"
-              existingUrl={blUrl}
-              hint="Cargar foto o PDF del BL"
-              actionLabel="Cargar foto o PDF del BL"
-              onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
-            />
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <div className="min-w-0 flex-1">
+              <Field
+                label="Nº guía / BL"
+                name="numeroGuia"
+                defaultValue={initial?.numeroGuia ?? ""}
+              />
+            </div>
+            <div className="w-full shrink-0 sm:w-28">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="bl_guia"
+                existingUrl={blUrl}
+                tone="dark"
+                label="Foto"
+                onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
+              />
+            </div>
           </div>
           <Field
             label="Fecha de recepción"
@@ -204,28 +208,32 @@ export function InspeccionTransportistaForm({
             name="lugarRecepcion"
             defaultValue={initial?.lugarRecepcion ?? ""}
           />
-          <div className="space-y-3 md:col-span-2">
-            <Field
-              label="Placa del vehículo"
-              name="placaTexto"
-              defaultValue={initial?.placaTexto ?? placa}
-            />
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="foto_placa"
-              existingUrl={fotoPlacaUrl}
-              hint="Cargar foto o PDF de la placa"
-              actionLabel="Cargar foto o PDF de la placa"
-              onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
-            />
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <div className="min-w-0 flex-1">
+              <Field
+                label="Placa del vehículo"
+                name="placaTexto"
+                defaultValue={initial?.placaTexto ?? placa}
+              />
+            </div>
+            <div className="w-full shrink-0 sm:w-28">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="foto_placa"
+                existingUrl={fotoPlacaUrl}
+                tone="dark"
+                label="Foto"
+                onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
+              />
+            </div>
           </div>
           <Field
             label="VIN / chasis"
             name="vin"
             defaultValue={initial?.vin ?? prefill?.vin ?? ""}
           />
-          <div className="space-y-3 md:col-span-2">
-            <label className="block min-w-0 space-y-1.5">
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <label className="block min-w-0 flex-1 space-y-1.5">
               <span className="text-sm text-slate-400">Kilometraje al recibir</span>
               <input
                 name="kilometraje"
@@ -239,17 +247,19 @@ export function InspeccionTransportistaForm({
                   setKilometraje(v ? Number(v) : null);
                 }}
                 className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-                placeholder="Solo números"
+                placeholder="Solo números · foto del tablero"
               />
             </label>
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="foto_odometro"
-              existingUrl={fotoTableroUrl}
-              hint="Cargar foto o PDF del odómetro / tablero"
-              actionLabel="Cargar foto o PDF del tablero"
-              onUploaded={(docs) => setFotoTableroUrl(docs.foto_odometro?.url ?? null)}
-            />
+            <div className="w-full shrink-0 sm:w-28">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="foto_odometro"
+                existingUrl={fotoTableroUrl}
+                tone="dark"
+                label="Foto"
+                onUploaded={(docs) => setFotoTableroUrl(docs.foto_odometro?.url ?? null)}
+              />
+            </div>
           </div>
           <div className="md:col-span-2">
             <Field

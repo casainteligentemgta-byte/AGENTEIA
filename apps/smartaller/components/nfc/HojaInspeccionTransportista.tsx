@@ -17,7 +17,7 @@ import {
   PlanillaChecklistProgress,
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
-import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
 import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 function FillField({
@@ -53,46 +53,70 @@ function FillField({
   );
 }
 
-function AdjuntoCampo({
+/** Campo de texto + chip Foto (mismo patrón que frontal/trasero/laterales). */
+function CampoConFoto({
+  label,
+  name,
+  type = "text",
+  hint,
+  defaultValue,
   vehiculoId,
   tipo,
   url,
   onUrl,
-  actionLabel,
-  hint,
-  sinVehiculoMsg,
+  fotoLabel = "Foto",
 }: {
+  label: string;
+  name: string;
+  type?: "text" | "date" | "number";
+  hint?: string;
+  defaultValue?: string;
   vehiculoId: string | null;
   tipo: DocumentoTipo;
   url: string | null;
   onUrl: (url: string | null) => void;
-  actionLabel: string;
-  hint: string;
-  sinVehiculoMsg: string;
+  fotoLabel?: string;
 }) {
   return (
-    <>
-      {vehiculoId ? (
-        <ImportDocumentoUpload
-          vehiculoId={vehiculoId}
-          tipo={tipo}
-          existingUrl={url}
-          tone="light"
-          hint={hint}
-          actionLabel={actionLabel}
-          onUploaded={(docs) => onUrl(docs[tipo]?.url ?? null)}
-        />
-      ) : (
-        <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-xs text-zinc-600 print:hidden">
-          {sinVehiculoMsg}
-        </p>
-      )}
+    <div className="md:col-span-2">
+      <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3 sm:flex-row sm:items-end sm:justify-between print:border-zinc-300 print:bg-white">
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs font-semibold text-zinc-700">{label}</span>
+          {hint ? (
+            <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>
+          ) : null}
+          <input
+            name={name}
+            type={type}
+            defaultValue={defaultValue}
+            inputMode={type === "number" ? "numeric" : undefined}
+            min={type === "number" ? 0 : undefined}
+            className="box-border w-full min-w-0 border-0 border-b-2 border-zinc-300 bg-transparent px-0 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
+          />
+        </label>
+        <div className="w-full shrink-0 sm:w-28">
+          {vehiculoId ? (
+            <PlanillaFotoChip
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={url}
+              tone="light"
+              label={fotoLabel}
+              onUploaded={(docs) => onUrl(docs[tipo]?.url ?? null)}
+            />
+          ) : (
+            <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-2 py-2 text-center text-[10px] text-zinc-500 print:hidden">
+              Foto desde ficha
+            </p>
+          )}
+        </div>
+      </div>
       {url ? (
-        <p className="hidden text-[11px] text-zinc-600 print:block">
+        <p className="mt-1 hidden text-[11px] text-zinc-600 print:block">
           Archivo adjunto en expediente digital.
         </p>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -199,18 +223,15 @@ export function HojaInspeccionTransportista({
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-8 md:gap-y-5 print:grid-cols-2">
             <FillField label="Importadora" name="importadora" />
             <FillField label="Transportista" name="transportista" />
-            <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
-              <FillField label="Nº guía / BL" name="numeroGuia" />
-              <AdjuntoCampo
-                vehiculoId={vehiculoId}
-                tipo="bl_guia"
-                url={blUrl}
-                onUrl={setBlUrl}
-                actionLabel="Cargar foto o PDF del BL"
-                hint="Foto o PDF del BL · se guarda en el expediente del vehículo"
-                sinVehiculoMsg="Para cargar foto o PDF del BL y guardarlo, abre esta planilla desde la ficha del vehículo."
-              />
-            </div>
+            <CampoConFoto
+              label="Nº guía / BL"
+              name="numeroGuia"
+              vehiculoId={vehiculoId}
+              tipo="bl_guia"
+              url={blUrl}
+              onUrl={setBlUrl}
+              fotoLabel="Foto"
+            />
             <FillField
               label="Fecha de recepción"
               name="fechaRecepcion"
@@ -218,36 +239,27 @@ export function HojaInspeccionTransportista({
               hint="Seleccionar en calendario"
             />
             <FillField label="Lugar de recepción" name="lugarRecepcion" />
-            <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
-              <FillField label="Placa del vehículo" name="placaTexto" />
-              <AdjuntoCampo
-                vehiculoId={vehiculoId}
-                tipo="foto_placa"
-                url={fotoPlacaUrl}
-                onUrl={setFotoPlacaUrl}
-                actionLabel="Cargar foto o PDF de la placa"
-                hint="Foto o PDF de la placa · se guarda en el expediente"
-                sinVehiculoMsg="Para cargar la foto de la placa, abre esta planilla desde la ficha del vehículo."
-              />
-            </div>
+            <CampoConFoto
+              label="Placa del vehículo"
+              name="placaTexto"
+              vehiculoId={vehiculoId}
+              tipo="foto_placa"
+              url={fotoPlacaUrl}
+              onUrl={setFotoPlacaUrl}
+              fotoLabel="Foto"
+            />
             <FillField label="VIN / chasis" name="vin" />
-            <div className="flex min-w-0 flex-col gap-3 md:col-span-2">
-              <FillField
-                label="Kilometraje al recibir"
-                name="kilometraje"
-                type="number"
-                hint="Solo números"
-              />
-              <AdjuntoCampo
-                vehiculoId={vehiculoId}
-                tipo="foto_odometro"
-                url={fotoTableroUrl}
-                onUrl={setFotoTableroUrl}
-                actionLabel="Cargar foto o PDF del tablero"
-                hint="Foto del odómetro / tablero · se guarda en el expediente"
-                sinVehiculoMsg="Para cargar la foto del tablero, abre esta planilla desde la ficha del vehículo."
-              />
-            </div>
+            <CampoConFoto
+              label="Kilometraje al recibir"
+              name="kilometraje"
+              type="number"
+              hint="Solo números · foto del tablero/odómetro"
+              vehiculoId={vehiculoId}
+              tipo="foto_odometro"
+              url={fotoTableroUrl}
+              onUrl={setFotoTableroUrl}
+              fotoLabel="Foto"
+            />
             <FillField label="Contenedor / remolque" name="contenedor" wide />
           </div>
         </section>
