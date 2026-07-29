@@ -85,6 +85,7 @@ export function PlanillaRegistroImportacion({
           Resumen del registro
         </h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <Item label="Placa (texto)" value={placa} mono />
           <Item label="Color" value={color} />
           <Item label="Año" value={initialImportacion.anio != null ? String(initialImportacion.anio) : null} />
           <Item label="Serial carrocería" value={serialCarroceria} mono />
@@ -204,7 +205,8 @@ export function PlanillaRegistroImportacion({
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          4 lados del vehículo, motor e impronta. Las fotos se guardan como PDF en el expediente.
+          Foto de la placa, 4 lados del vehículo, motor e impronta. Las fotos se guardan como PDF en
+          el expediente.
         </p>
         <div className="mt-4 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (

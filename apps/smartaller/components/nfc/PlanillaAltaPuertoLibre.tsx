@@ -79,11 +79,15 @@ export function PlanillaAltaPuertoLibre() {
             defaultValue={new Date().toISOString().slice(0, 10)}
           />
           <Field
-            label="Placa (opcional)"
+            label="Placa (texto) *"
             name="placa"
-            placeholder="Si no tiene, se usa el serial"
+            required
+            placeholder="Ej. AA110N10"
             mono
           />
+          <p className="sm:col-span-2 text-xs text-slate-500">
+            Escribe la placa aquí. En el siguiente paso subirás la <strong className="font-medium text-slate-300">foto de la placa</strong>.
+          </p>
         </div>
       </section>
 

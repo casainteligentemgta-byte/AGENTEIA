@@ -104,10 +104,7 @@ export async function createPuertoLibreVehiculoAction(
   }
 
   const data = parsed.data;
-  const placa =
-    data.placa ||
-    data.serialCarroceria.slice(0, 12).toUpperCase() ||
-    `PL${Date.now().toString(36).toUpperCase()}`;
+  const placa = data.placa;
 
   const admin = createAdminClient();
 
