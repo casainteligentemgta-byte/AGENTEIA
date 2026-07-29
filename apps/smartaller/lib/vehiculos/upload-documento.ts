@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
+import type { DocumentoTipo, VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
 import {
-  extensionFromImageMime,
   isGenericMimeType,
   resolveImageMimeType,
   validateImageMimeResolved,
 } from "@/lib/mime-image";
+import { imageBufferToPdf, pdfFileNameFromOriginal } from "@/lib/vehiculos/image-to-pdf";
 
 export const VEHICULO_DOCS_BUCKET = "vehiculos-documentos";
 
@@ -36,13 +36,20 @@ export function validateVehiculoDocumentoFile(file: File): string | null {
   return null;
 }
 
+/**
+ * Sube documento al storage del vehículo.
+ * - PDF: se guarda tal cual
+ * - Foto (JPG/PNG): se convierte a PDF de una página y se guarda (por defecto)
+ */
 export async function uploadVehiculoDocumento(
   supabase: SupabaseClient,
   params: {
     tallerId: string;
     vehiculoId: string | "temp";
-    tipo: "cedula" | "titulo";
+    tipo: DocumentoTipo;
     file: File;
+    /** Por defecto true: fotos → PDF. */
+    convertImagesToPdf?: boolean;
   }
 ): Promise<VehiculoDocumentoRef> {
   const validationError = validateVehiculoDocumentoFile(params.file);
@@ -50,23 +57,58 @@ export async function uploadVehiculoDocumento(
     throw new Error(validationError);
   }
 
-  const buffer = Buffer.from(await params.file.arrayBuffer());
-  const mimeType =
-    params.file.type === "application/pdf"
-      ? "application/pdf"
-      : resolveImageMimeType({
-          declaredMime: params.file.type,
-          fileName: params.file.name,
-          buffer,
-        }) ?? "image/jpeg";
-
-  const ext =
-    mimeType === "application/pdf" ? "pdf" : extensionFromImageMime(mimeType);
+  const convertToPdf = params.convertImagesToPdf !== false;
+  const originalBuffer = Buffer.from(await params.file.arrayBuffer());
   const folder = params.vehiculoId === "temp" ? "temp" : params.vehiculoId;
-  const path = `${params.tallerId}/${folder}/${params.tipo}-${crypto.randomUUID()}.${ext}`;
+  const id = crypto.randomUUID();
 
-  const { error } = await supabase.storage.from(VEHICULO_DOCS_BUCKET).upload(path, buffer, {
-    contentType: mimeType,
+  let uploadBuffer: Buffer;
+  let contentType: string;
+  let fileName: string;
+  let path: string;
+
+  if (params.file.type === "application/pdf") {
+    uploadBuffer = originalBuffer;
+    contentType = "application/pdf";
+    fileName = params.file.name?.toLowerCase().endsWith(".pdf")
+      ? params.file.name
+      : pdfFileNameFromOriginal(params.file.name, params.tipo);
+    path = `${params.tallerId}/${folder}/${params.tipo}-${id}.pdf`;
+  } else {
+    const mimeType =
+      resolveImageMimeType({
+        declaredMime: params.file.type,
+        fileName: params.file.name,
+        buffer: originalBuffer,
+      }) ?? "image/jpeg";
+
+    if (convertToPdf) {
+      if (mimeType !== "image/jpeg" && mimeType !== "image/png") {
+        throw new Error(
+          "Para convertir a PDF usa foto JPG/PNG, o sube un PDF. Al escanear desde el móvil se normaliza a JPG."
+        );
+      }
+      try {
+        uploadBuffer = await imageBufferToPdf(originalBuffer, mimeType);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo convertir la foto a PDF";
+        throw new Error(msg);
+      }
+      contentType = "application/pdf";
+      fileName = pdfFileNameFromOriginal(params.file.name, params.tipo);
+      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.pdf`;
+    } else {
+      uploadBuffer = originalBuffer;
+      contentType = mimeType;
+      fileName = params.file.name || `${params.tipo}.jpg`;
+      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.${
+        mimeType === "image/png" ? "png" : "jpg"
+      }`;
+    }
+  }
+
+  const { error } = await supabase.storage.from(VEHICULO_DOCS_BUCKET).upload(path, uploadBuffer, {
+    contentType,
     upsert: false,
   });
 
@@ -80,5 +122,6 @@ export async function uploadVehiculoDocumento(
     url: urlData.publicUrl,
     path,
     scanned_at: new Date().toISOString(),
+    file_name: fileName,
   };
 }

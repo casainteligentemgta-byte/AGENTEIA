@@ -58,22 +58,30 @@ function tallerNombreFrom(join: TagRow["talleres"]): string | null {
 function mapDocuments(raw: unknown): NfcDocumentPublic[] {
   const docs = parseVehiculosDocumentos(raw);
   const out: NfcDocumentPublic[] = [];
-  if (docs.cedula) {
+  const entries: Array<{ key: keyof typeof docs; label: string }> = [
+    { key: "cedula", label: "Cédula" },
+    { key: "titulo", label: "Título de propiedad" },
+    { key: "factura_comercial", label: "Factura comercial" },
+    { key: "bl_guia", label: "BL / Guía" },
+    { key: "certificado_origen", label: "Certificado de origen" },
+    { key: "permiso_importacion", label: "Permiso de importación" },
+    { key: "nacionalizacion", label: "Nacionalización" },
+    { key: "otro_importacion", label: "Otro importación" },
+    { key: "poliza_seguro", label: "Póliza de seguro" },
+    { key: "certificado_seguro", label: "Certificado de cobertura" },
+    { key: "recibo_seguro", label: "Recibo de seguro" },
+    { key: "rcv_seguro", label: "RCV" },
+  ];
+
+  for (const { key, label } of entries) {
+    const doc = docs[key];
+    if (!doc) continue;
     out.push({
-      id: "cedula",
-      docType: "cedula",
-      fileName: "Cédula",
-      filePath: docs.cedula.path,
-      url: docs.cedula.url,
-    });
-  }
-  if (docs.titulo) {
-    out.push({
-      id: "titulo",
-      docType: "titulo",
-      fileName: "Título de propiedad",
-      filePath: docs.titulo.path,
-      url: docs.titulo.url,
+      id: key,
+      docType: key,
+      fileName: doc.file_name || label,
+      filePath: doc.path,
+      url: doc.url,
     });
   }
   return out;
