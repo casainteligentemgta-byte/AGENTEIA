@@ -96,7 +96,6 @@ export default async function PuertoLibrePage() {
           <p className="mt-2 max-w-xl text-sm text-zinc-400">
             Expediente de importación, próximos a nacionalizar y presentaciones SENIAT.
           </p>
-          <p className="mt-1 text-xs text-zinc-600">{taller.nombre}</p>
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
           <Link
