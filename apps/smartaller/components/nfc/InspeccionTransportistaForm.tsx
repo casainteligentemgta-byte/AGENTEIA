@@ -12,6 +12,7 @@ import {
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
 import {
+  EXTERIOR_FOTO_POR_ITEM,
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
   TRANSPORTISTA_CHECKLIST,
@@ -62,6 +63,12 @@ export function InspeccionTransportistaForm({
   const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
     initial?.fotoTableroUrl || documentos?.foto_odometro?.url || null
   );
+  const [fotosLados, setFotosLados] = useState<Record<string, string | null>>(() => ({
+    foto_frontal: documentos?.foto_frontal?.url ?? null,
+    foto_trasera: documentos?.foto_trasera?.url ?? null,
+    foto_lateral_izq: documentos?.foto_lateral_izq?.url ?? null,
+    foto_lateral_der: documentos?.foto_lateral_der?.url ?? null,
+  }));
   const [estadoVisual, setEstadoVisual] = useState<EstadoVisualRecepcion>(
     () => initial?.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }
   );
@@ -256,7 +263,7 @@ export function InspeccionTransportistaForm({
 
       <div className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 px-4 py-3">
         <p className="text-sm text-cyan-100">
-          Rellena con un toque: ✓ / ✗ en recepcionista; OK / Daño / N/A en el resto.
+          Exterior: OK / Daño / Foto en frontal, trasero y laterales. En el resto usa N/A si aplica.
         </p>
         <div className="mt-2">
           <PlanillaChecklistProgress
@@ -269,9 +276,9 @@ export function InspeccionTransportistaForm({
 
       {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => {
         const items = transportistaPorSeccion(seccion);
-        const opciones = opcionesParaSeccion(seccion);
         const marked = items.filter((i) => Boolean(checklist[i.id])).length;
         const esRecepcionista = seccion === "datos_recepcion";
+        const esExterior = seccion === "estado_exterior";
 
         return (
           <section
@@ -286,7 +293,9 @@ export function InspeccionTransportistaForm({
                 <p className="mt-1 text-sm text-slate-500">
                   {esRecepcionista
                     ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
-                    : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                    : esExterior
+                      ? "OK / Daño. En frontal, trasero y laterales la 3ª columna es Foto."
+                      : "OK si está bien, Daño si hay falla, N/A si no aplica."}
                 </p>
               </div>
               {!esRecepcionista ? (
@@ -304,16 +313,33 @@ export function InspeccionTransportistaForm({
               <PlanillaChecklistProgress marked={marked} total={items.length} tone="dark" />
             </div>
             <ul className="mt-4 space-y-2.5">
-              {items.map((item) => (
-                <PlanillaChecklistRow
-                  key={item.id}
-                  etiqueta={item.etiqueta}
-                  value={checklist[item.id]}
-                  opciones={opciones}
-                  onChange={(v) => setItem(item.id, v)}
-                  tone="dark"
-                />
-              ))}
+              {items.map((item) => {
+                const fotoTipo = EXTERIOR_FOTO_POR_ITEM[item.id];
+                return (
+                  <PlanillaChecklistRow
+                    key={item.id}
+                    etiqueta={item.etiqueta}
+                    value={checklist[item.id]}
+                    opciones={opcionesParaSeccion(seccion, item.id)}
+                    onChange={(v) => setItem(item.id, v)}
+                    tone="dark"
+                    foto={
+                      fotoTipo
+                        ? {
+                            vehiculoId,
+                            tipo: fotoTipo,
+                            url: fotosLados[fotoTipo],
+                            onUploaded: (docs) =>
+                              setFotosLados((prev) => ({
+                                ...prev,
+                                [fotoTipo]: docs[fotoTipo]?.url ?? null,
+                              })),
+                          }
+                        : null
+                    }
+                  />
+                );
+              })}
             </ul>
           </section>
         );

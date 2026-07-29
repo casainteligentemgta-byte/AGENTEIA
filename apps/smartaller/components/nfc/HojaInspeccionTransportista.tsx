@@ -6,6 +6,7 @@ import {
   TRANSPORTISTA_CHECKLIST,
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
+  EXTERIOR_FOTO_POR_ITEM,
   transportistaPorSeccion,
   type TransportistaSeccion,
 } from "@/lib/puerto-libre/inspeccion/catalog";
@@ -122,6 +123,12 @@ export function HojaInspeccionTransportista({
   const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
     initialDocumentos?.foto_odometro?.url ?? null
   );
+  const [fotosLados, setFotosLados] = useState<Record<string, string | null>>(() => ({
+    foto_frontal: initialDocumentos?.foto_frontal?.url ?? null,
+    foto_trasera: initialDocumentos?.foto_trasera?.url ?? null,
+    foto_lateral_izq: initialDocumentos?.foto_lateral_izq?.url ?? null,
+    foto_lateral_der: initialDocumentos?.foto_lateral_der?.url ?? null,
+  }));
 
   function setMark(id: string, value: ChecklistRespuesta) {
     setMarks((prev) => ({
@@ -247,10 +254,10 @@ export function HojaInspeccionTransportista({
 
         {TRANSPORTISTA_SECCIONES.map((seccion, idx) => {
           const items = transportistaPorSeccion(seccion);
-          const opciones = opcionesParaSeccion(seccion);
           const marked = items.filter((i) => Boolean(marks[i.id])).length;
           const esRecepcionista = seccion === "datos_recepcion";
           const esEvidencia = seccion === "evidencia";
+          const esExterior = seccion === "estado_exterior";
           const puedeTodoOk = !esRecepcionista;
 
           return (
@@ -265,7 +272,9 @@ export function HojaInspeccionTransportista({
                       ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
                       : esEvidencia
                         ? "Marca si la foto ya está tomada. Las fotos se capturan en el expediente digital."
-                        : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                        : esExterior
+                          ? "OK / Daño. En frontal, trasero y laterales la 3ª columna es Foto."
+                          : "OK si está bien, Daño si hay falla, N/A si no aplica."}
                   </p>
                 </div>
                 {puedeTodoOk ? (
@@ -285,16 +294,33 @@ export function HojaInspeccionTransportista({
               </div>
 
               <ul className="space-y-2.5">
-                {items.map((item) => (
-                  <PlanillaChecklistRow
-                    key={item.id}
-                    etiqueta={item.etiqueta}
-                    value={marks[item.id]}
-                    opciones={opciones}
-                    onChange={(v) => setMark(item.id, v)}
-                    tone="light"
-                  />
-                ))}
+                {items.map((item) => {
+                  const fotoTipo = EXTERIOR_FOTO_POR_ITEM[item.id];
+                  return (
+                    <PlanillaChecklistRow
+                      key={item.id}
+                      etiqueta={item.etiqueta}
+                      value={marks[item.id]}
+                      opciones={opcionesParaSeccion(seccion, item.id)}
+                      onChange={(v) => setMark(item.id, v)}
+                      tone="light"
+                      foto={
+                        fotoTipo && vehiculoId
+                          ? {
+                              vehiculoId,
+                              tipo: fotoTipo,
+                              url: fotosLados[fotoTipo],
+                              onUploaded: (docs) =>
+                                setFotosLados((prev) => ({
+                                  ...prev,
+                                  [fotoTipo]: docs[fotoTipo]?.url ?? null,
+                                })),
+                            }
+                          : null
+                      }
+                    />
+                  );
+                })}
               </ul>
             </section>
           );
