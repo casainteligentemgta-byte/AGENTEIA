@@ -40,7 +40,12 @@ const EMPTY_FIELDS: FormFields = {
   odometro: "",
 };
 
-export function VehiculoCreateForm() {
+type VehiculoCreateFormProps = {
+  /** Ruta tras crear. Por defecto: ficha dashboard con ?registrado=1 */
+  redirectAfterCreate?: (vehiculoId: string) => string;
+};
+
+export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormProps = {}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tipo, setTipo] = useState<TipoVehiculo>("auto");
@@ -99,7 +104,10 @@ export function VehiculoCreateForm() {
         return;
       }
 
-      router.push(`/dashboard/vehiculos/${result.vehiculoId}?registrado=1`);
+      const next =
+        redirectAfterCreate?.(result.vehiculoId) ??
+        `/dashboard/vehiculos/${result.vehiculoId}?registrado=1`;
+      router.push(next);
       router.refresh();
     });
   }
