@@ -32,6 +32,7 @@ export const DOCUMENTO_TIPOS = [
   "foto_danos",
   "foto_motor",
   "foto_impronta",
+  "foto_placa",
 ] as const;
 
 export type DocumentoTipo = (typeof DOCUMENTO_TIPOS)[number];
@@ -62,6 +63,7 @@ export const vehiculosDocumentosSchema = z.object({
   foto_danos: vehiculoDocumentoRefSchema.optional(),
   foto_motor: vehiculoDocumentoRefSchema.optional(),
   foto_impronta: vehiculoDocumentoRefSchema.optional(),
+  foto_placa: vehiculoDocumentoRefSchema.optional(),
 });
 
 export type VehiculoDocumentoRef = z.infer<typeof vehiculoDocumentoRefSchema>;
@@ -96,6 +98,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   foto_danos: "Foto de daños (si aplica)",
   foto_motor: "Foto del motor",
   foto_impronta: "Foto de la impronta",
+  foto_placa: "Foto de la placa",
 };
 
 /** Documentos de la planilla de registro Puerto Libre. */
@@ -121,6 +124,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 
 /** Memoria fotográfica al registrar en Puerto Libre. */
 export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
+  "foto_placa",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",

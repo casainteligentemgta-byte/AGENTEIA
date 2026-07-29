@@ -46,7 +46,7 @@ export default async function PlanillaRegistroImportacionPage({ params }: Props)
             Fotos y documentos
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Memoria fotográfica (4 lados, motor, impronta) y carga de manual, BL, factura y
+            Memoria fotográfica (placa, 4 lados, motor, impronta) y carga de manual, BL, factura y
             documento de importación.
           </p>
         </header>

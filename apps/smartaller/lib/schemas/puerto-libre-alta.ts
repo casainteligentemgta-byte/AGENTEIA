@@ -20,10 +20,9 @@ export const puertoLibreAltaSchema = z.object({
   placa: z
     .string()
     .trim()
-    .max(20)
-    .optional()
-    .or(z.literal(""))
-    .transform((v) => (v ? v.toUpperCase() : "")),
+    .min(2, "Ingresa la placa en texto")
+    .max(20, "Máximo 20 caracteres")
+    .transform((v) => v.toUpperCase()),
 
   importadorNombre: z.string().trim().min(1, "Ingresa el nombre del importador").max(120),
   importadorDocumento: z.string().trim().max(40).optional().or(z.literal("")),
