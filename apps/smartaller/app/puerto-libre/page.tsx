@@ -100,13 +100,22 @@ export default async function PuertoLibrePage() {
           </p>
           <p className="mt-1 text-xs text-zinc-600">{taller.nombre}</p>
         </div>
-        <Link
-          href="/dashboard/vehiculos/nuevo"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
-        >
-          <Plus className="h-4 w-4" />
-          Registrar vehículo
-        </Link>
+        <div className="flex flex-col gap-2 sm:items-end">
+          <Link
+            href="/puerto-libre/vehiculos/nuevo"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+          >
+            <Plus className="h-4 w-4" />
+            Registrar vehículo
+          </Link>
+          <Link
+            href="/puerto-libre/hoja-inspeccion"
+            className="inline-flex items-center justify-center gap-2 text-xs text-zinc-500 transition hover:text-cyan-300"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Planilla recepción transportista
+          </Link>
+        </div>
       </div>
 
       {!list.success ? (
@@ -122,7 +131,7 @@ export default async function PuertoLibrePage() {
             Registra un vehículo para armar su expediente Puerto Libre.
           </p>
           <Link
-            href="/dashboard/vehiculos/nuevo"
+            href="/puerto-libre/vehiculos/nuevo"
             className="mt-6 inline-flex rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
           >
             Registrar primer vehículo

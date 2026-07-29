@@ -452,11 +452,20 @@ export type PuertoLibreFicha = {
   email_propietario: string | null;
   fecha_nacimiento_propietario: string | null;
   tienePin: boolean;
+  tieneInspeccionTransportista: boolean;
   documentos: VehiculosDocumentos;
   importacion: ImportacionData;
   seguro: SeguroData;
   sticker: { id: string; token: string; activo: boolean } | null;
 };
+
+function tieneActaTransportista(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const row = raw as Record<string, unknown>;
+  if (typeof row.updated_at === "string" && row.updated_at.length > 0) return true;
+  const checklist = row.checklist;
+  return Boolean(checklist && typeof checklist === "object" && Object.keys(checklist).length > 0);
+}
 
 export async function getPuertoLibreFicha(
   vehiculoId: string
@@ -470,13 +479,13 @@ export async function getPuertoLibreFicha(
   const { data, error } = await admin
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, seguro, taller_id"
+      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, seguro, inspeccion_transportista, taller_id"
     )
     .eq("id", vehiculoId)
     .maybeSingle();
 
   if (error) {
-    // Fallback si falta columna seguro
+    // Fallback si faltan columnas nuevas (seguro / inspeccion_transportista)
     const { data: fallback, error: fallbackError } = await admin
       .from("vehiculos")
       .select(
@@ -515,6 +524,7 @@ export async function getPuertoLibreFicha(
         email_propietario: fallback.email_propietario,
         fecha_nacimiento_propietario: fallback.fecha_nacimiento_propietario,
         tienePin: Boolean(fallback.pin_hash),
+        tieneInspeccionTransportista: false,
         documentos: parseVehiculosDocumentos(fallback.documentos),
         importacion: parseImportacion(fallback.importacion),
         seguro: {},
@@ -555,6 +565,7 @@ export async function getPuertoLibreFicha(
       email_propietario: data.email_propietario,
       fecha_nacimiento_propietario: data.fecha_nacimiento_propietario,
       tienePin: Boolean(data.pin_hash),
+      tieneInspeccionTransportista: tieneActaTransportista(data.inspeccion_transportista),
       documentos: parseVehiculosDocumentos(data.documentos),
       importacion: parseImportacion(data.importacion),
       seguro: parseSeguro(data.seguro),

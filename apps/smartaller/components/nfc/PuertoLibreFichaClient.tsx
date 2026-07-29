@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { ClipboardCheck, FileText } from "lucide-react";
 import {
   setPuertoLibrePinAction,
   updatePuertoLibreImportacionAction,
@@ -53,6 +55,44 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
           {error ?? message}
         </div>
       )}
+
+      {/* 0. Inspección recepción transportista */}
+      <section className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+              <ClipboardCheck className="h-5 w-5 text-cyan-400" />
+              Inspección en transportista
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Acta al recibir el vehículo en la transportista. No es la planilla de ingreso al
+              taller.
+            </p>
+            <p className="mt-2 text-xs">
+              {ficha.tieneInspeccionTransportista ? (
+                <span className="text-emerald-400">Acta registrada</span>
+              ) : (
+                <span className="text-amber-300">Pendiente de completar</span>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <Link
+              href={`/puerto-libre/${ficha.id}/inspeccion`}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
+            >
+              {ficha.tieneInspeccionTransportista ? "Ver / editar acta" : "Completar inspección"}
+            </Link>
+            <Link
+              href="/puerto-libre/hoja-inspeccion"
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-300"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Planilla en blanco (PDF)
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* 1. Documentos de importación */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
