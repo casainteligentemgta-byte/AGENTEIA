@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { Car, ChevronRight, Plus, Upload } from "lucide-react";
+import { Car, ChevronRight, Plus, Ship, Upload } from "lucide-react";
 import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
@@ -38,12 +38,39 @@ function formatFechaHoraCorta(iso: string): string {
   return `${dia} ${mes} ${hh}:${mm}`;
 }
 
+/** Fecha YYYY-MM-DD → "30 julio 2026" */
+function formatFechaDia(isoDate: string | null): string {
+  if (!isoDate?.trim()) return "Sin fecha";
+  const parts = isoDate.trim().slice(0, 10).split("-");
+  if (parts.length !== 3) return isoDate;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (!year || !month || !day) return isoDate;
+  const mes = MESES_ES[month - 1] ?? "";
+  return `${day} ${mes} ${year}`;
+}
+
 function labelExpediente(v: PuertoLibreVehiculoListItem): string {
   return v.codigoExpediente ?? v.placa;
 }
 
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
   return v.planillaFase == null || v.planillaFase < 4;
+}
+
+/** Registrado, aún sin recepción física en puerto (fase llegada). */
+function esPorRecibirEnPuerto(v: PuertoLibreVehiculoListItem): boolean {
+  return (v.planillaFase == null || v.planillaFase === 2) && !v.fechaIngreso;
+}
+
+function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
+  return [...items].sort((a, b) => {
+    const fa = a.fechaLlegadaBuque ?? "9999-99-99";
+    const fb = b.fechaLlegadaBuque ?? "9999-99-99";
+    if (fa !== fb) return fa.localeCompare(fb);
+    return a.created_at.localeCompare(b.created_at);
+  });
 }
 
 export default async function PuertoLibrePage() {
@@ -63,6 +90,7 @@ export default async function PuertoLibrePage() {
 
   const list = await listPuertoLibreVehiculos();
   const vehiculos = list.success ? list.vehiculos : [];
+  const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
   const pendientes = vehiculos.filter(esPendienteCompletar);
   const docsFaltantes = vehiculos.filter((v) => v.docsFaltantes > 0);
 
@@ -103,6 +131,75 @@ export default async function PuertoLibrePage() {
       ) : (
         <div className="space-y-7">
           <section>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                <Ship className="h-4 w-4 text-cyan-400" />
+                Por recibir en puerto
+              </h2>
+              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+                {porRecibir.length}
+              </span>
+            </div>
+            {porRecibir.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No hay vehículos pendientes de recepción en puerto.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium">Vehículo</th>
+                      <th className="px-3 py-3 font-medium">Llegada buque</th>
+                      <th className="px-3 py-3 font-medium text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {porRecibir.map((v) => {
+                      const vehiculoLabel =
+                        [v.marca, v.modelo].filter(Boolean).join(" ") ||
+                        v.color ||
+                        "—";
+                      return (
+                        <tr key={v.id} className="hover:bg-zinc-900/50">
+                          <td className="px-3 py-3">
+                            <Link
+                              href={`/puerto-libre/${v.id}`}
+                              className="font-mono font-semibold tracking-wide text-zinc-100 hover:text-cyan-300"
+                            >
+                              {labelExpediente(v)}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-zinc-300">
+                            <p className="truncate">{vehiculoLabel}</p>
+                            {v.color ? (
+                              <p className="truncate text-xs capitalize text-zinc-500">
+                                {v.color}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-zinc-300">
+                            {formatFechaDia(v.fechaLlegadaBuque)}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <Link
+                              href={`/puerto-libre/${v.id}/planilla`}
+                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1.5 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                            >
+                              Recibir
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section>
             <h2 className="mb-3 text-sm font-semibold text-zinc-200">
               Pendiente a completar
             </h2>
@@ -120,7 +217,9 @@ export default async function PuertoLibrePage() {
                         {labelExpediente(v)}
                       </span>
                       <span className="shrink-0 text-sm text-zinc-400">
-                        {formatFechaHoraCorta(v.created_at)}
+                        {v.fechaLlegadaBuque
+                          ? formatFechaDia(v.fechaLlegadaBuque)
+                          : formatFechaHoraCorta(v.created_at)}
                       </span>
                     </Link>
                   </li>
@@ -189,9 +288,7 @@ export default async function PuertoLibrePage() {
 function PuertoLibreShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-lg sm:max-w-xl">
-        {children}
-      </div>
+      <div className="mx-auto max-w-lg sm:max-w-2xl lg:max-w-3xl">{children}</div>
     </main>
   );
 }

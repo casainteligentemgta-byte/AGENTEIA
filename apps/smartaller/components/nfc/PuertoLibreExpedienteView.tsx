@@ -138,7 +138,8 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           <Dato label="Régimen" value={imp.regimen} />
           <Dato label="Aduana" value={imp.aduana} />
-          <Dato label="Fecha ingreso" value={imp.fechaIngreso} />
+          <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
+          <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
           <Dato label="Nº BL / Guía" value={imp.numeroBl} />
           <Dato label="País origen" value={imp.paisOrigen} />
           <Dato label="Valor CIF" value={imp.valorCif} />

@@ -27,6 +27,7 @@ export function PlanillaAltaPuertoLibre() {
             anio: anioRaw ? Number(anioRaw) : undefined,
             serialMotor: String(fd.get("serialMotor") ?? ""),
             serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
+            fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? ""),
             importadorNombre: String(fd.get("importadorNombre") ?? ""),
             importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
             importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
@@ -61,6 +62,13 @@ export function PlanillaAltaPuertoLibre() {
           />
           <Field label="Serial motor *" name="serialMotor" required mono />
           <Field label="Serial carrocería *" name="serialCarroceria" required mono />
+          <Field
+            label="Fecha llegada del buque *"
+            name="fechaLlegadaBuque"
+            type="date"
+            required
+            wide
+          />
         </div>
       </section>
 

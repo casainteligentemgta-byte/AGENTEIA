@@ -14,6 +14,11 @@ export const puertoLibreAltaSchema = z.object({
     .max(currentYear + 1, "Año inválido"),
   serialMotor: z.string().trim().min(1, "Ingresa el serial del motor").max(80),
   serialCarroceria: z.string().trim().min(1, "Ingresa el serial de carrocería").max(80),
+  /** Fecha de llegada del buque al puerto (YYYY-MM-DD). */
+  fechaLlegadaBuque: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Ingresa la fecha de llegada del buque"),
 
   importadorNombre: z.string().trim().min(1, "Ingresa el nombre del importador").max(120),
   importadorDocumento: z.string().trim().max(40).optional().or(z.literal("")),

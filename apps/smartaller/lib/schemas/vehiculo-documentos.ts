@@ -177,6 +177,8 @@ export const importacionSchema = z.object({
   regimen: z.string().trim().max(80).optional().nullable(),
   aduana: z.string().trim().max(120).optional().nullable(),
   fechaIngreso: z.string().trim().max(32).optional().nullable(),
+  /** Fecha estimada/real de llegada del buque al puerto. */
+  fechaLlegadaBuque: z.string().trim().max(32).optional().nullable(),
   numeroBl: z.string().trim().max(80).optional().nullable(),
   paisOrigen: z.string().trim().max(80).optional().nullable(),
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
@@ -235,6 +237,7 @@ export function parseImportacion(raw: unknown): ImportacionData {
     regimen: row.regimen ?? row.regimen_importacion,
     aduana: row.aduana,
     fechaIngreso: row.fechaIngreso ?? row.fecha_ingreso,
+    fechaLlegadaBuque: row.fechaLlegadaBuque ?? row.fecha_llegada_buque,
     numeroBl: row.numeroBl ?? row.numero_bl,
     paisOrigen: row.paisOrigen ?? row.pais_origen,
     valorCif:
@@ -289,6 +292,7 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     regimen: data.regimen?.trim() || null,
     aduana: data.aduana?.trim() || null,
     fecha_ingreso: data.fechaIngreso?.trim() || null,
+    fecha_llegada_buque: data.fechaLlegadaBuque?.trim() || null,
     numero_bl: data.numeroBl?.trim() || null,
     pais_origen: data.paisOrigen?.trim() || null,
     valor_cif:

@@ -190,6 +190,7 @@ export async function createPuertoLibreVehiculoAction(
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
     anio: data.anio,
+    fechaLlegadaBuque: data.fechaLlegadaBuque,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
     importadorTelefono: data.importadorTelefono || null,
@@ -592,6 +593,10 @@ export type PuertoLibreVehiculoListItem = {
   /** Documentos de registro PL faltantes (fotos + docs fase 2/3). */
   docsFaltantes: number;
   planillaFase: number | null;
+  /** Fecha de llegada del buque (YYYY-MM-DD). */
+  fechaLlegadaBuque: string | null;
+  /** Fecha de ingreso físico al PL (YYYY-MM-DD). */
+  fechaIngreso: string | null;
   stickerToken: string | null;
   regimen: string | null;
   estadoNacionalizacion: string | null;
@@ -713,6 +718,8 @@ function mapListItem(
     docsCount,
     docsFaltantes: countDocsFaltantes(docs),
     planillaFase,
+    fechaLlegadaBuque: importacion.fechaLlegadaBuque?.trim() || null,
+    fechaIngreso: importacion.fechaIngreso?.trim() || null,
     stickerToken: stickers.get(id) ?? null,
     regimen: importacion.regimen ?? null,
     estadoNacionalizacion: importacion.estadoNacionalizacion ?? null,

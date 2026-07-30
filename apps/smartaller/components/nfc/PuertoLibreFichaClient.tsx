@@ -121,6 +121,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
                 vehiculoId: ficha.id,
                 regimen: String(fd.get("regimen") ?? "") || "Puerto Libre",
                 aduana: String(fd.get("aduana") ?? "") || null,
+                fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? "") || null,
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
                 numeroBl: String(fd.get("numeroBl") ?? "") || null,
                 paisOrigen: String(fd.get("paisOrigen") ?? "") || null,
@@ -150,7 +151,13 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
           />
           <Field label="Aduana" name="aduana" defaultValue={ficha.importacion.aduana ?? ""} />
           <Field
-            label="Fecha de ingreso"
+            label="Fecha llegada del buque"
+            name="fechaLlegadaBuque"
+            type="date"
+            defaultValue={ficha.importacion.fechaLlegadaBuque ?? ""}
+          />
+          <Field
+            label="Fecha de ingreso al PL"
             name="fechaIngreso"
             type="date"
             defaultValue={ficha.importacion.fechaIngreso ?? ""}
