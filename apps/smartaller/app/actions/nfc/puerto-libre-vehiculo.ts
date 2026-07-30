@@ -26,10 +26,15 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
+import { puertoLibreAltaSchema } from "@/lib/schemas/puerto-libre-alta";
 import {
-  placaTemporalDesdeSerial,
-  puertoLibreAltaSchema,
-} from "@/lib/schemas/puerto-libre-alta";
+  expedienteMonthPrefix,
+  formatCodigoExpediente,
+  parseCodigoExpediente,
+  partsFromDate,
+  resolveCodigoExpediente,
+} from "@/lib/puerto-libre/expediente";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -104,8 +109,46 @@ function revalidateFicha(vehiculoId: string) {
 }
 
 export type CreatePuertoLibreResult =
-  | { success: true; vehiculoId: string }
+  | { success: true; vehiculoId: string; codigoExpediente: string }
   | { success: false; error: string };
+
+async function nextNumeroExpedienteMes(
+  admin: SupabaseClient,
+  tallerId: string,
+  year: number,
+  month: number
+): Promise<number> {
+  const prefix = expedienteMonthPrefix(year, month);
+  const { data } = await admin
+    .from("vehiculos")
+    .select("placa, importacion")
+    .eq("taller_id", tallerId)
+    .ilike("placa", `${prefix}%`);
+
+  let max = 0;
+  for (const row of data ?? []) {
+    const fromPlaca = parseCodigoExpediente(row.placa as string);
+    if (fromPlaca && fromPlaca.year === year && fromPlaca.month === month) {
+      max = Math.max(max, fromPlaca.numero);
+    }
+    const imp = parseImportacion(row.importacion);
+    const fromImp = parseCodigoExpediente(imp.codigoExpediente ?? null);
+    if (fromImp && fromImp.year === year && fromImp.month === month) {
+      max = Math.max(max, fromImp.numero);
+    }
+    if (typeof imp.numeroExpediente === "number" && Number.isFinite(imp.numeroExpediente)) {
+      const codigo = resolveCodigoExpediente({
+        codigoExpediente: imp.codigoExpediente,
+        placa: row.placa as string,
+      });
+      const parts = parseCodigoExpediente(codigo);
+      if (parts && parts.year === year && parts.month === month) {
+        max = Math.max(max, imp.numeroExpediente);
+      }
+    }
+  }
+  return max + 1;
+}
 
 export async function createPuertoLibreVehiculoAction(
   raw: unknown
@@ -121,23 +164,26 @@ export async function createPuertoLibreVehiculoAction(
   }
 
   const data = parsed.data;
-  const placa = placaTemporalDesdeSerial(data.serialCarroceria);
-
   const admin = createAdminClient();
 
-  const { data: existing } = await admin
+  const { data: existingSerial } = await admin
     .from("vehiculos")
     .select("id")
-    .eq("placa", placa)
+    .eq("serial_carroceria", data.serialCarroceria.trim())
     .eq("taller_id", auth.taller.id)
     .maybeSingle();
 
-  if (existing) {
+  if (existingSerial) {
     return {
       success: false,
       error: "Ya existe un vehículo con ese serial de carrocería en tu taller.",
     };
   }
+
+  const { year, month } = partsFromDate();
+  const numero = await nextNumeroExpedienteMes(admin, auth.taller.id, year, month);
+  const codigoExpediente = formatCodigoExpediente(year, month, numero);
+  const placa = codigoExpediente;
 
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
@@ -149,6 +195,8 @@ export async function createPuertoLibreVehiculoAction(
     estadoNacionalizacion: "pendiente",
     estadoSeniat: "pendiente",
     planillaFase: 2,
+    codigoExpediente,
+    numeroExpediente: numero,
   });
 
   const { data: created, error } = await admin
@@ -182,7 +230,7 @@ export async function createPuertoLibreVehiculoAction(
 
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${created.id}/planilla`);
-  return { success: true, vehiculoId: created.id };
+  return { success: true, vehiculoId: created.id, codigoExpediente };
 }
 
 export async function updatePuertoLibreImportacionAction(
@@ -549,6 +597,8 @@ export type PuertoLibreVehiculoListItem = {
   diasSeniat: number | null;
   proximoNacionalizar: boolean;
   proximoSeniat: boolean;
+  codigoExpediente: string | null;
+  fotoUrl: string | null;
 };
 
 export async function listPuertoLibreVehiculos(): Promise<
@@ -627,9 +677,10 @@ function mapListItem(
   const docsCount = DOCUMENTO_TIPOS.filter((t) => Boolean(docs[t])).length;
   const importacion = parseImportacion(row.importacion);
   const id = row.id as string;
+  const placa = (row.placa as string) ?? "";
   return {
     id,
-    placa: (row.placa as string) ?? "",
+    placa,
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
     color: (row.color as string | null) ?? null,
@@ -649,6 +700,11 @@ function mapListItem(
     diasSeniat: diasHasta(importacion.fechaPresentacionSeniat),
     proximoNacionalizar: esProximoNacionalizar(importacion),
     proximoSeniat: esProximoSeniat(importacion),
+    codigoExpediente: resolveCodigoExpediente({
+      codigoExpediente: importacion.codigoExpediente,
+      placa,
+    }),
+    fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
   };
 }
 
@@ -666,6 +722,9 @@ export type PuertoLibreFicha = {
   cedula_propietario: string | null;
   email_propietario: string | null;
   fecha_nacimiento_propietario: string | null;
+  created_at: string;
+  codigoExpediente: string | null;
+  fotoUrl: string | null;
   tienePin: boolean;
   tieneInspeccionTransportista: boolean;
   documentos: VehiculosDocumentos;
@@ -694,7 +753,7 @@ export async function getPuertoLibreFicha(
   const { data, error } = await admin
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, seguro, inspeccion_transportista, taller_id"
+      "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, seguro, inspeccion_transportista, taller_id, created_at"
     )
     .eq("id", vehiculoId)
     .maybeSingle();
@@ -704,7 +763,7 @@ export async function getPuertoLibreFicha(
     const { data: fallback, error: fallbackError } = await admin
       .from("vehiculos")
       .select(
-        "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, taller_id"
+        "id, placa, marca, modelo, color, serial_motor, serial_carroceria, kilometraje_ultimo, nombre_cliente, telefono_cliente, cedula_propietario, email_propietario, fecha_nacimiento_propietario, pin_hash, documentos, importacion, taller_id, created_at"
       )
       .eq("id", vehiculoId)
       .maybeSingle();
@@ -722,6 +781,9 @@ export async function getPuertoLibreFicha(
       .limit(1)
       .maybeSingle();
 
+    const docsFb = parseVehiculosDocumentos(fallback.documentos);
+    const impFb = parseImportacion(fallback.importacion);
+
     return {
       success: true,
       ficha: {
@@ -738,10 +800,16 @@ export async function getPuertoLibreFicha(
         cedula_propietario: fallback.cedula_propietario,
         email_propietario: fallback.email_propietario,
         fecha_nacimiento_propietario: fallback.fecha_nacimiento_propietario,
+        created_at: fallback.created_at ?? "",
+        codigoExpediente: resolveCodigoExpediente({
+          codigoExpediente: impFb.codigoExpediente,
+          placa: fallback.placa,
+        }),
+        fotoUrl: docsFb.foto_frontal?.url ?? docsFb.foto_placa?.url ?? null,
         tienePin: Boolean(fallback.pin_hash),
         tieneInspeccionTransportista: false,
-        documentos: parseVehiculosDocumentos(fallback.documentos),
-        importacion: parseImportacion(fallback.importacion),
+        documentos: docsFb,
+        importacion: impFb,
         seguro: {},
         sticker: stickerFb
           ? { id: stickerFb.id, token: stickerFb.token, activo: stickerFb.activo }
@@ -763,6 +831,9 @@ export async function getPuertoLibreFicha(
     .limit(1)
     .maybeSingle();
 
+  const docs = parseVehiculosDocumentos(data.documentos);
+  const importacion = parseImportacion(data.importacion);
+
   return {
     success: true,
     ficha: {
@@ -779,10 +850,16 @@ export async function getPuertoLibreFicha(
       cedula_propietario: data.cedula_propietario,
       email_propietario: data.email_propietario,
       fecha_nacimiento_propietario: data.fecha_nacimiento_propietario,
+      created_at: data.created_at ?? "",
+      codigoExpediente: resolveCodigoExpediente({
+        codigoExpediente: importacion.codigoExpediente,
+        placa: data.placa,
+      }),
+      fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
       tienePin: Boolean(data.pin_hash),
       tieneInspeccionTransportista: tieneActaTransportista(data.inspeccion_transportista),
-      documentos: parseVehiculosDocumentos(data.documentos),
-      importacion: parseImportacion(data.importacion),
+      documentos: docs,
+      importacion,
       seguro: parseSeguro(data.seguro),
       sticker: sticker
         ? { id: sticker.id, token: sticker.token, activo: sticker.activo }

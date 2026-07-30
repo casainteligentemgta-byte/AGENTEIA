@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getPuertoLibreFicha } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import {
+  getPuertoLibreFicha,
+  listPuertoLibreVehiculos,
+} from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { PlanillaRegistroImportacion } from "@/components/nfc/PlanillaRegistroImportacion";
 import { getUser } from "@/lib/supabase/server";
+import { resolveCodigoExpediente } from "@/lib/puerto-libre/expediente";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +23,11 @@ export default async function PlanillaRegistroImportacionPage({
   const user = await getUser();
   if (!user) redirect(`/login?next=/puerto-libre/${params.vehiculoId}/planilla`);
 
-  const result = await getPuertoLibreFicha(params.vehiculoId);
+  const [result, list] = await Promise.all([
+    getPuertoLibreFicha(params.vehiculoId),
+    listPuertoLibreVehiculos(),
+  ]);
+
   if (!result.success) {
     if (result.error === "Vehículo no encontrado") notFound();
     return (
@@ -36,25 +44,47 @@ export default async function PlanillaRegistroImportacionPage({
   const faseInicial =
     faseParam === "3" ? (3 as const) : faseParam === "2" ? (2 as const) : undefined;
 
-  return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-3xl">
-        <Link
-          href="/puerto-libre"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a Puerto Libre
-        </Link>
+  const vehiculos = (list.success ? list.vehiculos : []).map((v) => ({
+    id: v.id,
+    placa: v.placa,
+    marca: v.marca,
+    modelo: v.modelo,
+    color: v.color,
+    codigoExpediente:
+      v.codigoExpediente ??
+      resolveCodigoExpediente({ codigoExpediente: null, placa: v.placa }),
+    fotoUrl: v.fotoUrl,
+    created_at: v.created_at,
+  }));
 
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-            Planilla Puerto Libre
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-            Completa vehículo, importación, propietario. Luego fotos y documentos.
-          </p>
-        </header>
+  const current = {
+    id: ficha.id,
+    placa: ficha.placa,
+    marca: ficha.marca,
+    modelo: ficha.modelo,
+    color: ficha.color,
+    codigoExpediente:
+      ficha.codigoExpediente ??
+      resolveCodigoExpediente({
+        codigoExpediente: ficha.importacion.codigoExpediente,
+        placa: ficha.placa,
+      }),
+    fotoUrl: ficha.fotoUrl,
+    created_at: ficha.created_at,
+  };
+
+  return (
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-5">
+          <Link
+            href="/puerto-libre"
+            className="inline-flex rounded-full p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            aria-label="Volver"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </div>
 
         <PlanillaRegistroImportacion
           vehiculoId={ficha.id}
@@ -72,6 +102,7 @@ export default async function PlanillaRegistroImportacionPage({
           initialSeguro={ficha.seguro}
           initialDocumentos={ficha.documentos}
           faseInicial={faseInicial}
+          vehiculoSelector={{ current, vehiculos }}
         />
       </div>
     </main>

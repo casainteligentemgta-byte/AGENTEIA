@@ -27,10 +27,10 @@ export default async function NuevoVehiculoPuertoLibrePage() {
       <div className="mx-auto max-w-2xl">
         <Link
           href="/puerto-libre"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200"
+          className="mb-6 inline-flex rounded-full p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+          aria-label="Volver"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a Puerto Libre
+          <ArrowLeft className="h-5 w-5" />
         </Link>
 
         <PuertoLibreRegistroWizard tallerNombre={taller.nombre} />

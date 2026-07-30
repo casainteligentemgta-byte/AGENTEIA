@@ -37,6 +37,11 @@ import {
   type SeguroData,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
+import {
+  PlanillaVehiculoSelector,
+  type PlanillaVehiculoOption,
+} from "@/components/nfc/PlanillaVehiculoSelector";
+import { resolveCodigoExpediente } from "@/lib/puerto-libre/expediente";
 
 type Props = {
   vehiculoId: string;
@@ -55,6 +60,10 @@ type Props = {
   initialDocumentos: VehiculosDocumentos;
   /** Fase forzada por query (?fase=2|3). */
   faseInicial?: 2 | 3;
+  vehiculoSelector?: {
+    current: PlanillaVehiculoOption;
+    vehiculos: PlanillaVehiculoOption[];
+  };
 };
 
 function resolveFase(
@@ -72,6 +81,7 @@ export function PlanillaRegistroImportacion({
   placa,
   marca,
   modelo,
+  color,
   compradorNombre,
   compradorTelefono,
   compradorCedula,
@@ -80,6 +90,7 @@ export function PlanillaRegistroImportacion({
   initialSeguro,
   initialDocumentos,
   faseInicial,
+  vehiculoSelector,
 }: Props) {
   const router = useRouter();
   const [fase, setFase] = useState<2 | 3>(() =>
@@ -118,10 +129,28 @@ export function PlanillaRegistroImportacion({
     [checklist]
   );
 
-  const tituloVehiculo = [marca, modelo].filter(Boolean).join(" ");
+  const codigoExpediente =
+    resolveCodigoExpediente({
+      codigoExpediente: initialImportacion.codigoExpediente,
+      placa,
+    }) ?? placa;
+
+  const selectorCurrent = vehiculoSelector?.current ?? {
+    id: vehiculoId,
+    placa,
+    marca,
+    modelo,
+    color,
+    codigoExpediente,
+    fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
+    created_at: "",
+  };
+  const selectorList = vehiculoSelector?.vehiculos ?? [selectorCurrent];
 
   return (
     <div className="space-y-6">
+      <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
+
       <div className="flex flex-wrap gap-2">
         <FaseChip
           n={1}
@@ -141,13 +170,6 @@ export function PlanillaRegistroImportacion({
           state={fase === 3 ? "current" : (initialImportacion.planillaFase ?? 2) >= 4 ? "done" : "idle"}
           onClick={() => setFase(3)}
         />
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3.5 text-sm text-slate-300">
-        <span className="font-mono text-cyan-300">{placa}</span>
-        {tituloVehiculo ? (
-          <span className="text-slate-400"> · {tituloVehiculo}</span>
-        ) : null}
       </div>
 
       {(message || error) && (

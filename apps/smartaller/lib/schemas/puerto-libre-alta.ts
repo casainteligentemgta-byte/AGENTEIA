@@ -31,7 +31,7 @@ export const puertoLibreAltaSchema = z.object({
 
 export type PuertoLibreAltaInput = z.infer<typeof puertoLibreAltaSchema>;
 
-/** Genera identificador temporal único hasta asignar placa real. */
+/** Genera el siguiente número de expediente PL-Año.Mes.N para el taller. */
 export function placaTemporalDesdeSerial(serialCarroceria: string): string {
   const clean = serialCarroceria.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   const suffix = (clean.slice(-10) || Date.now().toString(36).toUpperCase()).slice(0, 10);

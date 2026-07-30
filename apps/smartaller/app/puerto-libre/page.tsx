@@ -185,14 +185,16 @@ export default async function PuertoLibrePage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-mono text-2xl font-bold tracking-wide text-cyan-400">
-                          {v.placa}
+                          {v.codigoExpediente ?? v.placa}
                         </p>
                         <p className="mt-1 truncate text-zinc-300">
-                          {v.nombre_cliente ?? "Sin propietario"}
+                          {[v.marca, v.modelo].filter(Boolean).join(" · ") ||
+                            v.nombre_cliente ||
+                            "Sin ficha"}
                         </p>
                         <p className="mt-1 text-xs text-zinc-500">
-                          {[v.marca, v.modelo, v.color].filter(Boolean).join(" · ") ||
-                            "Sin ficha"}
+                          {[v.color, v.nombre_cliente].filter(Boolean).join(" · ") ||
+                            "Expediente Puerto Libre"}
                         </p>
                       </div>
                       <ChevronRight className="h-5 w-5 shrink-0 text-zinc-600 transition group-hover:text-cyan-400" />

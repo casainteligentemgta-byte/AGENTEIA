@@ -194,6 +194,10 @@ export const importacionSchema = z.object({
   importadorEmail: z.string().trim().max(120).optional().nullable(),
   /** 2 = llegada, 3 = docs/comprador/seguro, 4 = planilla completa. */
   planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
+  codigoExpediente: z.string().trim().max(32).optional().nullable(),
+  /** Número secuencial del expediente dentro del mes. */
+  numeroExpediente: z.coerce.number().int().min(1).optional().nullable(),
   /** Checklist de llegada (fase 2). */
   checklistLlegada: z.record(z.string()).optional().nullable(),
   /** Notas de daño por ítem del checklist de llegada. */
@@ -259,6 +263,8 @@ export function parseImportacion(raw: unknown): ImportacionData {
     importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
     importadorEmail: row.importadorEmail ?? row.importador_email,
     planillaFase: asOptionalAnio(row.planillaFase ?? row.planilla_fase),
+    codigoExpediente: row.codigoExpediente ?? row.codigo_expediente,
+    numeroExpediente: asOptionalAnio(row.numeroExpediente ?? row.numero_expediente),
     checklistLlegada:
       row.checklistLlegada && typeof row.checklistLlegada === "object"
         ? (row.checklistLlegada as Record<string, string>)
@@ -301,6 +307,11 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     planilla_fase:
       data.planillaFase != null && !Number.isNaN(data.planillaFase)
         ? data.planillaFase
+        : null,
+    codigo_expediente: data.codigoExpediente?.trim() || null,
+    numero_expediente:
+      data.numeroExpediente != null && !Number.isNaN(data.numeroExpediente)
+        ? data.numeroExpediente
         : null,
     checklist_llegada: data.checklistLlegada ?? null,
     checklist_llegada_notas: data.checklistLlegadaNotas ?? null,
