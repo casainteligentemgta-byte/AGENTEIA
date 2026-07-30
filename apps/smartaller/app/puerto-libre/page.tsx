@@ -113,7 +113,7 @@ export default async function PuertoLibrePage() {
                 {pendientes.map((v) => (
                   <li key={v.id}>
                     <Link
-                      href={`/puerto-libre/${v.id}/planilla`}
+                      href={`/puerto-libre/${v.id}`}
                       className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-zinc-900/60"
                     >
                       <span className="font-mono text-sm font-semibold tracking-wide text-zinc-100">
@@ -147,7 +147,7 @@ export default async function PuertoLibrePage() {
                         {labelExpediente(v)}
                       </Link>
                       <Link
-                        href={`/puerto-libre/${v.id}/planilla`}
+                        href={`/puerto-libre/${v.id}?edit=1`}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-cyan-700/50 bg-cyan-950/40 px-3 py-2 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60 hover:bg-cyan-900/40"
                       >
                         <Upload className="h-3.5 w-3.5" />
