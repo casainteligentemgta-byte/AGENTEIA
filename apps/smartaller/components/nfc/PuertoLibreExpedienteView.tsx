@@ -145,7 +145,7 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
           <Dato
             label="Nacionalización"
             value={
-              ESTADOS_NACIONALIZACION_LABELS[
+              ESTADO_NACIONALIZACION_LABELS[
                 (imp.estadoNacionalizacion as EstadoNacionalizacion) ?? "pendiente"
               ]
             }
