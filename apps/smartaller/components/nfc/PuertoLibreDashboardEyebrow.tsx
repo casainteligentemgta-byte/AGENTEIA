@@ -41,12 +41,12 @@ export function PuertoLibreDashboardEyebrow({ fallbackHref = "/dashboard" }: Pro
         e.preventDefault();
         goBack();
       }}
-      className="mb-2 inline-flex items-center gap-2 text-cyan-400 transition active:opacity-80"
+      className="mb-1 inline-flex items-center gap-1.5 text-cyan-400 transition active:opacity-80"
       aria-label="Doble toque para volver atrás"
       title="Doble toque para volver"
     >
-      <ShieldCheck className="h-5 w-5" />
-      <span className="text-sm font-medium tracking-wide uppercase">Dashboard</span>
+      <ShieldCheck className="h-4 w-4" />
+      <span className="text-xs font-medium tracking-wide uppercase">Dashboard</span>
     </button>
   );
 }

@@ -8,6 +8,8 @@ import { getMyTaller } from "@/lib/taller";
 import { hashPin } from "@/lib/nfc/crypto";
 import {
   DOCUMENTO_TIPOS,
+  MEMORIA_FOTOGRAFICA_TIPOS,
+  PL_REGISTRO_DOCUMENTO_TIPOS,
   documentoTipoSchema,
   importacionSchema,
   seguroSchema,
@@ -587,6 +589,9 @@ export type PuertoLibreVehiculoListItem = {
   created_at: string;
   tienePin: boolean;
   docsCount: number;
+  /** Documentos de registro PL faltantes (fotos + docs fase 2/3). */
+  docsFaltantes: number;
+  planillaFase: number | null;
   stickerToken: string | null;
   regimen: string | null;
   estadoNacionalizacion: string | null;
@@ -669,6 +674,17 @@ async function loadStickersByVehiculo(tallerId: string): Promise<Map<string, str
   return map;
 }
 
+function countDocsFaltantes(docs: VehiculosDocumentos): number {
+  let faltantes = 0;
+  for (const tipo of PL_REGISTRO_DOCUMENTO_TIPOS) {
+    if (!docs[tipo]?.url) faltantes += 1;
+  }
+  for (const tipo of MEMORIA_FOTOGRAFICA_TIPOS) {
+    if (!docs[tipo]?.url) faltantes += 1;
+  }
+  return faltantes;
+}
+
 function mapListItem(
   row: Record<string, unknown>,
   stickers: Map<string, string>
@@ -678,6 +694,11 @@ function mapListItem(
   const importacion = parseImportacion(row.importacion);
   const id = row.id as string;
   const placa = (row.placa as string) ?? "";
+  const planillaFase =
+    typeof importacion.planillaFase === "number" &&
+    Number.isFinite(importacion.planillaFase)
+      ? importacion.planillaFase
+      : null;
   return {
     id,
     placa,
@@ -690,6 +711,8 @@ function mapListItem(
     created_at: (row.created_at as string) ?? "",
     tienePin: Boolean(row.pin_hash),
     docsCount,
+    docsFaltantes: countDocsFaltantes(docs),
+    planillaFase,
     stickerToken: stickers.get(id) ?? null,
     regimen: importacion.regimen ?? null,
     estadoNacionalizacion: importacion.estadoNacionalizacion ?? null,
