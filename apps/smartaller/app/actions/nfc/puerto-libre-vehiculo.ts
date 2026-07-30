@@ -67,6 +67,7 @@ const fase2LlegadaSchema = z.object({
     .trim()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso inválida"),
   checklistLlegada: z.record(z.string()).default({}),
+  checklistLlegadaNotas: z.record(z.string()).default({}),
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
 });
 
@@ -347,6 +348,7 @@ export async function savePuertoLibreFase2LlegadaAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const checklist = parsed.data.checklistLlegada;
+  const checklistNotas = parsed.data.checklistLlegadaNotas;
   const existingImportacion = parseImportacion(row.importacion);
   const existingSeguro = parseSeguro(row.seguro);
 
@@ -354,6 +356,7 @@ export async function savePuertoLibreFase2LlegadaAction(
     ...existingImportacion,
     fechaIngreso: parsed.data.fechaIngreso,
     checklistLlegada: checklist,
+    checklistLlegadaNotas: checklistNotas,
     otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
     planillaFase: 3,
   });

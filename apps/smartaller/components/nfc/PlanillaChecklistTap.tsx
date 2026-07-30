@@ -55,8 +55,8 @@ export const OPCIONES_ESTADO: ChecklistOpcion[] = [
   },
 ];
 
-/** Exterior con foto: sin N/A (la tercera columna es carga de foto). */
-export const OPCIONES_ESTADO_CON_FOTO: ChecklistOpcion[] = [
+/** Revisión al llegar: OK / Daño (la nota de daño reemplaza N/A). */
+export const OPCIONES_OK_DANO: ChecklistOpcion[] = [
   {
     value: "sin_dano",
     label: "OK",
@@ -72,6 +72,9 @@ export const OPCIONES_ESTADO_CON_FOTO: ChecklistOpcion[] = [
     idleClass: "bg-red-50 text-red-800 border border-red-200",
   },
 ];
+
+/** Exterior con foto: sin N/A (la tercera columna es carga de foto). */
+export const OPCIONES_ESTADO_CON_FOTO: ChecklistOpcion[] = OPCIONES_OK_DANO;
 
 export const OPCIONES_EVIDENCIA: ChecklistOpcion[] = [
   {
@@ -126,6 +129,11 @@ type RowProps = {
   tone?: "dark" | "light";
   /** Si existe, reemplaza la columna N/A por carga de foto. */
   foto?: FotoSlot | null;
+  /** Nota de daño (reemplaza N/A en revisión al llegar). */
+  nota?: string;
+  onNotaChange?: (nota: string) => void;
+  /** Muestra el campo nota cuando el valor es falla (Daño). Default true si hay onNotaChange. */
+  notaCuandoDano?: boolean;
 };
 
 export function PlanillaChecklistRow({
@@ -135,10 +143,14 @@ export function PlanillaChecklistRow({
   onChange,
   tone = "dark",
   foto = null,
+  nota = "",
+  onNotaChange,
+  notaCuandoDano = true,
 }: RowProps) {
   const dark = tone === "dark";
   const fotoMode = foto?.mode ?? "both";
   const fotoDebajo = Boolean(foto) && fotoMode === "both";
+  const mostrarNota = Boolean(onNotaChange) && notaCuandoDano && value === "falla";
   const cols = opciones.length + (foto && !fotoDebajo ? 1 : 0);
 
   return (
@@ -195,6 +207,24 @@ export function PlanillaChecklistRow({
           ) : null}
         </div>
       </div>
+      {mostrarNota ? (
+        <label className="block space-y-1.5 print:hidden">
+          <span className={`text-xs ${dark ? "text-slate-500" : "text-zinc-500"}`}>
+            Describe el daño
+          </span>
+          <textarea
+            rows={2}
+            value={nota}
+            onChange={(e) => onNotaChange?.(e.target.value)}
+            placeholder="Ej. rayón en parabrisas, golpe en rin…"
+            className={`w-full resize-y rounded-xl px-3 py-2.5 text-sm outline-none ${
+              dark
+                ? "border border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/60"
+                : "border border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-400 focus:border-cyan-500"
+            }`}
+          />
+        </label>
+      ) : null}
       {foto && fotoDebajo ? (
         <div className="print:hidden">
           <PlanillaFotoChip

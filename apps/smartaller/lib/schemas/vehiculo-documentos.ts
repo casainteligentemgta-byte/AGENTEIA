@@ -196,6 +196,8 @@ export const importacionSchema = z.object({
   planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
   /** Checklist de llegada (fase 2). */
   checklistLlegada: z.record(z.string()).optional().nullable(),
+  /** Notas de daño por ítem del checklist de llegada. */
+  checklistLlegadaNotas: z.record(z.string()).optional().nullable(),
   /** Notas de otros dispositivos (fase 2). */
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
   /** Dirección del comprador (fase 3). */
@@ -263,6 +265,12 @@ export function parseImportacion(raw: unknown): ImportacionData {
         : row.checklist_llegada && typeof row.checklist_llegada === "object"
           ? (row.checklist_llegada as Record<string, string>)
           : null,
+    checklistLlegadaNotas:
+      row.checklistLlegadaNotas && typeof row.checklistLlegadaNotas === "object"
+        ? (row.checklistLlegadaNotas as Record<string, string>)
+        : row.checklist_llegada_notas && typeof row.checklist_llegada_notas === "object"
+          ? (row.checklist_llegada_notas as Record<string, string>)
+          : null,
     otrosDispositivosNotas:
       row.otrosDispositivosNotas ?? row.otros_dispositivos_notas,
     compradorDireccion: row.compradorDireccion ?? row.comprador_direccion,
@@ -295,6 +303,7 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
         ? data.planillaFase
         : null,
     checklist_llegada: data.checklistLlegada ?? null,
+    checklist_llegada_notas: data.checklistLlegadaNotas ?? null,
     otros_dispositivos_notas: data.otrosDispositivosNotas?.trim() || null,
     comprador_direccion: data.compradorDireccion?.trim() || null,
   };

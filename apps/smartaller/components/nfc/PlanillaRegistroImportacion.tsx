@@ -19,12 +19,13 @@ import {
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import {
-  OPCIONES_ESTADO,
+  OPCIONES_OK_DANO,
   PlanillaChecklistProgress,
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
 import {
   LLEGADA_CHECKLIST_ITEMS,
+  type LlegadaChecklistNotasState,
   type LlegadaChecklistRespuesta,
   type LlegadaChecklistState,
 } from "@/lib/puerto-libre/llegada-catalog";
@@ -97,6 +98,15 @@ export function PlanillaRegistroImportacion({
     }
     return next;
   });
+  const [checklistNotas, setChecklistNotas] = useState<LlegadaChecklistNotasState>(() => {
+    const raw = initialImportacion.checklistLlegadaNotas ?? {};
+    const next: LlegadaChecklistNotasState = {};
+    for (const item of LLEGADA_CHECKLIST_ITEMS) {
+      const v = raw[item.id];
+      if (typeof v === "string" && v.trim()) next[item.id] = v;
+    }
+    return next;
+  });
   const [otrosNotas, setOtrosNotas] = useState(
     initialImportacion.otrosDispositivosNotas ?? ""
   );
@@ -163,6 +173,8 @@ export function PlanillaRegistroImportacion({
           }
           checklist={checklist}
           setChecklist={setChecklist}
+          checklistNotas={checklistNotas}
+          setChecklistNotas={setChecklistNotas}
           checklistMarked={checklistMarked}
           otrosNotas={otrosNotas}
           setOtrosNotas={setOtrosNotas}
@@ -175,6 +187,7 @@ export function PlanillaRegistroImportacion({
                 vehiculoId,
                 fechaIngreso,
                 checklistLlegada: checklist,
+                checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
               });
               if (!result.success) {
@@ -300,6 +313,8 @@ function Fase2Llegada({
   fechaDefault,
   checklist,
   setChecklist,
+  checklistNotas,
+  setChecklistNotas,
   checklistMarked,
   otrosNotas,
   setOtrosNotas,
@@ -314,6 +329,8 @@ function Fase2Llegada({
   fechaDefault: string;
   checklist: LlegadaChecklistState;
   setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
+  checklistNotas: LlegadaChecklistNotasState;
+  setChecklistNotas: Dispatch<SetStateAction<LlegadaChecklistNotasState>>;
   checklistMarked: number;
   otrosNotas: string;
   setOtrosNotas: (v: string) => void;
@@ -371,6 +388,9 @@ function Fase2Llegada({
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="text-lg font-semibold leading-snug text-slate-100">Revisión al llegar</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Marca OK o Daño. Si hay daño, describe qué viste en la nota.
+        </p>
         <div className="mt-4">
           <PlanillaChecklistProgress
             marked={checklistMarked}
@@ -384,14 +404,29 @@ function Fase2Llegada({
               key={item.id}
               etiqueta={item.etiqueta}
               value={checklist[item.id]}
-              opciones={OPCIONES_ESTADO}
+              opciones={OPCIONES_OK_DANO}
               tone="dark"
-              onChange={(v) =>
+              nota={checklistNotas[item.id] ?? ""}
+              onNotaChange={(texto) =>
+                setChecklistNotas((prev) => ({
+                  ...prev,
+                  [item.id]: texto,
+                }))
+              }
+              onChange={(v) => {
                 setChecklist((prev) => ({
                   ...prev,
                   [item.id]: v as LlegadaChecklistRespuesta,
-                }))
-              }
+                }));
+                if (v !== "falla") {
+                  setChecklistNotas((prev) => {
+                    if (!prev[item.id]) return prev;
+                    const next = { ...prev };
+                    delete next[item.id];
+                    return next;
+                  });
+                }
+              }}
             />
           ))}
         </ul>

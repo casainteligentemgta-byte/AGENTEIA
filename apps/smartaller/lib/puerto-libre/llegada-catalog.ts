@@ -24,3 +24,5 @@ export type LlegadaChecklistRespuesta = "sin_dano" | "falla" | "na";
 export type LlegadaChecklistState = Partial<
   Record<LlegadaChecklistItemId, LlegadaChecklistRespuesta | "">
 >;
+
+export type LlegadaChecklistNotasState = Partial<Record<LlegadaChecklistItemId, string>>;
