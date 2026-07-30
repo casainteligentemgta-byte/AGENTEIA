@@ -161,30 +161,35 @@ export default async function PuertoLibrePage() {
                         [v.marca, v.modelo].filter(Boolean).join(" ") ||
                         v.color ||
                         "—";
+                      const llegadaHref = `/puerto-libre/${v.id}/planilla?fase=2`;
                       return (
                         <tr key={v.id} className="hover:bg-zinc-900/50">
                           <td className="px-3 py-3">
                             <Link
-                              href={`/puerto-libre/${v.id}`}
+                              href={llegadaHref}
                               className="font-mono font-semibold tracking-wide text-zinc-100 hover:text-cyan-300"
                             >
                               {labelExpediente(v)}
                             </Link>
                           </td>
                           <td className="px-3 py-3 text-zinc-300">
-                            <p className="truncate">{vehiculoLabel}</p>
-                            {v.color ? (
-                              <p className="truncate text-xs capitalize text-zinc-500">
-                                {v.color}
-                              </p>
-                            ) : null}
+                            <Link href={llegadaHref} className="block hover:text-zinc-100">
+                              <p className="truncate">{vehiculoLabel}</p>
+                              {v.color ? (
+                                <p className="truncate text-xs capitalize text-zinc-500">
+                                  {v.color}
+                                </p>
+                              ) : null}
+                            </Link>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-zinc-300">
-                            {formatFechaDia(v.fechaLlegadaBuque)}
+                            <Link href={llegadaHref} className="block">
+                              {formatFechaDia(v.fechaLlegadaBuque)}
+                            </Link>
                           </td>
                           <td className="px-3 py-3 text-right">
                             <Link
-                              href={`/puerto-libre/${v.id}/planilla`}
+                              href={llegadaHref}
                               className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1.5 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
                             >
                               Recibir

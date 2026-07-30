@@ -223,10 +223,16 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
 
       {(imp.planillaFase == null || imp.planillaFase < 4) && (
         <Link
-          href={`/puerto-libre/${ficha.id}/planilla`}
+          href={
+            imp.planillaFase != null && imp.planillaFase >= 3
+              ? `/puerto-libre/${ficha.id}/planilla?fase=3`
+              : `/puerto-libre/${ficha.id}/planilla?fase=2`
+          }
           className="flex w-full items-center justify-center rounded-xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-3 text-sm font-medium text-cyan-300 transition hover:border-cyan-600/50"
         >
-          Continuar planilla
+          {imp.planillaFase != null && imp.planillaFase >= 3
+            ? "Continuar fase 3 — Docs y comprador"
+            : "Continuar llegada — Fase 2"}
         </Link>
       )}
     </div>
