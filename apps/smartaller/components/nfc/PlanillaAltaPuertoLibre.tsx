@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Car, Ship } from "lucide-react";
 import { createPuertoLibreVehiculoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 
 const currentYear = new Date().getFullYear();
 
@@ -12,6 +13,7 @@ export function PlanillaAltaPuertoLibre() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [fechaLlegadaBuque, setFechaLlegadaBuque] = useState("");
 
   return (
     <form
@@ -27,7 +29,8 @@ export function PlanillaAltaPuertoLibre() {
             anio: anioRaw ? Number(anioRaw) : undefined,
             serialMotor: String(fd.get("serialMotor") ?? ""),
             serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
-            fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? ""),
+            fechaLlegadaBuque:
+              fechaLlegadaBuque || String(fd.get("fechaLlegadaBuque") ?? ""),
             importadorNombre: String(fd.get("importadorNombre") ?? ""),
             importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
             importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
@@ -62,13 +65,15 @@ export function PlanillaAltaPuertoLibre() {
           />
           <Field label="Serial motor *" name="serialMotor" required mono />
           <Field label="Serial carrocería *" name="serialCarroceria" required mono />
-          <Field
-            label="Fecha llegada del buque *"
-            name="fechaLlegadaBuque"
-            type="date"
-            required
-            wide
-          />
+          <div className="min-w-0 sm:col-span-2">
+            <PlanillaFechaField
+              label="Fecha llegada del buque *"
+              name="fechaLlegadaBuque"
+              value={fechaLlegadaBuque}
+              onChange={setFechaLlegadaBuque}
+              required
+            />
+          </div>
         </div>
       </section>
 
@@ -126,7 +131,7 @@ function Field({
   max?: number;
 }) {
   return (
-    <label className={`block space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
+    <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
       <span className="text-sm text-slate-400">{label}</span>
       <input
         name={name}
@@ -136,7 +141,7 @@ function Field({
         placeholder={placeholder}
         min={min}
         max={max}
-        className={`w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
+        className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
           mono ? "font-mono uppercase" : ""
         }`}
       />
