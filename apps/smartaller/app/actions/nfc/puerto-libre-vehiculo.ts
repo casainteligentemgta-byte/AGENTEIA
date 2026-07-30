@@ -588,6 +588,7 @@ export type PuertoLibreVehiculoListItem = {
   telefono_cliente: string | null;
   kilometraje_ultimo: number | null;
   created_at: string;
+  updated_at: string | null;
   tienePin: boolean;
   docsCount: number;
   /** Documentos de registro PL faltantes (fotos + docs fase 2/3). */

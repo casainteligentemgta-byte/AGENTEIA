@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { Car, ChevronRight, Plus, Ship, Upload } from "lucide-react";
+import { ArrowLeft, Car, ChevronRight, Plus, Ship } from "lucide-react";
 import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
-import { PuertoLibreDashboardEyebrow } from "@/components/nfc/PuertoLibreDashboardEyebrow";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 
@@ -55,6 +54,12 @@ function labelExpediente(v: PuertoLibreVehiculoListItem): string {
   return v.codigoExpediente ?? v.placa;
 }
 
+function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
+  const marcaModelo = [v.marca, v.modelo].filter(Boolean).join(" ");
+  if (marcaModelo && v.color) return `${marcaModelo} ${v.color}`;
+  return marcaModelo || v.color || "—";
+}
+
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
   return v.planillaFase == null || v.planillaFase < 4;
 }
@@ -71,6 +76,13 @@ function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
     if (fa !== fb) return fa.localeCompare(fb);
     return a.created_at.localeCompare(b.created_at);
   });
+}
+
+function completarHref(v: PuertoLibreVehiculoListItem): string {
+  if (v.planillaFase != null && v.planillaFase >= 3) {
+    return `/puerto-libre/${v.id}/planilla?fase=3`;
+  }
+  return `/puerto-libre/${v.id}/planilla?fase=2`;
 }
 
 export default async function PuertoLibrePage() {
@@ -92,15 +104,20 @@ export default async function PuertoLibrePage() {
   const vehiculos = list.success ? list.vehiculos : [];
   const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
   const pendientes = vehiculos.filter(esPendienteCompletar);
-  const docsFaltantes = vehiculos.filter((v) => v.docsFaltantes > 0);
 
   return (
     <PuertoLibreShell>
       <header className="mb-5 space-y-4">
         <div>
-          <PuertoLibreDashboardEyebrow />
+          <Link
+            href="/dashboard"
+            className="mb-2 inline-flex rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            aria-label="Volver"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-            Puerto Libre NFC
+            Expediente Importación Vehículo
           </h1>
           <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-400">
             Transferencia de carga básica, el sistema es automático y captura datos NFC
@@ -125,7 +142,7 @@ export default async function PuertoLibrePage() {
           <Car className="mx-auto h-8 w-8 text-zinc-600" />
           <p className="mt-3 text-zinc-300">No hay vehículos registrados</p>
           <p className="mt-1 text-sm text-zinc-500">
-            Registra un vehículo para armar su expediente Puerto Libre.
+            Registra un vehículo para armar su expediente de importación.
           </p>
         </div>
       ) : (
@@ -145,52 +162,40 @@ export default async function PuertoLibrePage() {
                 No hay vehículos pendientes de recepción en puerto.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+              <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+                <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
                       <th className="px-3 py-3 font-medium">Expediente</th>
                       <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Llegada buque</th>
-                      <th className="px-3 py-3 font-medium text-right">Acción</th>
+                      <th className="px-3 py-3 font-medium">Llegada</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porRecibir.map((v) => {
-                      const vehiculoLabel =
-                        [v.marca, v.modelo].filter(Boolean).join(" ") ||
-                        v.color ||
-                        "—";
                       const llegadaHref = `/puerto-libre/${v.id}/planilla?fase=2`;
                       return (
-                        <tr key={v.id} className="hover:bg-zinc-900/50">
+                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
                           <td className="px-3 py-3">
                             <Link
                               href={llegadaHref}
-                              className="font-mono font-semibold tracking-wide text-zinc-100 hover:text-cyan-300"
+                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
                             >
                               {labelExpediente(v)}
                             </Link>
                           </td>
                           <td className="px-3 py-3 text-zinc-300">
-                            <Link href={llegadaHref} className="block hover:text-zinc-100">
-                              <p className="truncate">{vehiculoLabel}</p>
-                              {v.color ? (
-                                <p className="truncate text-xs capitalize text-zinc-500">
-                                  {v.color}
-                                </p>
-                              ) : null}
-                            </Link>
+                            <p className="text-xs leading-snug sm:text-sm">
+                              {labelVehiculo(v)}
+                            </p>
                           </td>
-                          <td className="px-3 py-3 whitespace-nowrap text-zinc-300">
-                            <Link href={llegadaHref} className="block">
+                          <td className="px-3 py-3">
+                            <p className="text-xs whitespace-nowrap text-zinc-300 sm:text-sm">
                               {formatFechaDia(v.fechaLlegadaBuque)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-right">
+                            </p>
                             <Link
                               href={llegadaHref}
-                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1.5 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                              className="mt-1.5 inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
                             >
                               Recibir
                             </Link>
@@ -205,62 +210,61 @@ export default async function PuertoLibrePage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold text-zinc-200">
-              Pendiente a completar
-            </h2>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-zinc-200">
+                Pendiente a completar
+              </h2>
+              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+                {pendientes.length}
+              </span>
+            </div>
             {pendientes.length === 0 ? (
               <p className="text-sm text-zinc-500">No hay expedientes pendientes.</p>
             ) : (
-              <ul className="divide-y divide-zinc-800/80 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                {pendientes.map((v) => (
-                  <li key={v.id}>
-                    <Link
-                      href={`/puerto-libre/${v.id}`}
-                      className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-zinc-900/60"
-                    >
-                      <span className="font-mono text-sm font-semibold tracking-wide text-zinc-100">
-                        {labelExpediente(v)}
-                      </span>
-                      <span className="shrink-0 text-sm text-zinc-400">
-                        {v.fechaLlegadaBuque
-                          ? formatFechaDia(v.fechaLlegadaBuque)
-                          : formatFechaHoraCorta(v.created_at)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-zinc-200">
-              Documentación Faltante
-            </h2>
-            {docsFaltantes.length === 0 ? (
-              <p className="text-sm text-zinc-500">Toda la documentación está al día.</p>
-            ) : (
-              <ul className="divide-y divide-zinc-800/80 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                {docsFaltantes.map((v) => (
-                  <li key={v.id}>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <Link
-                        href={`/puerto-libre/${v.id}`}
-                        className="min-w-0 font-mono text-sm font-semibold tracking-wide text-zinc-100 hover:text-cyan-300"
-                      >
-                        {labelExpediente(v)}
-                      </Link>
-                      <Link
-                        href={`/puerto-libre/${v.id}?edit=1`}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-cyan-700/50 bg-cyan-950/40 px-3 py-2 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60 hover:bg-cyan-900/40"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        Subir documentación
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium">Vehículo</th>
+                      <th className="px-3 py-3 font-medium">Modificado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {pendientes.map((v) => {
+                      const href = completarHref(v);
+                      return (
+                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
+                          <td className="px-3 py-3">
+                            <Link
+                              href={href}
+                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
+                            >
+                              {labelExpediente(v)}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-zinc-300">
+                            <p className="text-xs leading-snug sm:text-sm">
+                              {labelVehiculo(v)}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
+                              {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
+                            </p>
+                            <Link
+                              href={href}
+                              className="mt-1.5 inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                            >
+                              Completar
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
 
@@ -275,8 +279,13 @@ export default async function PuertoLibrePage() {
                     href={`/puerto-libre/${v.id}`}
                     className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-zinc-900/50"
                   >
-                    <span className="font-mono font-medium text-zinc-300">
-                      {labelExpediente(v)}
+                    <span className="min-w-0">
+                      <span className="font-mono font-medium text-zinc-300">
+                        {labelExpediente(v)}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                        {labelVehiculo(v)}
+                      </span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
                   </Link>
