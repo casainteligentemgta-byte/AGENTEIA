@@ -105,13 +105,6 @@ export default async function PuertoLibrePage() {
             <Plus className="h-4 w-4" />
             Registrar vehículo
           </Link>
-          <Link
-            href="/puerto-libre/hoja-inspeccion"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/40 px-4 py-2.5 text-sm text-zinc-300 transition hover:border-cyan-500/50 hover:text-cyan-300"
-          >
-            <FileText className="h-4 w-4" />
-            Planilla recepción transportista
-          </Link>
         </div>
       </div>
 
