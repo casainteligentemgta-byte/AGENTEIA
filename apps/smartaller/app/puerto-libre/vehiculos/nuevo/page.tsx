@@ -33,7 +33,7 @@ export default async function NuevoVehiculoPuertoLibrePage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
 
-        <PuertoLibreRegistroWizard tallerNombre={taller.nombre} />
+        <PuertoLibreRegistroWizard />
       </div>
     </main>
   );

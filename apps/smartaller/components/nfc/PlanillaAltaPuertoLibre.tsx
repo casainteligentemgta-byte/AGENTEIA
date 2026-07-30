@@ -47,8 +47,8 @@ export function PlanillaAltaPuertoLibre() {
           Datos del vehículo
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Marca *" name="marca" required placeholder="Ej. JAC" />
-          <Field label="Modelo *" name="modelo" required placeholder="Ej. Sunray" />
+          <Field label="Marca *" name="marca" required placeholder="Ej. Toyota" />
+          <Field label="Modelo *" name="modelo" required placeholder="Ej. Corolla" />
           <Field label="Color *" name="color" required />
           <Field
             label="Año *"
