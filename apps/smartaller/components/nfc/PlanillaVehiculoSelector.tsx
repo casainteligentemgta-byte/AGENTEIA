@@ -25,6 +25,16 @@ function codigoLinea(v: PlanillaVehiculoOption): string {
   return v.codigoExpediente || v.placa;
 }
 
+/** Color · placa (solo si hay placa real, no el código de expediente). */
+function colorPlacaLinea(v: PlanillaVehiculoOption): string {
+  const placa =
+    v.placa?.trim() &&
+    v.placa.trim().toUpperCase() !== (v.codigoExpediente ?? "").trim().toUpperCase()
+      ? v.placa.trim()
+      : "";
+  return [v.color, placa].filter(Boolean).join(" · ");
+}
+
 export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -73,9 +83,11 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
             Auto {codigoLinea(current)}
           </p>
           <p className="truncate text-sm text-zinc-700">{tituloLinea(current)}</p>
-          <p className="truncate text-sm capitalize text-zinc-500">
-            {[current.color, codigoLinea(current)].filter(Boolean).join(" · ")}
-          </p>
+          {colorPlacaLinea(current) ? (
+            <p className="truncate text-sm capitalize text-zinc-500">
+              {colorPlacaLinea(current)}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2 self-stretch py-0.5">
           <ChevronDown className="h-5 w-5 text-zinc-500" />
@@ -150,8 +162,10 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
                             {codigoLinea(v)}
                           </p>
                           <p className="truncate text-sm text-slate-200">{tituloLinea(v)}</p>
-                          {v.color ? (
-                            <p className="truncate text-xs capitalize text-slate-500">{v.color}</p>
+                          {colorPlacaLinea(v) ? (
+                            <p className="truncate text-xs capitalize text-slate-500">
+                              {colorPlacaLinea(v)}
+                            </p>
                           ) : null}
                         </div>
                       </button>
