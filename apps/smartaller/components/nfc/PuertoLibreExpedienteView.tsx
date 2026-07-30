@@ -107,7 +107,7 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
         <h2 className="text-sm font-semibold text-zinc-200">Datos del vehículo</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Marca" value={ficha.marca} />
           <Dato label="Modelo" value={ficha.modelo} />
           <Dato label="Color" value={ficha.color} />
@@ -121,7 +121,7 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
         <h2 className="text-sm font-semibold text-zinc-200">Importador / comprador</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Nombre" value={imp.importadorNombre ?? ficha.nombre_cliente} />
           <Dato
             label="Documento"
@@ -135,7 +135,7 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
         <h2 className="text-sm font-semibold text-zinc-200">Importación</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Régimen" value={imp.regimen} />
           <Dato label="Aduana" value={imp.aduana} />
           <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
@@ -251,12 +251,12 @@ function Dato({
   wide?: boolean;
 }) {
   return (
-    <div className={wide ? "sm:col-span-2" : undefined}>
-      <dt className="text-xs text-zinc-500">{label}</dt>
+    <div className={wide ? "col-span-3" : "min-w-0"}>
+      <dt className="text-[11px] text-zinc-500 sm:text-xs">{label}</dt>
       <dd
-        className={`mt-0.5 text-sm text-zinc-100 ${mono ? "font-mono" : ""} ${
-          wide ? "whitespace-pre-wrap" : ""
-        }`}
+        className={`mt-0.5 break-words text-xs text-zinc-100 sm:text-sm ${
+          mono ? "font-mono" : ""
+        } ${wide ? "whitespace-pre-wrap" : ""}`}
       >
         {valor(value)}
       </dd>
