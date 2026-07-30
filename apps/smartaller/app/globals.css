@@ -19,6 +19,23 @@
     @apply bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent;
   }
 
+  /* input[type=date] nativo (iOS): centra el valor y evita el salto hacia arriba */
+  input[type="date"].pl-date-native {
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    line-height: 1.25rem;
+  }
+
+  input[type="date"].pl-date-native::-webkit-date-and-time-value {
+    text-align: left;
+    margin-block: auto;
+    min-height: 1.25rem;
+    line-height: 1.25rem;
+  }
+
   /* App dueño — estilo SmartTaller mejorado */
   .app-bg-dark {
     background-color: #0a1628;

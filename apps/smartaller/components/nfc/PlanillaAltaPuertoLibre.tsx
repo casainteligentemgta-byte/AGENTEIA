@@ -1,60 +1,46 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Car, Loader2, Ship, User } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Car, Ship } from "lucide-react";
 import { createPuertoLibreVehiculoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
 
 const currentYear = new Date().getFullYear();
 
+/** Fase 1: datos del vehículo + importador. */
 export function PlanillaAltaPuertoLibre() {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(fd: FormData) {
-    if (submitting) return;
-    setError(null);
-    setSubmitting(true);
-    try {
-      const anioRaw = String(fd.get("anio") ?? "").trim();
-      const result = await createPuertoLibreVehiculoAction({
-        marca: String(fd.get("marca") ?? ""),
-        modelo: String(fd.get("modelo") ?? ""),
-        serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
-        serialMotor: String(fd.get("serialMotor") ?? ""),
-        color: String(fd.get("color") ?? ""),
-        anio: anioRaw ? Number(anioRaw) : undefined,
-        fechaIngresoPl: String(fd.get("fechaIngresoPl") ?? ""),
-        placa: String(fd.get("placa") ?? ""),
-        importadorNombre: String(fd.get("importadorNombre") ?? ""),
-        importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
-        importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
-        importadorEmail: String(fd.get("importadorEmail") ?? ""),
-        compradorNombre: String(fd.get("compradorNombre") ?? ""),
-        compradorCedula: String(fd.get("compradorCedula") ?? ""),
-        compradorTelefono: String(fd.get("compradorTelefono") ?? ""),
-        compradorEmail: String(fd.get("compradorEmail") ?? ""),
-      });
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      router.push(`/puerto-libre/${result.vehiculoId}/planilla`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo registrar. Intenta de nuevo.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
-    <form className="space-y-8" action={handleSubmit}>
-      <div className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
-        Planilla de ingreso a Puerto Libre. Tras guardar continuarás con memoria fotográfica y
-        documentos.
-      </div>
-
+    <form
+      className="space-y-8"
+      action={(fd) => {
+        setError(null);
+        startTransition(async () => {
+          const anioRaw = String(fd.get("anio") ?? "").trim();
+          const result = await createPuertoLibreVehiculoAction({
+            marca: String(fd.get("marca") ?? ""),
+            modelo: String(fd.get("modelo") ?? ""),
+            color: String(fd.get("color") ?? ""),
+            anio: anioRaw ? Number(anioRaw) : undefined,
+            serialMotor: String(fd.get("serialMotor") ?? ""),
+            serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
+            importadorNombre: String(fd.get("importadorNombre") ?? ""),
+            importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
+            importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
+            importadorEmail: String(fd.get("importadorEmail") ?? ""),
+          });
+          if (!result.success) {
+            setError(result.error);
+            return;
+          }
+          router.push(`/puerto-libre/${result.vehiculoId}/planilla?fase=2`);
+          router.refresh();
+        });
+      }}
+    >
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Car className="h-5 w-5 text-cyan-400" />
@@ -63,8 +49,6 @@ export function PlanillaAltaPuertoLibre() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Marca *" name="marca" required placeholder="Ej. JAC" />
           <Field label="Modelo *" name="modelo" required placeholder="Ej. Sunray" />
-          <Field label="Serial carrocería / VIN *" name="serialCarroceria" required mono />
-          <Field label="Serial motor *" name="serialMotor" required mono />
           <Field label="Color *" name="color" required />
           <Field
             label="Año *"
@@ -75,24 +59,8 @@ export function PlanillaAltaPuertoLibre() {
             min={1950}
             max={currentYear + 1}
           />
-          <Field
-            label="Fecha de ingreso a Puerto Libre *"
-            name="fechaIngresoPl"
-            type="date"
-            required
-            defaultValue={new Date().toISOString().slice(0, 10)}
-          />
-          <Field
-            label="Placa (texto) *"
-            name="placa"
-            required
-            placeholder="Ej. AA110N10"
-            mono
-          />
-          <p className="sm:col-span-2 text-xs text-slate-500">
-            Escribe la placa aquí. En el siguiente paso subirás la{" "}
-            <strong className="font-medium text-slate-300">foto de la placa</strong>.
-          </p>
+          <Field label="Serial motor *" name="serialMotor" required mono />
+          <Field label="Serial carrocería *" name="serialCarroceria" required mono />
         </div>
       </section>
 
@@ -102,23 +70,10 @@ export function PlanillaAltaPuertoLibre() {
           Datos del importador
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Nombre / razón social *" name="importadorNombre" required wide />
-          <Field label="RIF / cédula" name="importadorDocumento" />
+          <Field label="Nombre *" name="importadorNombre" required wide />
+          <Field label="RIF" name="importadorDocumento" />
           <Field label="Teléfono" name="importadorTelefono" />
           <Field label="Email" name="importadorEmail" type="email" wide />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <User className="h-5 w-5 text-cyan-400" />
-          Datos del comprador
-        </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Nombre completo *" name="compradorNombre" required wide />
-          <Field label="Cédula" name="compradorCedula" />
-          <Field label="Teléfono *" name="compradorTelefono" required />
-          <Field label="Email" name="compradorEmail" type="email" wide />
         </div>
       </section>
 
@@ -130,11 +85,10 @@ export function PlanillaAltaPuertoLibre() {
 
       <button
         type="submit"
-        disabled={submitting}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
+        disabled={pending}
+        className="w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
       >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {submitting ? "Registrando…" : "Continuar a fotos y documentos"}
+        {pending ? "Registrando…" : "Registrar vehículo"}
       </button>
     </form>
   );

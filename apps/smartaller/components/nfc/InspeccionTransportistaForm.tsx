@@ -1,11 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { CheckCheck } from "lucide-react";
 import { saveInspeccionTransportistaAction } from "@/app/actions/nfc/inspeccion-transportista";
-import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { InspeccionWizardFotos } from "@/components/dashboard/inspeccion-wizard-fotos";
 import {
+  opcionesParaSeccion,
+  PlanillaChecklistProgress,
+  PlanillaChecklistRow,
+} from "@/components/nfc/PlanillaChecklistTap";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
+import {
+  EXTERIOR_FOTO_POR_ITEM,
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
   TRANSPORTISTA_CHECKLIST,
@@ -21,11 +28,19 @@ import {
 } from "@/lib/schemas/estado-visual-recepcion";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
+type Prefill = {
+  importadora?: string | null;
+  vin?: string | null;
+  kilometraje?: number | null;
+};
+
 type Props = {
   vehiculoId: string;
   placa: string;
   initial?: InspeccionTransportistaStored | null;
   documentos?: VehiculosDocumentos | null;
+  /** Valores del vehículo / importación si aún no hay acta guardada. */
+  prefill?: Prefill;
 };
 
 export function InspeccionTransportistaForm({
@@ -33,6 +48,7 @@ export function InspeccionTransportistaForm({
   placa,
   initial,
   documentos,
+  prefill,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -44,23 +60,60 @@ export function InspeccionTransportistaForm({
   const [fotoPlacaUrl, setFotoPlacaUrl] = useState<string | null>(
     initial?.fotoPlacaUrl || documentos?.foto_placa?.url || null
   );
+  const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
+    initial?.fotoTableroUrl || documentos?.foto_odometro?.url || null
+  );
+  const [fotosLados, setFotosLados] = useState<Record<string, string | null>>(() => ({
+    foto_frontal: documentos?.foto_frontal?.url ?? null,
+    foto_trasera: documentos?.foto_trasera?.url ?? null,
+    foto_lateral_izq: documentos?.foto_lateral_izq?.url ?? null,
+    foto_lateral_der: documentos?.foto_lateral_der?.url ?? null,
+  }));
   const [estadoVisual, setEstadoVisual] = useState<EstadoVisualRecepcion>(
     () => initial?.estadoVisual ?? { fotos: emptyEstadoVisualSlots() }
   );
   const [pasoFotos, setPasoFotos] = useState(0);
   const [kilometraje, setKilometraje] = useState<number | null>(
-    initial?.kilometraje ?? null
+    initial?.kilometraje ?? prefill?.kilometraje ?? null
   );
-  const [checklist, setChecklist] = useState<Record<string, ChecklistRespuesta>>(() => {
-    const base: Record<string, ChecklistRespuesta> = {};
+  const [checklist, setChecklist] = useState<Record<string, ChecklistRespuesta | "">>(() => {
+    const base: Record<string, ChecklistRespuesta | ""> = {};
     for (const item of TRANSPORTISTA_CHECKLIST) {
-      base[item.id] = initial?.checklist?.[item.id] ?? "na";
+      base[item.id] = initial?.checklist?.[item.id] ?? "";
     }
     return base;
   });
 
   function setItem(id: string, value: ChecklistRespuesta) {
-    setChecklist((prev) => ({ ...prev, [id]: value }));
+    setChecklist((prev) => ({
+      ...prev,
+      [id]: prev[id] === value ? "" : value,
+    }));
+  }
+
+  function marcarSeccionOk(seccion: (typeof TRANSPORTISTA_SECCIONES)[number]) {
+    setChecklist((prev) => {
+      const next = { ...prev };
+      for (const item of transportistaPorSeccion(seccion)) {
+        next[item.id] = "sin_dano";
+      }
+      return next;
+    });
+  }
+
+  const progresoGlobal = useMemo(() => {
+    const items = TRANSPORTISTA_CHECKLIST.filter((i) => i.seccion !== "evidencia");
+    const marked = items.filter((i) => Boolean(checklist[i.id])).length;
+    return { marked, total: items.length };
+  }, [checklist]);
+
+  function checklistParaGuardar(): Record<string, ChecklistRespuesta> {
+    const out: Record<string, ChecklistRespuesta> = {};
+    for (const item of TRANSPORTISTA_CHECKLIST) {
+      const v = checklist[item.id];
+      out[item.id] = v === "sin_dano" || v === "falla" || v === "na" ? v : "na";
+    }
+    return out;
   }
 
   return (
@@ -70,70 +123,83 @@ export function InspeccionTransportistaForm({
         setError(null);
         setOk(false);
         startTransition(async () => {
-          try {
-            const kmRaw = String(fd.get("kilometraje") ?? "").trim();
-            const result = await saveInspeccionTransportistaAction({
-              vehiculoId,
-              transportista: String(fd.get("transportista") ?? "") || null,
-              numeroGuia: String(fd.get("numeroGuia") ?? "") || null,
-              fechaRecepcion: String(fd.get("fechaRecepcion") ?? "") || null,
-              lugarRecepcion: String(fd.get("lugarRecepcion") ?? "") || null,
-              contenedor: String(fd.get("contenedor") ?? "") || null,
-              placaTexto: String(fd.get("placaTexto") ?? "") || null,
-              vin: String(fd.get("vin") ?? "") || null,
-              kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
-              blDocumentoUrl: blUrl,
-              fotoPlacaUrl,
-              checklist,
-              estadoVisual,
-              danosReportados: String(fd.get("danosReportados") ?? "") || null,
-              observaciones: String(fd.get("observaciones") ?? "") || null,
-              receptorNombre: String(fd.get("receptorNombre") ?? "") || null,
-              transportistaNombre: String(fd.get("transportistaNombre") ?? "") || null,
-            });
-            if (!result.success) {
-              const msg = result.error.toLowerCase();
-              if (msg.includes("inspeccion_transportista") || msg.includes("column")) {
-                setError(
-                  "Falta la columna inspeccion_transportista. Ejecuta 20260729_inspeccion_transportista_pl.sql en Supabase."
-                );
-                return;
-              }
-              setError(result.error);
+          const kmRaw = String(fd.get("kilometraje") ?? "").trim();
+          const result = await saveInspeccionTransportistaAction({
+            vehiculoId,
+            importadora: String(fd.get("importadora") ?? "") || null,
+            transportista: String(fd.get("transportista") ?? "") || null,
+            numeroGuia: String(fd.get("numeroGuia") ?? "") || null,
+            fechaRecepcion: String(fd.get("fechaRecepcion") ?? "") || null,
+            lugarRecepcion: String(fd.get("lugarRecepcion") ?? "") || null,
+            contenedor: String(fd.get("contenedor") ?? "") || null,
+            placaTexto: String(fd.get("placaTexto") ?? "") || null,
+            vin: String(fd.get("vin") ?? "") || null,
+            kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
+            blDocumentoUrl: blUrl,
+            fotoPlacaUrl,
+            fotoTableroUrl,
+            checklist: checklistParaGuardar(),
+            estadoVisual,
+            danosReportados: String(fd.get("danosReportados") ?? "") || null,
+            observaciones: String(fd.get("observaciones") ?? "") || null,
+            receptorNombre: String(fd.get("receptorNombre") ?? "") || null,
+            transportistaNombre: String(fd.get("transportistaNombre") ?? "") || null,
+          });
+          if (!result.success) {
+            const msg = result.error.toLowerCase();
+            if (msg.includes("inspeccion_transportista") || msg.includes("column")) {
+              setError(
+                "Falta la columna inspeccion_transportista. Ejecuta 20260729_inspeccion_transportista_pl.sql en Supabase."
+              );
               return;
             }
-            setOk(true);
-            router.push(`/puerto-libre/${vehiculoId}`);
-          } catch (err) {
-            setError(
-              err instanceof Error ? err.message : "No se pudo guardar la planilla. Intenta de nuevo."
-            );
+            setError(result.error);
+            return;
           }
+          setOk(true);
+          router.refresh();
+          router.push(`/puerto-libre/${vehiculoId}`);
         });
       }}
     >
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
         <h2 className="text-lg font-semibold text-slate-100">1. Datos de la recepción</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <p className="mt-1 text-sm text-slate-500">
+          Campos editables. El botón Foto guarda al instante en Supabase (Storage + documentos).
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field
+            label="Importadora"
+            name="importadora"
+            defaultValue={initial?.importadora ?? prefill?.importadora ?? ""}
+          />
           <Field
             label="Transportista"
             name="transportista"
             defaultValue={initial?.transportista ?? ""}
           />
-          <div className="space-y-3">
-            <Field
-              label="Nº guía / BL"
-              name="numeroGuia"
-              defaultValue={initial?.numeroGuia ?? ""}
-            />
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="bl_guia"
-              existingUrl={blUrl}
-              hint="Cargar foto o PDF del BL"
-              actionLabel="Cargar foto / PDF del BL"
-              onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
-            />
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <div className="min-w-0 flex-1">
+              <Field
+                label="Nº guía / BL"
+                name="numeroGuia"
+                defaultValue={initial?.numeroGuia ?? ""}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Toma foto del BL con la cámara o sube un PDF. Se guarda al instante en Supabase.
+              </p>
+            </div>
+            <div className="w-full shrink-0 sm:w-56">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="bl_guia"
+                existingUrl={blUrl}
+                tone="dark"
+                label="Foto"
+                mode="both"
+                onUploaded={(docs) => setBlUrl(docs.bl_guia?.url ?? null)}
+              />
+            </div>
           </div>
           <Field
             label="Fecha de recepción"
@@ -146,96 +212,161 @@ export function InspeccionTransportistaForm({
             name="lugarRecepcion"
             defaultValue={initial?.lugarRecepcion ?? ""}
           />
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <div className="min-w-0 flex-1">
+              <Field
+                label="Placa del vehículo"
+                name="placaTexto"
+                defaultValue={initial?.placaTexto ?? placa}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Toma foto de la placa o sube archivo. Se guarda al instante en Supabase.
+              </p>
+            </div>
+            <div className="w-full shrink-0 sm:w-56">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="foto_placa"
+                existingUrl={fotoPlacaUrl}
+                tone="dark"
+                label="Foto"
+                mode="both"
+                onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
+              />
+            </div>
+          </div>
           <Field
-            label="Contenedor / remolque"
-            name="contenedor"
-            defaultValue={initial?.contenedor ?? ""}
+            label="VIN / chasis"
+            name="vin"
+            defaultValue={initial?.vin ?? prefill?.vin ?? ""}
           />
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-end sm:justify-between md:col-span-2">
+            <label className="block min-w-0 flex-1 space-y-1.5">
+              <span className="text-sm text-slate-400">Kilometraje al recibir</span>
+              <input
+                name="kilometraje"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={kilometraje ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setKilometraje(v ? Number(v) : null);
+                }}
+                className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+                placeholder="Solo números"
+              />
+              <p className="text-xs text-slate-500">
+                Toma foto del tablero / odómetro. Se guarda al instante en Supabase.
+              </p>
+            </label>
+            <div className="w-full shrink-0 sm:w-56">
+              <PlanillaFotoChip
+                vehiculoId={vehiculoId}
+                tipo="foto_odometro"
+                existingUrl={fotoTableroUrl}
+                tone="dark"
+                label="Foto"
+                mode="both"
+                onUploaded={(docs) => setFotoTableroUrl(docs.foto_odometro?.url ?? null)}
+              />
+            </div>
+          </div>
+          <div className="md:col-span-2">
             <Field
-              label="Placa del vehículo"
-              name="placaTexto"
-              defaultValue={initial?.placaTexto ?? placa}
-            />
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="foto_placa"
-              existingUrl={fotoPlacaUrl}
-              hint="Cargar foto o PDF de la placa"
-              actionLabel="Cargar foto / PDF de la placa"
-              onUploaded={(docs) => setFotoPlacaUrl(docs.foto_placa?.url ?? null)}
+              label="Contenedor / remolque"
+              name="contenedor"
+              defaultValue={initial?.contenedor ?? ""}
             />
           </div>
-          <Field label="VIN / chasis" name="vin" defaultValue={initial?.vin ?? ""} />
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Kilometraje al recibir</span>
-            <input
-              name="kilometraje"
-              type="number"
-              min={0}
-              step={1}
-              inputMode="numeric"
-              value={kilometraje ?? ""}
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                setKilometraje(v ? Number(v) : null);
-              }}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-              placeholder="Solo números"
-            />
-          </label>
         </div>
       </section>
 
-      {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => (
-        <section
-          key={seccion}
-          className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5"
-        >
-          <h2 className="text-lg font-semibold text-slate-100">
-            {TRANSPORTISTA_SECCION_LABELS[seccion]}
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {transportistaPorSeccion(seccion).map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span className="text-sm text-slate-200">{item.etiqueta}</span>
-                <div className="flex gap-2">
-                  {(
-                    [
-                      ["sin_dano", "Sin daño"],
-                      ["falla", "Con daño"],
-                      ["na", "N/A"],
-                    ] as const
-                  ).map(([value, label]) => {
-                    const active = checklist[item.id] === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setItem(item.id, value)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                          active
-                            ? value === "sin_dano"
-                              ? "bg-emerald-600 text-white"
-                              : value === "falla"
-                                ? "bg-red-600 text-white"
-                                : "bg-slate-600 text-white"
-                            : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <div className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 px-4 py-3">
+        <p className="text-sm text-cyan-100">
+          Exterior: OK / Daño / Foto en frontal, trasero y laterales. En el resto usa N/A si aplica.
+        </p>
+        <div className="mt-2">
+          <PlanillaChecklistProgress
+            marked={progresoGlobal.marked}
+            total={progresoGlobal.total}
+            tone="dark"
+          />
+        </div>
+      </div>
+
+      {TRANSPORTISTA_SECCIONES.filter((s) => s !== "evidencia").map((seccion) => {
+        const items = transportistaPorSeccion(seccion);
+        const marked = items.filter((i) => Boolean(checklist[i.id])).length;
+        const esRecepcionista = seccion === "datos_recepcion";
+        const esExterior = seccion === "estado_exterior";
+
+        return (
+          <section
+            key={seccion}
+            className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-100">
+                  {TRANSPORTISTA_SECCION_LABELS[seccion]}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {esRecepcionista
+                    ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
+                    : esExterior
+                      ? "OK / Daño. En frontal, trasero y laterales: Tomar foto o PDF/archivo."
+                      : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                </p>
+              </div>
+              {!esRecepcionista ? (
+                <button
+                  type="button"
+                  onClick={() => marcarSeccionOk(seccion)}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Todo OK
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-3">
+              <PlanillaChecklistProgress marked={marked} total={items.length} tone="dark" />
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {items.map((item) => {
+                const fotoTipo = EXTERIOR_FOTO_POR_ITEM[item.id];
+                return (
+                  <PlanillaChecklistRow
+                    key={item.id}
+                    etiqueta={item.etiqueta}
+                    value={checklist[item.id]}
+                    opciones={opcionesParaSeccion(seccion, item.id)}
+                    onChange={(v) => setItem(item.id, v)}
+                    tone="dark"
+                    foto={
+                      fotoTipo
+                        ? {
+                            vehiculoId,
+                            tipo: fotoTipo,
+                            url: fotosLados[fotoTipo],
+                            mode: "both",
+                            onUploaded: (docs) =>
+                              setFotosLados((prev) => ({
+                                ...prev,
+                                [fotoTipo]: docs[fotoTipo]?.url ?? null,
+                              })),
+                          }
+                        : null
+                    }
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
         <h2 className="text-lg font-semibold text-slate-100">
@@ -256,7 +387,6 @@ export function InspeccionTransportistaForm({
             kilometraje={kilometraje}
             onKilometrajeChange={setKilometraje}
             onKilometrajeDetectado={(km) => setKilometraje(km)}
-            autoOpenCamera={false}
           />
         </div>
       </section>
@@ -332,13 +462,13 @@ function Field({
   type?: string;
 }) {
   return (
-    <label className="block space-y-1.5">
+    <label className="block min-w-0 space-y-1.5">
       <span className="text-sm text-slate-400">{label}</span>
       <input
         name={name}
         type={type}
         defaultValue={defaultValue}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+        className="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
       />
     </label>
   );

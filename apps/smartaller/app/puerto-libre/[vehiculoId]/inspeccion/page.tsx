@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { parseInspeccionTransportista } from "@/lib/schemas/inspeccion-transportista";
-import { parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { parseImportacion, parseVehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { InspeccionTransportistaForm } from "@/components/nfc/InspeccionTransportistaForm";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,9 @@ export default async function InspeccionTransportistaPage({ params }: Props) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("vehiculos")
-    .select("id, placa, taller_id, inspeccion_transportista, documentos")
+    .select(
+      "id, placa, taller_id, serial_carroceria, kilometraje_ultimo, importacion, inspeccion_transportista, documentos"
+    )
     .eq("id", params.vehiculoId)
     .maybeSingle();
 
@@ -60,6 +62,7 @@ export default async function InspeccionTransportistaPage({ params }: Props) {
   });
 
   const documentos = parseVehiculosDocumentos(data.documentos);
+  const importacion = parseImportacion(data.importacion);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
@@ -85,6 +88,12 @@ export default async function InspeccionTransportistaPage({ params }: Props) {
           placa={data.placa}
           initial={initial}
           documentos={documentos}
+          prefill={{
+            importadora: importacion.importadorNombre,
+            vin: data.serial_carroceria,
+            kilometraje:
+              typeof data.kilometraje_ultimo === "number" ? data.kilometraje_ultimo : null,
+          }}
         />
       </div>
     </main>

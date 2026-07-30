@@ -26,7 +26,10 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
-import { puertoLibreAltaSchema } from "@/lib/schemas/puerto-libre-alta";
+import {
+  placaTemporalDesdeSerial,
+  puertoLibreAltaSchema,
+} from "@/lib/schemas/puerto-libre-alta";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -54,6 +57,17 @@ const propietarioSchema = z.object({
   cedulaPropietario: z.string().trim().max(40).optional().nullable(),
   emailPropietario: z.string().trim().email().optional().nullable().or(z.literal("")),
   fechaNacimientoPropietario: z.string().trim().max(32).optional().nullable(),
+  direccion: z.string().trim().max(240).optional().nullable(),
+});
+
+const fase2LlegadaSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  fechaIngreso: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso inválida"),
+  checklistLlegada: z.record(z.string()).default({}),
+  otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
 });
 
 const pinSchema = z.object({
@@ -84,6 +98,8 @@ function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
   revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/inspeccion`);
+  revalidatePath(`/puerto-libre/hoja-inspeccion`);
 }
 
 export type CreatePuertoLibreResult =
@@ -93,119 +109,79 @@ export type CreatePuertoLibreResult =
 export async function createPuertoLibreVehiculoAction(
   raw: unknown
 ): Promise<CreatePuertoLibreResult> {
-  try {
-    const auth = await requireTallerAuth();
-    if (auth.error || !auth.taller) {
-      return { success: false, error: auth.error ?? "No autorizado" };
-    }
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
 
-    const parsed = puertoLibreAltaSchema.safeParse(raw);
-    if (!parsed.success) {
-      return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
-    }
+  const parsed = puertoLibreAltaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
 
-    const data = parsed.data;
-    const placa = data.placa;
+  const data = parsed.data;
+  const placa = placaTemporalDesdeSerial(data.serialCarroceria);
 
-    const admin = createAdminClient();
+  const admin = createAdminClient();
 
-    const { data: existing, error: existingError } = await admin
-      .from("vehiculos")
-      .select("id")
-      .eq("placa", placa)
-      .eq("taller_id", auth.taller.id)
-      .maybeSingle();
+  const { data: existing } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("placa", placa)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
 
-    if (existingError) {
-      return { success: false, error: existingError.message };
-    }
+  if (existing) {
+    return {
+      success: false,
+      error: "Ya existe un vehículo con ese serial de carrocería en tu taller.",
+    };
+  }
 
-    if (existing) {
-      return {
-        success: false,
-        error: "Ya existe un vehículo con esa placa/identificador en tu taller.",
-      };
-    }
+  const importacion = serializeImportacion({
+    regimen: "Puerto Libre",
+    anio: data.anio,
+    importadorNombre: data.importadorNombre,
+    importadorDocumento: data.importadorDocumento || null,
+    importadorTelefono: data.importadorTelefono || null,
+    importadorEmail: data.importadorEmail || null,
+    estadoNacionalizacion: "pendiente",
+    estadoSeniat: "pendiente",
+    planillaFase: 2,
+  });
 
-    const importacion = serializeImportacion({
-      regimen: "Puerto Libre",
-      fechaIngreso: data.fechaIngresoPl,
-      anio: data.anio,
-      importadorNombre: data.importadorNombre,
-      importadorDocumento: data.importadorDocumento || null,
-      importadorTelefono: data.importadorTelefono || null,
-      importadorEmail: data.importadorEmail || null,
-      estadoNacionalizacion: "pendiente",
-      estadoSeniat: "pendiente",
-    });
-
-    const baseRow = {
+  const { data: created, error } = await admin
+    .from("vehiculos")
+    .insert({
       taller_id: auth.taller.id,
-      tipo_vehiculo: "auto" as const,
+      tipo_vehiculo: "auto",
       placa,
       marca: data.marca,
       modelo: data.modelo,
       color: data.color,
       serial_motor: data.serialMotor,
       serial_carroceria: data.serialCarroceria,
-      nombre_cliente: data.compradorNombre,
-      telefono_cliente: data.compradorTelefono,
-      cedula_propietario: data.compradorCedula || null,
-      email_propietario: data.compradorEmail || null,
+      nombre_cliente: null,
+      telefono_cliente: null,
+      cedula_propietario: null,
+      email_propietario: null,
       documentos: {},
+      importacion,
+      seguro: {},
       unidad_odometro: "km",
       telegram_chat_id: null,
       updated_at: new Date().toISOString(),
-    };
+    })
+    .select("id")
+    .single();
 
-    let created: { id: string } | null = null;
-    let error: { message: string } | null = null;
-
-    const fullInsert = await admin
-      .from("vehiculos")
-      .insert({
-        ...baseRow,
-        importacion,
-        seguro: {},
-      })
-      .select("id")
-      .single();
-
-    created = fullInsert.data;
-    error = fullInsert.error;
-
-    if (error) {
-      const msg = error.message.toLowerCase();
-      if (msg.includes("importacion") || msg.includes("seguro") || msg.includes("column")) {
-        const fallback = await admin
-          .from("vehiculos")
-          .insert(baseRow)
-          .select("id")
-          .single();
-        created = fallback.data;
-        error = fallback.error;
-        if (!error && created) {
-          // Mejor esfuerzo: columnas PL aún no migradas
-        }
-      }
-    }
-
-    if (error || !created) {
-      return {
-        success: false,
-        error: error?.message ?? "No se pudo registrar el vehículo",
-      };
-    }
-
-    revalidatePath("/puerto-libre");
-    revalidatePath(`/puerto-libre/${created.id}/planilla`);
-    return { success: true, vehiculoId: created.id };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "No se pudo registrar el vehículo",
-    };
+  if (error || !created) {
+    return { success: false, error: error?.message ?? "No se pudo registrar el vehículo" };
   }
+
+  revalidatePath("/puerto-libre");
+  revalidatePath(`/puerto-libre/${created.id}/planilla`);
+  return { success: true, vehiculoId: created.id };
 }
 
 export async function updatePuertoLibreImportacionAction(
@@ -327,6 +303,12 @@ export async function updatePuertoLibrePropietarioAction(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
+  const existingImportacion = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    compradorDireccion: parsed.data.direccion ?? existingImportacion.compradorDireccion,
+  });
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
@@ -336,6 +318,7 @@ export async function updatePuertoLibrePropietarioAction(
       cedula_propietario: parsed.data.cedulaPropietario?.trim() || null,
       email_propietario: parsed.data.emailPropietario?.trim() || null,
       fecha_nacimiento_propietario: parsed.data.fechaNacimientoPropietario?.trim() || null,
+      importacion,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId)
@@ -343,6 +326,100 @@ export async function updatePuertoLibrePropietarioAction(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Guarda fase 2 (llegada) y avanza a fase 3. */
+export async function savePuertoLibreFase2LlegadaAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = fase2LlegadaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const checklist = parsed.data.checklistLlegada;
+  const existingImportacion = parseImportacion(row.importacion);
+  const existingSeguro = parseSeguro(row.seguro);
+
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    fechaIngreso: parsed.data.fechaIngreso,
+    checklistLlegada: checklist,
+    otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
+    planillaFase: 3,
+  });
+
+  const seguro = serializeSeguro({
+    ...existingSeguro,
+    tieneAlarma: checklist.alarma === "sin_dano" ? true : checklist.alarma === "falla" ? false : existingSeguro.tieneAlarma,
+    tieneGps:
+      checklist.gps_rastreador === "sin_dano"
+        ? true
+        : checklist.gps_rastreador === "falla"
+          ? false
+          : existingSeguro.tieneGps,
+    tieneInmovilizador:
+      checklist.inmovilizador === "sin_dano"
+        ? true
+        : checklist.inmovilizador === "falla"
+          ? false
+          : existingSeguro.tieneInmovilizador,
+    dispositivosSeguridad:
+      parsed.data.otrosDispositivosNotas?.trim() || existingSeguro.dispositivosSeguridad,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      importacion,
+      seguro,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Marca fase 3 como completa (planilla lista). */
+export async function completePuertoLibreFase3Action(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({ ...existing, planillaFase: 4 });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
   return { success: true };
 }
 
@@ -424,15 +501,26 @@ export async function uploadPuertoLibreDocumentoAction(
       .eq("id", vehiculoId)
       .eq("taller_id", auth.taller.id);
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      return {
+        success: false,
+        error: `Archivo subido pero no se guardó en documentos: ${error.message}`,
+      };
+    }
 
     revalidateFicha(vehiculoId);
     return { success: true, tipo: tipoParsed.data, documentos: next };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "No se pudo subir el documento",
-    };
+    const msg = err instanceof Error ? err.message : "No se pudo subir el documento";
+    const lower = msg.toLowerCase();
+    if (lower.includes("bucket") || lower.includes("not found") || lower.includes("vehiculos-documentos")) {
+      return {
+        success: false,
+        error:
+          "Falta el bucket Storage 'vehiculos-documentos' en Supabase. Ejecuta la migración 20250711100000_vehiculos_documentos.sql.",
+      };
+    }
+    return { success: false, error: msg };
   }
 }
 

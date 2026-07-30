@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { Printer } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCheck, Printer } from "lucide-react";
 import {
   TRANSPORTISTA_CHECKLIST,
   TRANSPORTISTA_SECCION_LABELS,
   TRANSPORTISTA_SECCIONES,
+  EXTERIOR_FOTO_POR_ITEM,
   transportistaPorSeccion,
+  type TransportistaSeccion,
 } from "@/lib/puerto-libre/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
-
-type ChecklistMark = "" | "dano" | "na";
+import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
+import {
+  opcionesParaSeccion,
+  PlanillaChecklistProgress,
+  PlanillaChecklistRow,
+} from "@/components/nfc/PlanillaChecklistTap";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
+import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 function FillField({
   label,
@@ -18,62 +26,187 @@ function FillField({
   wide,
   type = "text",
   name,
+  defaultValue,
 }: {
   label: string;
   hint?: string;
   wide?: boolean;
   type?: "text" | "date" | "number";
   name: string;
+  defaultValue?: string;
 }) {
   return (
-    <label className={wide ? "col-span-2 block" : "block"}>
-      <span className="text-[11px] font-medium text-zinc-600">{label}</span>
-      {hint ? <p className="text-[10px] text-zinc-500">{hint}</p> : null}
+    <label
+      className={`flex min-w-0 flex-col gap-1 ${wide ? "md:col-span-2" : ""}`}
+    >
+      <span className="text-xs font-semibold text-zinc-700">{label}</span>
+      {hint ? <span className="text-[11px] leading-snug text-zinc-500">{hint}</span> : null}
       <input
         name={name}
         type={type}
+        defaultValue={defaultValue}
         inputMode={type === "number" ? "numeric" : undefined}
         min={type === "number" ? 0 : undefined}
-        className="mt-0.5 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1 text-sm text-zinc-900 outline-none focus:border-cyan-600 print:border-zinc-500"
+        className="box-border w-full min-w-0 border-0 border-b-2 border-zinc-300 bg-transparent px-0 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
       />
     </label>
   );
 }
 
-export function HojaInspeccionTransportista() {
-  const [marks, setMarks] = useState<Record<string, ChecklistMark>>(() => {
-    const init: Record<string, ChecklistMark> = {};
-    for (const item of TRANSPORTISTA_CHECKLIST) {
-      init[item.id] = "";
-    }
-    return init;
-  });
+/** Campo de texto + chip Foto (mismo patrón que frontal/trasero/laterales). */
+function CampoConFoto({
+  label,
+  name,
+  type = "text",
+  hint,
+  defaultValue,
+  vehiculoId,
+  tipo,
+  url,
+  onUrl,
+  fotoLabel = "Foto",
+  fotoMode = "both",
+}: {
+  label: string;
+  name: string;
+  type?: "text" | "date" | "number";
+  hint?: string;
+  defaultValue?: string;
+  vehiculoId: string | null;
+  tipo: DocumentoTipo;
+  url: string | null;
+  onUrl: (url: string | null) => void;
+  fotoLabel?: string;
+  fotoMode?: "file" | "camera" | "both";
+}) {
+  const wideChip = fotoMode === "both";
+  return (
+    <div className="md:col-span-2">
+      <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/80 px-3 py-3 sm:flex-row sm:items-end sm:justify-between print:border-zinc-300 print:bg-white">
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs font-semibold text-zinc-700">{label}</span>
+          {hint ? (
+            <span className="text-[11px] leading-snug text-zinc-500">{hint}</span>
+          ) : null}
+          <input
+            name={name}
+            type={type}
+            defaultValue={defaultValue}
+            inputMode={type === "number" ? "numeric" : undefined}
+            min={type === "number" ? 0 : undefined}
+            className="box-border w-full min-w-0 border-0 border-b-2 border-zinc-300 bg-transparent px-0 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm print:border-zinc-500"
+          />
+        </label>
+        <div className={`w-full shrink-0 print:hidden ${wideChip ? "sm:w-56" : "sm:w-28"}`}>
+          {vehiculoId ? (
+            <PlanillaFotoChip
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={url}
+              tone="light"
+              label={fotoLabel}
+              mode={fotoMode}
+              onUploaded={(docs) => onUrl(docs[tipo]?.url ?? null)}
+            />
+          ) : (
+            <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-2 py-2 text-center text-[10px] text-zinc-500">
+              Abre desde la ficha del vehículo para tomar foto y guardar
+            </p>
+          )}
+        </div>
+      </div>
+      {url ? (
+        <p className="mt-1 hidden text-[11px] text-zinc-600 print:block">
+          Archivo adjunto en expediente digital.
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
-  function toggleMark(id: string, value: Exclude<ChecklistMark, "">) {
+function defaultMarks(): Record<string, ChecklistRespuesta | ""> {
+  const init: Record<string, ChecklistRespuesta | ""> = {};
+  for (const item of TRANSPORTISTA_CHECKLIST) {
+    init[item.id] = "";
+  }
+  return init;
+}
+
+type Props = {
+  vehiculoId?: string | null;
+  initialDocumentos?: VehiculosDocumentos | null;
+};
+
+export function HojaInspeccionTransportista({
+  vehiculoId = null,
+  initialDocumentos = null,
+}: Props) {
+  const [marks, setMarks] = useState(defaultMarks);
+  const [blUrl, setBlUrl] = useState<string | null>(
+    initialDocumentos?.bl_guia?.url ?? null
+  );
+  const [fotoPlacaUrl, setFotoPlacaUrl] = useState<string | null>(
+    initialDocumentos?.foto_placa?.url ?? null
+  );
+  const [fotoTableroUrl, setFotoTableroUrl] = useState<string | null>(
+    initialDocumentos?.foto_odometro?.url ?? null
+  );
+  const [fotosLados, setFotosLados] = useState<Record<string, string | null>>(() => ({
+    foto_frontal: initialDocumentos?.foto_frontal?.url ?? null,
+    foto_trasera: initialDocumentos?.foto_trasera?.url ?? null,
+    foto_lateral_izq: initialDocumentos?.foto_lateral_izq?.url ?? null,
+    foto_lateral_der: initialDocumentos?.foto_lateral_der?.url ?? null,
+  }));
+
+  function setMark(id: string, value: ChecklistRespuesta) {
     setMarks((prev) => ({
       ...prev,
       [id]: prev[id] === value ? "" : value,
     }));
   }
 
+  function marcarSeccionOk(seccion: TransportistaSeccion) {
+    setMarks((prev) => {
+      const next = { ...prev };
+      for (const item of transportistaPorSeccion(seccion)) {
+        next[item.id] = "sin_dano";
+      }
+      return next;
+    });
+  }
+
+  const totales = useMemo(() => {
+    const marked = TRANSPORTISTA_CHECKLIST.filter((i) => Boolean(marks[i.id])).length;
+    return { marked, total: TRANSPORTISTA_CHECKLIST.length };
+  }, [marks]);
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <p className="text-sm text-zinc-400">
-          Rellena la planilla aquí y luego usa{" "}
-          <strong className="font-medium text-zinc-200">Imprimir / PDF</strong>.
-        </p>
+        <div className="min-w-[12rem] flex-1">
+          <p className="text-sm text-zinc-400">
+            Toca ✓ / ✗ en cada ítem. Luego{" "}
+            <strong className="font-medium text-zinc-200">Imprimir / PDF</strong>.
+          </p>
+          <div className="mt-2 max-w-xs">
+            <PlanillaChecklistProgress
+              marked={totales.marked}
+              total={totales.total}
+              tone="dark"
+            />
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
         >
           <Printer className="h-4 w-4" />
           Imprimir / PDF
         </button>
       </div>
 
-      <article className="mx-auto max-w-4xl bg-white p-6 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
+      <article className="mx-auto max-w-4xl overflow-x-hidden bg-white p-4 text-zinc-900 shadow-xl print:max-w-none print:overflow-visible print:p-0 print:shadow-none sm:p-8 md:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
             SmartTaller · Puerto Libre
@@ -87,15 +220,23 @@ export function HojaInspeccionTransportista() {
         </header>
 
         <section className="mt-6">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
+          <h2 className="mb-4 text-sm font-bold uppercase text-zinc-800">
             1. Datos de la recepción
           </h2>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+          {/* 1 columna en móvil (evita solapes); 2 cols desde md / impresión */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-8 md:gap-y-5 print:grid-cols-2">
+            <FillField label="Importadora" name="importadora" />
             <FillField label="Transportista" name="transportista" />
-            <FillField
+            <CampoConFoto
               label="Nº guía / BL"
               name="numeroGuia"
-              hint="Adjuntar foto o PDF del BL al expediente digital"
+              hint="Toma foto del BL o sube un PDF · se guarda al instante"
+              vehiculoId={vehiculoId}
+              tipo="bl_guia"
+              url={blUrl}
+              onUrl={setBlUrl}
+              fotoLabel="Foto"
+              fotoMode="both"
             />
             <FillField
               label="Fecha de recepción"
@@ -104,121 +245,142 @@ export function HojaInspeccionTransportista() {
               hint="Seleccionar en calendario"
             />
             <FillField label="Lugar de recepción" name="lugarRecepcion" />
-            <FillField label="Contenedor / remolque" name="contenedor" />
-            <FillField
-              label="Placa del vehículo (texto)"
+            <CampoConFoto
+              label="Placa del vehículo"
               name="placaTexto"
-              hint="Adjuntar foto o PDF de la placa al expediente digital"
+              hint="Toma foto de la placa o sube archivo · se guarda al instante"
+              vehiculoId={vehiculoId}
+              tipo="foto_placa"
+              url={fotoPlacaUrl}
+              onUrl={setFotoPlacaUrl}
+              fotoLabel="Foto"
+              fotoMode="both"
             />
             <FillField label="VIN / chasis" name="vin" />
-            <FillField
+            <CampoConFoto
               label="Kilometraje al recibir"
               name="kilometraje"
               type="number"
-              hint="Solo números"
+              hint="Solo números · toma foto del tablero/odómetro"
+              vehiculoId={vehiculoId}
+              tipo="foto_odometro"
+              url={fotoTableroUrl}
+              onUrl={setFotoTableroUrl}
+              fotoLabel="Foto"
+              fotoMode="both"
             />
+            <FillField label="Contenedor / remolque" name="contenedor" wide />
           </div>
         </section>
 
         {TRANSPORTISTA_SECCIONES.map((seccion, idx) => {
           const items = transportistaPorSeccion(seccion);
+          const marked = items.filter((i) => Boolean(marks[i.id])).length;
+          const esRecepcionista = seccion === "datos_recepcion";
+          const esEvidencia = seccion === "evidencia";
+          const esExterior = seccion === "estado_exterior";
+          const puedeTodoOk = !esRecepcionista;
+
           return (
-            <section key={seccion} className="mt-6 break-inside-avoid">
-              <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-                {idx + 2}. {TRANSPORTISTA_SECCION_LABELS[seccion]}
-              </h2>
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-zinc-100">
-                    <th className="border border-zinc-300 px-2 py-1.5 text-left">Ítem</th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-20">
-                      Con daño
-                    </th>
-                    <th className="border border-zinc-300 px-2 py-1.5 text-center w-16">N/A</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => {
-                    const mark = marks[item.id] ?? "";
-                    return (
-                      <tr key={item.id}>
-                        <td className="border border-zinc-300 px-2 py-1.5">{item.etiqueta}</td>
-                        <td className="border border-zinc-300 text-center">
-                          <input
-                            type="checkbox"
-                            checked={mark === "dano"}
-                            onChange={() => toggleMark(item.id, "dano")}
-                            aria-label={`${item.etiqueta}: con daño`}
-                            className="h-4 w-4 accent-red-600"
-                          />
-                        </td>
-                        <td className="border border-zinc-300 text-center">
-                          <input
-                            type="checkbox"
-                            checked={mark === "na"}
-                            onChange={() => toggleMark(item.id, "na")}
-                            aria-label={`${item.etiqueta}: N/A`}
-                            className="h-4 w-4 accent-zinc-600"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <section key={seccion} className="mt-8 break-inside-avoid">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold uppercase text-zinc-800">
+                    {idx + 2}. {TRANSPORTISTA_SECCION_LABELS[seccion]}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 print:hidden">
+                    {esRecepcionista
+                      ? "Marca ✓ (sí) o ✗ (no) en cada verificación."
+                      : esEvidencia
+                        ? "Marca si la foto ya está tomada. Las fotos se capturan en el expediente digital."
+                        : esExterior
+                          ? "OK / Daño. En frontal, trasero y laterales: Tomar foto o PDF/archivo."
+                          : "OK si está bien, Daño si hay falla, N/A si no aplica."}
+                  </p>
+                </div>
+                {puedeTodoOk ? (
+                  <button
+                    type="button"
+                    onClick={() => marcarSeccionOk(seccion)}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 print:hidden"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" />
+                    {esEvidencia ? "Todas tomadas" : "Todo OK"}
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mb-3 print:hidden">
+                <PlanillaChecklistProgress marked={marked} total={items.length} tone="light" />
+              </div>
+
+              <ul className="space-y-2.5">
+                {items.map((item) => {
+                  const fotoTipo = EXTERIOR_FOTO_POR_ITEM[item.id];
+                  return (
+                    <PlanillaChecklistRow
+                      key={item.id}
+                      etiqueta={item.etiqueta}
+                      value={marks[item.id]}
+                      opciones={opcionesParaSeccion(seccion, item.id)}
+                      onChange={(v) => setMark(item.id, v)}
+                      tone="light"
+                      foto={
+                        fotoTipo && vehiculoId
+                          ? {
+                              vehiculoId,
+                              tipo: fotoTipo,
+                              url: fotosLados[fotoTipo],
+                              mode: "both",
+                              onUploaded: (docs) =>
+                                setFotosLados((prev) => ({
+                                  ...prev,
+                                  [fotoTipo]: docs[fotoTipo]?.url ?? null,
+                                })),
+                            }
+                          : null
+                      }
+                    />
+                  );
+                })}
+              </ul>
             </section>
           );
         })}
 
-        <section className="mt-6">
+        <section className="mt-8">
           <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.length + 2}. Evidencia fotográfica y daños
-          </h2>
-          <p className="mb-2 text-[11px] text-zinc-600">
-            Fotos frontal / trasera / laterales / VIN / odómetro. Marcar daños sobre la foto
-            (mismo flujo que la recepción en taller) en el expediente digital.
-          </p>
-          <textarea
-            name="evidenciaNotas"
-            rows={3}
-            placeholder="Notas de evidencia o daños visibles…"
-            className="min-h-[72px] w-full resize-y border border-zinc-300 bg-transparent px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-cyan-600"
-          />
-        </section>
-
-        <section className="mt-6">
-          <h2 className="mb-3 text-sm font-bold uppercase text-zinc-800">
-            {TRANSPORTISTA_SECCIONES.length + 3}. Observaciones
+            {TRANSPORTISTA_SECCIONES.length + 2}. Observaciones
           </h2>
           <textarea
             name="observaciones"
             rows={3}
-            placeholder="Observaciones de la recepción…"
-            className="min-h-[72px] w-full resize-y border border-zinc-300 bg-transparent px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-cyan-600"
+            placeholder="Observaciones de la recepción o daños visibles…"
+            className="min-h-[72px] w-full resize-y rounded-xl border border-zinc-300 bg-transparent px-3 py-2 text-base text-zinc-900 outline-none focus:border-cyan-600 sm:text-sm"
           />
         </section>
 
-        <section className="mt-8 grid grid-cols-2 gap-8">
-          <label className="block">
+        <section className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
+          <div>
             <p className="text-xs font-semibold text-zinc-700">Receptor (SmartTaller / cliente)</p>
             <input
               name="receptorNombre"
-              type="text"
               placeholder="Nombre"
-              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1 text-sm text-zinc-900 outline-none focus:border-cyan-600"
+              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base outline-none focus:border-cyan-600 sm:text-sm"
             />
-            <p className="mt-1 text-[10px] text-zinc-500">Nombre y firma</p>
-          </label>
-          <label className="block">
+            <div className="mt-8 border-b border-zinc-400" />
+            <p className="mt-1 text-[10px] text-zinc-500">Firma</p>
+          </div>
+          <div>
             <p className="text-xs font-semibold text-zinc-700">Transportista</p>
             <input
               name="transportistaNombre"
-              type="text"
               placeholder="Nombre"
-              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1 text-sm text-zinc-900 outline-none focus:border-cyan-600"
+              className="mt-2 w-full border-0 border-b border-zinc-400 bg-transparent px-0 py-1.5 text-base outline-none focus:border-cyan-600 sm:text-sm"
             />
-            <p className="mt-1 text-[10px] text-zinc-500">Nombre y firma</p>
-          </label>
+            <div className="mt-8 border-b border-zinc-400" />
+            <p className="mt-1 text-[10px] text-zinc-500">Firma</p>
+          </div>
         </section>
 
         <footer className="mt-8 border-t border-zinc-200 pt-3 text-center text-[10px] text-zinc-500">

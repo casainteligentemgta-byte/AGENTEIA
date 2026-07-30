@@ -15,10 +15,10 @@ export type TransportistaChecklistItem = {
 };
 
 export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> = {
-  datos_recepcion: "Datos de recepción (transportista)",
+  datos_recepcion: "Datos del recepcionista",
   estado_exterior: "Estado exterior al recibir",
   inventario: "Inventario / elementos entregados",
-  evidencia: "Evidencia fotográfica / verificación",
+  evidencia: "Evidencia fotográfica",
   observaciones: "Observaciones",
 };
 
@@ -26,11 +26,10 @@ export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> 
  * Planilla de recepción del vehículo en puerto / transportista (Puerto Libre).
  */
 export const TRANSPORTISTA_CHECKLIST: TransportistaChecklistItem[] = [
-  // Datos recepción — textos en form, ticks aquí como verificación
+  // Datos del recepcionista — verificación con ✓ / ✗
   { id: "rec_guia_bl", seccion: "datos_recepcion", etiqueta: "Coincide guía / BL con el vehículo", orden: 10 },
   { id: "rec_placa_vin", seccion: "datos_recepcion", etiqueta: "Placa / VIN verificados vs documentos", orden: 20 },
   { id: "rec_precintos", seccion: "datos_recepcion", etiqueta: "Precintos / sellos íntegros (si aplica)", orden: 30 },
-  { id: "rec_hora_llegada", seccion: "datos_recepcion", etiqueta: "Hora de llegada registrada", orden: 40 },
 
   // Estado exterior
   { id: "ext_frontal", seccion: "estado_exterior", etiqueta: "Frontal sin daños visibles", orden: 10 },
@@ -74,3 +73,18 @@ export const TRANSPORTISTA_SECCIONES: TransportistaSeccion[] = [
   "inventario",
   "evidencia",
 ];
+
+/** Ítems de exterior donde N/A se reemplaza por carga de foto. */
+export const EXTERIOR_FOTO_POR_ITEM: Record<
+  string,
+  "foto_frontal" | "foto_trasera" | "foto_lateral_izq" | "foto_lateral_der"
+> = {
+  ext_frontal: "foto_frontal",
+  ext_trasero: "foto_trasera",
+  ext_lat_izq: "foto_lateral_izq",
+  ext_lat_der: "foto_lateral_der",
+};
+
+export function exteriorTieneFoto(itemId: string): boolean {
+  return itemId in EXTERIOR_FOTO_POR_ITEM;
+}
