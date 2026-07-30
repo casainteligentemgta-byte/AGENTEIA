@@ -26,7 +26,10 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
-import { puertoLibreAltaSchema } from "@/lib/schemas/puerto-libre-alta";
+import {
+  placaTemporalDesdeSerial,
+  puertoLibreAltaSchema,
+} from "@/lib/schemas/puerto-libre-alta";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -54,6 +57,17 @@ const propietarioSchema = z.object({
   cedulaPropietario: z.string().trim().max(40).optional().nullable(),
   emailPropietario: z.string().trim().email().optional().nullable().or(z.literal("")),
   fechaNacimientoPropietario: z.string().trim().max(32).optional().nullable(),
+  direccion: z.string().trim().max(240).optional().nullable(),
+});
+
+const fase2LlegadaSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  fechaIngreso: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso inválida"),
+  checklistLlegada: z.record(z.string()).default({}),
+  otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
 });
 
 const pinSchema = z.object({
@@ -106,7 +120,7 @@ export async function createPuertoLibreVehiculoAction(
   }
 
   const data = parsed.data;
-  const placa = data.placa;
+  const placa = placaTemporalDesdeSerial(data.serialCarroceria);
 
   const admin = createAdminClient();
 
@@ -120,13 +134,12 @@ export async function createPuertoLibreVehiculoAction(
   if (existing) {
     return {
       success: false,
-      error: "Ya existe un vehículo con esa placa/identificador en tu taller.",
+      error: "Ya existe un vehículo con ese serial de carrocería en tu taller.",
     };
   }
 
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
-    fechaIngreso: data.fechaIngresoPl,
     anio: data.anio,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
@@ -134,6 +147,7 @@ export async function createPuertoLibreVehiculoAction(
     importadorEmail: data.importadorEmail || null,
     estadoNacionalizacion: "pendiente",
     estadoSeniat: "pendiente",
+    planillaFase: 2,
   });
 
   const { data: created, error } = await admin
@@ -147,10 +161,10 @@ export async function createPuertoLibreVehiculoAction(
       color: data.color,
       serial_motor: data.serialMotor,
       serial_carroceria: data.serialCarroceria,
-      nombre_cliente: data.compradorNombre,
-      telefono_cliente: data.compradorTelefono,
-      cedula_propietario: data.compradorCedula || null,
-      email_propietario: data.compradorEmail || null,
+      nombre_cliente: null,
+      telefono_cliente: null,
+      cedula_propietario: null,
+      email_propietario: null,
       documentos: {},
       importacion,
       seguro: {},
@@ -289,6 +303,12 @@ export async function updatePuertoLibrePropietarioAction(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
+  const existingImportacion = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    compradorDireccion: parsed.data.direccion ?? existingImportacion.compradorDireccion,
+  });
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
@@ -298,6 +318,7 @@ export async function updatePuertoLibrePropietarioAction(
       cedula_propietario: parsed.data.cedulaPropietario?.trim() || null,
       email_propietario: parsed.data.emailPropietario?.trim() || null,
       fecha_nacimiento_propietario: parsed.data.fechaNacimientoPropietario?.trim() || null,
+      importacion,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId)
@@ -305,6 +326,100 @@ export async function updatePuertoLibrePropietarioAction(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Guarda fase 2 (llegada) y avanza a fase 3. */
+export async function savePuertoLibreFase2LlegadaAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = fase2LlegadaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const checklist = parsed.data.checklistLlegada;
+  const existingImportacion = parseImportacion(row.importacion);
+  const existingSeguro = parseSeguro(row.seguro);
+
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    fechaIngreso: parsed.data.fechaIngreso,
+    checklistLlegada: checklist,
+    otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
+    planillaFase: 3,
+  });
+
+  const seguro = serializeSeguro({
+    ...existingSeguro,
+    tieneAlarma: checklist.alarma === "sin_dano" ? true : checklist.alarma === "falla" ? false : existingSeguro.tieneAlarma,
+    tieneGps:
+      checklist.gps_rastreador === "sin_dano"
+        ? true
+        : checklist.gps_rastreador === "falla"
+          ? false
+          : existingSeguro.tieneGps,
+    tieneInmovilizador:
+      checklist.inmovilizador === "sin_dano"
+        ? true
+        : checklist.inmovilizador === "falla"
+          ? false
+          : existingSeguro.tieneInmovilizador,
+    dispositivosSeguridad:
+      parsed.data.otrosDispositivosNotas?.trim() || existingSeguro.dispositivosSeguridad,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      importacion,
+      seguro,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Marca fase 3 como completa (planilla lista). */
+export async function completePuertoLibreFase3Action(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({ ...existing, planillaFase: 4 });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
   return { success: true };
 }
 

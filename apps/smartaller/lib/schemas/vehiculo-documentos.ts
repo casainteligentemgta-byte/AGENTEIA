@@ -33,6 +33,7 @@ export const DOCUMENTO_TIPOS = [
   "foto_motor",
   "foto_impronta",
   "foto_placa",
+  "foto_comprador",
 ] as const;
 
 export type DocumentoTipo = (typeof DOCUMENTO_TIPOS)[number];
@@ -64,6 +65,7 @@ export const vehiculosDocumentosSchema = z.object({
   foto_motor: vehiculoDocumentoRefSchema.optional(),
   foto_impronta: vehiculoDocumentoRefSchema.optional(),
   foto_placa: vehiculoDocumentoRefSchema.optional(),
+  foto_comprador: vehiculoDocumentoRefSchema.optional(),
 });
 
 export type VehiculoDocumentoRef = z.infer<typeof vehiculoDocumentoRefSchema>;
@@ -94,20 +96,20 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   foto_lateral_izq: "Foto lateral izquierdo",
   foto_lateral_der: "Foto lateral derecho",
   foto_vin: "Foto VIN / chasis",
-  foto_odometro: "Foto odómetro / tablero",
+  foto_odometro: "Foto tablero con kilometraje",
   foto_danos: "Foto de daños (si aplica)",
   foto_motor: "Foto del motor",
   foto_impronta: "Foto de la impronta",
   foto_placa: "Foto de la placa",
+  foto_comprador: "Foto del comprador",
 };
 
-/** Documentos de la planilla de registro Puerto Libre. */
+/** Documentos de importación (fase 3). */
 export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "manual_vehiculo",
   "bl_guia",
   "factura_comercial",
   "documento_importacion",
-  "cedula",
 ];
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -122,15 +124,15 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "otro_importacion",
 ];
 
-/** Memoria fotográfica al registrar en Puerto Libre. */
+/** Memoria fotográfica al llegar el vehículo (fase 2). */
 export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
-  "foto_placa",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
   "foto_lateral_der",
   "foto_motor",
   "foto_impronta",
+  "foto_odometro",
 ];
 
 export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -190,6 +192,14 @@ export const importacionSchema = z.object({
   importadorDocumento: z.string().trim().max(40).optional().nullable(),
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
   importadorEmail: z.string().trim().max(120).optional().nullable(),
+  /** 2 = llegada, 3 = docs/comprador/seguro, 4 = planilla completa. */
+  planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  /** Checklist de llegada (fase 2). */
+  checklistLlegada: z.record(z.string()).optional().nullable(),
+  /** Notas de otros dispositivos (fase 2). */
+  otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
+  /** Dirección del comprador (fase 3). */
+  compradorDireccion: z.string().trim().max(240).optional().nullable(),
 });
 
 export type ImportacionData = z.infer<typeof importacionSchema>;
@@ -246,6 +256,16 @@ export function parseImportacion(raw: unknown): ImportacionData {
     importadorDocumento: row.importadorDocumento ?? row.importador_documento,
     importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
     importadorEmail: row.importadorEmail ?? row.importador_email,
+    planillaFase: asOptionalAnio(row.planillaFase ?? row.planilla_fase),
+    checklistLlegada:
+      row.checklistLlegada && typeof row.checklistLlegada === "object"
+        ? (row.checklistLlegada as Record<string, string>)
+        : row.checklist_llegada && typeof row.checklist_llegada === "object"
+          ? (row.checklist_llegada as Record<string, string>)
+          : null,
+    otrosDispositivosNotas:
+      row.otrosDispositivosNotas ?? row.otros_dispositivos_notas,
+    compradorDireccion: row.compradorDireccion ?? row.comprador_direccion,
   });
   return parsed.success ? parsed.data : {};
 }
@@ -270,6 +290,13 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     importador_documento: data.importadorDocumento?.trim() || null,
     importador_telefono: data.importadorTelefono?.trim() || null,
     importador_email: data.importadorEmail?.trim() || null,
+    planilla_fase:
+      data.planillaFase != null && !Number.isNaN(data.planillaFase)
+        ? data.planillaFase
+        : null,
+    checklist_llegada: data.checklistLlegada ?? null,
+    otros_dispositivos_notas: data.otrosDispositivosNotas?.trim() || null,
+    comprador_direccion: data.compradorDireccion?.trim() || null,
   };
 }
 

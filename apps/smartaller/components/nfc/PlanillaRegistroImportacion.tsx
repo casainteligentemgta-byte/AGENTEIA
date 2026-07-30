@@ -2,13 +2,31 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Camera, ClipboardList, FileUp, Shield, Ship, User } from "lucide-react";
 import {
-  updatePuertoLibreImportacionAction,
+  useMemo,
+  useState,
+  useTransition,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { Camera, CheckCircle2, FileUp, Shield, User } from "lucide-react";
+import {
+  completePuertoLibreFase3Action,
+  savePuertoLibreFase2LlegadaAction,
+  updatePuertoLibrePropietarioAction,
   updatePuertoLibreSeguroAction,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import {
+  OPCIONES_ESTADO,
+  PlanillaChecklistProgress,
+  PlanillaChecklistRow,
+} from "@/components/nfc/PlanillaChecklistTap";
+import {
+  LLEGADA_CHECKLIST_ITEMS,
+  type LlegadaChecklistRespuesta,
+  type LlegadaChecklistState,
+} from "@/lib/puerto-libre/llegada-catalog";
 import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
@@ -29,48 +47,96 @@ type Props = {
   compradorNombre: string | null;
   compradorTelefono: string | null;
   compradorCedula: string | null;
+  compradorEmail: string | null;
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
+  /** Fase forzada por query (?fase=2|3). */
+  faseInicial?: 2 | 3;
 };
+
+function resolveFase(
+  importacion: ImportacionData,
+  forced?: 2 | 3
+): 2 | 3 {
+  if (forced === 2 || forced === 3) return forced;
+  const f = importacion.planillaFase ?? 2;
+  if (f >= 3) return 3;
+  return 2;
+}
 
 export function PlanillaRegistroImportacion({
   vehiculoId,
   placa,
   marca,
   modelo,
-  color,
-  serialMotor,
-  serialCarroceria,
   compradorNombre,
   compradorTelefono,
   compradorCedula,
+  compradorEmail,
   initialImportacion,
   initialSeguro,
   initialDocumentos,
+  faseInicial,
 }: Props) {
   const router = useRouter();
+  const [fase, setFase] = useState<2 | 3>(() =>
+    resolveFase(initialImportacion, faseInicial)
+  );
   const [pending, startTransition] = useTransition();
   const [docs, setDocs] = useState(initialDocumentos);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<LlegadaChecklistState>(() => {
+    const raw = initialImportacion.checklistLlegada ?? {};
+    const next: LlegadaChecklistState = {};
+    for (const item of LLEGADA_CHECKLIST_ITEMS) {
+      const v = raw[item.id];
+      if (v === "sin_dano" || v === "falla" || v === "na") next[item.id] = v;
+    }
+    return next;
+  });
+  const [otrosNotas, setOtrosNotas] = useState(
+    initialImportacion.otrosDispositivosNotas ?? ""
+  );
 
   const fotosCount = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) => Boolean(docs[t])).length;
   const docsCount = PL_REGISTRO_DOCUMENTO_TIPOS.filter((t) => Boolean(docs[t])).length;
+  const checklistMarked = useMemo(
+    () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
+    [checklist]
+  );
+
+  const tituloVehiculo = [marca, modelo].filter(Boolean).join(" ");
 
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl border border-cyan-900/40 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
-        Memoria fotográfica y documentos para{" "}
+      <div className="flex flex-wrap gap-2">
+        <FaseChip
+          n={1}
+          label="Registro"
+          state="done"
+          onClick={undefined}
+        />
+        <FaseChip
+          n={2}
+          label="Llegada"
+          state={fase === 2 ? "current" : (initialImportacion.planillaFase ?? 2) >= 3 ? "done" : "idle"}
+          onClick={() => setFase(2)}
+        />
+        <FaseChip
+          n={3}
+          label="Docs y comprador"
+          state={fase === 3 ? "current" : (initialImportacion.planillaFase ?? 2) >= 4 ? "done" : "idle"}
+          onClick={() => setFase(3)}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
         <span className="font-mono text-cyan-300">{placa}</span>
-        {marca || modelo ? (
-          <span className="text-cyan-200/80">
-            {" "}
-            · {[marca, modelo].filter(Boolean).join(" ")}
-            {initialImportacion.anio ? ` (${initialImportacion.anio})` : ""}
-          </span>
+        {tituloVehiculo ? (
+          <span className="text-slate-400"> · {tituloVehiculo}</span>
         ) : null}
-        .
       </div>
 
       {(message || error) && (
@@ -85,135 +151,203 @@ export function PlanillaRegistroImportacion({
         </div>
       )}
 
-      {/* Resumen datos ya cargados */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <ClipboardList className="h-5 w-5 text-cyan-400" />
-          Resumen del registro
-        </h2>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <Item label="Placa (texto)" value={placa} mono />
-          <Item label="Color" value={color} />
-          <Item label="Año" value={initialImportacion.anio != null ? String(initialImportacion.anio) : null} />
-          <Item label="Serial carrocería" value={serialCarroceria} mono />
-          <Item label="Serial motor" value={serialMotor} mono />
-          <Item label="Fecha ingreso PL" value={initialImportacion.fechaIngreso} />
-          <Item label="Importador" value={initialImportacion.importadorNombre} />
-          <Item label="Comprador" value={compradorNombre} />
-          <Item label="Tel. comprador" value={compradorTelefono} />
-          <Item label="Cédula comprador" value={compradorCedula} />
-        </dl>
-      </section>
-
-      {/* Ajuste importador / fecha */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Ship className="h-5 w-5 text-cyan-400" />
-          Importador y fecha PL
-        </h2>
-        <p className="mt-1 text-sm text-slate-500">Puedes corregir estos datos si hace falta.</p>
-        <form
-          className="mt-4 grid gap-4 sm:grid-cols-2"
-          action={(fd) => {
+      {fase === 2 ? (
+        <Fase2Llegada
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
+          fotosCount={fotosCount}
+          fechaDefault={
+            initialImportacion.fechaIngreso ?? new Date().toISOString().slice(0, 10)
+          }
+          checklist={checklist}
+          setChecklist={setChecklist}
+          checklistMarked={checklistMarked}
+          otrosNotas={otrosNotas}
+          setOtrosNotas={setOtrosNotas}
+          pending={pending}
+          onSave={(fechaIngreso) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const anioRaw = String(fd.get("anio") ?? "").trim();
-              const result = await updatePuertoLibreImportacionAction({
+              const result = await savePuertoLibreFase2LlegadaAction({
                 vehiculoId,
-                fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
-                anio: anioRaw ? Number(anioRaw) : null,
-                importadorNombre: String(fd.get("importadorNombre") ?? "") || null,
-                importadorDocumento: String(fd.get("importadorDocumento") ?? "") || null,
-                importadorTelefono: String(fd.get("importadorTelefono") ?? "") || null,
-                importadorEmail: String(fd.get("importadorEmail") ?? "") || null,
+                fechaIngreso,
+                checklistLlegada: checklist,
+                otrosDispositivosNotas: otrosNotas || null,
               });
               if (!result.success) {
                 setError(result.error);
                 return;
               }
-              setMessage("Datos de importación actualizados");
+              setMessage("Fase 2 guardada");
+              setFase(3);
+              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=3`);
               router.refresh();
             });
           }}
-        >
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Fecha ingreso PL</span>
-            <input
-              name="fechaIngreso"
-              type="date"
-              defaultValue={initialImportacion.fechaIngreso ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Año del vehículo</span>
-            <input
-              name="anio"
-              type="number"
-              defaultValue={
-                initialImportacion.anio != null ? String(initialImportacion.anio) : ""
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      ) : (
+        <Fase3DocsCompradorSeguro
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
+          docsCount={docsCount}
+          compradorNombre={compradorNombre}
+          compradorTelefono={compradorTelefono}
+          compradorCedula={compradorCedula}
+          compradorEmail={compradorEmail}
+          compradorDireccion={initialImportacion.compradorDireccion ?? null}
+          initialSeguro={initialSeguro}
+          pending={pending}
+          onSaveComprador={(payload) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await updatePuertoLibrePropietarioAction(payload);
+              if (!result.success) {
+                setError(result.error);
+                return;
               }
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Importador</span>
-            <input
-              name="importadorNombre"
-              defaultValue={initialImportacion.importadorNombre ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">RIF / cédula importador</span>
-            <input
-              name="importadorDocumento"
-              defaultValue={initialImportacion.importadorDocumento ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Tel. importador</span>
-            <input
-              name="importadorTelefono"
-              defaultValue={initialImportacion.importadorTelefono ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Email importador</span>
-            <input
-              name="importadorEmail"
-              type="email"
-              defaultValue={initialImportacion.importadorEmail ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : "Guardar cambios"}
-            </button>
-          </div>
-        </form>
+              setMessage("Datos del comprador guardados");
+              router.refresh();
+            });
+          }}
+          onSaveSeguro={(payload) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await updatePuertoLibreSeguroAction(payload);
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Seguro guardado");
+              router.refresh();
+            });
+          }}
+          onComplete={() => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await completePuertoLibreFase3Action(vehiculoId);
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Planilla completa");
+              router.push(`/puerto-libre/${vehiculoId}`);
+              router.refresh();
+            });
+          }}
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FaseChip({
+  n,
+  label,
+  state,
+  onClick,
+}: {
+  n: number;
+  label: string;
+  state: "done" | "current" | "idle";
+  onClick?: () => void;
+}) {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition";
+  const styles =
+    state === "current"
+      ? "bg-cyan-600 text-white"
+      : state === "done"
+        ? "bg-emerald-950/50 text-emerald-300 ring-1 ring-emerald-800/60"
+        : "bg-slate-900 text-slate-500 ring-1 ring-slate-800";
+  const content = (
+    <>
+      {state === "done" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span>{n}</span>}
+      {label}
+    </>
+  );
+  if (!onClick || state === "idle") {
+    return <span className={`${base} ${styles}`}>{content}</span>;
+  }
+  return (
+    <button type="button" onClick={onClick} className={`${base} ${styles}`}>
+      {content}
+    </button>
+  );
+}
+
+function Fase2Llegada({
+  vehiculoId,
+  docs,
+  setDocs,
+  fotosCount,
+  fechaDefault,
+  checklist,
+  setChecklist,
+  checklistMarked,
+  otrosNotas,
+  setOtrosNotas,
+  pending,
+  onSave,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  fotosCount: number;
+  fechaDefault: string;
+  checklist: LlegadaChecklistState;
+  setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
+  checklistMarked: number;
+  otrosNotas: string;
+  setOtrosNotas: (v: string) => void;
+  pending: boolean;
+  onSave: (fechaIngreso: string) => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  const [fecha, setFecha] = useState(fechaDefault);
+
+  return (
+    <div className="space-y-8">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Fecha de ingreso al PL</h2>
+        <label className="mt-4 block max-w-xs space-y-1.5">
+          <span className="text-sm text-slate-400">Fecha *</span>
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            required
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
       </section>
 
-      {/* Memoria fotográfica */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Camera className="h-5 w-5 text-cyan-400" />
-          Memoria fotográfica
+          Memoria descriptiva fotográfica
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Foto de la placa, 4 lados del vehículo, motor e impronta. Las fotos se guardan como PDF en
-          el expediente.
+          Frontal, trasero, laterales, motor, impronta y tablero con kilometraje.
         </p>
         <div className="mt-4 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
@@ -222,30 +356,119 @@ export function PlanillaRegistroImportacion({
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
-              hint="Toma foto con la cámara o elige una imagen · se convierte a PDF"
+              hint="Toma foto con la cámara o elige una imagen"
               actionLabel="Tomar / subir foto"
               onUploaded={(next) => {
                 setDocs(next);
-                setMessage("Foto guardada");
-                setError(null);
-                router.refresh();
+                onUploadedMessage("Foto guardada");
               }}
             />
           ))}
         </div>
       </section>
 
-      {/* Documentos */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Revisión al llegar</h2>
+        <div className="mt-3">
+          <PlanillaChecklistProgress
+            marked={checklistMarked}
+            total={LLEGADA_CHECKLIST_ITEMS.length}
+            tone="dark"
+          />
+        </div>
+        <ul className="mt-4 space-y-2.5">
+          {LLEGADA_CHECKLIST_ITEMS.map((item) => (
+            <PlanillaChecklistRow
+              key={item.id}
+              etiqueta={item.etiqueta}
+              value={checklist[item.id]}
+              opciones={OPCIONES_ESTADO}
+              tone="dark"
+              onChange={(v) =>
+                setChecklist((prev) => ({
+                  ...prev,
+                  [item.id]: v as LlegadaChecklistRespuesta,
+                }))
+              }
+            />
+          ))}
+        </ul>
+        <label className="mt-4 block space-y-1.5">
+          <span className="text-sm text-slate-400">Otros dispositivos / notas</span>
+          <textarea
+            rows={3}
+            value={otrosNotas}
+            onChange={(e) => setOtrosNotas(e.target.value)}
+            placeholder="Ej. candado de volante, corte de combustible…"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
+      </section>
+
+      <button
+        type="button"
+        disabled={pending || !fecha}
+        onClick={() => onSave(fecha)}
+        className="w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
+      >
+        {pending ? "Guardando…" : "Guardar y abrir fase 3"}
+      </button>
+    </div>
+  );
+}
+
+function Fase3DocsCompradorSeguro({
+  vehiculoId,
+  docs,
+  setDocs,
+  docsCount,
+  compradorNombre,
+  compradorTelefono,
+  compradorCedula,
+  compradorEmail,
+  compradorDireccion,
+  initialSeguro,
+  pending,
+  onSaveComprador,
+  onSaveSeguro,
+  onComplete,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  docsCount: number;
+  compradorNombre: string | null;
+  compradorTelefono: string | null;
+  compradorCedula: string | null;
+  compradorEmail: string | null;
+  compradorDireccion: string | null;
+  initialSeguro: SeguroData;
+  pending: boolean;
+  onSaveComprador: (payload: {
+    vehiculoId: string;
+    nombreCliente: string;
+    telefonoCliente: string;
+    cedulaPropietario: string;
+    emailPropietario: string;
+    direccion: string;
+  }) => void;
+  onSaveSeguro: (payload: Record<string, unknown>) => void;
+  onComplete: () => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  return (
+    <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Documentos
+          Documentos de importación
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {docsCount}/{PL_REGISTRO_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Manual, BL, factura, documento de importación y cédula del comprador.
+          Sube o escanea el manual, BL / guía de embarque, factura y documento de importación.
         </p>
         <div className="mt-4 grid gap-3">
           {PL_REGISTRO_DOCUMENTO_TIPOS.map((tipo) => (
@@ -256,63 +479,132 @@ export function PlanillaRegistroImportacion({
               existingUrl={docs[tipo]?.url}
               onUploaded={(next) => {
                 setDocs(next);
-                setMessage("Documento guardado");
-                setError(null);
-                router.refresh();
+                onUploadedMessage("Documento guardado");
               }}
             />
           ))}
         </div>
       </section>
 
-      {/* Seguro y datos de seguridad */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Shield className="h-5 w-5 text-cyan-400" />
-          Seguro y datos de seguridad
+          <User className="h-5 w-5 text-cyan-400" />
+          Datos del comprador
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Póliza, coberturas y dispositivos de seguridad del vehículo.
-        </p>
-
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
-            setError(null);
-            setMessage(null);
-            startTransition(async () => {
-              const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
-              const result = await updatePuertoLibreSeguroAction({
-                vehiculoId,
-                aseguradora: String(fd.get("aseguradora") ?? "") || null,
-                numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
-                tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
-                vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
-                vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
-                montoAsegurado: montoRaw ? Number(montoRaw) : null,
-                telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
-                corredor: String(fd.get("corredor") ?? "") || null,
-                observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
-                tieneAlarma: fd.get("tieneAlarma") === "on",
-                tieneGps: fd.get("tieneGps") === "on",
-                tieneInmovilizador: fd.get("tieneInmovilizador") === "on",
-                dispositivosSeguridad:
-                  String(fd.get("dispositivosSeguridad") ?? "") || null,
-                contactoEmergencia: String(fd.get("contactoEmergencia") ?? "") || null,
-                telefonoEmergencia: String(fd.get("telefonoEmergencia") ?? "") || null,
-              });
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              setMessage("Seguro y seguridad guardados");
-              router.refresh();
+            onSaveComprador({
+              vehiculoId,
+              nombreCliente: String(fd.get("nombreCliente") ?? ""),
+              telefonoCliente: String(fd.get("telefonoCliente") ?? ""),
+              cedulaPropietario: String(fd.get("cedulaPropietario") ?? ""),
+              emailPropietario: String(fd.get("emailPropietario") ?? ""),
+              direccion: String(fd.get("direccion") ?? ""),
             });
           }}
         >
-          <p className="sm:col-span-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Póliza
-          </p>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Nombre *</span>
+            <input
+              name="nombreCliente"
+              required
+              defaultValue={compradorNombre ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Cédula</span>
+            <input
+              name="cedulaPropietario"
+              defaultValue={compradorCedula ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">WhatsApp</span>
+            <input
+              name="telefonoCliente"
+              defaultValue={compradorTelefono ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Dirección</span>
+            <input
+              name="direccion"
+              defaultValue={compradorDireccion ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Email</span>
+            <input
+              name="emailPropietario"
+              type="email"
+              defaultValue={compradorEmail ?? ""}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+          <div className="sm:col-span-2">
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
+            >
+              {pending ? "Guardando…" : "Guardar comprador"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-6 grid gap-3">
+          <ImportDocumentoUpload
+            vehiculoId={vehiculoId}
+            tipo="cedula"
+            existingUrl={docs.cedula?.url}
+            hint="Foto de la cédula"
+            actionLabel="Tomar / subir foto cédula"
+            onUploaded={(next) => {
+              setDocs(next);
+              onUploadedMessage("Foto de cédula guardada");
+            }}
+          />
+          <ImportDocumentoUpload
+            vehiculoId={vehiculoId}
+            tipo="foto_comprador"
+            existingUrl={docs.foto_comprador?.url}
+            hint="Foto del comprador"
+            actionLabel="Tomar / subir foto comprador"
+            onUploaded={(next) => {
+              setDocs(next);
+              onUploadedMessage("Foto del comprador guardada");
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Shield className="h-5 w-5 text-cyan-400" />
+          Seguro y datos del seguro
+        </h2>
+        <form
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          action={(fd) => {
+            const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
+            onSaveSeguro({
+              vehiculoId,
+              aseguradora: String(fd.get("aseguradora") ?? "") || null,
+              numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
+              tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
+              vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
+              vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
+              montoAsegurado: montoRaw ? Number(montoRaw) : null,
+              telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
+              corredor: String(fd.get("corredor") ?? "") || null,
+            });
+          }}
+        >
           <label className="block space-y-1.5">
             <span className="text-sm text-slate-400">Aseguradora</span>
             <input
@@ -322,7 +614,7 @@ export function PlanillaRegistroImportacion({
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Nº de póliza</span>
+            <span className="text-sm text-slate-400">Nro de póliza</span>
             <input
               name="numeroPoliza"
               defaultValue={initialSeguro.numeroPoliza ?? ""}
@@ -365,7 +657,7 @@ export function PlanillaRegistroImportacion({
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Monto asegurado (USD)</span>
+            <span className="text-sm text-slate-400">Monto asegurado</span>
             <input
               name="montoAsegurado"
               type="number"
@@ -385,78 +677,13 @@ export function PlanillaRegistroImportacion({
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
-
-          <p className="sm:col-span-2 mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Dispositivos de seguridad
-          </p>
-          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
-            <input
-              type="checkbox"
-              name="tieneAlarma"
-              defaultChecked={Boolean(initialSeguro.tieneAlarma)}
-              className="rounded border-slate-600"
-            />
-            Alarma
-          </label>
-          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200">
-            <input
-              type="checkbox"
-              name="tieneGps"
-              defaultChecked={Boolean(initialSeguro.tieneGps)}
-              className="rounded border-slate-600"
-            />
-            GPS / rastreador
-          </label>
-          <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-200 sm:col-span-2">
-            <input
-              type="checkbox"
-              name="tieneInmovilizador"
-              defaultChecked={Boolean(initialSeguro.tieneInmovilizador)}
-              className="rounded border-slate-600"
-            />
-            Inmovilizador
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Otros dispositivos / notas</span>
-            <input
-              name="dispositivosSeguridad"
-              placeholder="Ej. candado de volante, corte de combustible…"
-              defaultValue={initialSeguro.dispositivosSeguridad ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Contacto de emergencia</span>
-            <input
-              name="contactoEmergencia"
-              defaultValue={initialSeguro.contactoEmergencia ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Teléfono de emergencia</span>
-            <input
-              name="telefonoEmergencia"
-              defaultValue={initialSeguro.telefonoEmergencia ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Observaciones</span>
-            <textarea
-              name="observacionesSeguro"
-              rows={3}
-              defaultValue={initialSeguro.observaciones ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
           <div className="sm:col-span-2">
             <button
               type="submit"
               disabled={pending}
               className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
             >
-              {pending ? "Guardando…" : "Guardar seguro y seguridad"}
+              {pending ? "Guardando…" : "Guardar seguro"}
             </button>
           </div>
         </form>
@@ -472,9 +699,7 @@ export function PlanillaRegistroImportacion({
                 existingUrl={docs[tipo]?.url}
                 onUploaded={(next) => {
                   setDocs(next);
-                  setMessage("Documento de seguro guardado");
-                  setError(null);
-                  router.refresh();
+                  onUploadedMessage("Documento de seguro guardado");
                 }}
               />
             ))}
@@ -485,37 +710,19 @@ export function PlanillaRegistroImportacion({
       <div className="flex flex-col gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-between">
         <Link
           href={`/puerto-libre/${vehiculoId}`}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500"
         >
-          <User className="h-4 w-4" />
           Ir a la ficha
         </Link>
-        <Link
-          href={`/puerto-libre/${vehiculoId}/inspeccion`}
-          className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onComplete}
+          className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
         >
-          Continuar a inspección transportista
-        </Link>
+          {pending ? "Guardando…" : "Finalizar planilla"}
+        </button>
       </div>
-    </div>
-  );
-}
-
-function Item({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string | null | undefined;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className={`mt-0.5 text-slate-200 ${mono ? "font-mono text-xs" : ""}`}>
-        {value?.trim() || "—"}
-      </dd>
     </div>
   );
 }
