@@ -625,7 +625,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   const { data, error } = await supabase
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, pin_hash, documentos, importacion"
+      "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
     )
     .eq("taller_id", auth.taller.id)
     .order("created_at", { ascending: false });
@@ -715,6 +715,7 @@ function mapListItem(
     telefono_cliente: (row.telefono_cliente as string | null) ?? null,
     kilometraje_ultimo: (row.kilometraje_ultimo as number | null) ?? null,
     created_at: (row.created_at as string) ?? "",
+    updated_at: (row.updated_at as string | null) ?? null,
     tienePin: Boolean(row.pin_hash),
     docsCount,
     docsFaltantes: countDocsFaltantes(docs),
