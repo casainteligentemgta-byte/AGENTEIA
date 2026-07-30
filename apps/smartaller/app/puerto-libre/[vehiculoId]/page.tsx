@@ -69,7 +69,7 @@ export default async function PuertoLibreFichaPage({ params, searchParams }: Pro
             <PuertoLibreFichaClient ficha={ficha} baseUrl={getAppBaseUrl()} />
           </>
         ) : (
-          <PuertoLibreExpedienteView ficha={ficha} />
+          <PuertoLibreExpedienteView ficha={ficha} baseUrl={getAppBaseUrl()} />
         )}
       </div>
     </main>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { PuertoLibreExpedienteNfc } from "@/components/nfc/PuertoLibreExpedienteNfc";
 import {
   DOCUMENTO_LABELS,
   ESTADO_NACIONALIZACION_LABELS,
@@ -16,6 +17,7 @@ import {
 
 type Props = {
   ficha: PuertoLibreFicha;
+  baseUrl: string;
 };
 
 function valor(v: string | number | null | undefined, fallback = "—") {
@@ -65,7 +67,7 @@ function DocRow({
   );
 }
 
-export function PuertoLibreExpedienteView({ ficha }: Props) {
+export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
   const imp = ficha.importacion;
   const codigo = ficha.codigoExpediente ?? ficha.placa;
   const titulo =
@@ -220,6 +222,8 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
           })}
         </ul>
       </section>
+
+      <PuertoLibreExpedienteNfc ficha={ficha} baseUrl={baseUrl} />
 
       {(imp.planillaFase == null || imp.planillaFase < 4) && (
         <Link
