@@ -59,6 +59,9 @@ export function createOpenAIClient(): OpenAI {
     apiKey: requireLlmApiKey(),
     baseURL: getOpenAIBaseURL(),
     defaultHeaders: getOpenRouterHeaders(),
+    /** Evita que OCR/visión deje la UI colgada en “Guardando…”. */
+    timeout: 25_000,
+    maxRetries: 1,
   });
 }
 
@@ -76,6 +79,9 @@ export function formatLlmAuthError(err: unknown): string {
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     return "No se pudo analizar la imagen con la IA. La foto se puede guardar igual; completa placa o kilometraje manualmente si hace falta.";
+  }
+  if (/timeout|timed out|aborted|ETIMEDOUT|AbortError/i.test(msg)) {
+    return "La IA tardó demasiado. La foto puede guardarse igual; reintenta o completa los datos a mano.";
   }
   return msg;
 }

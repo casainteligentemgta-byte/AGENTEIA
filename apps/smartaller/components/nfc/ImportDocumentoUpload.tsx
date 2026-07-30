@@ -39,20 +39,24 @@ export function ImportDocumentoUpload({
     setError(null);
 
     startTransition(async () => {
-      const normalized =
-        file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
-      const formData = new FormData();
-      formData.set("vehiculoId", vehiculoId);
-      formData.set("tipo", tipo);
-      formData.set("file", normalized);
+      try {
+        const normalized =
+          file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
+        const formData = new FormData();
+        formData.set("vehiculoId", vehiculoId);
+        formData.set("tipo", tipo);
+        formData.set("file", normalized);
 
-      const result = await uploadPuertoLibreDocumentoAction(formData);
-      if (!result.success) {
-        setError(result.error);
-        return;
+        const result = await uploadPuertoLibreDocumentoAction(formData);
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        setDone(true);
+        onUploaded?.(result.documentos);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo subir el archivo");
       }
-      setDone(true);
-      onUploaded?.(result.documentos);
     });
   }
 

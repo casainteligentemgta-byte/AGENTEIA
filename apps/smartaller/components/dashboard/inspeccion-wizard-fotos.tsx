@@ -48,6 +48,8 @@ type Props = {
   onKilometrajeChange?: (km: number | null) => void;
   fichaVehiculo?: FichaVehiculoInspeccion;
   disabled?: boolean;
+  /** Si false, no abre la cámara sola (recomendado en planilla PL). Default true. */
+  autoOpenCamera?: boolean;
 };
 
 function slotForVista(fotos: FotoEstadoVisual[], vista: InspeccionFotoPasoId): FotoEstadoVisual {
@@ -68,6 +70,7 @@ export function InspeccionWizardFotos({
   onKilometrajeChange,
   fichaVehiculo,
   disabled,
+  autoOpenCamera = true,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autoCameraTriggered = useRef(false);
@@ -99,7 +102,7 @@ export function InspeccionWizardFotos({
     if (!paso) return;
     setError(null);
     setStatusMsg(
-      paso.escanearPlaca
+      paso.escanearPlaca && !vehiculoId
         ? "Leyendo placa y guardando foto frontal…"
         : paso.extraerKilometraje
           ? "Leyendo tablero y guardando foto…"
@@ -107,80 +110,86 @@ export function InspeccionWizardFotos({
     );
 
     startTransition(async () => {
-      const normalized = await normalizeImageFileForUpload(file);
-      const formData = new FormData();
-      formData.append("vista", paso.id);
-      formData.append("file", normalized);
-      if (vehiculoId) formData.append("vehiculoId", vehiculoId);
-      if (placaEsperada) formData.append("placaEsperada", placaEsperada);
+      try {
+        const normalized = await normalizeImageFileForUpload(file);
+        const formData = new FormData();
+        formData.append("vista", paso.id);
+        formData.append("file", normalized);
+        if (vehiculoId) formData.append("vehiculoId", vehiculoId);
+        if (placaEsperada) formData.append("placaEsperada", placaEsperada);
 
-      const result = await procesarFotoPasoInspeccionAction(formData);
-      setStatusMsg(null);
+        const result = await procesarFotoPasoInspeccionAction(formData);
+        setStatusMsg(null);
 
-      if (!result.ok) {
-        const detalle =
-          "placaDetectada" in result && result.placaDetectada
-            ? ` (leída: ${result.placaDetectada})`
-            : "";
-        setError(`${result.error}${detalle}`);
-        return;
-      }
+        if (!result.ok) {
+          const detalle =
+            "placaDetectada" in result && result.placaDetectada
+              ? ` (leída: ${result.placaDetectada})`
+              : "";
+          setError(`${result.error}${detalle}`);
+          return;
+        }
 
-      updateSlot(paso.id, {
-        url: result.foto.url,
-        path: result.foto.path,
-        trazos: [],
-      });
-
-      if (paso.escanearPlaca && result.vehiculoId && result.ficha && result.placaVehiculo) {
-        onVehiculoResuelto?.({
-          vehiculoId: result.vehiculoId,
-          placa: result.placaVehiculo,
-          ficha: result.ficha,
-          odometroLabel: result.odometroLabel ?? "Kilometraje",
+        updateSlot(paso.id, {
+          url: result.foto.url,
+          path: result.foto.path,
+          trazos: [],
         });
-        setStatusMsg(
-          result.avisoPlaca
-            ? `✓ Vehículo: ${result.placaVehiculo}. ${result.avisoPlaca}`
-            : `✓ Vehículo confirmado: ${result.placaVehiculo}`
-        );
-      }
 
-      if (
-        paso.extraerKilometraje &&
-        result.kilometrajeDetectado != null &&
-        result.kilometrajeDetectado > 0
-      ) {
-        onKilometrajeDetectado?.(result.kilometrajeDetectado);
-        onKilometrajeChange?.(result.kilometrajeDetectado);
-        setStatusMsg(
-          `✓ ${odometroLabel} detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}. Revisa y corrige si hace falta.`
-        );
-      }
-
-      if (paso.extraerKilometraje) {
-        if (result.avisoTablero) {
-          setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
-        } else if (result.kilometrajeDetectado == null) {
+        if (paso.escanearPlaca && result.vehiculoId && result.ficha && result.placaVehiculo) {
+          onVehiculoResuelto?.({
+            vehiculoId: result.vehiculoId,
+            placa: result.placaVehiculo,
+            ficha: result.ficha,
+            odometroLabel: result.odometroLabel ?? "Kilometraje",
+          });
           setStatusMsg(
-            "✓ Foto del tablero guardada. Ingresa el kilometraje manualmente en el campo de abajo."
+            result.avisoPlaca
+              ? `✓ Vehículo: ${result.placaVehiculo}. ${result.avisoPlaca}`
+              : `✓ Vehículo confirmado: ${result.placaVehiculo}`
           );
         }
-      }
 
-      if (!pasoPermiteAnotaciones(paso) && !paso.extraerKilometraje) {
-        window.setTimeout(avanzarPaso, 800);
+        if (
+          paso.extraerKilometraje &&
+          result.kilometrajeDetectado != null &&
+          result.kilometrajeDetectado > 0
+        ) {
+          onKilometrajeDetectado?.(result.kilometrajeDetectado);
+          onKilometrajeChange?.(result.kilometrajeDetectado);
+          setStatusMsg(
+            `✓ ${odometroLabel} detectado: ${result.kilometrajeDetectado.toLocaleString("es-CO")}. Revisa y corrige si hace falta.`
+          );
+        }
+
+        if (paso.extraerKilometraje) {
+          if (result.avisoTablero) {
+            setStatusMsg(`✓ Foto del tablero guardada. ${result.avisoTablero}`);
+          } else if (result.kilometrajeDetectado == null) {
+            setStatusMsg(
+              "✓ Foto del tablero guardada. Ingresa el kilometraje manualmente en el campo de abajo."
+            );
+          }
+        }
+
+        if (!pasoPermiteAnotaciones(paso) && !paso.extraerKilometraje) {
+          window.setTimeout(avanzarPaso, 800);
+        }
+      } catch (err) {
+        setStatusMsg(null);
+        setError(err instanceof Error ? err.message : "No se pudo guardar la foto");
       }
     });
   }
 
   useEffect(() => {
+    if (!autoOpenCamera) return;
     if (!paso || hasPhoto || isPending) return;
     if (autoCameraTriggered.current) return;
     autoCameraTriggered.current = true;
     const t = window.setTimeout(() => inputRef.current?.click(), 500);
     return () => window.clearTimeout(t);
-  }, [pasoIndex, paso, hasPhoto, isPending]);
+  }, [autoOpenCamera, pasoIndex, paso, hasPhoto, isPending]);
 
   if (!paso) return null;
 

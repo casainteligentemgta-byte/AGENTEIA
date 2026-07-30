@@ -70,40 +70,45 @@ export function InspeccionTransportistaForm({
         setError(null);
         setOk(false);
         startTransition(async () => {
-          const kmRaw = String(fd.get("kilometraje") ?? "").trim();
-          const result = await saveInspeccionTransportistaAction({
-            vehiculoId,
-            transportista: String(fd.get("transportista") ?? "") || null,
-            numeroGuia: String(fd.get("numeroGuia") ?? "") || null,
-            fechaRecepcion: String(fd.get("fechaRecepcion") ?? "") || null,
-            lugarRecepcion: String(fd.get("lugarRecepcion") ?? "") || null,
-            contenedor: String(fd.get("contenedor") ?? "") || null,
-            placaTexto: String(fd.get("placaTexto") ?? "") || null,
-            vin: String(fd.get("vin") ?? "") || null,
-            kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
-            blDocumentoUrl: blUrl,
-            fotoPlacaUrl,
-            checklist,
-            estadoVisual,
-            danosReportados: String(fd.get("danosReportados") ?? "") || null,
-            observaciones: String(fd.get("observaciones") ?? "") || null,
-            receptorNombre: String(fd.get("receptorNombre") ?? "") || null,
-            transportistaNombre: String(fd.get("transportistaNombre") ?? "") || null,
-          });
-          if (!result.success) {
-            const msg = result.error.toLowerCase();
-            if (msg.includes("inspeccion_transportista") || msg.includes("column")) {
-              setError(
-                "Falta la columna inspeccion_transportista. Ejecuta 20260729_inspeccion_transportista_pl.sql en Supabase."
-              );
+          try {
+            const kmRaw = String(fd.get("kilometraje") ?? "").trim();
+            const result = await saveInspeccionTransportistaAction({
+              vehiculoId,
+              transportista: String(fd.get("transportista") ?? "") || null,
+              numeroGuia: String(fd.get("numeroGuia") ?? "") || null,
+              fechaRecepcion: String(fd.get("fechaRecepcion") ?? "") || null,
+              lugarRecepcion: String(fd.get("lugarRecepcion") ?? "") || null,
+              contenedor: String(fd.get("contenedor") ?? "") || null,
+              placaTexto: String(fd.get("placaTexto") ?? "") || null,
+              vin: String(fd.get("vin") ?? "") || null,
+              kilometraje: kmRaw ? Number(kmRaw) : kilometraje,
+              blDocumentoUrl: blUrl,
+              fotoPlacaUrl,
+              checklist,
+              estadoVisual,
+              danosReportados: String(fd.get("danosReportados") ?? "") || null,
+              observaciones: String(fd.get("observaciones") ?? "") || null,
+              receptorNombre: String(fd.get("receptorNombre") ?? "") || null,
+              transportistaNombre: String(fd.get("transportistaNombre") ?? "") || null,
+            });
+            if (!result.success) {
+              const msg = result.error.toLowerCase();
+              if (msg.includes("inspeccion_transportista") || msg.includes("column")) {
+                setError(
+                  "Falta la columna inspeccion_transportista. Ejecuta 20260729_inspeccion_transportista_pl.sql en Supabase."
+                );
+                return;
+              }
+              setError(result.error);
               return;
             }
-            setError(result.error);
-            return;
+            setOk(true);
+            router.push(`/puerto-libre/${vehiculoId}`);
+          } catch (err) {
+            setError(
+              err instanceof Error ? err.message : "No se pudo guardar la planilla. Intenta de nuevo."
+            );
           }
-          setOk(true);
-          router.refresh();
-          router.push(`/puerto-libre/${vehiculoId}`);
         });
       }}
     >
@@ -251,6 +256,7 @@ export function InspeccionTransportistaForm({
             kilometraje={kilometraje}
             onKilometrajeChange={setKilometraje}
             onKilometrajeDetectado={(km) => setKilometraje(km)}
+            autoOpenCamera={false}
           />
         </div>
       </section>

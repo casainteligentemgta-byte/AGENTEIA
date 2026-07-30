@@ -139,14 +139,22 @@ export async function procesarFotoPasoInspeccionAction(
     }
 
     if (vista === "tablero") {
-      const tablero = await extractTableroFromImage(buffer, mimeType);
-      return {
-        ...base,
-        kilometrajeDetectado: tablero.kilometraje,
-        ...(tablero.kilometraje == null || tablero.aviso
-          ? { avisoTablero: tablero.aviso ?? AVISO_TABLERO_MANUAL }
-          : {}),
-      };
+      try {
+        const tablero = await extractTableroFromImage(buffer, mimeType);
+        return {
+          ...base,
+          kilometrajeDetectado: tablero.kilometraje,
+          ...(tablero.kilometraje == null || tablero.aviso
+            ? { avisoTablero: tablero.aviso ?? AVISO_TABLERO_MANUAL }
+            : {}),
+        };
+      } catch {
+        return {
+          ...base,
+          kilometrajeDetectado: null,
+          avisoTablero: AVISO_TABLERO_MANUAL,
+        };
+      }
     }
 
     return base;

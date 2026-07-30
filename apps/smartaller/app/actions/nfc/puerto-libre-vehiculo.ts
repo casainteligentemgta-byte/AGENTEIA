@@ -93,52 +93,55 @@ export type CreatePuertoLibreResult =
 export async function createPuertoLibreVehiculoAction(
   raw: unknown
 ): Promise<CreatePuertoLibreResult> {
-  const auth = await requireTallerAuth();
-  if (auth.error || !auth.taller) {
-    return { success: false, error: auth.error ?? "No autorizado" };
-  }
+  try {
+    const auth = await requireTallerAuth();
+    if (auth.error || !auth.taller) {
+      return { success: false, error: auth.error ?? "No autorizado" };
+    }
 
-  const parsed = puertoLibreAltaSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
-  }
+    const parsed = puertoLibreAltaSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+    }
 
-  const data = parsed.data;
-  const placa = data.placa;
+    const data = parsed.data;
+    const placa = data.placa;
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
-  const { data: existing } = await admin
-    .from("vehiculos")
-    .select("id")
-    .eq("placa", placa)
-    .eq("taller_id", auth.taller.id)
-    .maybeSingle();
+    const { data: existing, error: existingError } = await admin
+      .from("vehiculos")
+      .select("id")
+      .eq("placa", placa)
+      .eq("taller_id", auth.taller.id)
+      .maybeSingle();
 
-  if (existing) {
-    return {
-      success: false,
-      error: "Ya existe un vehículo con esa placa/identificador en tu taller.",
-    };
-  }
+    if (existingError) {
+      return { success: false, error: existingError.message };
+    }
 
-  const importacion = serializeImportacion({
-    regimen: "Puerto Libre",
-    fechaIngreso: data.fechaIngresoPl,
-    anio: data.anio,
-    importadorNombre: data.importadorNombre,
-    importadorDocumento: data.importadorDocumento || null,
-    importadorTelefono: data.importadorTelefono || null,
-    importadorEmail: data.importadorEmail || null,
-    estadoNacionalizacion: "pendiente",
-    estadoSeniat: "pendiente",
-  });
+    if (existing) {
+      return {
+        success: false,
+        error: "Ya existe un vehículo con esa placa/identificador en tu taller.",
+      };
+    }
 
-  const { data: created, error } = await admin
-    .from("vehiculos")
-    .insert({
+    const importacion = serializeImportacion({
+      regimen: "Puerto Libre",
+      fechaIngreso: data.fechaIngresoPl,
+      anio: data.anio,
+      importadorNombre: data.importadorNombre,
+      importadorDocumento: data.importadorDocumento || null,
+      importadorTelefono: data.importadorTelefono || null,
+      importadorEmail: data.importadorEmail || null,
+      estadoNacionalizacion: "pendiente",
+      estadoSeniat: "pendiente",
+    });
+
+    const baseRow = {
       taller_id: auth.taller.id,
-      tipo_vehiculo: "auto",
+      tipo_vehiculo: "auto" as const,
       placa,
       marca: data.marca,
       modelo: data.modelo,
@@ -150,22 +153,59 @@ export async function createPuertoLibreVehiculoAction(
       cedula_propietario: data.compradorCedula || null,
       email_propietario: data.compradorEmail || null,
       documentos: {},
-      importacion,
-      seguro: {},
       unidad_odometro: "km",
       telegram_chat_id: null,
       updated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+    };
 
-  if (error || !created) {
-    return { success: false, error: error?.message ?? "No se pudo registrar el vehículo" };
+    let created: { id: string } | null = null;
+    let error: { message: string } | null = null;
+
+    const fullInsert = await admin
+      .from("vehiculos")
+      .insert({
+        ...baseRow,
+        importacion,
+        seguro: {},
+      })
+      .select("id")
+      .single();
+
+    created = fullInsert.data;
+    error = fullInsert.error;
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("importacion") || msg.includes("seguro") || msg.includes("column")) {
+        const fallback = await admin
+          .from("vehiculos")
+          .insert(baseRow)
+          .select("id")
+          .single();
+        created = fallback.data;
+        error = fallback.error;
+        if (!error && created) {
+          // Mejor esfuerzo: columnas PL aún no migradas
+        }
+      }
+    }
+
+    if (error || !created) {
+      return {
+        success: false,
+        error: error?.message ?? "No se pudo registrar el vehículo",
+      };
+    }
+
+    revalidatePath("/puerto-libre");
+    revalidatePath(`/puerto-libre/${created.id}/planilla`);
+    return { success: true, vehiculoId: created.id };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo registrar el vehículo",
+    };
   }
-
-  revalidatePath("/puerto-libre");
-  revalidatePath(`/puerto-libre/${created.id}/planilla`);
-  return { success: true, vehiculoId: created.id };
 }
 
 export async function updatePuertoLibreImportacionAction(

@@ -118,22 +118,26 @@ export function PlanillaRegistroImportacion({
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const anioRaw = String(fd.get("anio") ?? "").trim();
-              const result = await updatePuertoLibreImportacionAction({
-                vehiculoId,
-                fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
-                anio: anioRaw ? Number(anioRaw) : null,
-                importadorNombre: String(fd.get("importadorNombre") ?? "") || null,
-                importadorDocumento: String(fd.get("importadorDocumento") ?? "") || null,
-                importadorTelefono: String(fd.get("importadorTelefono") ?? "") || null,
-                importadorEmail: String(fd.get("importadorEmail") ?? "") || null,
-              });
-              if (!result.success) {
-                setError(result.error);
-                return;
+              try {
+                const anioRaw = String(fd.get("anio") ?? "").trim();
+                const result = await updatePuertoLibreImportacionAction({
+                  vehiculoId,
+                  fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
+                  anio: anioRaw ? Number(anioRaw) : null,
+                  importadorNombre: String(fd.get("importadorNombre") ?? "") || null,
+                  importadorDocumento: String(fd.get("importadorDocumento") ?? "") || null,
+                  importadorTelefono: String(fd.get("importadorTelefono") ?? "") || null,
+                  importadorEmail: String(fd.get("importadorEmail") ?? "") || null,
+                });
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                setMessage("Datos de importación actualizados");
+                router.refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "No se pudo guardar");
               }
-              setMessage("Datos de importación actualizados");
-              router.refresh();
             });
           }}
         >
@@ -281,32 +285,36 @@ export function PlanillaRegistroImportacion({
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
-              const result = await updatePuertoLibreSeguroAction({
-                vehiculoId,
-                aseguradora: String(fd.get("aseguradora") ?? "") || null,
-                numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
-                tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
-                vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
-                vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
-                montoAsegurado: montoRaw ? Number(montoRaw) : null,
-                telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
-                corredor: String(fd.get("corredor") ?? "") || null,
-                observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
-                tieneAlarma: fd.get("tieneAlarma") === "on",
-                tieneGps: fd.get("tieneGps") === "on",
-                tieneInmovilizador: fd.get("tieneInmovilizador") === "on",
-                dispositivosSeguridad:
-                  String(fd.get("dispositivosSeguridad") ?? "") || null,
-                contactoEmergencia: String(fd.get("contactoEmergencia") ?? "") || null,
-                telefonoEmergencia: String(fd.get("telefonoEmergencia") ?? "") || null,
-              });
-              if (!result.success) {
-                setError(result.error);
-                return;
+              try {
+                const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
+                const result = await updatePuertoLibreSeguroAction({
+                  vehiculoId,
+                  aseguradora: String(fd.get("aseguradora") ?? "") || null,
+                  numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
+                  tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
+                  vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
+                  vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
+                  montoAsegurado: montoRaw ? Number(montoRaw) : null,
+                  telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
+                  corredor: String(fd.get("corredor") ?? "") || null,
+                  observaciones: String(fd.get("observacionesSeguro") ?? "") || null,
+                  tieneAlarma: fd.get("tieneAlarma") === "on",
+                  tieneGps: fd.get("tieneGps") === "on",
+                  tieneInmovilizador: fd.get("tieneInmovilizador") === "on",
+                  dispositivosSeguridad:
+                    String(fd.get("dispositivosSeguridad") ?? "") || null,
+                  contactoEmergencia: String(fd.get("contactoEmergencia") ?? "") || null,
+                  telefonoEmergencia: String(fd.get("telefonoEmergencia") ?? "") || null,
+                });
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                setMessage("Seguro y seguridad guardados");
+                router.refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "No se pudo guardar");
               }
-              setMessage("Seguro y seguridad guardados");
-              router.refresh();
             });
           }}
         >

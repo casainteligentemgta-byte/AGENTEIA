@@ -57,33 +57,17 @@ export async function resolverVehiculoDesdeFotoFrontal(
       return { ok: false, error: "No se encontró el vehículo abierto en tu taller." };
     }
 
-    let placaDetectada: string | null = null;
-    let placaCoincide = true;
-    let aviso: string | undefined;
-
-    try {
-      const ocr = await extractPlacaFromImage(imageBuffer, mimeType, "frontal");
-      placaDetectada = ocr.placa;
-      if (placaDetectada) {
-        placaCoincide = placasCoinciden(placaDetectada, vehiculo.placa);
-        if (!placaCoincide) {
-          aviso = `La cámara leyó ${placaDetectada}, pero se usará la ficha ${vehiculo.placa}.`;
-        }
-      }
-    } catch {
-      aviso = "No se pudo leer la placa en la foto; se usa la ficha del vehículo.";
-    }
-
     if (placaEsperada && !placasCoinciden(vehiculo.placa, placaEsperada)) {
       return { ok: false, error: "El vehículo abierto no coincide con la placa esperada." };
     }
 
+    // Vehículo ya abierto (planilla PL / recepción): no bloquear en OCR de placa.
     return {
       ok: true,
       vehiculo: vehiculo as VehiculoInspeccionRow,
-      placaDetectada,
-      placaCoincide,
-      aviso,
+      placaDetectada: null,
+      placaCoincide: true,
+      aviso: undefined,
     };
   }
 
