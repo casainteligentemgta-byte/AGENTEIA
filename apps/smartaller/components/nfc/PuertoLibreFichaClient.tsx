@@ -568,25 +568,30 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         </form>
 
         {ficha.sticker ? (
-          <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
+          <div className="mt-6 flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 space-y-3">
               <p className="text-sm text-slate-300">
                 Estado:{" "}
                 <span className={ficha.sticker.activo ? "text-emerald-400" : "text-slate-500"}>
                   {ficha.sticker.activo ? "Activo" : "Inactivo"}
                 </span>
               </p>
-              <a
-                href={`${baseUrl}/v/${ficha.sticker.token}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block truncate font-mono text-xs text-cyan-400 hover:text-cyan-300"
-              >
-                {baseUrl}/v/{ficha.sticker.token}
-              </a>
+              <div className="rounded-xl border border-cyan-700/50 bg-cyan-950/30 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-cyan-400/80">
+                  URL NFC (para NFC Tools)
+                </p>
+                <a
+                  href={`${baseUrl}/v/${ficha.sticker.token}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 block break-all font-mono text-sm leading-relaxed text-cyan-200 hover:text-cyan-100"
+                >
+                  {baseUrl}/v/{ficha.sticker.token}
+                </a>
+              </div>
               <a
                 href={`/api/nfc/download?id=${ficha.sticker.id}&format=txt`}
-                className="mt-2 inline-block text-xs text-slate-400 hover:text-slate-200"
+                className="inline-block text-xs text-slate-400 hover:text-slate-200"
               >
                 Descargar payload NFC
               </a>
