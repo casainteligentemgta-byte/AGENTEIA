@@ -30,7 +30,6 @@ import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/ve
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/puerto-libre-alta";
 import {
-  expedienteMonthPrefix,
   formatCodigoExpediente,
   parseCodigoExpediente,
   partsFromDate,
@@ -114,42 +113,118 @@ export type CreatePuertoLibreResult =
   | { success: true; vehiculoId: string; codigoExpediente: string }
   | { success: false; error: string };
 
+function maxNumeroExpedienteEnFilas(
+  rows: Array<{ placa?: unknown; importacion?: unknown }>,
+  year: number,
+  month: number
+): number {
+  let max = 0;
+  for (const row of rows) {
+    const placa = typeof row.placa === "string" ? row.placa : "";
+    const imp = parseImportacion(row.importacion);
+    const codigo = resolveCodigoExpediente({
+      codigoExpediente: imp.codigoExpediente,
+      placa,
+    });
+    const parts = parseCodigoExpediente(codigo);
+    if (parts && parts.year === year && parts.month === month) {
+      max = Math.max(max, parts.numero);
+    }
+    if (
+      typeof imp.numeroExpediente === "number" &&
+      Number.isFinite(imp.numeroExpediente) &&
+      parts &&
+      parts.year === year &&
+      parts.month === month
+    ) {
+      max = Math.max(max, imp.numeroExpediente);
+    }
+  }
+  return max;
+}
+
 async function nextNumeroExpedienteMes(
   admin: SupabaseClient,
   tallerId: string,
   year: number,
   month: number
 ): Promise<number> {
-  const prefix = expedienteMonthPrefix(year, month);
+  // Escanea todo el taller: la placa puede no ser PL-Y.M.N aunque el código sí esté en importacion.
   const { data } = await admin
     .from("vehiculos")
     .select("placa, importacion")
-    .eq("taller_id", tallerId)
-    .ilike("placa", `${prefix}%`);
+    .eq("taller_id", tallerId);
 
-  let max = 0;
-  for (const row of data ?? []) {
-    const fromPlaca = parseCodigoExpediente(row.placa as string);
-    if (fromPlaca && fromPlaca.year === year && fromPlaca.month === month) {
-      max = Math.max(max, fromPlaca.numero);
-    }
+  return maxNumeroExpedienteEnFilas(data ?? [], year, month) + 1;
+}
+
+/**
+ * Asigna PL-Año.Mes.N a vehículos del taller que aún no tienen código válido
+ * (muta `rows` en memoria y persiste en importacion).
+ */
+async function backfillCodigosExpediente(
+  tallerId: string,
+  rows: Record<string, unknown>[]
+): Promise<void> {
+  const needing = rows.filter((row) => {
+    const placa = (row.placa as string) ?? "";
     const imp = parseImportacion(row.importacion);
-    const fromImp = parseCodigoExpediente(imp.codigoExpediente ?? null);
-    if (fromImp && fromImp.year === year && fromImp.month === month) {
-      max = Math.max(max, fromImp.numero);
-    }
-    if (typeof imp.numeroExpediente === "number" && Number.isFinite(imp.numeroExpediente)) {
-      const codigo = resolveCodigoExpediente({
-        codigoExpediente: imp.codigoExpediente,
-        placa: row.placa as string,
-      });
-      const parts = parseCodigoExpediente(codigo);
-      if (parts && parts.year === year && parts.month === month) {
-        max = Math.max(max, imp.numeroExpediente);
-      }
+    return !resolveCodigoExpediente({
+      codigoExpediente: imp.codigoExpediente,
+      placa,
+    });
+  });
+  if (needing.length === 0) return;
+
+  needing.sort((a, b) =>
+    String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""))
+  );
+
+  const admin = createAdminClient();
+  // Base el correlativo en TODOS los vehículos del taller, no solo en `rows`.
+  const { data: allRows } = await admin
+    .from("vehiculos")
+    .select("placa, importacion")
+    .eq("taller_id", tallerId);
+
+  const maxByMonth = new Map<string, number>();
+  for (const row of allRows ?? []) {
+    const placa = (row.placa as string) ?? "";
+    const imp = parseImportacion(row.importacion);
+    const codigo = resolveCodigoExpediente({
+      codigoExpediente: imp.codigoExpediente,
+      placa,
+    });
+    const parts = parseCodigoExpediente(codigo);
+    if (!parts) continue;
+    const key = `${parts.year}-${parts.month}`;
+    maxByMonth.set(key, Math.max(maxByMonth.get(key) ?? 0, parts.numero));
+  }
+
+  for (const row of needing) {
+    const created = new Date(String(row.created_at ?? ""));
+    const { year, month } = Number.isNaN(created.getTime())
+      ? partsFromDate()
+      : partsFromDate(created);
+    const key = `${year}-${month}`;
+    const next = (maxByMonth.get(key) ?? 0) + 1;
+    maxByMonth.set(key, next);
+    const codigo = formatCodigoExpediente(year, month, next);
+    const existing = parseImportacion(row.importacion);
+    const merged = serializeImportacion({
+      ...existing,
+      codigoExpediente: codigo,
+      numeroExpediente: next,
+    });
+    const { error } = await admin
+      .from("vehiculos")
+      .update({ importacion: merged, updated_at: new Date().toISOString() })
+      .eq("id", row.id as string)
+      .eq("taller_id", tallerId);
+    if (!error) {
+      row.importacion = merged;
     }
   }
-  return max + 1;
 }
 
 export async function createPuertoLibreVehiculoAction(
@@ -698,11 +773,11 @@ export async function listPuertoLibreVehiculos(): Promise<
   }
 
   const stickers = await loadStickersByVehiculo(auth.taller.id);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  await backfillCodigosExpediente(auth.taller.id, rows);
   return {
     success: true,
-    vehiculos: (data ?? []).map((row) =>
-      mapListItem(row as Record<string, unknown>, stickers)
-    ),
+    vehiculos: rows.map((row) => mapListItem(row, stickers)),
   };
 }
 
@@ -908,7 +983,26 @@ export async function getPuertoLibreFicha(
     .maybeSingle();
 
   const docs = parseVehiculosDocumentos(data.documentos);
-  const importacion = parseImportacion(data.importacion);
+  let importacion = parseImportacion(data.importacion);
+  let codigoExpediente = resolveCodigoExpediente({
+    codigoExpediente: importacion.codigoExpediente,
+    placa: data.placa,
+  });
+
+  if (!codigoExpediente) {
+    const row: Record<string, unknown> = {
+      id: data.id,
+      placa: data.placa,
+      created_at: data.created_at,
+      importacion: data.importacion,
+    };
+    await backfillCodigosExpediente(auth.taller.id, [row]);
+    importacion = parseImportacion(row.importacion);
+    codigoExpediente = resolveCodigoExpediente({
+      codigoExpediente: importacion.codigoExpediente,
+      placa: data.placa,
+    });
+  }
 
   return {
     success: true,
@@ -927,10 +1021,7 @@ export async function getPuertoLibreFicha(
       email_propietario: data.email_propietario,
       fecha_nacimiento_propietario: data.fecha_nacimiento_propietario,
       created_at: data.created_at ?? "",
-      codigoExpediente: resolveCodigoExpediente({
-        codigoExpediente: importacion.codigoExpediente,
-        placa: data.placa,
-      }),
+      codigoExpediente,
       fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
       tienePin: Boolean(data.pin_hash),
       tieneInspeccionTransportista: tieneActaTransportista(data.inspeccion_transportista),

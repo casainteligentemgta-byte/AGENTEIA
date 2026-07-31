@@ -1,6 +1,7 @@
 /**
  * Nomenclatura de expedientes Puerto Libre:
- * PL-{año}.{mes}.{número}  →  ej. PL-2026.6.3
+ * PL-{año}.{mes}.{número}  →  ej. PL-2026.7.1
+ * (año calendario, mes sin cero a la izquierda, número secuencial del mes)
  */
 
 const CODIGO_RE = /^PL-(\d{4})\.(\d{1,2})\.(\d+)$/i;

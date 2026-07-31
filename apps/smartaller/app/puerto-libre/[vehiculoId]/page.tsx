@@ -32,7 +32,7 @@ export default async function PuertoLibreFichaPage({ params, searchParams }: Pro
 
   const { ficha } = result;
   const editing = searchParams?.edit === "1";
-  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const codigo = ficha.codigoExpediente ?? "—";
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-6 sm:px-6 lg:px-8">

@@ -70,7 +70,7 @@ function DocRow({
 
 export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
   const imp = ficha.importacion;
-  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const codigo = ficha.codigoExpediente ?? "—";
   const titulo =
     [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Expediente Puerto Libre";
 

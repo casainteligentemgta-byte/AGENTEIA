@@ -22,7 +22,7 @@ function tituloLinea(v: PlanillaVehiculoOption): string {
 }
 
 function codigoLinea(v: PlanillaVehiculoOption): string {
-  return v.codigoExpediente || v.placa;
+  return v.codigoExpediente || "—";
 }
 
 /** Color · placa (solo si hay placa real, no el código de expediente). */

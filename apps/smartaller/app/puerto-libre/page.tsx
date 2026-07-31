@@ -51,8 +51,9 @@ function formatFechaDia(isoDate: string | null): string {
   return `${day} ${mes} ${year}`;
 }
 
+/** Solo nomenclatura PL-Año.Mes.Número (ej. PL-2026.7.1). */
 function labelExpediente(v: PuertoLibreVehiculoListItem): string {
-  return v.codigoExpediente ?? v.placa;
+  return v.codigoExpediente ?? "—";
 }
 
 function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
