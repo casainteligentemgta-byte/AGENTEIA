@@ -6,6 +6,7 @@ import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 
@@ -272,20 +273,27 @@ export default async function PuertoLibrePage() {
             <ul className="space-y-1">
               {vehiculos.map((v) => (
                 <li key={v.id}>
-                  <Link
-                    href={`/puerto-libre/${v.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-zinc-900/50"
-                  >
-                    <span className="min-w-0">
-                      <span className="font-mono font-medium text-zinc-300">
-                        {labelExpediente(v)}
+                  <div className="flex items-center gap-1 rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
+                    <Link
+                      href={`/puerto-libre/${v.id}`}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-mono font-medium text-zinc-300">
+                          {labelExpediente(v)}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                          {labelVehiculo(v)}
+                        </span>
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-zinc-500">
-                        {labelVehiculo(v)}
-                      </span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
-                  </Link>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+                    </Link>
+                    <PuertoLibreDeleteExpediente
+                      vehiculoId={v.id}
+                      codigo={labelExpediente(v)}
+                      variant="icon"
+                    />
+                  </div>
                 </li>
               ))}
             </ul>

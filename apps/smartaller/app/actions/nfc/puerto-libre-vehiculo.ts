@@ -504,6 +504,50 @@ export async function setPuertoLibrePinAction(raw: unknown): Promise<PuertoLibre
   return { success: true };
 }
 
+/**
+ * Elimina un expediente Puerto Libre (vehículo) del taller.
+ * Asume RLS/ownership vía taller_id; usa admin client tras verificar pertenencia.
+ */
+export async function deletePuertoLibreVehiculoAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z.object({ vehiculoId: z.string().uuid() }).safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Expediente inválido" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Expediente no encontrado" };
+
+  const admin = createAdminClient();
+  const vehiculoId = parsed.data.vehiculoId;
+
+  // Stickers NFC quedan huérfanos con ON DELETE SET NULL; los quitamos.
+  await admin
+    .from("nfc_stickers")
+    .delete()
+    .eq("taller_id", auth.taller.id)
+    .eq("vehiculo_id", vehiculoId);
+
+  const { error } = await admin
+    .from("vehiculos")
+    .delete()
+    .eq("id", vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/puerto-libre");
+  revalidatePath(`/puerto-libre/${vehiculoId}`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+  return { success: true };
+}
+
 /** Sube documento de importación / expediente y lo guarda en vehiculos.documentos. */
 export async function uploadPuertoLibreDocumentoAction(
   formData: FormData

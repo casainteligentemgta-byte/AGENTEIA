@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreExpedienteNfc } from "@/components/nfc/PuertoLibreExpedienteNfc";
 import {
   DOCUMENTO_LABELS,
@@ -224,6 +225,8 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
       </section>
 
       <PuertoLibreExpedienteNfc ficha={ficha} baseUrl={baseUrl} />
+
+      <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
       {(imp.planillaFase == null || imp.planillaFase < 4) && (
         <Link
