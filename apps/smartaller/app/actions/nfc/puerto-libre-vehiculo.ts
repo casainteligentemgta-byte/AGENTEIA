@@ -105,6 +105,7 @@ function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
   revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/propietario`);
   revalidatePath(`/puerto-libre/${vehiculoId}/inspeccion`);
   revalidatePath(`/puerto-libre/hoja-inspeccion`);
 }

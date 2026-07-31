@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
+import { ExternalLink, FileText, ImageIcon, Pencil, UserPlus } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreExpedienteNfc } from "@/components/nfc/PuertoLibreExpedienteNfc";
@@ -224,6 +224,26 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
         </ul>
       </section>
 
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-200">Propietario y seguro</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              {ficha.nombre_cliente
+                ? `Actual: ${ficha.nombre_cliente}`
+                : "Aún no hay propietario asignado a este expediente."}
+            </p>
+          </div>
+          <Link
+            href={`/puerto-libre/${ficha.id}/propietario`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+          >
+            <UserPlus className="h-4 w-4" />
+            {ficha.nombre_cliente ? "Editar propietario" : "Agregar propietario"}
+          </Link>
+        </div>
+      </section>
+
       <PuertoLibreExpedienteNfc ficha={ficha} baseUrl={baseUrl} />
 
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
@@ -238,7 +258,7 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
           className="flex w-full items-center justify-center rounded-xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-3 text-sm font-medium text-cyan-300 transition hover:border-cyan-600/50"
         >
           {imp.planillaFase != null && imp.planillaFase >= 3
-            ? "Continuar fase 3 — Docs y comprador"
+            ? "Continuar fase 3 — Documentos"
             : "Continuar llegada — Fase 2"}
         </Link>
       )}

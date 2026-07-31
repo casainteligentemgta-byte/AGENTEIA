@@ -9,12 +9,10 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Camera, CheckCircle2, FileUp, Shield, User } from "lucide-react";
+import { Camera, CheckCircle2, FileUp } from "lucide-react";
 import {
   completePuertoLibreFase3Action,
   savePuertoLibreFase2LlegadaAction,
-  updatePuertoLibrePropietarioAction,
-  updatePuertoLibreSeguroAction,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
@@ -32,7 +30,6 @@ import {
 import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
-  SEGURO_DOCUMENTO_TIPOS,
   type ImportacionData,
   type SeguroData,
   type VehiculosDocumentos,
@@ -82,12 +79,7 @@ export function PlanillaRegistroImportacion({
   marca,
   modelo,
   color,
-  compradorNombre,
-  compradorTelefono,
-  compradorCedula,
-  compradorEmail,
   initialImportacion,
-  initialSeguro,
   initialDocumentos,
   faseInicial,
   vehiculoSelector,
@@ -166,7 +158,7 @@ export function PlanillaRegistroImportacion({
         />
         <FaseChip
           n={3}
-          label="Docs y comprador"
+          label="Documentos"
           state={fase === 3 ? "current" : (initialImportacion.planillaFase ?? 2) >= 4 ? "done" : "idle"}
           onClick={() => setFase(3)}
         />
@@ -229,44 +221,12 @@ export function PlanillaRegistroImportacion({
           }}
         />
       ) : (
-        <Fase3DocsCompradorSeguro
+        <Fase3Documentos
           vehiculoId={vehiculoId}
           docs={docs}
           setDocs={setDocs}
           docsCount={docsCount}
-          compradorNombre={compradorNombre}
-          compradorTelefono={compradorTelefono}
-          compradorCedula={compradorCedula}
-          compradorEmail={compradorEmail}
-          compradorDireccion={initialImportacion.compradorDireccion ?? null}
-          initialSeguro={initialSeguro}
           pending={pending}
-          onSaveComprador={(payload) => {
-            setError(null);
-            setMessage(null);
-            startTransition(async () => {
-              const result = await updatePuertoLibrePropietarioAction(payload);
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              setMessage("Datos del comprador guardados");
-              router.refresh();
-            });
-          }}
-          onSaveSeguro={(payload) => {
-            setError(null);
-            setMessage(null);
-            startTransition(async () => {
-              const result = await updatePuertoLibreSeguroAction(payload);
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              setMessage("Seguro guardado");
-              router.refresh();
-            });
-          }}
           onComplete={() => {
             setError(null);
             setMessage(null);
@@ -474,20 +434,12 @@ function Fase2Llegada({
   );
 }
 
-function Fase3DocsCompradorSeguro({
+function Fase3Documentos({
   vehiculoId,
   docs,
   setDocs,
   docsCount,
-  compradorNombre,
-  compradorTelefono,
-  compradorCedula,
-  compradorEmail,
-  compradorDireccion,
-  initialSeguro,
   pending,
-  onSaveComprador,
-  onSaveSeguro,
   onComplete,
   onUploadedMessage,
 }: {
@@ -495,22 +447,7 @@ function Fase3DocsCompradorSeguro({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
-  compradorNombre: string | null;
-  compradorTelefono: string | null;
-  compradorCedula: string | null;
-  compradorEmail: string | null;
-  compradorDireccion: string | null;
-  initialSeguro: SeguroData;
   pending: boolean;
-  onSaveComprador: (payload: {
-    vehiculoId: string;
-    nombreCliente: string;
-    telefonoCliente: string;
-    cedulaPropietario: string;
-    emailPropietario: string;
-    direccion: string;
-  }) => void;
-  onSaveSeguro: (payload: Record<string, unknown>) => void;
   onComplete: () => void;
   onUploadedMessage: (msg: string) => void;
 }) {
@@ -534,233 +471,13 @@ function Fase3DocsCompradorSeguro({
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
+              hint=""
               onUploaded={(next) => {
                 setDocs(next);
                 onUploadedMessage("Documento guardado");
               }}
             />
           ))}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <User className="h-5 w-5 text-cyan-400" />
-          Datos del comprador
-        </h2>
-        <form
-          className="mt-4 grid gap-4 sm:grid-cols-2"
-          action={(fd) => {
-            onSaveComprador({
-              vehiculoId,
-              nombreCliente: String(fd.get("nombreCliente") ?? ""),
-              telefonoCliente: String(fd.get("telefonoCliente") ?? ""),
-              cedulaPropietario: String(fd.get("cedulaPropietario") ?? ""),
-              emailPropietario: String(fd.get("emailPropietario") ?? ""),
-              direccion: String(fd.get("direccion") ?? ""),
-            });
-          }}
-        >
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Nombre *</span>
-            <input
-              name="nombreCliente"
-              required
-              defaultValue={compradorNombre ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Cédula</span>
-            <input
-              name="cedulaPropietario"
-              defaultValue={compradorCedula ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">WhatsApp</span>
-            <input
-              name="telefonoCliente"
-              defaultValue={compradorTelefono ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Dirección</span>
-            <input
-              name="direccion"
-              defaultValue={compradorDireccion ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Email</span>
-            <input
-              name="emailPropietario"
-              type="email"
-              defaultValue={compradorEmail ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : "Guardar comprador"}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-6 grid gap-3">
-          <ImportDocumentoUpload
-            vehiculoId={vehiculoId}
-            tipo="cedula"
-            existingUrl={docs.cedula?.url}
-            hint="Foto de la cédula"
-            actionLabel="Tomar / subir foto cédula"
-            onUploaded={(next) => {
-              setDocs(next);
-              onUploadedMessage("Foto de cédula guardada");
-            }}
-          />
-          <ImportDocumentoUpload
-            vehiculoId={vehiculoId}
-            tipo="foto_comprador"
-            existingUrl={docs.foto_comprador?.url}
-            hint="Foto del comprador"
-            actionLabel="Tomar / subir foto comprador"
-            onUploaded={(next) => {
-              setDocs(next);
-              onUploadedMessage("Foto del comprador guardada");
-            }}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Shield className="h-5 w-5 text-cyan-400" />
-          Seguro y datos del seguro
-        </h2>
-        <form
-          className="mt-4 grid gap-4 sm:grid-cols-2"
-          action={(fd) => {
-            const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
-            onSaveSeguro({
-              vehiculoId,
-              aseguradora: String(fd.get("aseguradora") ?? "") || null,
-              numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
-              tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
-              vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
-              vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
-              montoAsegurado: montoRaw ? Number(montoRaw) : null,
-              telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
-              corredor: String(fd.get("corredor") ?? "") || null,
-            });
-          }}
-        >
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Aseguradora</span>
-            <input
-              name="aseguradora"
-              defaultValue={initialSeguro.aseguradora ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Nro de póliza</span>
-            <input
-              name="numeroPoliza"
-              defaultValue={initialSeguro.numeroPoliza ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Tipo de cobertura</span>
-            <input
-              name="tipoCobertura"
-              placeholder="RCV, todo riesgo…"
-              defaultValue={initialSeguro.tipoCobertura ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Teléfono aseguradora</span>
-            <input
-              name="telefonoAseguradora"
-              defaultValue={initialSeguro.telefonoAseguradora ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Vigencia desde</span>
-            <input
-              name="vigenciaDesde"
-              type="date"
-              defaultValue={initialSeguro.vigenciaDesde ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Vigencia hasta</span>
-            <input
-              name="vigenciaHasta"
-              type="date"
-              defaultValue={initialSeguro.vigenciaHasta ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Monto asegurado</span>
-            <input
-              name="montoAsegurado"
-              type="number"
-              defaultValue={
-                initialSeguro.montoAsegurado != null
-                  ? String(initialSeguro.montoAsegurado)
-                  : ""
-              }
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-slate-400">Corredor / agente</span>
-            <input
-              name="corredor"
-              defaultValue={initialSeguro.corredor ?? ""}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : "Guardar seguro"}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-6">
-          <h3 className="text-sm font-medium text-slate-300">Documentos del seguro</h3>
-          <div className="mt-3 grid gap-3">
-            {SEGURO_DOCUMENTO_TIPOS.map((tipo) => (
-              <ImportDocumentoUpload
-                key={tipo}
-                vehiculoId={vehiculoId}
-                tipo={tipo}
-                existingUrl={docs[tipo]?.url}
-                onUploaded={(next) => {
-                  setDocs(next);
-                  onUploadedMessage("Documento de seguro guardado");
-                }}
-              />
-            ))}
-          </div>
         </div>
       </section>
 
