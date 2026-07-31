@@ -9,7 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Camera, CheckCircle2, FileUp } from "lucide-react";
+import { AlertCircle, Camera, CheckCircle2, FileUp } from "lucide-react";
 import {
   completePuertoLibreFase3Action,
   savePuertoLibreFase2LlegadaAction,
@@ -79,6 +79,8 @@ export function PlanillaRegistroImportacion({
   marca,
   modelo,
   color,
+  serialMotor,
+  serialCarroceria,
   initialImportacion,
   initialDocumentos,
   faseInicial,
@@ -121,6 +123,24 @@ export function PlanillaRegistroImportacion({
     [checklist]
   );
 
+  const registroCompleto = Boolean(
+    marca?.trim() &&
+      modelo?.trim() &&
+      color?.trim() &&
+      initialImportacion.anio &&
+      serialMotor?.trim() &&
+      serialCarroceria?.trim() &&
+      initialImportacion.fechaLlegadaBuque?.trim() &&
+      initialImportacion.importadorNombre?.trim()
+  );
+
+  const llegadaCompleta =
+    Boolean(initialImportacion.fechaIngreso?.trim()) &&
+    fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
+    checklistMarked === LLEGADA_CHECKLIST_ITEMS.length;
+
+  const documentosCompletos = docsCount === PL_REGISTRO_DOCUMENTO_TIPOS.length;
+
   const codigoExpediente =
     resolveCodigoExpediente({
       codigoExpediente: initialImportacion.codigoExpediente,
@@ -147,19 +167,22 @@ export function PlanillaRegistroImportacion({
         <FaseChip
           n={1}
           label="Registro"
-          state="done"
+          completo={registroCompleto}
+          current={false}
           onClick={undefined}
         />
         <FaseChip
           n={2}
           label="Llegada"
-          state={fase === 2 ? "current" : (initialImportacion.planillaFase ?? 2) >= 3 ? "done" : "idle"}
+          completo={llegadaCompleta}
+          current={fase === 2}
           onClick={() => setFase(2)}
         />
         <FaseChip
           n={3}
           label="Documentos"
-          state={fase === 3 ? "current" : (initialImportacion.planillaFase ?? 2) >= 4 ? "done" : "idle"}
+          completo={documentosCompletos}
+          current={fase === 3}
           onClick={() => setFase(3)}
         />
       </div>
@@ -255,29 +278,33 @@ export function PlanillaRegistroImportacion({
 function FaseChip({
   n,
   label,
-  state,
+  completo,
+  current,
   onClick,
 }: {
   n: number;
   label: string;
-  state: "done" | "current" | "idle";
+  completo: boolean;
+  current?: boolean;
   onClick?: () => void;
 }) {
   const base =
     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition";
-  const styles =
-    state === "current"
-      ? "bg-cyan-600 text-white"
-      : state === "done"
-        ? "bg-emerald-950/50 text-emerald-300 ring-1 ring-emerald-800/60"
-        : "bg-slate-900 text-slate-500 ring-1 ring-slate-800";
+  const styles = completo
+    ? `bg-emerald-600 text-white ${current ? "ring-2 ring-emerald-300/70 ring-offset-2 ring-offset-slate-950" : ""}`
+    : `bg-red-600 text-white ${current ? "ring-2 ring-red-300/70 ring-offset-2 ring-offset-slate-950" : ""}`;
   const content = (
     <>
-      {state === "done" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span>{n}</span>}
+      {completo ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : (
+        <AlertCircle className="h-3.5 w-3.5" />
+      )}
+      <span className="opacity-80">{n}</span>
       {label}
     </>
   );
-  if (!onClick || state === "idle") {
+  if (!onClick) {
     return <span className={`${base} ${styles}`}>{content}</span>;
   }
   return (
