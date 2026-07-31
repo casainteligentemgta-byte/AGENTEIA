@@ -52,13 +52,13 @@ export function PlanillaFechaField({
   }
 
   return (
-    <div className={`space-y-2.5 ${className}`}>
+    <div className={`min-w-0 ${label ? "space-y-2.5" : ""} ${className}`}>
       {label ? <span className="block text-sm text-slate-400">{label}</span> : null}
-      <div className="relative">
+      <div className="relative min-w-0 w-full">
         <button
           type="button"
           onClick={openPicker}
-          className="flex h-12 w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 text-left text-sm text-slate-100 outline-none transition hover:border-slate-500 focus-visible:border-cyan-500/60 focus-visible:ring-2 focus-visible:ring-cyan-500/30"
+          className="box-border flex h-12 w-full max-w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 text-left text-sm text-slate-100 outline-none transition hover:border-slate-500 focus-visible:border-cyan-500/60 focus-visible:ring-2 focus-visible:ring-cyan-500/30"
         >
           <CalendarDays className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden />
           <span className="leading-none">{formatFechaEs(value)}</span>

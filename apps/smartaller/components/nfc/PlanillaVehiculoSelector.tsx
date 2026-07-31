@@ -80,7 +80,9 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-bold text-zinc-900">
-            Auto {codigoLinea(current)}
+            {codigoLinea(current) !== "—"
+              ? `Auto ${codigoLinea(current)}`
+              : "Auto"}
           </p>
           <p className="truncate text-sm text-zinc-700">{tituloLinea(current)}</p>
           {colorPlacaLinea(current) ? (

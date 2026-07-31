@@ -93,11 +93,11 @@ export function ImportDocumentoUpload({
             >
               {url ? "Ver archivo cargado" : "Archivo guardado en el perfil del vehículo"}
             </a>
-          ) : (
+          ) : hint.trim() ? (
             <p className={`mt-0.5 text-xs ${light ? "text-zinc-500" : "text-slate-500"}`}>
               {hint}
             </p>
-          )}
+          ) : null}
         </div>
         <button
           type="button"

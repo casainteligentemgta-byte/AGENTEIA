@@ -368,13 +368,14 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Fecha de ingreso al PL
         </h2>
-        <div className="mt-5 max-w-xs">
+        <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
-            label="Fecha *"
+            label=""
             value={fecha}
             onChange={setFecha}
             required
             name="fechaIngreso"
+            className="min-w-0 w-full"
           />
         </div>
       </section>
@@ -387,9 +388,6 @@ function Fase2Llegada({
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-500">
-          Frontal, trasero, laterales, motor, impronta y tablero con kilometraje.
-        </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -397,7 +395,7 @@ function Fase2Llegada({
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
-              hint="Toma foto con la cámara o elige una imagen"
+              hint=""
               actionLabel="Tomar / subir foto"
               onUploaded={(next) => {
                 setDocs(next);
