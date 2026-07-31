@@ -116,12 +116,9 @@ export default async function PuertoLibrePage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-            Expediente Importación Vehículo
+          <h1 className="whitespace-nowrap text-lg font-semibold tracking-tight text-zinc-50 sm:text-2xl">
+            Expediente Importación Vehicular
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-400">
-            Transferencia de carga básica, el sistema es automático y captura datos NFC
-          </p>
         </div>
         <Link
           href="/puerto-libre/vehiculos/nuevo"
