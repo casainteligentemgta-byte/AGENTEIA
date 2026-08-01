@@ -776,19 +776,31 @@ export async function completePuertoLibreFase5SeguroAction(
   return { success: true };
 }
 
-/** Marca fase 6 (carpeta matriculación inicial) completa. */
+const fase6MatriculacionSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  /** Placa asignada tras la matriculación inicial. */
+  placa: z
+    .string()
+    .trim()
+    .min(1, "Ingresa el número de placa obtenido en la matriculación")
+    .max(20),
+});
+
+/** Marca fase 6 (carpeta + placa) completa. */
 export async function completePuertoLibreFase6MatriculacionAction(
-  vehiculoId: string
+  raw: unknown
 ): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const idParsed = z.string().uuid().safeParse(vehiculoId);
-  if (!idParsed.success) return { success: false, error: "ID inválido" };
+  const parsed = fase6MatriculacionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
 
-  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
@@ -802,17 +814,54 @@ export async function completePuertoLibreFase6MatriculacionAction(
   }
 
   const existing = parseImportacion(row.importacion);
-  const importacion = serializeImportacion({ ...existing, planillaFase: 7 });
+  const codigoExpediente =
+    resolveCodigoExpediente({
+      codigoExpediente: existing.codigoExpediente,
+      placa: row.placa,
+    }) ?? null;
+
+  const placa = parsed.data.placa.trim().toUpperCase().replace(/\s+/g, "");
+  if (parseCodigoExpediente(placa)) {
+    return {
+      success: false,
+      error: "La placa no puede ser el número de expediente (PL-Año.Mes.N).",
+    };
+  }
+  if (!placaRealVisible(placa, codigoExpediente)) {
+    return { success: false, error: "Ingresa un número de placa válido" };
+  }
 
   const admin = createAdminClient();
+  const { data: placaDup } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("taller_id", auth.taller.id)
+    .eq("placa", placa)
+    .neq("id", parsed.data.vehiculoId)
+    .maybeSingle();
+  if (placaDup) {
+    return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
+  }
+
+  const importacion = serializeImportacion({ ...existing, planillaFase: 7 });
+
   const { error } = await admin
     .from("vehiculos")
-    .update({ importacion, updated_at: new Date().toISOString() })
-    .eq("id", idParsed.data)
+    .update({
+      placa,
+      importacion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
-  if (error) return { success: false, error: error.message };
-  revalidateFicha(idParsed.data);
+  if (error) {
+    if (error.code === "23505" && error.message.includes("placa")) {
+      return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
+    }
+    return { success: false, error: error.message };
+  }
+  revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
 

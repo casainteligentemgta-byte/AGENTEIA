@@ -55,7 +55,10 @@ import {
   PlanillaVehiculoSelector,
   type PlanillaVehiculoOption,
 } from "@/components/nfc/PlanillaVehiculoSelector";
-import { resolveCodigoExpediente } from "@/lib/puerto-libre/expediente";
+import {
+  placaRealVisible,
+  resolveCodigoExpediente,
+} from "@/lib/puerto-libre/expediente";
 
 export type PlanillaFaseUi = "1a" | 2 | 3 | 4 | 5 | 6;
 
@@ -189,8 +192,13 @@ export function PlanillaRegistroImportacion({
     initialSeguro.aseguradora?.trim() && docs.rcv_seguro?.url
   );
   const matriculacionCount = countDocs(docs, PL_MATRICULACION_CARPETA_TIPOS);
+  const placaVisible = placaRealVisible(
+    placa,
+    initialImportacion.codigoExpediente
+  );
   const matriculacionCompleta =
-    matriculacionCount === PL_MATRICULACION_CARPETA_TIPOS.length;
+    matriculacionCount === PL_MATRICULACION_CARPETA_TIPOS.length &&
+    Boolean(placaVisible);
 
   const codigoExpediente =
     resolveCodigoExpediente({
@@ -451,15 +459,16 @@ export function PlanillaRegistroImportacion({
           docs={docs}
           setDocs={setDocs}
           docsCount={matriculacionCount}
+          placaInicial={placaVisible ?? ""}
           pending={pending}
-          canComplete={matriculacionCompleta}
-          onComplete={() => {
+          onComplete={(placaNueva) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const result = await completePuertoLibreFase6MatriculacionAction(
-                vehiculoId
-              );
+              const result = await completePuertoLibreFase6MatriculacionAction({
+                vehiculoId,
+                placa: placaNueva,
+              });
               if (!result.success) {
                 setError(result.error);
                 return;
@@ -1121,8 +1130,8 @@ function Fase6Matriculacion({
   docs,
   setDocs,
   docsCount,
+  placaInicial,
   pending,
-  canComplete,
   onComplete,
   onUploadedMessage,
 }: {
@@ -1130,11 +1139,15 @@ function Fase6Matriculacion({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
+  placaInicial: string;
   pending: boolean;
-  canComplete: boolean;
-  onComplete: () => void;
+  onComplete: (placa: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
+  const [placa, setPlaca] = useState(placaInicial);
+  const carpetaCompleta = docsCount === PL_MATRICULACION_CARPETA_TIPOS.length;
+  const canComplete = carpetaCompleta && placa.trim().length > 0;
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
@@ -1146,8 +1159,8 @@ function Fase6Matriculacion({
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Carpeta a consignar. Algunos recaudos ya vienen de fases anteriores; el
-          resto se carga aquí (foto o PDF).
+          Carpeta a consignar. Al completar el trámite se obtiene el número de
+          placa; regístralo abajo para cerrar la planilla.
         </p>
 
         <ul className="mt-5 space-y-3">
@@ -1210,6 +1223,24 @@ function Fase6Matriculacion({
         </ul>
       </section>
 
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Número de placa</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Resultado de la matriculación inicial. Distinto del número de expediente.
+        </p>
+        <label className="mt-4 block space-y-1.5">
+          <span className="text-sm text-slate-400">Placa *</span>
+          <input
+            value={placa}
+            onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+            required
+            placeholder="Ej. AB123CD"
+            autoComplete="off"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
+      </section>
+
       <div className="flex flex-col gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-between">
         <Link
           href={`/puerto-libre/${vehiculoId}`}
@@ -1220,7 +1251,7 @@ function Fase6Matriculacion({
         <button
           type="button"
           disabled={pending || !canComplete}
-          onClick={onComplete}
+          onClick={() => onComplete(placa.trim())}
           className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
         >
           {pending ? "Guardando…" : "Finalizar planilla"}
