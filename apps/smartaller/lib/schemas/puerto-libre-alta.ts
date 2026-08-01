@@ -32,6 +32,20 @@ export const puertoLibreAltaSchema = z.object({
     .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
       message: "Correo del importador inválido",
     }),
+
+  /** Datos aduaneros opcionales; se pueden completar después en Editar. */
+  aduana: z.string().trim().max(120).optional().or(z.literal("")),
+  numeroBl: z.string().trim().max(80).optional().or(z.literal("")),
+  paisOrigen: z.string().trim().max(80).optional().or(z.literal("")),
+  valorCif: z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .optional()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const n = typeof v === "number" ? v : Number(String(v).trim());
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+  observaciones: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
 export type PuertoLibreAltaInput = z.infer<typeof puertoLibreAltaSchema>;

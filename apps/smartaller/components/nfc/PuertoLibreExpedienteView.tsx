@@ -132,12 +132,24 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
           />
           <Dato label="Teléfono" value={imp.importadorTelefono ?? ficha.telefono_cliente} />
           <Dato label="Email" value={imp.importadorEmail ?? ficha.email_propietario} />
-          <Dato label="Dirección" value={imp.compradorDireccion} wide />
         </dl>
       </section>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-        <h2 className="text-sm font-semibold text-zinc-200">Importación</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-sm font-semibold text-zinc-200">Importación</h2>
+          {!imp.aduana?.trim() ||
+          !imp.numeroBl?.trim() ||
+          !imp.paisOrigen?.trim() ||
+          imp.valorCif == null ? (
+            <Link
+              href={`/puerto-libre/${ficha.id}?edit=1`}
+              className="shrink-0 text-xs font-medium text-cyan-400 hover:text-cyan-300"
+            >
+              Completar datos
+            </Link>
+          ) : null}
+        </div>
         <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Régimen" value={imp.regimen} />
           <Dato label="Aduana" value={imp.aduana} />
