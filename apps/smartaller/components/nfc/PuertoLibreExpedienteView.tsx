@@ -268,14 +268,18 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
 
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
-      {(imp.planillaFase == null || imp.planillaFase < 4) && (
+      {(imp.planillaFase == null || imp.planillaFase < 6) && (
         <Link
           href={
-            imp.planillaFase != null && imp.planillaFase >= 3
-              ? `/puerto-libre/${ficha.id}/planilla?fase=3`
-              : imp.planillaFase === 2
-                ? `/puerto-libre/${ficha.id}/planilla?fase=2`
-                : `/puerto-libre/${ficha.id}/planilla?fase=1a`
+            imp.planillaFase != null && imp.planillaFase >= 5
+              ? `/puerto-libre/${ficha.id}/planilla?fase=5`
+              : imp.planillaFase === 4
+                ? `/puerto-libre/${ficha.id}/planilla?fase=4`
+                : imp.planillaFase === 3
+                  ? `/puerto-libre/${ficha.id}/planilla?fase=3`
+                  : imp.planillaFase === 2
+                    ? `/puerto-libre/${ficha.id}/planilla?fase=2`
+                    : `/puerto-libre/${ficha.id}/planilla?fase=1a`
           }
           className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-cyan-500"
         >

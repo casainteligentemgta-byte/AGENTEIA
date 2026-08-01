@@ -210,10 +210,11 @@ export const importacionSchema = z.object({
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
   importadorEmail: z.string().trim().max(120).optional().nullable(),
   /**
-   * 1 = datos registrados (pendiente docs embarque 1A),
-   * 2 = llegada, 3 = liquidación aduana / retiro, 4 = planilla completa.
+   * 1 = datos (pendiente 1A embarque),
+   * 2 = llegada, 3 = aduana / retiro, 4 = propietario, 5 = seguro,
+   * 6 = planilla completa.
    */
-  planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  planillaFase: z.coerce.number().int().min(1).max(6).optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
   /** Número secuencial del expediente dentro del mes. */

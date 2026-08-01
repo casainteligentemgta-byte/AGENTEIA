@@ -634,7 +634,7 @@ export async function savePuertoLibreFase2LlegadaAction(
   return { success: true };
 }
 
-/** Marca fase 3 (liquidación aduana / retiro) como completa. */
+/** Marca fase 3 (liquidación aduana / retiro) completa → fase 4 propietario. */
 export async function completePuertoLibreFase3Action(
   vehiculoId: string
 ): Promise<PuertoLibreActionResult> {
@@ -671,6 +671,99 @@ export async function completePuertoLibreFase3Action(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(idParsed.data);
+  return { success: true };
+}
+
+/** Guarda propietario (fase 4) y avanza a fase 5 (seguro). */
+export async function completePuertoLibreFase4PropietarioAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const schema = propietarioSchema.extend({
+    nombreCliente: z.string().trim().min(1, "Nombre del propietario requerido").max(120),
+  });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existingImportacion = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    compradorDireccion: parsed.data.direccion ?? existingImportacion.compradorDireccion,
+    planillaFase: 5,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      nombre_cliente: parsed.data.nombreCliente.trim(),
+      telefono_cliente: parsed.data.telefonoCliente?.trim() || null,
+      cedula_propietario: parsed.data.cedulaPropietario?.trim() || null,
+      email_propietario: parsed.data.emailPropietario?.trim() || null,
+      fecha_nacimiento_propietario: parsed.data.fechaNacimientoPropietario?.trim() || null,
+      importacion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Guarda seguro (fase 5) y marca planilla completa (fase 6). */
+export async function completePuertoLibreFase5SeguroAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const schema = seguroSchema.extend({
+    vehiculoId: z.string().uuid(),
+    aseguradora: z.string().trim().min(1, "Aseguradora requerida").max(120),
+  });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const { vehiculoId, ...seguro } = parsed.data;
+  const existingSeguro = parseSeguro(row.seguro);
+  const mergedSeguro = serializeSeguro({ ...existingSeguro, ...seguro });
+  const existingImportacion = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existingImportacion,
+    planillaFase: 6,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      seguro: mergedSeguro,
+      importacion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(vehiculoId);
   return { success: true };
 }
 
