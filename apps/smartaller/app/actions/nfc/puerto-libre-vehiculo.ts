@@ -677,6 +677,10 @@ export async function uploadPuertoLibreDocumentoAction(
     return { success: false, error: "Selecciona un archivo" };
   }
 
+  if (tipoParsed.data === "manual_vehiculo" && file.type !== "application/pdf") {
+    return { success: false, error: "El manual del vehículo debe ser un archivo PDF" };
+  }
+
   const validationError = validateVehiculoDocumentoFile(file);
   if (validationError) return { success: false, error: validationError };
 

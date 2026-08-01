@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
 import { NFCQRCode } from "@/components/nfc/NFCQRCode";
+import { PinFieldWithReveal } from "@/components/nfc/PinFieldWithReveal";
 
 type Props = {
   ficha: Pick<
@@ -90,20 +91,10 @@ export function PuertoLibreExpedienteNfc({ ficha, baseUrl }: Props) {
           });
         }}
       >
-        <label className="block min-w-0 flex-1 space-y-1.5">
-          <span className="text-xs text-zinc-500">
-            PIN de desbloqueo {ficha.tienePin ? "(actualizar)" : "*"}
-          </span>
-          <input
-            name="pin"
-            type="password"
-            inputMode="numeric"
-            maxLength={8}
-            placeholder="4–8 dígitos"
-            required
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-cyan-500/60"
-          />
-        </label>
+        <PinFieldWithReveal
+          label={`PIN de desbloqueo ${ficha.tienePin ? "(actualizar)" : "*"}`}
+          required
+        />
         <button
           type="submit"
           disabled={pending}

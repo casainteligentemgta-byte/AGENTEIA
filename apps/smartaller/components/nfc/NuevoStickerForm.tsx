@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type HTMLAttributes } from "react";
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
+import { PinFieldWithReveal } from "@/components/nfc/PinFieldWithReveal";
 
 export type NfcVehiculoOption = {
   id: string;
