@@ -58,3 +58,31 @@ export function resolveCodigoExpediente(params: {
   }
   return null;
 }
+
+/** Placeholder único en BD cuando aún no hay placa real (placa ≠ expediente). */
+export function placaPendienteDesdeCodigo(codigoExpediente: string): string {
+  const parts = parseCodigoExpediente(codigoExpediente);
+  if (parts) return `NP-${parts.year}.${parts.month}.${parts.numero}`;
+  return `NP-${codigoExpediente.replace(/^PL-/i, "").trim() || Date.now()}`;
+}
+
+/**
+ * Placa real del vehículo (no el expediente ni el placeholder NP-*).
+ * La placa y el número de expediente son independientes.
+ */
+export function placaRealVisible(
+  placa: string | null | undefined,
+  codigoExpediente?: string | null
+): string | null {
+  const raw = placa?.trim() ?? "";
+  if (!raw) return null;
+  if (/^NP-/i.test(raw)) return null;
+  const codigo = resolveCodigoExpediente({
+    codigoExpediente: codigoExpediente ?? null,
+    placa: null,
+  });
+  if (codigo && raw.toUpperCase() === codigo.toUpperCase()) return null;
+  // Legado: se usaba el código PL-Y.M.N como placa.
+  if (parseCodigoExpediente(raw)) return null;
+  return raw.toUpperCase();
+}

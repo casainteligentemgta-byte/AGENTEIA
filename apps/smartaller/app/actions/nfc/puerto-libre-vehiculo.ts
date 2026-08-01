@@ -33,6 +33,8 @@ import {
   formatCodigoExpediente,
   parseCodigoExpediente,
   partsFromDate,
+  placaPendienteDesdeCodigo,
+  placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/puerto-libre/expediente";
 import {
@@ -53,7 +55,8 @@ export type PuertoLibreUploadResult =
 
 const vehiculoDatosSchema = z.object({
   vehiculoId: z.string().uuid(),
-  placa: z.string().trim().min(3).max(20),
+  /** Placa real; vacía = sin placa aún (no usar el expediente). */
+  placa: z.string().trim().max(20).optional().or(z.literal("")),
   marca: z.string().trim().max(60).optional().nullable(),
   modelo: z.string().trim().max(60).optional().nullable(),
   color: z.string().trim().max(40).optional().nullable(),
@@ -100,7 +103,7 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("vehiculos")
-    .select("id, taller_id, documentos, importacion, seguro")
+    .select("id, taller_id, placa, documentos, importacion, seguro")
     .eq("id", vehiculoId)
     .maybeSingle();
   if (!data || data.taller_id !== tallerId) return null;
@@ -264,7 +267,15 @@ export async function createPuertoLibreVehiculoAction(
   const { year, month } = partsFromDate();
   const numero = await nextNumeroExpedienteMes(admin, auth.taller.id, year, month);
   const codigoExpediente = formatCodigoExpediente(year, month, numero);
-  const placa = codigoExpediente;
+  // Placa ≠ expediente. Si no hay placa real, placeholder único en BD.
+  const placaIngresada = data.placa?.trim().toUpperCase().replace(/\s+/g, "") ?? "";
+  if (placaIngresada && parseCodigoExpediente(placaIngresada)) {
+    return {
+      success: false,
+      error: "La placa no puede ser el número de expediente (PL-Año.Mes.N).",
+    };
+  }
+  const placa = placaIngresada || placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
@@ -425,10 +436,38 @@ export async function updatePuertoLibreVehiculoAction(
     }
   }
 
+  const importacion = parseImportacion(row.importacion);
+  const codigoExpediente =
+    resolveCodigoExpediente({
+      codigoExpediente: importacion.codigoExpediente,
+      placa: row.placa,
+    }) ?? placaPendienteDesdeCodigo(`PL-${Date.now()}`);
+  const placaIngresada = (parsed.data.placa ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (placaIngresada && parseCodigoExpediente(placaIngresada)) {
+    return {
+      success: false,
+      error: "La placa no puede ser el número de expediente (PL-Año.Mes.N).",
+    };
+  }
+  const placa = placaIngresada || placaPendienteDesdeCodigo(codigoExpediente);
+
+  if (placaRealVisible(placa, codigoExpediente)) {
+    const { data: placaDup } = await admin
+      .from("vehiculos")
+      .select("id")
+      .eq("taller_id", auth.taller.id)
+      .eq("placa", placa)
+      .neq("id", parsed.data.vehiculoId)
+      .maybeSingle();
+    if (placaDup) {
+      return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
+    }
+  }
+
   const { error } = await admin
     .from("vehiculos")
     .update({
-      placa: parsed.data.placa.trim().toUpperCase(),
+      placa,
       marca: parsed.data.marca?.trim() || null,
       modelo: parsed.data.modelo?.trim() || null,
       color: parsed.data.color?.trim() || null,
@@ -443,6 +482,9 @@ export async function updatePuertoLibreVehiculoAction(
   if (error) {
     if (error.code === "23505" && error.message.includes("serial_carroceria")) {
       return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
+    if (error.code === "23505" && error.message.includes("placa")) {
+      return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
     }
     return { success: false, error: error.message };
   }

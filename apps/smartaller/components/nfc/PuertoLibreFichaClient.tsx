@@ -24,6 +24,7 @@ import {
   SEGURO_DOCUMENTO_TIPOS,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
+import { placaRealVisible } from "@/lib/puerto-libre/expediente";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -411,7 +412,10 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
       {/* 4. Datos del vehículo */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Datos del vehículo</h2>
-        <p className="mt-1 text-sm text-slate-500">Identificación y estado del automóvil.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          La placa es la del vehículo; el expediente ({ficha.codigoExpediente ?? "—"}) es otro
+          dato.
+        </p>
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
@@ -434,7 +438,22 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             });
           }}
         >
-          <Field label="Placa" name="placa" defaultValue={ficha.placa} className="uppercase" />
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Expediente</span>
+            <input
+              type="text"
+              readOnly
+              value={ficha.codigoExpediente ?? "—"}
+              className="w-full cursor-default rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 font-mono text-sm text-cyan-300 outline-none"
+            />
+          </label>
+          <Field
+            label="Placa"
+            name="placa"
+            defaultValue={placaRealVisible(ficha.placa, ficha.codigoExpediente) ?? ""}
+            placeholder="Placa del vehículo"
+            className="uppercase"
+          />
           <Field label="Marca" name="marca" defaultValue={ficha.marca ?? ""} />
           <Field label="Modelo" name="modelo" defaultValue={ficha.modelo ?? ""} />
           <Field label="Color" name="color" defaultValue={ficha.color ?? ""} />
@@ -601,7 +620,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
                   modelo: ficha.modelo,
                   color: ficha.color,
                   nombreTitular: ficha.nombre_cliente,
-                  etiqueta: `PL-${ficha.placa}`,
+                  etiqueta: ficha.codigoExpediente ?? ficha.placa,
                 });
                 if (!result.success) flash(null, result.error);
                 else {

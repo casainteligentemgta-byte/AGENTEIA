@@ -15,6 +15,7 @@ import {
   type EstadoSeniat,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
+import { placaRealVisible } from "@/lib/puerto-libre/expediente";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -118,7 +119,11 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
           <Dato label="Serial motor" value={ficha.serial_motor} mono />
           <Dato label="Serial carrocería" value={ficha.serial_carroceria} mono />
           <Dato label="Kilometraje" value={ficha.kilometraje_ultimo} />
-          <Dato label="Placa" value={ficha.placa} mono />
+          <Dato
+            label="Placa"
+            value={placaRealVisible(ficha.placa, ficha.codigoExpediente)}
+            mono
+          />
         </dl>
       </section>
 
