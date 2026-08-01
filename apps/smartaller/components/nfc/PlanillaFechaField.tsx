@@ -3,18 +3,6 @@
 import { useRef } from "react";
 import { CalendarDays } from "lucide-react";
 
-function formatFechaEs(iso: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || "Elegir fecha";
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat("es-VE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
 type Props = {
   label?: string;
   value: string;
@@ -25,7 +13,8 @@ type Props = {
 };
 
 /**
- * Campo de fecha con botón centrado (evita el desalineado de input[type=date] en iOS Safari).
+ * Fecha con input nativo (abre el picker en iOS/Android/desktop).
+ * Icono decorativo a la izquierda; showPicker() cuando el navegador lo permite.
  */
 export function PlanillaFechaField({
   label = "Fecha *",
@@ -37,42 +26,41 @@ export function PlanillaFechaField({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function openPicker() {
+  function handleActivate() {
     const el = inputRef.current;
     if (!el) return;
     try {
       if (typeof el.showPicker === "function") {
         el.showPicker();
-        return;
       }
     } catch {
-      // Algunos navegadores bloquean showPicker sin gesto directo; caemos a click.
+      // Sin gesto válido o sin soporte: el tap del input nativo abre el picker.
     }
-    el.click();
   }
 
   return (
     <div className={`min-w-0 ${label ? "space-y-2.5" : ""} ${className}`}>
-      {label ? <span className="block text-sm text-slate-400">{label}</span> : null}
+      {label ? (
+        <label htmlFor={name} className="block text-sm text-slate-400">
+          {label}
+        </label>
+      ) : null}
       <div className="relative min-w-0 w-full">
-        <button
-          type="button"
-          onClick={openPicker}
-          className="box-border flex h-12 w-full max-w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 text-left text-sm text-slate-100 outline-none transition hover:border-slate-500 focus-visible:border-cyan-500/60 focus-visible:ring-2 focus-visible:ring-cyan-500/30"
-        >
-          <CalendarDays className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden />
-          <span className="leading-none">{formatFechaEs(value)}</span>
-        </button>
+        <CalendarDays
+          className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-cyan-400"
+          aria-hidden
+        />
         <input
           ref={inputRef}
+          id={name}
           type="date"
           name={name}
           value={value}
           required={required}
           onChange={(e) => onChange(e.target.value)}
-          className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-          tabIndex={-1}
-          aria-hidden
+          onClick={handleActivate}
+          aria-label={label || "Seleccionar fecha"}
+          className="pl-date-native box-border h-12 w-full max-w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-900 py-2.5 pl-10 pr-3 text-sm text-slate-100 outline-none [color-scheme:dark] focus:border-cyan-500/60 focus-visible:ring-2 focus-visible:ring-cyan-500/30"
         />
       </div>
     </div>

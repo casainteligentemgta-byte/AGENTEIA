@@ -163,7 +163,7 @@ export function PlanillaRegistroImportacion({
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full flex-nowrap items-stretch gap-1.5 sm:gap-2">
         <FaseChip
           n={1}
           label="Registro"
@@ -205,9 +205,8 @@ export function PlanillaRegistroImportacion({
           docs={docs}
           setDocs={setDocs}
           fotosCount={fotosCount}
-          fechaDefault={
-            initialImportacion.fechaIngreso ?? new Date().toISOString().slice(0, 10)
-          }
+          fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
+          fechaLlegadaBuque={initialImportacion.fechaLlegadaBuque?.trim() ?? null}
           checklist={checklist}
           setChecklist={setChecklist}
           checklistNotas={checklistNotas}
@@ -289,19 +288,19 @@ function FaseChip({
   onClick?: () => void;
 }) {
   const base =
-    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition";
+    "inline-flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 py-1.5 text-[11px] font-medium transition sm:gap-1.5 sm:px-3 sm:text-xs";
   const styles = completo
     ? `bg-emerald-600 text-white ${current ? "ring-2 ring-emerald-300/70 ring-offset-2 ring-offset-slate-950" : ""}`
     : `bg-red-600 text-white ${current ? "ring-2 ring-red-300/70 ring-offset-2 ring-offset-slate-950" : ""}`;
   const content = (
     <>
       {completo ? (
-        <CheckCircle2 className="h-3.5 w-3.5" />
+        <CheckCircle2 className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
       ) : (
-        <AlertCircle className="h-3.5 w-3.5" />
+        <AlertCircle className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
       )}
       <span className="opacity-80">{n}</span>
-      {label}
+      <span className="truncate">{label}</span>
     </>
   );
   if (!onClick) {
@@ -314,12 +313,25 @@ function FaseChip({
   );
 }
 
+function formatFechaReferencia(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function Fase2Llegada({
   vehiculoId,
   docs,
   setDocs,
   fotosCount,
-  fechaDefault,
+  fechaIngresoInicial,
+  fechaLlegadaBuque,
   checklist,
   setChecklist,
   checklistNotas,
@@ -335,7 +347,9 @@ function Fase2Llegada({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   fotosCount: number;
-  fechaDefault: string;
+  /** Solo la fecha de ingreso ya guardada; nunca se rellena con la del buque. */
+  fechaIngresoInicial: string;
+  fechaLlegadaBuque: string | null;
   checklist: LlegadaChecklistState;
   setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
   checklistNotas: LlegadaChecklistNotasState;
@@ -347,7 +361,7 @@ function Fase2Llegada({
   onSave: (fechaIngreso: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const [fecha, setFecha] = useState(fechaDefault);
+  const [fecha, setFecha] = useState(fechaIngresoInicial);
 
   return (
     <div className="space-y-6">
@@ -355,6 +369,14 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Fecha de ingreso al PL
         </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Día en que el vehículo hace aduana o entra al régimen de Puerto Libre.
+          Es distinta de la fecha de llegada del buque
+          {fechaLlegadaBuque
+            ? ` (${formatFechaReferencia(fechaLlegadaBuque)})`
+            : ""}
+          .
+        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
             label=""
