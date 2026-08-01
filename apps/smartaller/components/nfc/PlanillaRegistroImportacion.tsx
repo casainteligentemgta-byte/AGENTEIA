@@ -11,6 +11,7 @@ import {
 } from "react";
 import { AlertCircle, Camera, CheckCircle2, FileUp } from "lucide-react";
 import {
+  completePuertoLibreFase1aEmbarqueAction,
   completePuertoLibreFase3Action,
   savePuertoLibreFase2LlegadaAction,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
@@ -29,7 +30,9 @@ import {
 } from "@/lib/puerto-libre/llegada-catalog";
 import {
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_REGISTRO_DOCUMENTO_TIPOS,
+  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS,
+  type DocumentoTipo,
   type ImportacionData,
   type SeguroData,
   type VehiculosDocumentos,
@@ -39,6 +42,8 @@ import {
   type PlanillaVehiculoOption,
 } from "@/components/nfc/PlanillaVehiculoSelector";
 import { resolveCodigoExpediente } from "@/lib/puerto-libre/expediente";
+
+export type PlanillaFaseUi = "1a" | 2 | 3;
 
 type Props = {
   vehiculoId: string;
@@ -55,8 +60,8 @@ type Props = {
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
-  /** Fase forzada por query (?fase=2|3). */
-  faseInicial?: 2 | 3;
+  /** Fase forzada por query (?fase=1a|2|3). */
+  faseInicial?: PlanillaFaseUi;
   vehiculoSelector?: {
     current: PlanillaVehiculoOption;
     vehiculos: PlanillaVehiculoOption[];
@@ -65,12 +70,17 @@ type Props = {
 
 function resolveFase(
   importacion: ImportacionData,
-  forced?: 2 | 3
-): 2 | 3 {
-  if (forced === 2 || forced === 3) return forced;
-  const f = importacion.planillaFase ?? 2;
+  forced?: PlanillaFaseUi
+): PlanillaFaseUi {
+  if (forced === "1a" || forced === 2 || forced === 3) return forced;
+  const f = importacion.planillaFase ?? 1;
   if (f >= 3) return 3;
-  return 2;
+  if (f === 2) return 2;
+  return "1a";
+}
+
+function countDocs(docs: VehiculosDocumentos, tipos: DocumentoTipo[]) {
+  return tipos.filter((t) => Boolean(docs[t])).length;
 }
 
 export function PlanillaRegistroImportacion({
@@ -87,7 +97,7 @@ export function PlanillaRegistroImportacion({
   vehiculoSelector,
 }: Props) {
   const router = useRouter();
-  const [fase, setFase] = useState<2 | 3>(() =>
+  const [fase, setFase] = useState<PlanillaFaseUi>(() =>
     resolveFase(initialImportacion, faseInicial)
   );
   const [pending, startTransition] = useTransition();
@@ -116,8 +126,9 @@ export function PlanillaRegistroImportacion({
     initialImportacion.otrosDispositivosNotas ?? ""
   );
 
-  const fotosCount = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) => Boolean(docs[t])).length;
-  const docsCount = PL_REGISTRO_DOCUMENTO_TIPOS.filter((t) => Boolean(docs[t])).length;
+  const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
+  const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
+  const aduanaCount = countDocs(docs, PL_ADUANA_DOCUMENTO_TIPOS);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
     [checklist]
@@ -134,12 +145,14 @@ export function PlanillaRegistroImportacion({
       initialImportacion.importadorNombre?.trim()
   );
 
+  const embarqueCompleto = embarqueCount === PL_EMBARQUE_DOCUMENTO_TIPOS.length;
+
   const llegadaCompleta =
     Boolean(initialImportacion.fechaIngreso?.trim()) &&
     fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
     checklistMarked === LLEGADA_CHECKLIST_ITEMS.length;
 
-  const documentosCompletos = docsCount === PL_REGISTRO_DOCUMENTO_TIPOS.length;
+  const aduanaCompleta = aduanaCount === PL_ADUANA_DOCUMENTO_TIPOS.length;
 
   const codigoExpediente =
     resolveCodigoExpediente({
@@ -159,31 +172,42 @@ export function PlanillaRegistroImportacion({
   };
   const selectorList = vehiculoSelector?.vehiculos ?? [selectorCurrent];
 
+  function goFase(next: PlanillaFaseUi) {
+    setFase(next);
+    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${next}`);
+  }
+
   return (
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
 
-      <div className="flex w-full flex-nowrap items-stretch gap-1.5 sm:gap-2">
+      <div className="flex w-full flex-nowrap items-stretch gap-1 sm:gap-1.5">
         <FaseChip
           n={1}
           label="Registro"
           completo={registroCompleto}
           current={false}
-          onClick={undefined}
+        />
+        <FaseChip
+          n="1A"
+          label="Embarque"
+          completo={embarqueCompleto}
+          current={fase === "1a"}
+          onClick={() => goFase("1a")}
         />
         <FaseChip
           n={2}
           label="Llegada"
           completo={llegadaCompleta}
           current={fase === 2}
-          onClick={() => setFase(2)}
+          onClick={() => goFase(2)}
         />
         <FaseChip
           n={3}
-          label="Documentos"
-          completo={documentosCompletos}
+          label="Aduana"
+          completo={aduanaCompleta}
           current={fase === 3}
-          onClick={() => setFase(3)}
+          onClick={() => goFase(3)}
         />
       </div>
 
@@ -199,7 +223,36 @@ export function PlanillaRegistroImportacion({
         </div>
       )}
 
-      {fase === 2 ? (
+      {fase === "1a" ? (
+        <Fase1aEmbarque
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
+          docsCount={embarqueCount}
+          pending={pending}
+          canComplete={embarqueCompleto}
+          onComplete={() => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await completePuertoLibreFase1aEmbarqueAction(vehiculoId);
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Documentos de embarque guardados");
+              setFase(2);
+              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=2`);
+              router.refresh();
+            });
+          }}
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      ) : fase === 2 ? (
         <Fase2Llegada
           vehiculoId={vehiculoId}
           docs={docs}
@@ -243,12 +296,13 @@ export function PlanillaRegistroImportacion({
           }}
         />
       ) : (
-        <Fase3Documentos
+        <Fase3Aduana
           vehiculoId={vehiculoId}
           docs={docs}
           setDocs={setDocs}
-          docsCount={docsCount}
+          docsCount={aduanaCount}
           pending={pending}
+          canComplete={aduanaCompleta}
           onComplete={() => {
             setError(null);
             setMessage(null);
@@ -281,14 +335,14 @@ function FaseChip({
   current,
   onClick,
 }: {
-  n: number;
+  n: number | string;
   label: string;
   completo: boolean;
   current?: boolean;
   onClick?: () => void;
 }) {
   const base =
-    "inline-flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 py-1.5 text-[11px] font-medium transition sm:gap-1.5 sm:px-3 sm:text-xs";
+    "inline-flex min-w-0 flex-1 items-center justify-center gap-0.5 whitespace-nowrap rounded-full px-1 py-1.5 text-[10px] font-medium transition sm:gap-1.5 sm:px-2.5 sm:text-xs";
   const styles = completo
     ? `bg-emerald-600 text-white ${current ? "ring-2 ring-emerald-300/70 ring-offset-2 ring-offset-slate-950" : ""}`
     : `bg-red-600 text-white ${current ? "ring-2 ring-red-300/70 ring-offset-2 ring-offset-slate-950" : ""}`;
@@ -323,6 +377,69 @@ function formatFechaReferencia(iso: string): string {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function Fase1aEmbarque({
+  vehiculoId,
+  docs,
+  setDocs,
+  docsCount,
+  pending,
+  canComplete,
+  onComplete,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  docsCount: number;
+  pending: boolean;
+  canComplete: boolean;
+  onComplete: () => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <FileUp className="h-5 w-5 text-cyan-400" />
+          Documentos de embarque
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
+          </span>
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Recaudos que viajan con la carga o se reciben antes de la llegada física.
+          Foto o PDF · máx. 10 MB.
+        </p>
+        <div className="mt-4 grid gap-3">
+          {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
+            <ImportDocumentoUpload
+              key={tipo}
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={docs[tipo]?.url}
+              acceptMode="both"
+              hint="Foto o PDF · máx. 10 MB"
+              onUploaded={(next) => {
+                setDocs(next);
+                onUploadedMessage("Documento guardado");
+              }}
+            />
+          ))}
+        </div>
+      </section>
+
+      <button
+        type="button"
+        disabled={pending || !canComplete}
+        onClick={onComplete}
+        className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
+      >
+        {pending ? "Guardando…" : "Guardar y abrir fase Llegada"}
+      </button>
+    </div>
+  );
 }
 
 function Fase2Llegada({
@@ -477,18 +594,19 @@ function Fase2Llegada({
         onClick={() => onSave(fecha)}
         className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
       >
-        {pending ? "Guardando…" : "Guardar y abrir fase 3"}
+        {pending ? "Guardando…" : "Guardar y abrir fase Aduana"}
       </button>
     </div>
   );
 }
 
-function Fase3Documentos({
+function Fase3Aduana({
   vehiculoId,
   docs,
   setDocs,
   docsCount,
   pending,
+  canComplete,
   onComplete,
   onUploadedMessage,
 }: {
@@ -497,6 +615,7 @@ function Fase3Documentos({
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
   pending: boolean;
+  canComplete: boolean;
   onComplete: () => void;
   onUploadedMessage: (msg: string) => void;
 }) {
@@ -505,28 +624,25 @@ function Fase3Documentos({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Documentos de importación
+          Liquidación aduanera
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {docsCount}/{PL_REGISTRO_DOCUMENTO_TIPOS.length}
+            {docsCount}/{PL_ADUANA_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          El manual va en PDF. BL, factura y documento de importación: foto o PDF.
+          Tras el ingreso a Puerto Libre. Planilla CVA / DUA del SENIAT que demuestra
+          el pago de tributos e IVA. Es recaudo para que aduana autorice el retiro de
+          la mercancía.
         </p>
         <div className="mt-4 grid gap-3">
-          {PL_REGISTRO_DOCUMENTO_TIPOS.map((tipo) => (
+          {PL_ADUANA_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
               key={tipo}
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
-              acceptMode={tipo === "manual_vehiculo" ? "pdf" : "both"}
-              actionLabel={tipo === "manual_vehiculo" ? "Subir PDF" : undefined}
-              hint={
-                tipo === "manual_vehiculo"
-                  ? "Solo PDF · máx. 10 MB"
-                  : "Foto o PDF · máx. 10 MB"
-              }
+              acceptMode="both"
+              hint="Foto o PDF · máx. 10 MB"
               onUploaded={(next) => {
                 setDocs(next);
                 onUploadedMessage("Documento guardado");
@@ -545,7 +661,7 @@ function Fase3Documentos({
         </Link>
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || !canComplete}
           onClick={onComplete}
           className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
         >

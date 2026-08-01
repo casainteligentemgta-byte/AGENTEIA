@@ -9,6 +9,8 @@ import { hashPin } from "@/lib/nfc/crypto";
 import {
   DOCUMENTO_TIPOS,
   MEMORIA_FOTOGRAFICA_TIPOS,
+  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   documentoTipoSchema,
   importacionSchema,
@@ -285,7 +287,7 @@ export async function createPuertoLibreVehiculoAction(
     observaciones: data.observaciones || null,
     estadoNacionalizacion: "pendiente",
     estadoSeniat: "pendiente",
-    planillaFase: 2,
+    planillaFase: 1,
     codigoExpediente,
     numeroExpediente: numero,
   });
@@ -527,7 +529,46 @@ export async function updatePuertoLibrePropietarioAction(
   return { success: true };
 }
 
-/** Guarda fase 2 (llegada) y avanza a fase 3. */
+/** Marca fase 1A (docs de embarque) completa y avanza a fase 2 (llegada). */
+export async function completePuertoLibreFase1aEmbarqueAction(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantes = PL_EMBARQUE_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error: "Carga factura, certificado de origen y BL antes de continuar",
+    };
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({ ...existing, planillaFase: 2 });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
+  return { success: true };
+}
+
+/** Guarda fase 2 (llegada) y avanza a fase 3 (aduana / retiro). */
 export async function savePuertoLibreFase2LlegadaAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -593,7 +634,7 @@ export async function savePuertoLibreFase2LlegadaAction(
   return { success: true };
 }
 
-/** Marca fase 3 como completa (planilla lista). */
+/** Marca fase 3 (liquidación aduana / retiro) como completa. */
 export async function completePuertoLibreFase3Action(
   vehiculoId: string
 ): Promise<PuertoLibreActionResult> {
@@ -607,6 +648,16 @@ export async function completePuertoLibreFase3Action(
 
   const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantes = PL_ADUANA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error:
+        "Carga la planilla de liquidación aduanera (CVA / DUA) para autorizar el retiro",
+    };
+  }
 
   const existing = parseImportacion(row.importacion);
   const importacion = serializeImportacion({ ...existing, planillaFase: 4 });
@@ -784,7 +835,7 @@ export type PuertoLibreVehiculoListItem = {
   updated_at: string | null;
   tienePin: boolean;
   docsCount: number;
-  /** Documentos de registro PL faltantes (fotos + docs fase 2/3). */
+  /** Documentos de registro PL faltantes (embarque + aduana + fotos). */
   docsFaltantes: number;
   planillaFase: number | null;
   /** Fecha de llegada del buque (YYYY-MM-DD). */

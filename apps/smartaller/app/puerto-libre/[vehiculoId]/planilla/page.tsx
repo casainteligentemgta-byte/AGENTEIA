@@ -42,7 +42,13 @@ export default async function PlanillaRegistroImportacionPage({
   const { ficha } = result;
   const faseParam = searchParams?.fase;
   const faseInicial =
-    faseParam === "3" ? (3 as const) : faseParam === "2" ? (2 as const) : undefined;
+    faseParam === "1a" || faseParam === "1A"
+      ? ("1a" as const)
+      : faseParam === "3"
+        ? (3 as const)
+        : faseParam === "2"
+          ? (2 as const)
+          : undefined;
 
   const vehiculos = (list.success ? list.vehiculos : []).map((v) => ({
     id: v.id,

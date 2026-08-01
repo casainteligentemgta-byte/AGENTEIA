@@ -79,11 +79,11 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   cedula: "Cédula del comprador",
   titulo: "Título de propiedad",
-  factura_comercial: "Factura",
-  bl_guia: "BL / Guía de embarque",
+  factura_comercial: "Factura comercial / contrato",
+  bl_guia: "BL / conocimiento de embarque",
   certificado_origen: "Certificado de origen",
   permiso_importacion: "Permiso de importación",
-  nacionalizacion: "Nacionalización / aduana",
+  nacionalizacion: "Liquidación aduanera (CVA / DUA)",
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
@@ -104,12 +104,26 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   foto_comprador: "Foto del comprador",
 };
 
-/** Documentos de importación (fase 3). */
-export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
-  "manual_vehiculo",
-  "bl_guia",
+/**
+ * Documentos de embarque (fase 1A): se obtienen antes de la llegada física.
+ * Factura, certificado de origen y BL.
+ */
+export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
-  "documento_importacion",
+  "certificado_origen",
+  "bl_guia",
+];
+
+/**
+ * Recaudos de aduana / retiro (fase 3): tras ingreso a PL.
+ * Liquidación CVA/DUA emitida por SENIAT.
+ */
+export const PL_ADUANA_DOCUMENTO_TIPOS: DocumentoTipo[] = ["nacionalizacion"];
+
+/** @deprecated Preferir PL_EMBARQUE_DOCUMENTO_TIPOS + PL_ADUANA_DOCUMENTO_TIPOS. */
+export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  ...PL_EMBARQUE_DOCUMENTO_TIPOS,
+  ...PL_ADUANA_DOCUMENTO_TIPOS,
 ];
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -195,7 +209,10 @@ export const importacionSchema = z.object({
   importadorDocumento: z.string().trim().max(40).optional().nullable(),
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
   importadorEmail: z.string().trim().max(120).optional().nullable(),
-  /** 2 = llegada, 3 = docs/comprador/seguro, 4 = planilla completa. */
+  /**
+   * 1 = datos registrados (pendiente docs embarque 1A),
+   * 2 = llegada, 3 = liquidación aduana / retiro, 4 = planilla completa.
+   */
   planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
