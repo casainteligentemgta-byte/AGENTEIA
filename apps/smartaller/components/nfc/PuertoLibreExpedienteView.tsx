@@ -267,11 +267,9 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
               ? `/puerto-libre/${ficha.id}/planilla?fase=3`
               : `/puerto-libre/${ficha.id}/planilla?fase=2`
           }
-          className="flex w-full items-center justify-center rounded-xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-3 text-sm font-medium text-cyan-300 transition hover:border-cyan-600/50"
+          className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
-          {imp.planillaFase != null && imp.planillaFase >= 3
-            ? "Continuar fase 3 — Documentos"
-            : "Continuar llegada — Fase 2"}
+          Usar planilla
         </Link>
       )}
     </div>
