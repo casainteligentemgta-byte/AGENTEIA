@@ -285,15 +285,17 @@ export default async function PuertoLibrePage() {
                             </p>
                           </td>
                           <td className="px-3 py-3">
-                            <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
-                              {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
-                            </p>
-                            <Link
-                              href={href}
-                              className="mt-1.5 inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
-                            >
-                              Completar
-                            </Link>
+                            <div className="inline-flex flex-col items-center gap-1.5">
+                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
+                                {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
+                              </p>
+                              <Link
+                                href={href}
+                                className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                              >
+                                Completar
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       );
