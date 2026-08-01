@@ -56,6 +56,10 @@ function labelExpediente(v: PuertoLibreVehiculoListItem): string {
   return v.codigoExpediente ?? "—";
 }
 
+/** Código de expediente siempre en una sola línea (no parte en el guion). */
+const EXPEDIENTE_CODE_CLASS =
+  "inline-block whitespace-nowrap font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm";
+
 function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
   const marcaModelo = [v.marca, v.modelo].filter(Boolean).join(" ");
   if (marcaModelo && v.color) return `${marcaModelo} ${v.color}`;
@@ -198,11 +202,11 @@ export default async function PuertoLibrePage() {
                 No hay vehículos pendientes de recepción en puerto.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
                       <th className="px-3 py-3 font-medium">Vehículo</th>
                       <th className="px-3 py-3 font-medium">Llegada</th>
                     </tr>
@@ -212,11 +216,8 @@ export default async function PuertoLibrePage() {
                       const llegadaHref = `/puerto-libre/${v.id}/planilla?fase=2`;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3">
-                            <Link
-                              href={llegadaHref}
-                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
-                            >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={llegadaHref} className={EXPEDIENTE_CODE_CLASS}>
                               {labelExpediente(v)}
                             </Link>
                           </td>
@@ -226,15 +227,17 @@ export default async function PuertoLibrePage() {
                             </p>
                           </td>
                           <td className="px-3 py-3">
-                            <p className="text-xs whitespace-nowrap text-zinc-300 sm:text-sm">
-                              {formatFechaDia(v.fechaLlegadaBuque)}
-                            </p>
-                            <Link
-                              href={llegadaHref}
-                              className="mt-1.5 inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
-                            >
-                              Recibir
-                            </Link>
+                            <div className="inline-flex flex-col items-center gap-1.5">
+                              <p className="text-xs whitespace-nowrap text-zinc-300 sm:text-sm">
+                                {formatFechaDia(v.fechaLlegadaBuque)}
+                              </p>
+                              <Link
+                                href={llegadaHref}
+                                className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                              >
+                                Recibir
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -257,11 +260,11 @@ export default async function PuertoLibrePage() {
             {pendientes.length === 0 ? (
               <p className="text-sm text-zinc-500">No hay expedientes pendientes.</p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
                       <th className="px-3 py-3 font-medium">Vehículo</th>
                       <th className="px-3 py-3 font-medium">Modificado</th>
                     </tr>
@@ -271,11 +274,8 @@ export default async function PuertoLibrePage() {
                       const href = completarHref(v);
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3">
-                            <Link
-                              href={href}
-                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
-                            >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
                               {labelExpediente(v)}
                             </Link>
                           </td>
@@ -285,15 +285,17 @@ export default async function PuertoLibrePage() {
                             </p>
                           </td>
                           <td className="px-3 py-3">
-                            <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
-                              {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
-                            </p>
-                            <Link
-                              href={href}
-                              className="mt-1.5 inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
-                            >
-                              Completar
-                            </Link>
+                            <div className="inline-flex flex-col items-center gap-1.5">
+                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
+                                {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
+                              </p>
+                              <Link
+                                href={href}
+                                className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                              >
+                                Completar
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -319,11 +321,11 @@ export default async function PuertoLibrePage() {
                 No hay vehículos pendientes de nacionalización.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-amber-900/30 bg-zinc-950/40">
+              <div className="overflow-x-auto rounded-2xl border border-amber-900/30 bg-zinc-950/40">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
                       <th className="px-3 py-3 font-medium">Vehículo</th>
                       <th className="px-3 py-3 font-medium">Límite</th>
                     </tr>
@@ -335,11 +337,8 @@ export default async function PuertoLibrePage() {
                         v.diasNacionalizacion != null && v.diasNacionalizacion <= 7;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3">
-                            <Link
-                              href={href}
-                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
-                            >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
                               {labelExpediente(v)}
                             </Link>
                           </td>
@@ -390,11 +389,11 @@ export default async function PuertoLibrePage() {
                 No hay presentaciones SENIAT pendientes o agendadas.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-sky-900/30 bg-zinc-950/40">
+              <div className="overflow-x-auto rounded-2xl border border-sky-900/30 bg-zinc-950/40">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium">Expediente</th>
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
                       <th className="px-3 py-3 font-medium">Vehículo</th>
                       <th className="px-3 py-3 font-medium">Presentación</th>
                     </tr>
@@ -405,11 +404,8 @@ export default async function PuertoLibrePage() {
                       const urgente = v.diasSeniat != null && v.diasSeniat <= 7;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3">
-                            <Link
-                              href={href}
-                              className="font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm"
-                            >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
                               {labelExpediente(v)}
                             </Link>
                           </td>
@@ -458,7 +454,7 @@ export default async function PuertoLibrePage() {
                       className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
                     >
                       <span className="min-w-0">
-                        <span className="font-mono font-medium text-zinc-300">
+                        <span className="inline-block whitespace-nowrap font-mono font-medium text-zinc-300">
                           {labelExpediente(v)}
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-zinc-500">
