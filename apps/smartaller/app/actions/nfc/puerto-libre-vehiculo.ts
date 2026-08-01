@@ -40,6 +40,7 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
+import { deleteVehiculoConDependencias } from "@/lib/vehicles/delete-cascade";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type PuertoLibreActionResult =
@@ -632,20 +633,19 @@ export async function deletePuertoLibreVehiculoAction(
   const admin = createAdminClient();
   const vehiculoId = parsed.data.vehiculoId;
 
-  // Stickers NFC quedan huérfanos con ON DELETE SET NULL; los quitamos.
-  await admin
-    .from("nfc_stickers")
-    .delete()
-    .eq("taller_id", auth.taller.id)
-    .eq("vehiculo_id", vehiculoId);
-
-  const { error } = await admin
-    .from("vehiculos")
-    .delete()
-    .eq("id", vehiculoId)
-    .eq("taller_id", auth.taller.id);
-
-  if (error) return { success: false, error: error.message };
+  const deleted = await deleteVehiculoConDependencias(admin, {
+    vehiculoId,
+    tallerId: auth.taller.id,
+  });
+  if (!deleted.ok) {
+    return {
+      success: false,
+      error:
+        deleted.error.includes("foreign key") || deleted.error.includes("violates")
+          ? "No se pudo eliminar: hay registros vinculados. Intenta de nuevo."
+          : deleted.error,
+    };
+  }
 
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
