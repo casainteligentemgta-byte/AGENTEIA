@@ -35,6 +35,11 @@ export function PlanillaAltaPuertoLibre() {
             importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
             importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
             importadorEmail: String(fd.get("importadorEmail") ?? ""),
+            aduana: String(fd.get("aduana") ?? ""),
+            numeroBl: String(fd.get("numeroBl") ?? ""),
+            paisOrigen: String(fd.get("paisOrigen") ?? ""),
+            valorCif: String(fd.get("valorCif") ?? ""),
+            observaciones: String(fd.get("observaciones") ?? ""),
           });
           if (!result.success) {
             setError(result.error);
@@ -97,6 +102,40 @@ export function PlanillaAltaPuertoLibre() {
           <Field label="RIF" name="importadorDocumento" />
           <Field label="Teléfono" name="importadorTelefono" />
           <Field label="Email" name="importadorEmail" type="email" wide />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Opcional. Si no los tienes ahora, puedes cargarlos después en Editar.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field label="Aduana" name="aduana" placeholder="Ej. Guanta" />
+          <Field
+            label="Nº BL / Guía"
+            name="numeroBl"
+            placeholder="Número de conocimiento de embarque"
+            mono
+            upper
+          />
+          <Field label="País de origen" name="paisOrigen" placeholder="Ej. China" />
+          <Field
+            label="Valor CIF (USD)"
+            name="valorCif"
+            type="number"
+            placeholder="0.00"
+            min={0}
+          />
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones</span>
+            <textarea
+              name="observaciones"
+              rows={3}
+              placeholder="Notas del embarque o aduana…"
+              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
         </div>
       </section>
 
