@@ -11,6 +11,7 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_ADUANA_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_MATRICULACION_CARPETA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   documentoTipoSchema,
   importacionSchema,
@@ -721,7 +722,7 @@ export async function completePuertoLibreFase4PropietarioAction(
   return { success: true };
 }
 
-/** Guarda seguro (fase 5) y marca planilla completa (fase 6). */
+/** Guarda seguro (fase 5) y avanza a fase 6 (matriculación). */
 export async function completePuertoLibreFase5SeguroAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -741,6 +742,14 @@ export async function completePuertoLibreFase5SeguroAction(
 
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  if (!docs.rcv_seguro?.url) {
+    return {
+      success: false,
+      error: "Carga la póliza RCV (responsabilidad civil) antes de continuar",
+    };
+  }
 
   const { vehiculoId, ...seguro } = parsed.data;
   const existingSeguro = parseSeguro(row.seguro);
@@ -764,6 +773,46 @@ export async function completePuertoLibreFase5SeguroAction(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(vehiculoId);
+  return { success: true };
+}
+
+/** Marca fase 6 (carpeta matriculación inicial) completa. */
+export async function completePuertoLibreFase6MatriculacionAction(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantes = PL_MATRICULACION_CARPETA_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error:
+        "Completa todos los recaudos de la carpeta a consignar antes de finalizar",
+    };
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({ ...existing, planillaFase: 7 });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
   return { success: true };
 }
 

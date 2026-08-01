@@ -23,6 +23,9 @@ export const DOCUMENTO_TIPOS = [
   "certificado_seguro",
   "recibo_seguro",
   "rcv_seguro",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -55,6 +58,9 @@ export const vehiculosDocumentosSchema = z.object({
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
   rcv_seguro: vehiculoDocumentoRefSchema.optional(),
+  experticia_verificacion_legal: vehiculoDocumentoRefSchema.optional(),
+  planilla_sumica_put: vehiculoDocumentoRefSchema.optional(),
+  pago_tasas: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -90,7 +96,10 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   poliza_seguro: "Póliza de seguro",
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
-  rcv_seguro: "RCV / responsabilidad civil",
+  rcv_seguro: "Póliza RCV / responsabilidad civil",
+  experticia_verificacion_legal: "Constancia de experticia de verificación legal",
+  planilla_sumica_put: "Planilla SUMICA de trámite (PUT)",
+  pago_tasas: "Pago de tasas",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -134,6 +143,9 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "documento_importacion",
   "manual_vehiculo",
   "nacionalizacion",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
   "titulo",
   "otro_importacion",
 ];
@@ -155,6 +167,36 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "recibo_seguro",
   "rcv_seguro",
 ];
+
+/**
+ * Carpeta a consignar (fase 6 Matriculación inicial).
+ * Incluye docs de fases previas + nuevos recaudos.
+ */
+export const PL_MATRICULACION_CARPETA_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "nacionalizacion",
+  "rcv_seguro",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+];
+
+/** Solo los que se cargan por primera vez en fase 6. */
+export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+];
+
+export const PL_MATRICULACION_ORIGEN: Partial<
+  Record<DocumentoTipo, string>
+> = {
+  factura_comercial: "Desde fase 1A Embarque",
+  certificado_origen: "Desde fase 1A Embarque",
+  nacionalizacion: "Desde fase 3 Aduana (DUA)",
+  rcv_seguro: "Desde fase 5 Seguro",
+};
 
 export const ESTADOS_NACIONALIZACION = [
   "pendiente",
@@ -212,9 +254,9 @@ export const importacionSchema = z.object({
   /**
    * 1 = datos (pendiente 1A embarque),
    * 2 = llegada, 3 = aduana / retiro, 4 = propietario, 5 = seguro,
-   * 6 = planilla completa.
+   * 6 = matriculación inicial, 7 = planilla completa.
    */
-  planillaFase: z.coerce.number().int().min(1).max(6).optional().nullable(),
+  planillaFase: z.coerce.number().int().min(1).max(7).optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
   /** Número secuencial del expediente dentro del mes. */

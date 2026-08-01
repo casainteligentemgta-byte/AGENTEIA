@@ -70,7 +70,10 @@ function mapDocuments(raw: unknown): NfcDocumentPublic[] {
     { key: "poliza_seguro", label: "Póliza de seguro" },
     { key: "certificado_seguro", label: "Certificado de cobertura" },
     { key: "recibo_seguro", label: "Recibo de seguro" },
-    { key: "rcv_seguro", label: "RCV" },
+    { key: "rcv_seguro", label: "Póliza RCV" },
+    { key: "experticia_verificacion_legal", label: "Experticia de verificación legal" },
+    { key: "planilla_sumica_put", label: "Planilla SUMICA (PUT)" },
+    { key: "pago_tasas", label: "Pago de tasas" },
   ];
 
   for (const { key, label } of entries) {

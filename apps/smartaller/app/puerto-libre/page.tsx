@@ -76,7 +76,7 @@ function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
 }
 
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase == null || v.planillaFase < 6;
+  return v.planillaFase == null || v.planillaFase < 7;
 }
 
 /**
@@ -105,7 +105,8 @@ function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = v.planillaFase;
-  if (f != null && f >= 5) return `/puerto-libre/${v.id}/planilla?fase=5`;
+  if (f != null && f >= 6) return `/puerto-libre/${v.id}/planilla?fase=6`;
+  if (f === 5) return `/puerto-libre/${v.id}/planilla?fase=5`;
   if (f === 4) return `/puerto-libre/${v.id}/planilla?fase=4`;
   if (f === 3) return `/puerto-libre/${v.id}/planilla?fase=3`;
   if (f === 2) return `/puerto-libre/${v.id}/planilla?fase=2`;
