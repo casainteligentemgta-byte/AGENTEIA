@@ -7,6 +7,11 @@ import { ensureTallerForUser } from "@/lib/taller";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import {
+  findDuplicateSerialCarroceria,
+  normalizarSerialCarroceria,
+  SERIAL_CARROCERIA_DUPLICADO,
+} from "@/lib/vehicles/serial";
+import {
   createVehiculoTallerSchema,
   updateVehiculoContactoSchema,
   updateVehiculoTallerSchema,
@@ -143,6 +148,28 @@ export async function createVehiculoTallerAction(
     };
   }
 
+  const serialCarroceria = data.serialCarroceria?.trim()
+    ? normalizarSerialCarroceria(data.serialCarroceria)
+    : null;
+  const serialMotor = data.serialMotor?.trim()
+    ? normalizarSerialCarroceria(data.serialMotor)
+    : null;
+
+  if (serialCarroceria) {
+    const existingSerial = await findDuplicateSerialCarroceria(
+      supabase,
+      taller.id,
+      serialCarroceria
+    );
+    if (existingSerial) {
+      return {
+        ok: false,
+        error: SERIAL_CARROCERIA_DUPLICADO,
+        fieldErrors: { serialCarroceria: [SERIAL_CARROCERIA_DUPLICADO] },
+      };
+    }
+  }
+
   const kmRecepcion = data.odometro;
   const payload = {
     taller_id: taller.id,
@@ -153,8 +180,8 @@ export async function createVehiculoTallerAction(
     color: data.color?.trim() || null,
     nombre_cliente: data.nombreCliente.trim(),
     telefono_cliente: data.telefonoCliente.trim(),
-    serial_motor: data.serialMotor?.trim() || null,
-    serial_carroceria: data.serialCarroceria?.trim() || null,
+    serial_motor: serialMotor,
+    serial_carroceria: serialCarroceria,
     cedula_propietario: data.cedulaPropietario?.trim() || null,
     email_propietario: data.emailPropietario?.trim() || null,
     fecha_nacimiento_propietario: data.fechaNacimientoPropietario?.trim() || null,
@@ -237,6 +264,13 @@ export async function createVehiculoTallerAction(
     .single();
 
   if (error || !created) {
+    if (error?.code === "23505" && error.message.includes("serial_carroceria")) {
+      return {
+        ok: false,
+        error: SERIAL_CARROCERIA_DUPLICADO,
+        fieldErrors: { serialCarroceria: [SERIAL_CARROCERIA_DUPLICADO] },
+      };
+    }
     return { ok: false, error: error?.message ?? "No se pudo registrar el vehículo" };
   }
 
@@ -371,6 +405,29 @@ export async function updateVehiculoTallerAction(
     };
   }
 
+  const serialCarroceria = data.serialCarroceria?.trim()
+    ? normalizarSerialCarroceria(data.serialCarroceria)
+    : null;
+  const serialMotor = data.serialMotor?.trim()
+    ? normalizarSerialCarroceria(data.serialMotor)
+    : null;
+
+  if (serialCarroceria) {
+    const existingSerial = await findDuplicateSerialCarroceria(
+      supabase,
+      taller.id,
+      serialCarroceria,
+      data.vehiculoId
+    );
+    if (existingSerial) {
+      return {
+        ok: false,
+        error: SERIAL_CARROCERIA_DUPLICADO,
+        fieldErrors: { serialCarroceria: [SERIAL_CARROCERIA_DUPLICADO] },
+      };
+    }
+  }
+
   const km = data.odometro;
   const payload = {
     tipo_vehiculo: data.tipo_vehiculo,
@@ -380,8 +437,8 @@ export async function updateVehiculoTallerAction(
     color: data.color?.trim() || null,
     nombre_cliente: data.nombreCliente.trim(),
     telefono_cliente: data.telefonoCliente.trim(),
-    serial_motor: data.serialMotor?.trim() || null,
-    serial_carroceria: data.serialCarroceria?.trim() || null,
+    serial_motor: serialMotor,
+    serial_carroceria: serialCarroceria,
     cedula_propietario: data.cedulaPropietario?.trim() || null,
     email_propietario: data.emailPropietario?.trim() || null,
     fecha_nacimiento_propietario: data.fechaNacimientoPropietario?.trim() || null,
@@ -397,7 +454,16 @@ export async function updateVehiculoTallerAction(
     .update(payload)
     .eq("id", data.vehiculoId);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (error.code === "23505" && error.message.includes("serial_carroceria")) {
+      return {
+        ok: false,
+        error: SERIAL_CARROCERIA_DUPLICADO,
+        fieldErrors: { serialCarroceria: [SERIAL_CARROCERIA_DUPLICADO] },
+      };
+    }
+    return { ok: false, error: error.message };
+  }
 
   if (data.tipo_vehiculo === "bicicleta" && vehiculo.user_id) {
     await ensureBikeForVehiculo(supabase, {

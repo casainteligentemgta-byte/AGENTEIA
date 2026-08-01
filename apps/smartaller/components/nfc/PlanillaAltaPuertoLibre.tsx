@@ -63,8 +63,14 @@ export function PlanillaAltaPuertoLibre() {
             min={1950}
             max={currentYear + 1}
           />
-          <Field label="Serial motor *" name="serialMotor" required mono />
-          <Field label="Serial carrocería *" name="serialCarroceria" required mono />
+          <Field label="Serial motor *" name="serialMotor" required mono upper />
+          <Field
+            label="Serial carrocería *"
+            name="serialCarroceria"
+            required
+            mono
+            upper
+          />
           <div className="min-w-0 sm:col-span-2">
             <PlanillaFechaField
               label="Fecha llegada del buque *"
@@ -119,6 +125,7 @@ function Field({
   required,
   placeholder,
   mono,
+  upper,
   wide,
   min,
   max,
@@ -130,6 +137,8 @@ function Field({
   required?: boolean;
   placeholder?: string;
   mono?: boolean;
+  /** Fuerza mayúsculas en el valor enviado (seriales). */
+  upper?: boolean;
   wide?: boolean;
   min?: number;
   max?: number;
@@ -145,6 +154,15 @@ function Field({
         placeholder={placeholder}
         min={min}
         max={max}
+        onInput={
+          upper
+            ? (e) => {
+                const el = e.currentTarget;
+                const next = el.value.toUpperCase();
+                if (el.value !== next) el.value = next;
+              }
+            : undefined
+        }
         className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
           mono ? "font-mono uppercase" : ""
         }`}
