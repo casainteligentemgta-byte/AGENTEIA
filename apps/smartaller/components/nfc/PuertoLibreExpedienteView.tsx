@@ -132,7 +132,6 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
           />
           <Dato label="Teléfono" value={imp.importadorTelefono ?? ficha.telefono_cliente} />
           <Dato label="Email" value={imp.importadorEmail ?? ficha.email_propietario} />
-          <Dato label="Dirección" value={imp.compradorDireccion} wide />
         </dl>
       </section>
 
