@@ -35,6 +35,11 @@ import {
   partsFromDate,
   resolveCodigoExpediente,
 } from "@/lib/puerto-libre/expediente";
+import {
+  findDuplicateSerialCarroceria,
+  normalizarSerialCarroceria,
+  SERIAL_CARROCERIA_DUPLICADO,
+} from "@/lib/vehicles/serial";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type PuertoLibreActionResult =
@@ -243,19 +248,16 @@ export async function createPuertoLibreVehiculoAction(
 
   const data = parsed.data;
   const admin = createAdminClient();
+  const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
+  const serialMotor = normalizarSerialCarroceria(data.serialMotor);
 
-  const { data: existingSerial } = await admin
-    .from("vehiculos")
-    .select("id")
-    .eq("serial_carroceria", data.serialCarroceria.trim())
-    .eq("taller_id", auth.taller.id)
-    .maybeSingle();
-
+  const existingSerial = await findDuplicateSerialCarroceria(
+    admin,
+    auth.taller.id,
+    serialCarroceria
+  );
   if (existingSerial) {
-    return {
-      success: false,
-      error: "Ya existe un vehículo con ese serial de carrocería en tu taller.",
-    };
+    return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
   }
 
   const { year, month } = partsFromDate();
@@ -287,8 +289,8 @@ export async function createPuertoLibreVehiculoAction(
       marca: data.marca,
       modelo: data.modelo,
       color: data.color,
-      serial_motor: data.serialMotor,
-      serial_carroceria: data.serialCarroceria,
+      serial_motor: serialMotor,
+      serial_carroceria: serialCarroceria,
       nombre_cliente: null,
       telefono_cliente: null,
       cedula_propietario: null,
@@ -304,6 +306,9 @@ export async function createPuertoLibreVehiculoAction(
     .single();
 
   if (error || !created) {
+    if (error?.code === "23505" && error.message.includes("serial_carroceria")) {
+      return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
     return { success: false, error: error?.message ?? "No se pudo registrar el vehículo" };
   }
 
@@ -395,6 +400,25 @@ export async function updatePuertoLibreVehiculoAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const admin = createAdminClient();
+  const serialCarroceria = parsed.data.serialCarroceria?.trim()
+    ? normalizarSerialCarroceria(parsed.data.serialCarroceria)
+    : null;
+  const serialMotor = parsed.data.serialMotor?.trim()
+    ? normalizarSerialCarroceria(parsed.data.serialMotor)
+    : null;
+
+  if (serialCarroceria) {
+    const existingSerial = await findDuplicateSerialCarroceria(
+      admin,
+      auth.taller.id,
+      serialCarroceria,
+      parsed.data.vehiculoId
+    );
+    if (existingSerial) {
+      return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
+  }
+
   const { error } = await admin
     .from("vehiculos")
     .update({
@@ -402,15 +426,20 @@ export async function updatePuertoLibreVehiculoAction(
       marca: parsed.data.marca?.trim() || null,
       modelo: parsed.data.modelo?.trim() || null,
       color: parsed.data.color?.trim() || null,
-      serial_motor: parsed.data.serialMotor?.trim() || null,
-      serial_carroceria: parsed.data.serialCarroceria?.trim() || null,
+      serial_motor: serialMotor,
+      serial_carroceria: serialCarroceria,
       kilometraje_ultimo: parsed.data.kilometrajeUltimo ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (error.code === "23505" && error.message.includes("serial_carroceria")) {
+      return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
+    return { success: false, error: error.message };
+  }
   revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
