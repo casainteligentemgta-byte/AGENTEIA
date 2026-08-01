@@ -73,6 +73,10 @@ export function PlanillaAltaPuertoLibre() {
               onChange={setFechaLlegadaBuque}
               required
             />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Llegada del buque al puerto. El ingreso al régimen PL se registra
+              después, en la fase Llegada.
+            </p>
           </div>
         </div>
       </section>

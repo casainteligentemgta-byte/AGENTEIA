@@ -205,9 +205,8 @@ export function PlanillaRegistroImportacion({
           docs={docs}
           setDocs={setDocs}
           fotosCount={fotosCount}
-          fechaDefault={
-            initialImportacion.fechaIngreso ?? new Date().toISOString().slice(0, 10)
-          }
+          fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
+          fechaLlegadaBuque={initialImportacion.fechaLlegadaBuque?.trim() ?? null}
           checklist={checklist}
           setChecklist={setChecklist}
           checklistNotas={checklistNotas}
@@ -314,12 +313,25 @@ function FaseChip({
   );
 }
 
+function formatFechaReferencia(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 function Fase2Llegada({
   vehiculoId,
   docs,
   setDocs,
   fotosCount,
-  fechaDefault,
+  fechaIngresoInicial,
+  fechaLlegadaBuque,
   checklist,
   setChecklist,
   checklistNotas,
@@ -335,7 +347,9 @@ function Fase2Llegada({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   fotosCount: number;
-  fechaDefault: string;
+  /** Solo la fecha de ingreso ya guardada; nunca se rellena con la del buque. */
+  fechaIngresoInicial: string;
+  fechaLlegadaBuque: string | null;
   checklist: LlegadaChecklistState;
   setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
   checklistNotas: LlegadaChecklistNotasState;
@@ -347,7 +361,7 @@ function Fase2Llegada({
   onSave: (fechaIngreso: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const [fecha, setFecha] = useState(fechaDefault);
+  const [fecha, setFecha] = useState(fechaIngresoInicial);
 
   return (
     <div className="space-y-6">
@@ -355,6 +369,14 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Fecha de ingreso al PL
         </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Día en que el vehículo hace aduana o entra al régimen de Puerto Libre.
+          Es distinta de la fecha de llegada del buque
+          {fechaLlegadaBuque
+            ? ` (${formatFechaReferencia(fechaLlegadaBuque)})`
+            : ""}
+          .
+        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
             label=""
