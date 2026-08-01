@@ -29,7 +29,6 @@ export function PlanillaAltaPuertoLibre() {
             anio: anioRaw ? Number(anioRaw) : undefined,
             serialMotor: String(fd.get("serialMotor") ?? ""),
             serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
-            placa: String(fd.get("placa") ?? ""),
             fechaLlegadaBuque:
               fechaLlegadaBuque || String(fd.get("fechaLlegadaBuque") ?? ""),
             importadorNombre: String(fd.get("importadorNombre") ?? ""),
@@ -77,16 +76,9 @@ export function PlanillaAltaPuertoLibre() {
             mono
             upper
           />
-          <Field
-            label="Placa"
-            name="placa"
-            placeholder="Placa del vehículo (opcional)"
-            mono
-            upper
-          />
           <p className="text-xs text-slate-500 sm:col-span-2">
-            La placa es la del vehículo. El número de expediente (PL-Año.Mes.N) se
-            genera aparte al registrar.
+            La placa se carga después, cuando la obtengas (en Editar expediente).
+            Al registrar solo se genera el número de expediente.
           </p>
           <div className="min-w-0 sm:col-span-2">
             <PlanillaFechaField

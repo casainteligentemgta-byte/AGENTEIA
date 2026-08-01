@@ -267,15 +267,8 @@ export async function createPuertoLibreVehiculoAction(
   const { year, month } = partsFromDate();
   const numero = await nextNumeroExpedienteMes(admin, auth.taller.id, year, month);
   const codigoExpediente = formatCodigoExpediente(year, month, numero);
-  // Placa ≠ expediente. Si no hay placa real, placeholder único en BD.
-  const placaIngresada = data.placa?.trim().toUpperCase().replace(/\s+/g, "") ?? "";
-  if (placaIngresada && parseCodigoExpediente(placaIngresada)) {
-    return {
-      success: false,
-      error: "La placa no puede ser el número de expediente (PL-Año.Mes.N).",
-    };
-  }
-  const placa = placaIngresada || placaPendienteDesdeCodigo(codigoExpediente);
+  // Al registrar aún no hay placa; se carga después en Editar.
+  const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
