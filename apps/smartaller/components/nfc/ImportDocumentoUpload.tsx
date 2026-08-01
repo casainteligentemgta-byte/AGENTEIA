@@ -10,6 +10,8 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
+type AcceptMode = "pdf" | "both";
+
 type Props = {
   vehiculoId: string;
   tipo: DocumentoTipo;
@@ -19,17 +21,24 @@ type Props = {
   hint?: string;
   /** Etiqueta del botón cuando no hay archivo. */
   actionLabel?: string;
+  /** pdf = solo PDF (manual); both = foto/escaneo o PDF. */
+  acceptMode?: AcceptMode;
   /** Tema visual: dark (ficha/planilla digital) o light (hoja imprimible). */
   tone?: "dark" | "light";
 };
+
+const ACCEPT_BOTH =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
+const ACCEPT_PDF = "application/pdf,.pdf";
 
 export function ImportDocumentoUpload({
   vehiculoId,
   tipo,
   existingUrl,
   onUploaded,
-  hint = "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB",
-  actionLabel = "Escanear / PDF",
+  hint,
+  actionLabel,
+  acceptMode = "both",
   tone = "dark",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,10 +47,24 @@ export function ImportDocumentoUpload({
   const [done, setDone] = useState(Boolean(existingUrl));
   const [url, setUrl] = useState<string | null>(existingUrl ?? null);
   const light = tone === "light";
+  const pdfOnly = acceptMode === "pdf";
+
+  const resolvedHint =
+    hint ??
+    (pdfOnly
+      ? "Solo PDF · máx. 10 MB"
+      : "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB");
+  const resolvedLabel =
+    actionLabel ?? (pdfOnly ? "Subir PDF" : "Escanear / PDF");
 
   function handleFile(file: File | null) {
     if (!file) return;
     setError(null);
+
+    if (pdfOnly && file.type !== "application/pdf") {
+      setError("El manual del vehículo debe ser un archivo PDF.");
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -93,9 +116,9 @@ export function ImportDocumentoUpload({
             >
               {url ? "Ver archivo cargado" : "Archivo guardado en el perfil del vehículo"}
             </a>
-          ) : hint.trim() ? (
+          ) : resolvedHint.trim() ? (
             <p className={`mt-0.5 text-xs ${light ? "text-zinc-500" : "text-slate-500"}`}>
-              {hint}
+              {resolvedHint}
             </p>
           ) : null}
         </div>
@@ -113,18 +136,18 @@ export function ImportDocumentoUpload({
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : done ? (
             <CheckCircle2 className={`h-4 w-4 ${light ? "text-white" : "text-emerald-400"}`} />
-          ) : light ? (
+          ) : pdfOnly || light ? (
             <FileUp className="h-4 w-4" />
           ) : (
             <Camera className="h-4 w-4" />
           )}
-          {pending ? "Subiendo…" : done ? "Cambiar archivo" : actionLabel}
+          {pending ? "Subiendo…" : done ? "Cambiar archivo" : resolvedLabel}
         </button>
       </div>
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf"
+        accept={pdfOnly ? ACCEPT_PDF : ACCEPT_BOTH}
         className="hidden"
         onChange={(e) => {
           handleFile(e.target.files?.[0] ?? null);

@@ -511,7 +511,7 @@ function Fase3Documentos({
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Sube o escanea el manual, BL / guía de embarque, factura y documento de importación.
+          El manual va en PDF. BL, factura y documento de importación: foto o PDF.
         </p>
         <div className="mt-4 grid gap-3">
           {PL_REGISTRO_DOCUMENTO_TIPOS.map((tipo) => (
@@ -520,7 +520,13 @@ function Fase3Documentos({
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
-              hint=""
+              acceptMode={tipo === "manual_vehiculo" ? "pdf" : "both"}
+              actionLabel={tipo === "manual_vehiculo" ? "Subir PDF" : undefined}
+              hint={
+                tipo === "manual_vehiculo"
+                  ? "Solo PDF · máx. 10 MB"
+                  : "Foto o PDF · máx. 10 MB"
+              }
               onUploaded={(next) => {
                 setDocs(next);
                 onUploadedMessage("Documento guardado");
