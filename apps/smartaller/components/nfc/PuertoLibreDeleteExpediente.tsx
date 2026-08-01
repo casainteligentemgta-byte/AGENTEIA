@@ -82,7 +82,7 @@ export function PuertoLibreDeleteExpediente({
           </div>
         )}
         {error ? (
-          <p className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-red-900/50 bg-red-950 px-2 py-1 text-[10px] text-red-200">
+          <p className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-red-900/50 bg-red-950 px-2 py-1.5 text-[10px] leading-snug text-red-200 shadow-lg">
             {error}
           </p>
         ) : null}

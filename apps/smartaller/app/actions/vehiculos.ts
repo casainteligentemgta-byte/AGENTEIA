@@ -11,6 +11,7 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
+import { deleteVehiculoConDependencias } from "@/lib/vehicles/delete-cascade";
 import {
   createVehiculoTallerSchema,
   updateVehiculoContactoSchema,
@@ -506,12 +507,19 @@ export async function deleteVehiculoTallerAction(
     return { ok: false, error: "Vehículo no encontrado" };
   }
 
-  const { error } = await supabase
-    .from("vehiculos")
-    .delete()
-    .eq("id", parsed.data.vehiculoId);
-
-  if (error) return { ok: false, error: error.message };
+  const deleted = await deleteVehiculoConDependencias(supabase, {
+    vehiculoId: parsed.data.vehiculoId,
+    tallerId: taller.id,
+  });
+  if (!deleted.ok) {
+    return {
+      ok: false,
+      error:
+        deleted.error.includes("foreign key") || deleted.error.includes("violates")
+          ? "No se pudo eliminar: hay registros vinculados. Intenta de nuevo."
+          : deleted.error,
+    };
+  }
 
   revalidatePath("/dashboard/vehiculos");
   return { ok: true };
