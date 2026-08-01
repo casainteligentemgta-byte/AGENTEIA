@@ -176,6 +176,7 @@ export const ESTADO_SENIAT_LABELS: Record<EstadoSeniat, string> = {
 export const importacionSchema = z.object({
   regimen: z.string().trim().max(80).optional().nullable(),
   aduana: z.string().trim().max(120).optional().nullable(),
+  /** Fecha de ingreso al régimen PL / aduana (distinta de la llegada del buque). */
   fechaIngreso: z.string().trim().max(32).optional().nullable(),
   /** Fecha estimada/real de llegada del buque al puerto. */
   fechaLlegadaBuque: z.string().trim().max(32).optional().nullable(),
