@@ -569,10 +569,6 @@ function Fase1aEmbarque({
             {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Recaudos que viajan con la carga o se reciben antes de la llegada física.
-          Foto o PDF · máx. 10 MB.
-        </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
