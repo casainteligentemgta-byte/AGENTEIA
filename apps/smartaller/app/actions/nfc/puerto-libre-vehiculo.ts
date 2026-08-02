@@ -750,14 +750,6 @@ export async function completePuertoLibreFase5SeguroAction(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
-  const docs = parseVehiculosDocumentos(row.documentos);
-  if (!docs.rcv_seguro?.url) {
-    return {
-      success: false,
-      error: "Carga la póliza RCV (responsabilidad civil) antes de continuar",
-    };
-  }
-
   const { vehiculoId, ...seguro } = parsed.data;
   const existingSeguro = parseSeguro(row.seguro);
   const mergedSeguro = serializeSeguro({ ...existingSeguro, ...seguro });

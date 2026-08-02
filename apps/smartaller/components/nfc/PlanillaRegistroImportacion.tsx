@@ -189,7 +189,9 @@ export function PlanillaRegistroImportacion({
   const aduanaCompleta = aduanaCount === PL_ADUANA_DOCUMENTO_TIPOS.length;
   const propietarioCompleto = Boolean(compradorNombre?.trim());
   const seguroCompleto = Boolean(
-    initialSeguro.aseguradora?.trim() && docs.rcv_seguro?.url
+    initialSeguro.aseguradora?.trim() ||
+      (initialImportacion.planillaFase != null &&
+        initialImportacion.planillaFase >= 6)
   );
   const matriculacionCount = countDocs(docs, PL_MATRICULACION_CARPETA_TIPOS);
   const placaVisible = placaRealVisible(
@@ -427,7 +429,6 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           initialSeguro={initialSeguro}
           pending={pending}
-          canComplete={Boolean(docs.rcv_seguro?.url)}
           onComplete={(payload) => {
             setError(null);
             setMessage(null);
@@ -442,7 +443,7 @@ export function PlanillaRegistroImportacion({
               }
               setMessage("Seguro guardado");
               setFase(6);
-              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=6`);
+              router.push(`/puerto-libre/${vehiculoId}/planilla?fase=6`);
               router.refresh();
             });
           }}
@@ -934,7 +935,6 @@ function Fase5Seguro({
   setDocs,
   initialSeguro,
   pending,
-  canComplete,
   onComplete,
   onUploadedMessage,
 }: {
@@ -943,7 +943,6 @@ function Fase5Seguro({
   setDocs: (d: VehiculosDocumentos) => void;
   initialSeguro: SeguroData;
   pending: boolean;
-  canComplete: boolean;
   onComplete: (payload: {
     aseguradora: string;
     numeroPoliza: string | null;
@@ -1054,9 +1053,6 @@ function Fase5Seguro({
 
           <div className="sm:col-span-2">
             <h3 className="text-sm font-medium text-slate-300">Documentos del seguro</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              La póliza RCV es obligatoria para avanzar.
-            </p>
             <div className="mt-3 grid gap-3">
               {SEGURO_DOCUMENTO_TIPOS.map((tipo) => (
                 <ImportDocumentoUpload
@@ -1064,7 +1060,7 @@ function Fase5Seguro({
                   vehiculoId={vehiculoId}
                   tipo={tipo}
                   existingUrl={docs[tipo]?.url}
-                  hint={tipo === "rcv_seguro" ? "Obligatorio · foto o PDF" : ""}
+                  hint="Foto o PDF · máx. 10 MB"
                   onUploaded={(next) => {
                     setDocs(next);
                     onUploadedMessage("Documento de seguro guardado");
@@ -1077,7 +1073,7 @@ function Fase5Seguro({
           <div className="sm:col-span-2">
             <button
               type="submit"
-              disabled={pending || !canComplete}
+              disabled={pending}
               className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
             >
               {pending ? "Guardando…" : "Guardar y abrir Matriculación"}
