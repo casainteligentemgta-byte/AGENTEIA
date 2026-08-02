@@ -112,15 +112,16 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+        <div className="flex shrink-0 items-center gap-2">
           <Link
             href={`/puerto-libre/${ficha.id}?edit=1`}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+            aria-label="Editar expediente"
+            title="Editar"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-600 text-white transition hover:bg-cyan-500"
           >
-            <Pencil className="h-4 w-4" />
-            Editar
+            <Pencil className="h-5 w-5" />
           </Link>
-          <PuertoLibreDescargarPdf vehiculoId={ficha.id} />
+          <PuertoLibreDescargarPdf vehiculoId={ficha.id} variant="icon" />
         </div>
       </header>
 
