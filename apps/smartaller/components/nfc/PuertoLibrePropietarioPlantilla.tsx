@@ -25,7 +25,7 @@ type Props = {
   initialDocumentos: VehiculosDocumentos;
 };
 
-/** Plantilla comprador + seguro (fuera de la planilla fase 3). */
+/** Plantilla comprador + seguro (edición fuera de la planilla; fases 4 y 5). */
 export function PuertoLibrePropietarioPlantilla({
   vehiculoId,
   compradorNombre,

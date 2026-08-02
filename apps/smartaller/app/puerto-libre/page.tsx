@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { ArrowLeft, Building2, Car, ChevronRight, Flag, Plus, Ship } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  Car,
+  ChevronRight,
+  FileText,
+  Flag,
+  Plus,
+  Ship,
+} from "lucide-react";
 import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
@@ -67,12 +76,22 @@ function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
 }
 
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase == null || v.planillaFase < 4;
+  return v.planillaFase == null || v.planillaFase < 7;
 }
 
-/** Registrado, aún sin recepción física en puerto (fase llegada). */
+/**
+ * Docs de embarque listos (o legado sin fase 1A) y aún sin recepción física.
+ * Fase 1 = pendiente 1A Embarque (no aparece aquí).
+ */
 function esPorRecibirEnPuerto(v: PuertoLibreVehiculoListItem): boolean {
-  return (v.planillaFase == null || v.planillaFase === 2) && !v.fechaIngreso;
+  if (v.fechaIngreso) return false;
+  const f = v.planillaFase;
+  return f == null || f === 2;
+}
+
+/** Registrado, aún sin documentos de embarque (fase 1A). */
+function esPorCargarEmbarque(v: PuertoLibreVehiculoListItem): boolean {
+  return v.planillaFase === 1 && !v.fechaIngreso;
 }
 
 function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
@@ -85,10 +104,13 @@ function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
 }
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
-  if (v.planillaFase != null && v.planillaFase >= 3) {
-    return `/puerto-libre/${v.id}/planilla?fase=3`;
-  }
-  return `/puerto-libre/${v.id}/planilla?fase=2`;
+  const f = v.planillaFase;
+  if (f != null && f >= 6) return `/puerto-libre/${v.id}/planilla?fase=6`;
+  if (f === 5) return `/puerto-libre/${v.id}/planilla?fase=5`;
+  if (f === 4) return `/puerto-libre/${v.id}/planilla?fase=4`;
+  if (f === 3) return `/puerto-libre/${v.id}/planilla?fase=3`;
+  if (f === 2) return `/puerto-libre/${v.id}/planilla?fase=2`;
+  return `/puerto-libre/${v.id}/planilla?fase=1a`;
 }
 
 function etiquetaDias(dias: number | null, sinFecha: string) {
@@ -135,6 +157,7 @@ export default async function PuertoLibrePage() {
 
   const list = await listPuertoLibreVehiculos();
   const vehiculos = list.success ? list.vehiculos : [];
+  const porEmbarque = sortPorLlegadaBuque(vehiculos.filter(esPorCargarEmbarque));
   const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
   const pendientes = vehiculos.filter(esPendienteCompletar);
   const porNacionalizar = sortByFechaAsc(
@@ -187,6 +210,58 @@ export default async function PuertoLibrePage() {
         </div>
       ) : (
         <div className="space-y-7">
+          {porEmbarque.length > 0 ? (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                  <FileText className="h-4 w-4 text-cyan-400" />
+                  Por cargar docs de embarque
+                </h2>
+                <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+                  {porEmbarque.length}
+                </span>
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
+                      <th className="px-3 py-3 font-medium">Vehículo</th>
+                      <th className="px-3 py-3 font-medium">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {porEmbarque.map((v) => {
+                      const href = `/puerto-libre/${v.id}/planilla?fase=1a`;
+                      return (
+                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
+                              {labelExpediente(v)}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-zinc-300">
+                            <p className="text-xs leading-snug sm:text-sm">
+                              {labelVehiculo(v)}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Link
+                              href={href}
+                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                            >
+                              Cargar docs
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
@@ -332,7 +407,7 @@ export default async function PuertoLibrePage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porNacionalizar.map((v) => {
-                      const href = `/puerto-libre/${v.id}`;
+                      const href = `/puerto-libre/${v.id}/nacionalizar`;
                       const urgente =
                         v.diasNacionalizacion != null && v.diasNacionalizacion <= 7;
                       return (
@@ -356,13 +431,16 @@ export default async function PuertoLibrePage() {
                               {formatFechaDia(v.fechaLimiteNacionalizacion)}
                             </p>
                             <p className="mt-0.5 text-[11px] text-zinc-500">
-                              {etiquetaDias(v.diasNacionalizacion, "Sin fecha límite")}
+                              {etiquetaDias(
+                                v.diasNacionalizacion,
+                                "Límite 3 años (permanencia)"
+                              )}
                             </p>
                             <Link
-                              href={`${href}?edit=1`}
+                              href={href}
                               className="mt-1.5 inline-flex rounded-lg border border-amber-700/40 bg-amber-950/30 px-2.5 py-1 text-xs font-medium text-amber-200 transition hover:border-amber-500/50"
                             >
-                              Gestionar
+                              Nacionalizar
                             </Link>
                           </td>
                         </tr>

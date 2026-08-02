@@ -23,6 +23,15 @@ export const DOCUMENTO_TIPOS = [
   "certificado_seguro",
   "recibo_seguro",
   "rcv_seguro",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "constancia_residencia_permanencia",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -55,6 +64,15 @@ export const vehiculosDocumentosSchema = z.object({
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
   rcv_seguro: vehiculoDocumentoRefSchema.optional(),
+  experticia_verificacion_legal: vehiculoDocumentoRefSchema.optional(),
+  planilla_sumica_put: vehiculoDocumentoRefSchema.optional(),
+  pago_tasas: vehiculoDocumentoRefSchema.optional(),
+  declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
+  liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
+  constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
+  solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
+  titulo_libre_circulacion: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -79,18 +97,27 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   cedula: "Cédula del comprador",
   titulo: "Título de propiedad",
-  factura_comercial: "Factura",
-  bl_guia: "BL / Guía de embarque",
+  factura_comercial: "Factura comercial / contrato",
+  bl_guia: "BL / conocimiento de embarque",
   certificado_origen: "Certificado de origen",
   permiso_importacion: "Permiso de importación",
-  nacionalizacion: "Nacionalización / aduana",
+  nacionalizacion: "Liquidación aduanera (CVA / DUA)",
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
   poliza_seguro: "Póliza de seguro",
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
-  rcv_seguro: "RCV / responsabilidad civil",
+  rcv_seguro: "Póliza RCV / responsabilidad civil",
+  experticia_verificacion_legal: "Constancia de experticia de verificación legal",
+  planilla_sumica_put: "Planilla SUMICA de trámite (PUT)",
+  pago_tasas: "Pago de tasas",
+  declaracion_complementaria: "Declaración complementaria SENIAT",
+  liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
+  resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
+  constancia_residencia_permanencia: "Constancia de residencia / permanencia",
+  solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
+  titulo_libre_circulacion: "Título de libre circulación nacional",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -104,12 +131,26 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   foto_comprador: "Foto del comprador",
 };
 
-/** Documentos de importación (fase 3). */
-export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
-  "manual_vehiculo",
-  "bl_guia",
+/**
+ * Documentos de embarque (fase 1A): se obtienen antes de la llegada física.
+ * Factura, certificado de origen y BL.
+ */
+export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
-  "documento_importacion",
+  "certificado_origen",
+  "bl_guia",
+];
+
+/**
+ * Recaudos de aduana / retiro (fase 3): tras ingreso a PL.
+ * Liquidación CVA/DUA emitida por SENIAT.
+ */
+export const PL_ADUANA_DOCUMENTO_TIPOS: DocumentoTipo[] = ["nacionalizacion"];
+
+/** @deprecated Preferir PL_EMBARQUE_DOCUMENTO_TIPOS + PL_ADUANA_DOCUMENTO_TIPOS. */
+export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  ...PL_EMBARQUE_DOCUMENTO_TIPOS,
+  ...PL_ADUANA_DOCUMENTO_TIPOS,
 ];
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -120,6 +161,15 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "documento_importacion",
   "manual_vehiculo",
   "nacionalizacion",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "constancia_residencia_permanencia",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
   "titulo",
   "otro_importacion",
 ];
@@ -139,6 +189,74 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "poliza_seguro",
   "certificado_seguro",
   "recibo_seguro",
+  "rcv_seguro",
+];
+
+/**
+ * Carpeta a consignar (fase 6 Matriculación inicial).
+ * Incluye docs de fases previas + nuevos recaudos.
+ */
+export const PL_MATRICULACION_CARPETA_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "nacionalizacion",
+  "rcv_seguro",
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+];
+
+/** Solo los que se cargan por primera vez en fase 6. */
+export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
+  "experticia_verificacion_legal",
+  "planilla_sumica_put",
+  "pago_tasas",
+];
+
+export const PL_MATRICULACION_ORIGEN: Partial<
+  Record<DocumentoTipo, string>
+> = {
+  factura_comercial: "Desde fase 1A Embarque",
+  certificado_origen: "Desde fase 1A Embarque",
+  nacionalizacion: "Desde fase 3 Aduana (DUA)",
+  rcv_seguro: "Desde fase 5 Seguro",
+};
+
+/** Vías de nacionalización desde Puerto Libre. */
+export const VIAS_NACIONALIZACION = ["cambio_regimen", "permanencia"] as const;
+export type ViaNacionalizacion = (typeof VIAS_NACIONALIZACION)[number];
+
+export const VIA_NACIONALIZACION_LABELS: Record<ViaNacionalizacion, string> = {
+  cambio_regimen: "Cambio de régimen (< 3 años)",
+  permanencia: "Liberación por permanencia (≥ 3 años)",
+};
+
+/**
+ * Docs a cargar en nacionalización por cambio de régimen (M2).
+ * Reutiliza factura/origen/DUA del expediente; aquí van los nuevos.
+ */
+export const PL_NACIONALIZACION_M2_TIPOS: DocumentoTipo[] = [
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
+];
+
+/** Docs a cargar en liberación por permanencia (M3). */
+export const PL_NACIONALIZACION_M3_TIPOS: DocumentoTipo[] = [
+  "constancia_residencia_permanencia",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
+];
+
+/** Docs del expediente PL que se muestran como base (solo lectura / reutilizar). */
+export const PL_NACIONALIZACION_BASE_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "nacionalizacion",
   "rcv_seguro",
 ];
 
@@ -187,6 +305,13 @@ export const importacionSchema = z.object({
   observaciones: z.string().trim().max(1000).optional().nullable(),
   estadoNacionalizacion: z.enum(ESTADOS_NACIONALIZACION).optional().nullable(),
   fechaLimiteNacionalizacion: z.string().trim().max(32).optional().nullable(),
+  /** Via elegida: cambio_regimen (M2) o permanencia (M3). */
+  viaNacionalizacion: z.enum(VIAS_NACIONALIZACION).optional().nullable(),
+  /**
+   * Paso del wizard de nacionalización:
+   * 1 = elegir vía, 2 = docs, 3 = liquidación/resolución, 4 = INTT / cierre.
+   */
+  nacionalizacionPaso: z.coerce.number().int().min(1).max(4).optional().nullable(),
   estadoSeniat: z.enum(ESTADOS_SENIAT).optional().nullable(),
   fechaPresentacionSeniat: z.string().trim().max(32).optional().nullable(),
   /** Año del vehículo (modelo). */
@@ -195,8 +320,12 @@ export const importacionSchema = z.object({
   importadorDocumento: z.string().trim().max(40).optional().nullable(),
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
   importadorEmail: z.string().trim().max(120).optional().nullable(),
-  /** 2 = llegada, 3 = docs/comprador/seguro, 4 = planilla completa. */
-  planillaFase: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  /**
+   * 1 = datos (pendiente 1A embarque),
+   * 2 = llegada, 3 = aduana / retiro, 4 = propietario, 5 = seguro,
+   * 6 = matriculación inicial, 7 = planilla completa.
+   */
+  planillaFase: z.coerce.number().int().min(1).max(7).optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
   /** Número secuencial del expediente dentro del mes. */
@@ -255,6 +384,13 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     fechaLimiteNacionalizacion:
       row.fechaLimiteNacionalizacion ?? row.fecha_limite_nacionalizacion,
+    viaNacionalizacion: asOptionalEnum(
+      row.viaNacionalizacion ?? row.via_nacionalizacion,
+      VIAS_NACIONALIZACION
+    ),
+    nacionalizacionPaso: asOptionalAnio(
+      row.nacionalizacionPaso ?? row.nacionalizacion_paso
+    ),
     estadoSeniat: asOptionalEnum(
       row.estadoSeniat ?? row.estado_seniat,
       ESTADOS_SENIAT
@@ -302,6 +438,11 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     observaciones: data.observaciones?.trim() || null,
     estado_nacionalizacion: data.estadoNacionalizacion || null,
     fecha_limite_nacionalizacion: data.fechaLimiteNacionalizacion?.trim() || null,
+    via_nacionalizacion: data.viaNacionalizacion || null,
+    nacionalizacion_paso:
+      data.nacionalizacionPaso != null && !Number.isNaN(data.nacionalizacionPaso)
+        ? data.nacionalizacionPaso
+        : null,
     estado_seniat: data.estadoSeniat || null,
     fecha_presentacion_seniat: data.fechaPresentacionSeniat?.trim() || null,
     anio: data.anio != null && !Number.isNaN(data.anio) ? data.anio : null,
@@ -336,9 +477,14 @@ export function diasHasta(fecha: string | null | undefined): number | null {
   return Math.round((target - today) / 86_400_000);
 }
 
+/**
+ * Listo para (o en) nacionalización: planilla PL completa y aún no nacionalizado.
+ */
 export function esProximoNacionalizar(data: ImportacionData): boolean {
   const estado = data.estadoNacionalizacion ?? "pendiente";
-  return estado === "pendiente" || estado === "en_proceso";
+  if (estado !== "pendiente" && estado !== "en_proceso") return false;
+  const fase = data.planillaFase ?? 0;
+  return fase >= 7;
 }
 
 export function esProximoSeniat(data: ImportacionData): boolean {

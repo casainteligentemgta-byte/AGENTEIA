@@ -14,8 +14,6 @@ export const puertoLibreAltaSchema = z.object({
     .max(currentYear + 1, "Año inválido"),
   serialMotor: z.string().trim().min(1, "Ingresa el serial del motor").max(80),
   serialCarroceria: z.string().trim().min(1, "Ingresa el serial de carrocería").max(80),
-  /** Placa real del vehículo (opcional; distinta del número de expediente). */
-  placa: z.string().trim().max(20).optional().or(z.literal("")),
   /** Fecha de llegada del buque al puerto (YYYY-MM-DD). */
   fechaLlegadaBuque: z
     .string()

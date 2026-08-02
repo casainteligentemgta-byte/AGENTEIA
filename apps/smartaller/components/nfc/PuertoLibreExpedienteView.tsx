@@ -8,7 +8,11 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_REGISTRO_DOCUMENTO_TIPOS,
+  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_MATRICULACION_NUEVOS_TIPOS,
+  PL_NACIONALIZACION_M2_TIPOS,
+  PL_NACIONALIZACION_M3_TIPOS,
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type EstadoNacionalizacion,
@@ -76,10 +80,17 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
     [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Expediente Puerto Libre";
 
   const docTipos: DocumentoTipo[] = [
-    ...PL_REGISTRO_DOCUMENTO_TIPOS,
+    ...PL_EMBARQUE_DOCUMENTO_TIPOS,
+    ...PL_ADUANA_DOCUMENTO_TIPOS,
+    "manual_vehiculo",
     "cedula",
     "titulo",
     ...SEGURO_DOCUMENTO_TIPOS,
+    ...PL_MATRICULACION_NUEVOS_TIPOS,
+    ...PL_NACIONALIZACION_M2_TIPOS,
+    ...PL_NACIONALIZACION_M3_TIPOS.filter(
+      (t) => !PL_NACIONALIZACION_M2_TIPOS.includes(t)
+    ),
   ];
   const docsCargados = docTipos.filter((t) => Boolean(ficha.documentos[t]?.url));
   const fotosCargadas = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) =>
@@ -265,18 +276,37 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
 
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
-      {(imp.planillaFase == null || imp.planillaFase < 4) && (
+      {(imp.planillaFase == null || imp.planillaFase < 7) && (
         <Link
           href={
-            imp.planillaFase != null && imp.planillaFase >= 3
-              ? `/puerto-libre/${ficha.id}/planilla?fase=3`
-              : `/puerto-libre/${ficha.id}/planilla?fase=2`
+            imp.planillaFase != null && imp.planillaFase >= 6
+              ? `/puerto-libre/${ficha.id}/planilla?fase=6`
+              : imp.planillaFase === 5
+                ? `/puerto-libre/${ficha.id}/planilla?fase=5`
+                : imp.planillaFase === 4
+                  ? `/puerto-libre/${ficha.id}/planilla?fase=4`
+                  : imp.planillaFase === 3
+                    ? `/puerto-libre/${ficha.id}/planilla?fase=3`
+                    : imp.planillaFase === 2
+                      ? `/puerto-libre/${ficha.id}/planilla?fase=2`
+                      : `/puerto-libre/${ficha.id}/planilla?fase=1a`
           }
           className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
           Usar planilla
         </Link>
       )}
+
+      {(imp.planillaFase ?? 0) >= 7 &&
+      imp.estadoNacionalizacion !== "nacionalizado" &&
+      imp.estadoNacionalizacion !== "no_aplica" ? (
+        <Link
+          href={`/puerto-libre/${ficha.id}/nacionalizar`}
+          className="flex w-full items-center justify-center rounded-xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-100 transition hover:border-amber-500/60"
+        >
+          Nacionalizar (Tierra Firme)
+        </Link>
+      ) : null}
     </div>
   );
 }
