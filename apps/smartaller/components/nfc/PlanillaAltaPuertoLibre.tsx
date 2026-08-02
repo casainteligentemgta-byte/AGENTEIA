@@ -76,10 +76,6 @@ export function PlanillaAltaPuertoLibre() {
             mono
             upper
           />
-          <p className="text-xs text-slate-500 sm:col-span-2">
-            La placa se obtiene tras la matriculación inicial (fase 6). Al
-            registrar solo se genera el número de expediente.
-          </p>
         </div>
       </section>
 
