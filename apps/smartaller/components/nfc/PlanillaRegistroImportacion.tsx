@@ -527,18 +527,6 @@ function FaseChip({
   );
 }
 
-function formatFechaReferencia(iso: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat("es-VE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
 function Fase1aEmbarque({
   vehiculoId,
   docs,
@@ -604,7 +592,6 @@ function Fase2Llegada({
   setDocs,
   fotosCount,
   fechaIngresoInicial,
-  fechaLlegadaBuque,
   checklist,
   setChecklist,
   checklistNotas,
@@ -621,7 +608,6 @@ function Fase2Llegada({
   setDocs: (d: VehiculosDocumentos) => void;
   fotosCount: number;
   fechaIngresoInicial: string;
-  fechaLlegadaBuque: string | null;
   checklist: LlegadaChecklistState;
   setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
   checklistNotas: LlegadaChecklistNotasState;
@@ -641,14 +627,6 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Fecha de ingreso al PL
         </h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Día en que el vehículo hace aduana o entra al régimen de Puerto Libre.
-          Es distinta de la fecha de llegada del buque
-          {fechaLlegadaBuque
-            ? ` (${formatFechaReferencia(fechaLlegadaBuque)})`
-            : ""}
-          .
-        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
             label=""
