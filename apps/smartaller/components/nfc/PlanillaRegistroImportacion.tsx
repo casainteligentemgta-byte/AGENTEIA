@@ -762,11 +762,6 @@ function Fase3Aduana({
             {docsCount}/{PL_ADUANA_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Tras el ingreso a Puerto Libre. Planilla CVA / DUA del SENIAT que demuestra
-          el pago de tributos e IVA. Es recaudo para que aduana autorice el retiro de
-          la mercancía.
-        </p>
         <div className="mt-4 grid gap-3">
           {PL_ADUANA_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
