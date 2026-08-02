@@ -318,6 +318,10 @@ export const importacionSchema = z.object({
   fechaPresentacionSeniat: z.string().trim().max(32).optional().nullable(),
   /** Año del vehículo (modelo). */
   anio: z.coerce.number().int().min(1950).max(2100).optional().nullable(),
+  /** Condición al registrar: nuevo o usado. */
+  condicionVehiculo: z.enum(["nuevo", "usado"]).optional().nullable(),
+  /** Si es usado: proviene de subasta. */
+  esSubasta: z.boolean().optional().nullable(),
   importadorNombre: z.string().trim().max(120).optional().nullable(),
   importadorDocumento: z.string().trim().max(40).optional().nullable(),
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
@@ -405,6 +409,17 @@ export function parseImportacion(raw: unknown): ImportacionData {
     fechaPresentacionSeniat:
       row.fechaPresentacionSeniat ?? row.fecha_presentacion_seniat,
     anio: asOptionalAnio(row.anio ?? row.anio_vehiculo),
+    condicionVehiculo: asOptionalEnum(
+      row.condicionVehiculo ?? row.condicion_vehiculo,
+      ["nuevo", "usado"] as const
+    ),
+    esSubasta: (() => {
+      const raw = row.esSubasta ?? row.es_subasta;
+      if (typeof raw === "boolean") return raw;
+      if (raw === "true" || raw === 1 || raw === "1") return true;
+      if (raw === "false" || raw === 0 || raw === "0") return false;
+      return null;
+    })(),
     importadorNombre: row.importadorNombre ?? row.importador_nombre,
     importadorDocumento: row.importadorDocumento ?? row.importador_documento,
     importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
@@ -456,6 +471,15 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     estado_seniat: data.estadoSeniat || null,
     fecha_presentacion_seniat: data.fechaPresentacionSeniat?.trim() || null,
     anio: data.anio != null && !Number.isNaN(data.anio) ? data.anio : null,
+    condicion_vehiculo: data.condicionVehiculo || null,
+    es_subasta:
+      data.condicionVehiculo === "usado" && typeof data.esSubasta === "boolean"
+        ? data.esSubasta
+        : data.condicionVehiculo === "nuevo"
+          ? false
+          : typeof data.esSubasta === "boolean"
+            ? data.esSubasta
+            : null,
     importador_nombre: data.importadorNombre?.trim() || null,
     importador_documento: data.importadorDocumento?.trim() || null,
     importador_telefono: data.importadorTelefono?.trim() || null,

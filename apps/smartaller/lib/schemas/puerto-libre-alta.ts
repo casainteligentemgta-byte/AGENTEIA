@@ -14,6 +14,28 @@ export const puertoLibreAltaSchema = z.object({
     .max(currentYear + 1, "Año inválido"),
   serialMotor: z.string().trim().min(1, "Ingresa el serial del motor").max(80),
   serialCarroceria: z.string().trim().min(1, "Ingresa el serial de carrocería").max(80),
+  kilometraje: z.coerce
+    .number({ invalid_type_error: "Ingresa el kilometraje" })
+    .int()
+    .min(0, "Kilometraje inválido"),
+  condicion: z.enum(["nuevo", "usado"], {
+    errorMap: () => ({ message: "Selecciona si el vehículo es nuevo o usado" }),
+  }),
+  /** Solo aplica si condicion = usado. */
+  esSubasta: z
+    .union([
+      z.boolean(),
+      z.literal("true"),
+      z.literal("false"),
+      z.literal(""),
+      z.null(),
+      z.undefined(),
+    ])
+    .transform((v) => {
+      if (v === true || v === "true") return true;
+      if (v === false || v === "false") return false;
+      return null;
+    }),
   /** Fecha de llegada del buque al puerto (YYYY-MM-DD). */
   fechaLlegadaBuque: z
     .string()
@@ -46,6 +68,14 @@ export const puertoLibreAltaSchema = z.object({
       return Number.isFinite(n) && n >= 0 ? n : null;
     }),
   observaciones: z.string().trim().max(1000).optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.condicion === "usado" && data.esSubasta == null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Indica si el vehículo usado es de subasta",
+      path: ["esSubasta"],
+    });
+  }
 });
 
 export type PuertoLibreAltaInput = z.infer<typeof puertoLibreAltaSchema>;

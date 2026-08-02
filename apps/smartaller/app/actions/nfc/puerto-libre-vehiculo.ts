@@ -283,6 +283,8 @@ export async function createPuertoLibreVehiculoAction(
   const importacion = serializeImportacion({
     regimen: "Puerto Libre",
     anio: data.anio,
+    condicionVehiculo: data.condicion,
+    esSubasta: data.condicion === "usado" ? data.esSubasta : false,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
@@ -311,6 +313,7 @@ export async function createPuertoLibreVehiculoAction(
       color: data.color,
       serial_motor: serialMotor,
       serial_carroceria: serialCarroceria,
+      kilometraje_ultimo: data.kilometraje,
       nombre_cliente: null,
       telefono_cliente: null,
       cedula_propietario: null,
