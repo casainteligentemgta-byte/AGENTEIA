@@ -234,9 +234,11 @@ export const VIA_NACIONALIZACION_LABELS: Record<ViaNacionalizacion, string> = {
 /**
  * Docs a cargar en nacionalización por cambio de régimen (M2).
  * Reutiliza factura/origen/DUA del expediente; aquí van los nuevos.
+ * Incluye constancia de residencia / permanencia (recaudo de nacionalización).
  */
 export const PL_NACIONALIZACION_M2_TIPOS: DocumentoTipo[] = [
   "declaracion_complementaria",
+  "constancia_residencia_permanencia",
   "liquidacion_nacionalizacion",
   "resolucion_liberacion_seniat",
   "solicitud_levantamiento_intt",
