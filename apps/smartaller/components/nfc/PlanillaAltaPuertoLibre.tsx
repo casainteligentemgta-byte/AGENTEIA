@@ -94,10 +94,6 @@ export function PlanillaAltaPuertoLibre() {
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Fecha de llegada del buque obligatoria. El resto es opcional. Tras
-          registrar cargarás factura, certificado de origen y BL (fase 1A).
-        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="min-w-0 sm:col-span-2">
             <PlanillaFechaField
@@ -107,10 +103,6 @@ export function PlanillaAltaPuertoLibre() {
               onChange={setFechaLlegadaBuque}
               required
             />
-            <p className="mt-1.5 text-xs text-slate-500">
-              Llegada del buque al puerto. El ingreso al régimen PL se registra
-              después, en la fase Llegada.
-            </p>
           </div>
           <Field label="Aduana" name="aduana" placeholder="Ej. Guanta" />
           <Field
