@@ -321,7 +321,6 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           fotosCount={fotosCount}
           fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
-          fechaLlegadaBuque={initialImportacion.fechaLlegadaBuque?.trim() ?? null}
           checklist={checklist}
           setChecklist={setChecklist}
           checklistNotas={checklistNotas}
