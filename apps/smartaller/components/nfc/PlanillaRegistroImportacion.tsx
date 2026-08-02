@@ -963,10 +963,6 @@ function Fase5Seguro({
           <Shield className="h-5 w-5 text-cyan-400" />
           Seguro
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Datos de la póliza. Aseguradora y RCV son obligatorios (el RCV entra en
-          la carpeta de matriculación).
-        </p>
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
