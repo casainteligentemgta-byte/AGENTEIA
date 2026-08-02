@@ -349,9 +349,14 @@ export async function savePuertoLibreFase1RegistroAction(
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const parsed = puertoLibreAltaSchema
-    .extend({ vehiculoId: z.string().uuid() })
+  const idParsed = z
+    .object({ vehiculoId: z.string().uuid() })
     .safeParse(raw);
+  if (!idParsed.success) {
+    return { success: false, error: "ID inválido" };
+  }
+
+  const parsed = puertoLibreAltaSchema.safeParse(raw);
   if (!parsed.success) {
     return {
       success: false,
@@ -359,7 +364,7 @@ export async function savePuertoLibreFase1RegistroAction(
     };
   }
 
-  const data = parsed.data;
+  const data = { ...parsed.data, vehiculoId: idParsed.data.vehiculoId };
   const row = await assertVehiculoTaller(data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
