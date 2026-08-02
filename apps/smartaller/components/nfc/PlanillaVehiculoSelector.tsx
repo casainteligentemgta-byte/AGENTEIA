@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Car, ChevronDown, Pencil, Search, X } from "lucide-react";
 import type { PuertoLibreVehiculoListItem } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { placaRealVisible } from "@/lib/puerto-libre/expediente";
 
 export type PlanillaVehiculoOption = Pick<
   PuertoLibreVehiculoListItem,
@@ -18,21 +19,17 @@ type Props = {
 function tituloLinea(v: PlanillaVehiculoOption): string {
   const marcaModelo = [v.marca, v.modelo].filter(Boolean).join(" - ");
   if (marcaModelo) return marcaModelo;
-  return v.codigoExpediente || v.placa || "Vehículo";
+  return v.codigoExpediente || "Vehículo";
 }
 
 function codigoLinea(v: PlanillaVehiculoOption): string {
   return v.codigoExpediente || "—";
 }
 
-/** Color · placa (solo si hay placa real, no el código de expediente). */
+/** Color · placa real (sin NP-* ni expediente). Sin placa = solo color. */
 function colorPlacaLinea(v: PlanillaVehiculoOption): string {
-  const placa =
-    v.placa?.trim() &&
-    v.placa.trim().toUpperCase() !== (v.codigoExpediente ?? "").trim().toUpperCase()
-      ? v.placa.trim()
-      : "";
-  return [v.color, placa].filter(Boolean).join(" · ");
+  const placa = placaRealVisible(v.placa, v.codigoExpediente);
+  return [v.color?.trim(), placa].filter(Boolean).join(" · ");
 }
 
 export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
