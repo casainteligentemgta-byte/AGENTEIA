@@ -340,6 +340,93 @@ export async function createPuertoLibreVehiculoAction(
   return { success: true, vehiculoId: created.id, codigoExpediente };
 }
 
+/** Actualiza datos de fase 1 Registro (vehículo + importador + importación). */
+export async function savePuertoLibreFase1RegistroAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z
+    .object({ vehiculoId: z.string().uuid() })
+    .safeParse(raw);
+  if (!idParsed.success) {
+    return { success: false, error: "ID inválido" };
+  }
+
+  const parsed = puertoLibreAltaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const data = { ...parsed.data, vehiculoId: idParsed.data.vehiculoId };
+  const row = await assertVehiculoTaller(data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const admin = createAdminClient();
+  const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
+  const serialMotor = normalizarSerialCarroceria(data.serialMotor);
+
+  const existingSerial = await findDuplicateSerialCarroceria(
+    admin,
+    auth.taller.id,
+    serialCarroceria,
+    data.vehiculoId
+  );
+  if (existingSerial) {
+    return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existing,
+    anio: data.anio,
+    condicionVehiculo: data.condicion,
+    esSubasta: data.condicion === "usado" ? data.esSubasta : false,
+    fechaLlegadaBuque: data.fechaLlegadaBuque,
+    importadorNombre: data.importadorNombre,
+    importadorDocumento: data.importadorDocumento || null,
+    importadorTelefono: data.importadorTelefono || null,
+    importadorEmail: data.importadorEmail || null,
+    aduana: data.aduana || null,
+    numeroBl: data.numeroBl || null,
+    paisOrigen: data.paisOrigen || null,
+    valorCif: data.valorCif,
+    observaciones: data.observaciones || null,
+    planillaFase: existing.planillaFase ?? 1,
+  });
+
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      marca: data.marca,
+      modelo: data.modelo,
+      color: data.color,
+      serial_motor: serialMotor,
+      serial_carroceria: serialCarroceria,
+      kilometraje_ultimo: data.kilometraje,
+      importacion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) {
+    if (error.code === "23505" && error.message.includes("serial_carroceria")) {
+      return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
+    return { success: false, error: error.message };
+  }
+
+  revalidateFicha(data.vehiculoId);
+  return { success: true };
+}
+
 export async function updatePuertoLibreImportacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
