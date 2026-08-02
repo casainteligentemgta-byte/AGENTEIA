@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
+import { PuertoLibreDescargarPdf } from "@/components/nfc/PuertoLibreDescargarPdf";
 import {
   DOCUMENTO_LABELS,
   ESTADO_NACIONALIZACION_LABELS,
@@ -111,13 +112,16 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
             </p>
           ) : null}
         </div>
-        <Link
-          href={`/puerto-libre/${ficha.id}?edit=1`}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
-        >
-          <Pencil className="h-4 w-4" />
-          Editar
-        </Link>
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          <Link
+            href={`/puerto-libre/${ficha.id}?edit=1`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar
+          </Link>
+          <PuertoLibreDescargarPdf vehiculoId={ficha.id} />
+        </div>
       </header>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
