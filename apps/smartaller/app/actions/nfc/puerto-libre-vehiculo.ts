@@ -775,9 +775,52 @@ export async function completePuertoLibreFase5SeguroAction(
   return { success: true };
 }
 
+/** Guarda carpeta de matriculación y abre el paso de placa. */
+export async function savePuertoLibreCarpetaMatriculacionAction(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantes = PL_MATRICULACION_CARPETA_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error: "Completa todos los recaudos de la carpeta a consignar antes de continuar",
+    };
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existing,
+    planillaFase: 6,
+    matriculacionPaso: 2,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
+  return { success: true };
+}
+
 const fase6MatriculacionSchema = z.object({
   vehiculoId: z.string().uuid(),
-  /** Placa asignada tras la matriculación inicial. */
+  /** Placa asignada tras guardar la carpeta de matriculación. */
   placa: z
     .string()
     .trim()
@@ -785,7 +828,7 @@ const fase6MatriculacionSchema = z.object({
     .max(20),
 });
 
-/** Marca fase 6 (carpeta + placa) completa. */
+/** Registra placa y marca planilla completa (fase 7). */
 export async function completePuertoLibreFase6MatriculacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -813,6 +856,13 @@ export async function completePuertoLibreFase6MatriculacionAction(
   }
 
   const existing = parseImportacion(row.importacion);
+  if ((existing.matriculacionPaso ?? 1) < 2) {
+    return {
+      success: false,
+      error: "Guarda primero la carpeta de matriculación antes de registrar la placa",
+    };
+  }
+
   const codigoExpediente =
     resolveCodigoExpediente({
       codigoExpediente: existing.codigoExpediente,
@@ -849,6 +899,7 @@ export async function completePuertoLibreFase6MatriculacionAction(
   const importacion = serializeImportacion({
     ...existing,
     planillaFase: 7,
+    matriculacionPaso: 2,
     estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
     fechaLimiteNacionalizacion: fechaLimite,
     nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
