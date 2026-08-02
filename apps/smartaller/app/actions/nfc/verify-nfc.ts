@@ -74,6 +74,12 @@ function mapDocuments(raw: unknown): NfcDocumentPublic[] {
     { key: "experticia_verificacion_legal", label: "Experticia de verificación legal" },
     { key: "planilla_sumica_put", label: "Planilla SUMICA (PUT)" },
     { key: "pago_tasas", label: "Pago de tasas" },
+    { key: "declaracion_complementaria", label: "Declaración complementaria" },
+    { key: "liquidacion_nacionalizacion", label: "Liquidación nacionalización" },
+    { key: "resolucion_liberacion_seniat", label: "Resolución liberación SENIAT" },
+    { key: "constancia_residencia_permanencia", label: "Constancia residencia/permanencia" },
+    { key: "solicitud_levantamiento_intt", label: "Solicitud levantamiento INTT" },
+    { key: "titulo_libre_circulacion", label: "Título libre circulación" },
   ];
 
   for (const { key, label } of entries) {

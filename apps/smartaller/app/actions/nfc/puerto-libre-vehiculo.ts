@@ -13,6 +13,7 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
+  VIAS_NACIONALIZACION,
   documentoTipoSchema,
   importacionSchema,
   seguroSchema,
@@ -28,6 +29,7 @@ import {
   type ImportacionData,
   type SeguroData,
   type VehiculosDocumentos,
+  type ViaNacionalizacion,
 } from "@/lib/schemas/vehiculo-documentos";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
@@ -40,6 +42,10 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/puerto-libre/expediente";
+import {
+  docsFaltantesNacionalizacion,
+  fechaLimitePermanencia3Anios,
+} from "@/lib/puerto-libre/nacionalizacion";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -117,6 +123,7 @@ function revalidateFicha(vehiculoId: string) {
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${vehiculoId}`);
   revalidatePath(`/puerto-libre/${vehiculoId}/planilla`);
+  revalidatePath(`/puerto-libre/${vehiculoId}/nacionalizar`);
   revalidatePath(`/puerto-libre/${vehiculoId}/propietario`);
   revalidatePath(`/puerto-libre/${vehiculoId}/inspeccion`);
   revalidatePath(`/puerto-libre/hoja-inspeccion`);
@@ -843,7 +850,17 @@ export async function completePuertoLibreFase6MatriculacionAction(
     return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
   }
 
-  const importacion = serializeImportacion({ ...existing, planillaFase: 7 });
+  const fechaLimite =
+    existing.fechaLimiteNacionalizacion?.trim() ||
+    fechaLimitePermanencia3Anios(existing.fechaIngreso);
+
+  const importacion = serializeImportacion({
+    ...existing,
+    planillaFase: 7,
+    estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
+    fechaLimiteNacionalizacion: fechaLimite,
+    nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
+  });
 
   const { error } = await admin
     .from("vehiculos")
@@ -862,6 +879,172 @@ export async function completePuertoLibreFase6MatriculacionAction(
     return { success: false, error: error.message };
   }
   revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+const elegirViaNacionalizacionSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  via: z.enum(VIAS_NACIONALIZACION),
+});
+
+/** Paso 1: elige vía M2/M3 y marca nacionalización en proceso. */
+export async function elegirViaNacionalizacionAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = elegirViaNacionalizacionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  if ((existing.planillaFase ?? 0) < 7) {
+    return {
+      success: false,
+      error: "Completa la planilla y la matriculación (placa) antes de nacionalizar",
+    };
+  }
+  if (existing.estadoNacionalizacion === "nacionalizado") {
+    return { success: false, error: "Este expediente ya está nacionalizado" };
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    viaNacionalizacion: parsed.data.via as ViaNacionalizacion,
+    estadoNacionalizacion: "en_proceso",
+    nacionalizacionPaso: 2,
+    fechaLimiteNacionalizacion:
+      existing.fechaLimiteNacionalizacion?.trim() ||
+      fechaLimitePermanencia3Anios(existing.fechaIngreso),
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Avanza paso del wizard si los docs del paso actual están. */
+export async function avanzarPasoNacionalizacionAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const schema = z.object({
+    vehiculoId: z.string().uuid(),
+    pasoDestino: z.coerce.number().int().min(1).max(4),
+  });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const via = existing.viaNacionalizacion;
+  if (parsed.data.pasoDestino > 1 && !via) {
+    return { success: false, error: "Elige primero la vía de nacionalización" };
+  }
+
+  if (parsed.data.pasoDestino >= 3 && via) {
+    const docs = parseVehiculosDocumentos(row.documentos);
+    const faltantes = docsFaltantesNacionalizacion(docs, via);
+    if (faltantes.length > 0) {
+      return {
+        success: false,
+        error: "Carga todos los documentos de nacionalización antes de continuar",
+      };
+    }
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    estadoNacionalizacion: "en_proceso",
+    nacionalizacionPaso: parsed.data.pasoDestino,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Cierra nacionalización: resolución + título de libre circulación. */
+export async function completarNacionalizacionAction(
+  vehiculoId: string
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const via = existing.viaNacionalizacion;
+  if (!via) {
+    return { success: false, error: "Elige primero la vía de nacionalización" };
+  }
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantes = docsFaltantesNacionalizacion(docs, via);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error: "Completa todos los recaudos de nacionalización antes de finalizar",
+    };
+  }
+  if (!docs.resolucion_liberacion_seniat?.url || !docs.titulo_libre_circulacion?.url) {
+    return {
+      success: false,
+      error: "Se requieren la resolución SENIAT y el título de libre circulación",
+    };
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    estadoNacionalizacion: "nacionalizado",
+    estadoSeniat: "presentada",
+    nacionalizacionPaso: 4,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data);
   return { success: true };
 }
 

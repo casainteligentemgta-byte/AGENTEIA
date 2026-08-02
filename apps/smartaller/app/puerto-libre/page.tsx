@@ -407,7 +407,7 @@ export default async function PuertoLibrePage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porNacionalizar.map((v) => {
-                      const href = `/puerto-libre/${v.id}`;
+                      const href = `/puerto-libre/${v.id}/nacionalizar`;
                       const urgente =
                         v.diasNacionalizacion != null && v.diasNacionalizacion <= 7;
                       return (
@@ -431,13 +431,16 @@ export default async function PuertoLibrePage() {
                               {formatFechaDia(v.fechaLimiteNacionalizacion)}
                             </p>
                             <p className="mt-0.5 text-[11px] text-zinc-500">
-                              {etiquetaDias(v.diasNacionalizacion, "Sin fecha límite")}
+                              {etiquetaDias(
+                                v.diasNacionalizacion,
+                                "Límite 3 años (permanencia)"
+                              )}
                             </p>
                             <Link
-                              href={`${href}?edit=1`}
+                              href={href}
                               className="mt-1.5 inline-flex rounded-lg border border-amber-700/40 bg-amber-950/30 px-2.5 py-1 text-xs font-medium text-amber-200 transition hover:border-amber-500/50"
                             >
-                              Gestionar
+                              Nacionalizar
                             </Link>
                           </td>
                         </tr>

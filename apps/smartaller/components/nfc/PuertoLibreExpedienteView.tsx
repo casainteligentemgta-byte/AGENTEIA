@@ -11,6 +11,8 @@ import {
   PL_ADUANA_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
+  PL_NACIONALIZACION_M2_TIPOS,
+  PL_NACIONALIZACION_M3_TIPOS,
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type EstadoNacionalizacion,
@@ -85,6 +87,10 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
     "titulo",
     ...SEGURO_DOCUMENTO_TIPOS,
     ...PL_MATRICULACION_NUEVOS_TIPOS,
+    ...PL_NACIONALIZACION_M2_TIPOS,
+    ...PL_NACIONALIZACION_M3_TIPOS.filter(
+      (t) => !PL_NACIONALIZACION_M2_TIPOS.includes(t)
+    ),
   ];
   const docsCargados = docTipos.filter((t) => Boolean(ficha.documentos[t]?.url));
   const fotosCargadas = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) =>
@@ -290,6 +296,17 @@ export function PuertoLibreExpedienteView({ ficha, baseUrl }: Props) {
           Usar planilla
         </Link>
       )}
+
+      {(imp.planillaFase ?? 0) >= 7 &&
+      imp.estadoNacionalizacion !== "nacionalizado" &&
+      imp.estadoNacionalizacion !== "no_aplica" ? (
+        <Link
+          href={`/puerto-libre/${ficha.id}/nacionalizar`}
+          className="flex w-full items-center justify-center rounded-xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-100 transition hover:border-amber-500/60"
+        >
+          Nacionalizar (Tierra Firme)
+        </Link>
+      ) : null}
     </div>
   );
 }

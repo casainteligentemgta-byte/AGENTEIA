@@ -473,8 +473,8 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMessage("Planilla completa");
-              router.push(`/puerto-libre/${vehiculoId}`);
+              setMessage("Planilla completa · puedes nacionalizar");
+              router.push(`/puerto-libre/${vehiculoId}/nacionalizar`);
               router.refresh();
             });
           }}

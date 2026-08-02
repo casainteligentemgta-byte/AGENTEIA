@@ -26,6 +26,12 @@ export const DOCUMENTO_TIPOS = [
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "constancia_residencia_permanencia",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -61,6 +67,12 @@ export const vehiculosDocumentosSchema = z.object({
   experticia_verificacion_legal: vehiculoDocumentoRefSchema.optional(),
   planilla_sumica_put: vehiculoDocumentoRefSchema.optional(),
   pago_tasas: vehiculoDocumentoRefSchema.optional(),
+  declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
+  liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
+  constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
+  solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
+  titulo_libre_circulacion: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -100,6 +112,12 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   experticia_verificacion_legal: "Constancia de experticia de verificación legal",
   planilla_sumica_put: "Planilla SUMICA de trámite (PUT)",
   pago_tasas: "Pago de tasas",
+  declaracion_complementaria: "Declaración complementaria SENIAT",
+  liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
+  resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
+  constancia_residencia_permanencia: "Constancia de residencia / permanencia",
+  solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
+  titulo_libre_circulacion: "Título de libre circulación nacional",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -146,6 +164,12 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "constancia_residencia_permanencia",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
   "titulo",
   "otro_importacion",
 ];
@@ -198,6 +222,44 @@ export const PL_MATRICULACION_ORIGEN: Partial<
   rcv_seguro: "Desde fase 5 Seguro",
 };
 
+/** Vías de nacionalización desde Puerto Libre. */
+export const VIAS_NACIONALIZACION = ["cambio_regimen", "permanencia"] as const;
+export type ViaNacionalizacion = (typeof VIAS_NACIONALIZACION)[number];
+
+export const VIA_NACIONALIZACION_LABELS: Record<ViaNacionalizacion, string> = {
+  cambio_regimen: "Cambio de régimen (< 3 años)",
+  permanencia: "Liberación por permanencia (≥ 3 años)",
+};
+
+/**
+ * Docs a cargar en nacionalización por cambio de régimen (M2).
+ * Reutiliza factura/origen/DUA del expediente; aquí van los nuevos.
+ */
+export const PL_NACIONALIZACION_M2_TIPOS: DocumentoTipo[] = [
+  "declaracion_complementaria",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
+];
+
+/** Docs a cargar en liberación por permanencia (M3). */
+export const PL_NACIONALIZACION_M3_TIPOS: DocumentoTipo[] = [
+  "constancia_residencia_permanencia",
+  "liquidacion_nacionalizacion",
+  "resolucion_liberacion_seniat",
+  "solicitud_levantamiento_intt",
+  "titulo_libre_circulacion",
+];
+
+/** Docs del expediente PL que se muestran como base (solo lectura / reutilizar). */
+export const PL_NACIONALIZACION_BASE_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "nacionalizacion",
+  "rcv_seguro",
+];
+
 export const ESTADOS_NACIONALIZACION = [
   "pendiente",
   "en_proceso",
@@ -243,6 +305,13 @@ export const importacionSchema = z.object({
   observaciones: z.string().trim().max(1000).optional().nullable(),
   estadoNacionalizacion: z.enum(ESTADOS_NACIONALIZACION).optional().nullable(),
   fechaLimiteNacionalizacion: z.string().trim().max(32).optional().nullable(),
+  /** Via elegida: cambio_regimen (M2) o permanencia (M3). */
+  viaNacionalizacion: z.enum(VIAS_NACIONALIZACION).optional().nullable(),
+  /**
+   * Paso del wizard de nacionalización:
+   * 1 = elegir vía, 2 = docs, 3 = liquidación/resolución, 4 = INTT / cierre.
+   */
+  nacionalizacionPaso: z.coerce.number().int().min(1).max(4).optional().nullable(),
   estadoSeniat: z.enum(ESTADOS_SENIAT).optional().nullable(),
   fechaPresentacionSeniat: z.string().trim().max(32).optional().nullable(),
   /** Año del vehículo (modelo). */
@@ -315,6 +384,13 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     fechaLimiteNacionalizacion:
       row.fechaLimiteNacionalizacion ?? row.fecha_limite_nacionalizacion,
+    viaNacionalizacion: asOptionalEnum(
+      row.viaNacionalizacion ?? row.via_nacionalizacion,
+      VIAS_NACIONALIZACION
+    ),
+    nacionalizacionPaso: asOptionalAnio(
+      row.nacionalizacionPaso ?? row.nacionalizacion_paso
+    ),
     estadoSeniat: asOptionalEnum(
       row.estadoSeniat ?? row.estado_seniat,
       ESTADOS_SENIAT
@@ -362,6 +438,11 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     observaciones: data.observaciones?.trim() || null,
     estado_nacionalizacion: data.estadoNacionalizacion || null,
     fecha_limite_nacionalizacion: data.fechaLimiteNacionalizacion?.trim() || null,
+    via_nacionalizacion: data.viaNacionalizacion || null,
+    nacionalizacion_paso:
+      data.nacionalizacionPaso != null && !Number.isNaN(data.nacionalizacionPaso)
+        ? data.nacionalizacionPaso
+        : null,
     estado_seniat: data.estadoSeniat || null,
     fecha_presentacion_seniat: data.fechaPresentacionSeniat?.trim() || null,
     anio: data.anio != null && !Number.isNaN(data.anio) ? data.anio : null,
@@ -396,9 +477,14 @@ export function diasHasta(fecha: string | null | undefined): number | null {
   return Math.round((target - today) / 86_400_000);
 }
 
+/**
+ * Listo para (o en) nacionalización: planilla PL completa y aún no nacionalizado.
+ */
 export function esProximoNacionalizar(data: ImportacionData): boolean {
   const estado = data.estadoNacionalizacion ?? "pendiente";
-  return estado === "pendiente" || estado === "en_proceso";
+  if (estado !== "pendiente" && estado !== "en_proceso") return false;
+  const fase = data.planillaFase ?? 0;
+  return fase >= 7;
 }
 
 export function esProximoSeniat(data: ImportacionData): boolean {
