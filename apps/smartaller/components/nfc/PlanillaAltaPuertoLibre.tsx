@@ -14,6 +14,8 @@ export function PlanillaAltaPuertoLibre() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fechaLlegadaBuque, setFechaLlegadaBuque] = useState("");
+  const [condicion, setCondicion] = useState<"nuevo" | "usado" | "">("");
+  const [esSubasta, setEsSubasta] = useState<"true" | "false" | "">("");
 
   return (
     <form
@@ -22,6 +24,9 @@ export function PlanillaAltaPuertoLibre() {
         setError(null);
         startTransition(async () => {
           const anioRaw = String(fd.get("anio") ?? "").trim();
+          const kmRaw = String(fd.get("kilometraje") ?? "").trim();
+          const condicionRaw = String(fd.get("condicion") ?? "").trim();
+          const subastaRaw = String(fd.get("esSubasta") ?? "").trim();
           const result = await createPuertoLibreVehiculoAction({
             marca: String(fd.get("marca") ?? ""),
             modelo: String(fd.get("modelo") ?? ""),
@@ -29,6 +34,16 @@ export function PlanillaAltaPuertoLibre() {
             anio: anioRaw ? Number(anioRaw) : undefined,
             serialMotor: String(fd.get("serialMotor") ?? ""),
             serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
+            kilometraje: kmRaw ? Number(kmRaw) : undefined,
+            condicion: condicionRaw,
+            esSubasta:
+              condicionRaw === "usado"
+                ? subastaRaw === "true"
+                  ? true
+                  : subastaRaw === "false"
+                    ? false
+                    : null
+                : false,
             fechaLlegadaBuque:
               fechaLlegadaBuque || String(fd.get("fechaLlegadaBuque") ?? ""),
             importadorNombre: String(fd.get("importadorNombre") ?? ""),
@@ -76,6 +91,89 @@ export function PlanillaAltaPuertoLibre() {
             mono
             upper
           />
+          <Field
+            label="Kilometraje *"
+            name="kilometraje"
+            type="number"
+            required
+            min={0}
+            placeholder="0"
+          />
+
+          <fieldset className="min-w-0 space-y-2 sm:col-span-2">
+            <legend className="text-sm text-slate-400">Condición *</legend>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "nuevo", label: "Nuevo" },
+                  { value: "usado", label: "Usado" },
+                ] as const
+              ).map((op) => {
+                const selected = condicion === op.value;
+                return (
+                  <label
+                    key={op.value}
+                    className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                      selected
+                        ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
+                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="condicion"
+                      value={op.value}
+                      required
+                      checked={selected}
+                      onChange={() => {
+                        setCondicion(op.value);
+                        if (op.value === "nuevo") setEsSubasta("");
+                      }}
+                      className="sr-only"
+                    />
+                    {op.label}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {condicion === "usado" ? (
+            <fieldset className="min-w-0 space-y-2 sm:col-span-2">
+              <legend className="text-sm text-slate-400">¿Es de subasta? *</legend>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "true", label: "Sí" },
+                    { value: "false", label: "No" },
+                  ] as const
+                ).map((op) => {
+                  const selected = esSubasta === op.value;
+                  return (
+                    <label
+                      key={op.value}
+                      className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                        selected
+                          ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
+                          : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="esSubasta"
+                        value={op.value}
+                        required
+                        checked={selected}
+                        onChange={() => setEsSubasta(op.value)}
+                        className="sr-only"
+                      />
+                      {op.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : null}
         </div>
       </section>
 
