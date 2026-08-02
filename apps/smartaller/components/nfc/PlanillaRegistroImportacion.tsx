@@ -11,9 +11,11 @@ import {
 import {
   AlertCircle,
   Camera,
+  Car,
   CheckCircle2,
   FileUp,
   Shield,
+  Ship,
   User,
 } from "lucide-react";
 import {
@@ -23,6 +25,7 @@ import {
   completePuertoLibreFase5SeguroAction,
   completePuertoLibreFase6MatriculacionAction,
   savePuertoLibreCarpetaMatriculacionAction,
+  savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
@@ -60,7 +63,7 @@ import {
   resolveCodigoExpediente,
 } from "@/lib/puerto-libre/expediente";
 
-export type PlanillaFaseUi = "1a" | 2 | 3 | 4 | 5 | 6;
+export type PlanillaFaseUi = 1 | "1a" | 2 | 3 | 4 | 5 | 6;
 
 /** Tras guardar una fase: seguir en planilla o volver a la ficha. */
 type PlanillaAfterSave = "next" | "ficha";
@@ -73,6 +76,7 @@ type Props = {
   color: string | null;
   serialMotor: string | null;
   serialCarroceria: string | null;
+  kilometrajeUltimo: number | null;
   compradorNombre: string | null;
   compradorTelefono: string | null;
   compradorCedula: string | null;
@@ -80,7 +84,7 @@ type Props = {
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
-  /** Fase forzada por query (?fase=1a|2|3|4|5|6). */
+  /** Fase forzada por query (?fase=1|1a|2|3|4|5|6). */
   faseInicial?: PlanillaFaseUi;
   vehiculoSelector?: {
     current: PlanillaVehiculoOption;
@@ -93,6 +97,7 @@ function resolveFase(
   forced?: PlanillaFaseUi
 ): PlanillaFaseUi {
   if (
+    forced === 1 ||
     forced === "1a" ||
     forced === 2 ||
     forced === 3 ||
@@ -108,6 +113,7 @@ function resolveFase(
   if (f === 4) return 4;
   if (f === 3) return 3;
   if (f === 2) return 2;
+  if (f === 1) return 1;
   return "1a";
 }
 
@@ -123,6 +129,7 @@ export function PlanillaRegistroImportacion({
   color,
   serialMotor,
   serialCarroceria,
+  kilometrajeUltimo,
   compradorNombre,
   compradorTelefono,
   compradorCedula,
@@ -181,6 +188,10 @@ export function PlanillaRegistroImportacion({
       initialImportacion.anio &&
       serialMotor?.trim() &&
       serialCarroceria?.trim() &&
+      kilometrajeUltimo != null &&
+      initialImportacion.condicionVehiculo &&
+      (initialImportacion.condicionVehiculo === "nuevo" ||
+        typeof initialImportacion.esSubasta === "boolean") &&
       initialImportacion.fechaLlegadaBuque?.trim() &&
       initialImportacion.importadorNombre?.trim()
   );
@@ -228,7 +239,7 @@ export function PlanillaRegistroImportacion({
 
   function goFase(next: PlanillaFaseUi) {
     setFase(next);
-    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${next}`);
+    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${String(next)}`);
   }
 
   function navigateAfterSave(after: PlanillaAfterSave, nextFase: PlanillaFaseUi) {
@@ -247,7 +258,13 @@ export function PlanillaRegistroImportacion({
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
 
       <div className="grid w-full grid-cols-4 gap-1 sm:grid-cols-7 sm:gap-1.5">
-        <FaseChip n={1} label="Registro" completo={registroCompleto} current={false} />
+        <FaseChip
+          n={1}
+          label="Registro"
+          completo={registroCompleto}
+          current={fase === 1}
+          onClick={() => goFase(1)}
+        />
         <FaseChip
           n="1A"
           label="Embarque"
@@ -304,7 +321,56 @@ export function PlanillaRegistroImportacion({
         </div>
       )}
 
-      {fase === "1a" ? (
+      {fase === 1 ? (
+        <Fase1Registro
+          pending={pending}
+          initial={{
+            marca: marca ?? "",
+            modelo: modelo ?? "",
+            color: color ?? "",
+            anio: initialImportacion.anio ?? undefined,
+            serialMotor: serialMotor ?? "",
+            serialCarroceria: serialCarroceria ?? "",
+            kilometraje: kilometrajeUltimo,
+            condicion: initialImportacion.condicionVehiculo ?? "",
+            esSubasta:
+              initialImportacion.esSubasta === true
+                ? "true"
+                : initialImportacion.esSubasta === false
+                  ? "false"
+                  : "",
+            fechaLlegadaBuque: initialImportacion.fechaLlegadaBuque ?? "",
+            importadorNombre: initialImportacion.importadorNombre ?? "",
+            importadorDocumento: initialImportacion.importadorDocumento ?? "",
+            importadorTelefono: initialImportacion.importadorTelefono ?? "",
+            importadorEmail: initialImportacion.importadorEmail ?? "",
+            aduana: initialImportacion.aduana ?? "",
+            numeroBl: initialImportacion.numeroBl ?? "",
+            paisOrigen: initialImportacion.paisOrigen ?? "",
+            valorCif:
+              initialImportacion.valorCif != null
+                ? String(initialImportacion.valorCif)
+                : "",
+            observaciones: initialImportacion.observaciones ?? "",
+          }}
+          onSave={(payload, after) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await savePuertoLibreFase1RegistroAction({
+                vehiculoId,
+                ...payload,
+              });
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Registro guardado");
+              navigateAfterSave(after, "1a");
+            });
+          }}
+        />
+      ) : fase === "1a" ? (
         <Fase1aEmbarque
           vehiculoId={vehiculoId}
           docs={docs}
@@ -602,6 +668,376 @@ function PlanillaFaseActions({
 
 function afterFromFormData(fd: FormData): PlanillaAfterSave {
   return String(fd.get("after") ?? "") === "ficha" ? "ficha" : "next";
+}
+
+const currentYear = new Date().getFullYear();
+
+type Fase1RegistroPayload = {
+  marca: string;
+  modelo: string;
+  color: string;
+  anio: number;
+  serialMotor: string;
+  serialCarroceria: string;
+  kilometraje: number;
+  condicion: "nuevo" | "usado";
+  esSubasta: boolean | null;
+  fechaLlegadaBuque: string;
+  importadorNombre: string;
+  importadorDocumento: string;
+  importadorTelefono: string;
+  importadorEmail: string;
+  aduana: string;
+  numeroBl: string;
+  paisOrigen: string;
+  valorCif: string;
+  observaciones: string;
+};
+
+function Fase1Registro({
+  pending,
+  initial,
+  onSave,
+}: {
+  pending: boolean;
+  initial: {
+    marca: string;
+    modelo: string;
+    color: string;
+    anio?: number | null;
+    serialMotor: string;
+    serialCarroceria: string;
+    kilometraje: number | null;
+    condicion: string;
+    esSubasta: string;
+    fechaLlegadaBuque: string;
+    importadorNombre: string;
+    importadorDocumento: string;
+    importadorTelefono: string;
+    importadorEmail: string;
+    aduana: string;
+    numeroBl: string;
+    paisOrigen: string;
+    valorCif: string;
+    observaciones: string;
+  };
+  onSave: (payload: Fase1RegistroPayload, after: PlanillaAfterSave) => void;
+}) {
+  const [fechaLlegadaBuque, setFechaLlegadaBuque] = useState(
+    initial.fechaLlegadaBuque
+  );
+  const [condicion, setCondicion] = useState<"nuevo" | "usado" | "">(
+    initial.condicion === "nuevo" || initial.condicion === "usado"
+      ? initial.condicion
+      : ""
+  );
+  const [esSubasta, setEsSubasta] = useState<"true" | "false" | "">(
+    initial.esSubasta === "true" || initial.esSubasta === "false"
+      ? initial.esSubasta
+      : ""
+  );
+
+  return (
+    <form
+      className="space-y-8"
+      action={(fd) => {
+        const anioRaw = String(fd.get("anio") ?? "").trim();
+        const kmRaw = String(fd.get("kilometraje") ?? "").trim();
+        const condicionRaw = String(fd.get("condicion") ?? "").trim();
+        const subastaRaw = String(fd.get("esSubasta") ?? "").trim();
+        onSave(
+          {
+            marca: String(fd.get("marca") ?? ""),
+            modelo: String(fd.get("modelo") ?? ""),
+            color: String(fd.get("color") ?? ""),
+            anio: anioRaw ? Number(anioRaw) : Number.NaN,
+            serialMotor: String(fd.get("serialMotor") ?? ""),
+            serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
+            kilometraje: kmRaw ? Number(kmRaw) : Number.NaN,
+            condicion: condicionRaw as "nuevo" | "usado",
+            esSubasta:
+              condicionRaw === "usado"
+                ? subastaRaw === "true"
+                  ? true
+                  : subastaRaw === "false"
+                    ? false
+                    : null
+                : false,
+            fechaLlegadaBuque:
+              fechaLlegadaBuque || String(fd.get("fechaLlegadaBuque") ?? ""),
+            importadorNombre: String(fd.get("importadorNombre") ?? ""),
+            importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
+            importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
+            importadorEmail: String(fd.get("importadorEmail") ?? ""),
+            aduana: String(fd.get("aduana") ?? ""),
+            numeroBl: String(fd.get("numeroBl") ?? ""),
+            paisOrigen: String(fd.get("paisOrigen") ?? ""),
+            valorCif: String(fd.get("valorCif") ?? ""),
+            observaciones: String(fd.get("observaciones") ?? ""),
+          },
+          afterFromFormData(fd)
+        );
+      }}
+    >
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Car className="h-5 w-5 text-cyan-400" />
+          Datos del vehículo
+        </h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <RegistroField label="Marca *" name="marca" required defaultValue={initial.marca} />
+          <RegistroField label="Modelo *" name="modelo" required defaultValue={initial.modelo} />
+          <RegistroField label="Color *" name="color" required defaultValue={initial.color} />
+          <RegistroField
+            label="Año *"
+            name="anio"
+            type="number"
+            required
+            defaultValue={String(initial.anio ?? currentYear)}
+            min={1950}
+            max={currentYear + 1}
+          />
+          <RegistroField
+            label="Serial motor *"
+            name="serialMotor"
+            required
+            mono
+            upper
+            defaultValue={initial.serialMotor}
+          />
+          <RegistroField
+            label="Serial carrocería *"
+            name="serialCarroceria"
+            required
+            mono
+            upper
+            defaultValue={initial.serialCarroceria}
+          />
+          <RegistroField
+            label="Kilometraje *"
+            name="kilometraje"
+            type="number"
+            required
+            min={0}
+            defaultValue={
+              initial.kilometraje != null ? String(initial.kilometraje) : ""
+            }
+          />
+
+          <fieldset className="min-w-0 space-y-2 sm:col-span-2">
+            <legend className="text-sm text-slate-400">Condición *</legend>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "nuevo", label: "Nuevo" },
+                  { value: "usado", label: "Usado" },
+                ] as const
+              ).map((op) => {
+                const selected = condicion === op.value;
+                return (
+                  <label
+                    key={op.value}
+                    className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                      selected
+                        ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
+                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="condicion"
+                      value={op.value}
+                      required
+                      checked={selected}
+                      onChange={() => {
+                        setCondicion(op.value);
+                        if (op.value === "nuevo") setEsSubasta("");
+                      }}
+                      className="sr-only"
+                    />
+                    {op.label}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {condicion === "usado" ? (
+            <fieldset className="min-w-0 space-y-2 sm:col-span-2">
+              <legend className="text-sm text-slate-400">¿Es de subasta? *</legend>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "true", label: "Sí" },
+                    { value: "false", label: "No" },
+                  ] as const
+                ).map((op) => {
+                  const selected = esSubasta === op.value;
+                  return (
+                    <label
+                      key={op.value}
+                      className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                        selected
+                          ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
+                          : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="esSubasta"
+                        value={op.value}
+                        required
+                        checked={selected}
+                        onChange={() => setEsSubasta(op.value)}
+                        className="sr-only"
+                      />
+                      {op.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Ship className="h-5 w-5 text-cyan-400" />
+          Datos del importador
+        </h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <RegistroField
+            label="Nombre *"
+            name="importadorNombre"
+            required
+            wide
+            defaultValue={initial.importadorNombre}
+          />
+          <RegistroField
+            label="RIF"
+            name="importadorDocumento"
+            defaultValue={initial.importadorDocumento}
+          />
+          <RegistroField
+            label="Teléfono"
+            name="importadorTelefono"
+            defaultValue={initial.importadorTelefono}
+          />
+          <RegistroField
+            label="Email"
+            name="importadorEmail"
+            type="email"
+            wide
+            defaultValue={initial.importadorEmail}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0 sm:col-span-2">
+            <PlanillaFechaField
+              label="Fecha llegada del buque *"
+              name="fechaLlegadaBuque"
+              value={fechaLlegadaBuque}
+              onChange={setFechaLlegadaBuque}
+              required
+            />
+          </div>
+          <RegistroField label="Aduana" name="aduana" defaultValue={initial.aduana} />
+          <RegistroField
+            label="Nº BL / Guía"
+            name="numeroBl"
+            mono
+            upper
+            defaultValue={initial.numeroBl}
+          />
+          <RegistroField
+            label="País de origen"
+            name="paisOrigen"
+            defaultValue={initial.paisOrigen}
+          />
+          <RegistroField
+            label="Valor CIF (USD)"
+            name="valorCif"
+            type="number"
+            min={0}
+            defaultValue={initial.valorCif}
+          />
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones</span>
+            <textarea
+              name="observaciones"
+              rows={3}
+              defaultValue={initial.observaciones}
+              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
+        </div>
+      </section>
+
+      <PlanillaFaseActions
+        pending={pending}
+        continueLabel="Continuar a Embarque"
+        asFormSubmit
+      />
+    </form>
+  );
+}
+
+function RegistroField({
+  label,
+  name,
+  defaultValue,
+  type = "text",
+  required,
+  placeholder,
+  mono,
+  upper,
+  wide,
+  min,
+  max,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  mono?: boolean;
+  upper?: boolean;
+  wide?: boolean;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
+      <span className="text-sm text-slate-400">{label}</span>
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        required={required}
+        placeholder={placeholder}
+        min={min}
+        max={max}
+        onInput={
+          upper
+            ? (e) => {
+                const el = e.currentTarget;
+                const next = el.value.toUpperCase();
+                if (el.value !== next) el.value = next;
+              }
+            : undefined
+        }
+        className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
+          mono ? "font-mono uppercase" : ""
+        }`}
+      />
+    </label>
+  );
 }
 
 function Fase1aEmbarque({

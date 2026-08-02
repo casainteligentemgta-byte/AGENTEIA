@@ -110,7 +110,7 @@ function completarHref(v: PuertoLibreVehiculoListItem): string {
   if (f === 4) return `/puerto-libre/${v.id}/planilla?fase=4`;
   if (f === 3) return `/puerto-libre/${v.id}/planilla?fase=3`;
   if (f === 2) return `/puerto-libre/${v.id}/planilla?fase=2`;
-  return `/puerto-libre/${v.id}/planilla?fase=1a`;
+  return `/puerto-libre/${v.id}/planilla?fase=1`;
 }
 
 function etiquetaDias(dias: number | null, sinFecha: string) {
