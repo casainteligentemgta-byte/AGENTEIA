@@ -326,6 +326,11 @@ export const importacionSchema = z.object({
    * 6 = matriculación inicial, 7 = planilla completa.
    */
   planillaFase: z.coerce.number().int().min(1).max(7).optional().nullable(),
+  /**
+   * Subpaso de fase 6 Matriculación:
+   * 1 = carpeta a consignar, 2 = registrar placa (tras guardar carpeta).
+   */
+  matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
   /** Número secuencial del expediente dentro del mes. */
@@ -403,6 +408,9 @@ export function parseImportacion(raw: unknown): ImportacionData {
     importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
     importadorEmail: row.importadorEmail ?? row.importador_email,
     planillaFase: asOptionalAnio(row.planillaFase ?? row.planilla_fase),
+    matriculacionPaso: asOptionalAnio(
+      row.matriculacionPaso ?? row.matriculacion_paso
+    ),
     codigoExpediente: row.codigoExpediente ?? row.codigo_expediente,
     numeroExpediente: asOptionalAnio(row.numeroExpediente ?? row.numero_expediente),
     checklistLlegada:
@@ -453,6 +461,10 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     planilla_fase:
       data.planillaFase != null && !Number.isNaN(data.planillaFase)
         ? data.planillaFase
+        : null,
+    matriculacion_paso:
+      data.matriculacionPaso != null && !Number.isNaN(data.matriculacionPaso)
+        ? data.matriculacionPaso
         : null,
     codigo_expediente: data.codigoExpediente?.trim() || null,
     numero_expediente:

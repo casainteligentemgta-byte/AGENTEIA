@@ -23,6 +23,7 @@ import {
   completePuertoLibreFase4PropietarioAction,
   completePuertoLibreFase5SeguroAction,
   completePuertoLibreFase6MatriculacionAction,
+  savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreFase2LlegadaAction,
 } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
@@ -158,6 +159,9 @@ export function PlanillaRegistroImportacion({
   });
   const [otrosNotas, setOtrosNotas] = useState(
     initialImportacion.otrosDispositivosNotas ?? ""
+  );
+  const [matriculacionPaso, setMatriculacionPaso] = useState(
+    initialImportacion.matriculacionPaso ?? 1
   );
 
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
@@ -460,7 +464,24 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           docsCount={matriculacionCount}
           placaInicial={placaVisible ?? ""}
+          paso={matriculacionPaso}
           pending={pending}
+          onSaveCarpeta={() => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await savePuertoLibreCarpetaMatriculacionAction(
+                vehiculoId
+              );
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMatriculacionPaso(2);
+              setMessage("Carpeta de matriculación guardada");
+              router.refresh();
+            });
+          }}
           onComplete={(placaNueva) => {
             setError(null);
             setMessage(null);
@@ -1091,7 +1112,9 @@ function Fase6Matriculacion({
   setDocs,
   docsCount,
   placaInicial,
+  paso,
   pending,
+  onSaveCarpeta,
   onComplete,
   onUploadedMessage,
 }: {
@@ -1100,13 +1123,16 @@ function Fase6Matriculacion({
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
   placaInicial: string;
+  /** 1 = carpeta, 2 = placa. */
+  paso: number;
   pending: boolean;
+  onSaveCarpeta: () => void;
   onComplete: (placa: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [placa, setPlaca] = useState(placaInicial);
   const carpetaCompleta = docsCount === PL_MATRICULACION_CARPETA_TIPOS.length;
-  const canComplete = carpetaCompleta && placa.trim().length > 0;
+  const pasoPlaca = paso >= 2;
 
   return (
     <div className="space-y-8">
@@ -1118,10 +1144,6 @@ function Fase6Matriculacion({
             {docsCount}/{PL_MATRICULACION_CARPETA_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Carpeta a consignar. Al completar el trámite se obtiene el número de
-          placa; regístralo abajo para cerrar la planilla.
-        </p>
 
         <ul className="mt-5 space-y-3">
           {PL_MATRICULACION_CARPETA_TIPOS.map((tipo) => {
@@ -1181,42 +1203,52 @@ function Fase6Matriculacion({
             );
           })}
         </ul>
+
+        {!pasoPlaca ? (
+          <button
+            type="button"
+            disabled={pending || !carpetaCompleta}
+            onClick={onSaveCarpeta}
+            className="mt-6 w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
+          >
+            {pending ? "Guardando…" : "Guardar carpeta y continuar"}
+          </button>
+        ) : null}
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="text-lg font-semibold text-slate-100">Número de placa</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Resultado de la matriculación inicial. Distinto del número de expediente.
-        </p>
-        <label className="mt-4 block space-y-1.5">
-          <span className="text-sm text-slate-400">Placa *</span>
-          <input
-            value={placa}
-            onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-            required
-            placeholder="Ej. AB123CD"
-            autoComplete="off"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
-          />
-        </label>
-      </section>
+      {pasoPlaca ? (
+        <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-slate-100">Número de placa</h2>
+          <label className="mt-4 block space-y-1.5">
+            <span className="text-sm text-slate-400">Placa *</span>
+            <input
+              value={placa}
+              onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+              required
+              placeholder="Ej. AB123CD"
+              autoComplete="off"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
 
-      <div className="flex flex-col gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-between">
-        <Link
-          href={`/puerto-libre/${vehiculoId}`}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500"
-        >
-          Ir a la ficha
-        </Link>
-        <button
-          type="button"
-          disabled={pending || !canComplete}
-          onClick={() => onComplete(placa.trim())}
-          className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
-        >
-          {pending ? "Guardando…" : "Finalizar planilla"}
-        </button>
-      </div>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
+            <Link
+              href={`/puerto-libre/${vehiculoId}`}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500"
+            >
+              Ir a la ficha
+            </Link>
+            <button
+              type="button"
+              disabled={pending || !placa.trim()}
+              onClick={() => onComplete(placa.trim())}
+              className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
+            >
+              {pending ? "Guardando…" : "Finalizar planilla"}
+            </button>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
