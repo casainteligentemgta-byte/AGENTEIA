@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useMemo,
@@ -62,6 +61,9 @@ import {
 } from "@/lib/puerto-libre/expediente";
 
 export type PlanillaFaseUi = "1a" | 2 | 3 | 4 | 5 | 6;
+
+/** Tras guardar una fase: seguir en planilla o volver a la ficha. */
+type PlanillaAfterSave = "next" | "ficha";
 
 type Props = {
   vehiculoId: string;
@@ -229,6 +231,17 @@ export function PlanillaRegistroImportacion({
     router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${next}`);
   }
 
+  function navigateAfterSave(after: PlanillaAfterSave, nextFase: PlanillaFaseUi) {
+    if (after === "ficha") {
+      router.push(`/puerto-libre/${vehiculoId}`);
+      router.refresh();
+      return;
+    }
+    setFase(nextFase);
+    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${nextFase}`);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
@@ -299,7 +312,7 @@ export function PlanillaRegistroImportacion({
           docsCount={embarqueCount}
           pending={pending}
           canComplete={embarqueCompleto}
-          onComplete={() => {
+          onComplete={(after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -309,9 +322,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Documentos de embarque guardados");
-              setFase(2);
-              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=2`);
-              router.refresh();
+              navigateAfterSave(after, 2);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -335,7 +346,7 @@ export function PlanillaRegistroImportacion({
           otrosNotas={otrosNotas}
           setOtrosNotas={setOtrosNotas}
           pending={pending}
-          onSave={(fechaIngreso) => {
+          onSave={(fechaIngreso, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -351,9 +362,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Fase 2 guardada");
-              setFase(3);
-              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=3`);
-              router.refresh();
+              navigateAfterSave(after, 3);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -370,7 +379,7 @@ export function PlanillaRegistroImportacion({
           docsCount={aduanaCount}
           pending={pending}
           canComplete={aduanaCompleta}
-          onComplete={() => {
+          onComplete={(after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -380,9 +389,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Liquidación aduanera guardada");
-              setFase(4);
-              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=4`);
-              router.refresh();
+              navigateAfterSave(after, 4);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -402,7 +409,7 @@ export function PlanillaRegistroImportacion({
           compradorEmail={compradorEmail}
           compradorDireccion={initialImportacion.compradorDireccion ?? null}
           pending={pending}
-          onComplete={(payload) => {
+          onComplete={(payload, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -415,9 +422,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Propietario guardado");
-              setFase(5);
-              router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=5`);
-              router.refresh();
+              navigateAfterSave(after, 5);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -433,7 +438,7 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           initialSeguro={initialSeguro}
           pending={pending}
-          onComplete={(payload) => {
+          onComplete={(payload, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -446,9 +451,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Seguro guardado");
-              setFase(6);
-              router.push(`/puerto-libre/${vehiculoId}/planilla?fase=6`);
-              router.refresh();
+              navigateAfterSave(after, 6);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -466,7 +469,7 @@ export function PlanillaRegistroImportacion({
           placaInicial={placaVisible ?? ""}
           paso={matriculacionPaso}
           pending={pending}
-          onSaveCarpeta={() => {
+          onSaveCarpeta={(after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -479,10 +482,13 @@ export function PlanillaRegistroImportacion({
               }
               setMatriculacionPaso(2);
               setMessage("Carpeta de matriculación guardada");
+              if (after === "ficha") {
+                router.push(`/puerto-libre/${vehiculoId}`);
+              }
               router.refresh();
             });
           }}
-          onComplete={(placaNueva) => {
+          onComplete={(placaNueva, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -495,7 +501,11 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Planilla completa · puedes nacionalizar");
-              router.push(`/puerto-libre/${vehiculoId}/nacionalizar`);
+              if (after === "ficha") {
+                router.push(`/puerto-libre/${vehiculoId}`);
+              } else {
+                router.push(`/puerto-libre/${vehiculoId}/nacionalizar`);
+              }
               router.refresh();
             });
           }}
@@ -549,6 +559,51 @@ function FaseChip({
   );
 }
 
+function PlanillaFaseActions({
+  pending,
+  disabled,
+  continueLabel,
+  onAction,
+  asFormSubmit = false,
+}: {
+  pending: boolean;
+  disabled?: boolean;
+  continueLabel: string;
+  onAction?: (after: PlanillaAfterSave) => void;
+  /** Botones submit con name=after (next|ficha) para formularios. */
+  asFormSubmit?: boolean;
+}) {
+  const isDisabled = pending || Boolean(disabled);
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <button
+        type={asFormSubmit ? "submit" : "button"}
+        name={asFormSubmit ? "after" : undefined}
+        value={asFormSubmit ? "next" : undefined}
+        disabled={isDisabled}
+        onClick={asFormSubmit ? undefined : () => onAction?.("next")}
+        className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
+      >
+        {pending ? "Guardando…" : continueLabel}
+      </button>
+      <button
+        type={asFormSubmit ? "submit" : "button"}
+        name={asFormSubmit ? "after" : undefined}
+        value={asFormSubmit ? "ficha" : undefined}
+        disabled={isDisabled}
+        onClick={asFormSubmit ? undefined : () => onAction?.("ficha")}
+        className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-5 py-3.5 text-sm font-medium text-slate-200 hover:border-slate-500 disabled:opacity-60"
+      >
+        {pending ? "Guardando…" : "Guardar e ir a la ficha"}
+      </button>
+    </div>
+  );
+}
+
+function afterFromFormData(fd: FormData): PlanillaAfterSave {
+  return String(fd.get("after") ?? "") === "ficha" ? "ficha" : "next";
+}
+
 function Fase1aEmbarque({
   vehiculoId,
   docs,
@@ -565,7 +620,7 @@ function Fase1aEmbarque({
   docsCount: number;
   pending: boolean;
   canComplete: boolean;
-  onComplete: () => void;
+  onComplete: (after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   return (
@@ -596,14 +651,12 @@ function Fase1aEmbarque({
         </div>
       </section>
 
-      <button
-        type="button"
-        disabled={pending || !canComplete}
-        onClick={onComplete}
-        className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-      >
-        {pending ? "Guardando…" : "Guardar y abrir fase Llegada"}
-      </button>
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!canComplete}
+        continueLabel="Continuar a Llegada"
+        onAction={onComplete}
+      />
     </div>
   );
 }
@@ -638,7 +691,7 @@ function Fase2Llegada({
   otrosNotas: string;
   setOtrosNotas: (v: string) => void;
   pending: boolean;
-  onSave: (fechaIngreso: string) => void;
+  onSave: (fechaIngreso: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [fecha, setFecha] = useState(fechaIngresoInicial);
@@ -743,14 +796,12 @@ function Fase2Llegada({
         </label>
       </section>
 
-      <button
-        type="button"
-        disabled={pending || !fecha}
-        onClick={() => onSave(fecha)}
-        className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-      >
-        {pending ? "Guardando…" : "Guardar y abrir fase Aduana"}
-      </button>
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!fecha}
+        continueLabel="Continuar a Aduana"
+        onAction={(after) => onSave(fecha, after)}
+      />
     </div>
   );
 }
@@ -771,7 +822,7 @@ function Fase3Aduana({
   docsCount: number;
   pending: boolean;
   canComplete: boolean;
-  onComplete: () => void;
+  onComplete: (after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   return (
@@ -802,14 +853,12 @@ function Fase3Aduana({
         </div>
       </section>
 
-      <button
-        type="button"
-        disabled={pending || !canComplete}
-        onClick={onComplete}
-        className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-      >
-        {pending ? "Guardando…" : "Guardar y abrir fase Propietario"}
-      </button>
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!canComplete}
+        continueLabel="Continuar a Propietario"
+        onAction={onComplete}
+      />
     </div>
   );
 }
@@ -836,13 +885,16 @@ function Fase4Propietario({
   compradorEmail: string | null;
   compradorDireccion: string | null;
   pending: boolean;
-  onComplete: (payload: {
-    nombreCliente: string;
-    telefonoCliente: string;
-    cedulaPropietario: string;
-    emailPropietario: string;
-    direccion: string;
-  }) => void;
+  onComplete: (
+    payload: {
+      nombreCliente: string;
+      telefonoCliente: string;
+      cedulaPropietario: string;
+      emailPropietario: string;
+      direccion: string;
+    },
+    after: PlanillaAfterSave
+  ) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   return (
@@ -858,13 +910,16 @@ function Fase4Propietario({
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
-            onComplete({
-              nombreCliente: String(fd.get("nombreCliente") ?? ""),
-              telefonoCliente: String(fd.get("telefonoCliente") ?? ""),
-              cedulaPropietario: String(fd.get("cedulaPropietario") ?? ""),
-              emailPropietario: String(fd.get("emailPropietario") ?? ""),
-              direccion: String(fd.get("direccion") ?? ""),
-            });
+            onComplete(
+              {
+                nombreCliente: String(fd.get("nombreCliente") ?? ""),
+                telefonoCliente: String(fd.get("telefonoCliente") ?? ""),
+                cedulaPropietario: String(fd.get("cedulaPropietario") ?? ""),
+                emailPropietario: String(fd.get("emailPropietario") ?? ""),
+                direccion: String(fd.get("direccion") ?? ""),
+              },
+              afterFromFormData(fd)
+            );
           }}
         >
           <label className="block space-y-1.5 sm:col-span-2">
@@ -936,13 +991,11 @@ function Fase4Propietario({
           </div>
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-            >
-              {pending ? "Guardando…" : "Guardar y abrir fase Seguro"}
-            </button>
+            <PlanillaFaseActions
+              pending={pending}
+              continueLabel="Continuar a Seguro"
+              asFormSubmit
+            />
           </div>
         </form>
       </section>
@@ -964,16 +1017,19 @@ function Fase5Seguro({
   setDocs: (d: VehiculosDocumentos) => void;
   initialSeguro: SeguroData;
   pending: boolean;
-  onComplete: (payload: {
-    aseguradora: string;
-    numeroPoliza: string | null;
-    tipoCobertura: string | null;
-    vigenciaDesde: string | null;
-    vigenciaHasta: string | null;
-    montoAsegurado: number | null;
-    telefonoAseguradora: string | null;
-    corredor: string | null;
-  }) => void;
+  onComplete: (
+    payload: {
+      aseguradora: string;
+      numeroPoliza: string | null;
+      tipoCobertura: string | null;
+      vigenciaDesde: string | null;
+      vigenciaHasta: string | null;
+      montoAsegurado: number | null;
+      telefonoAseguradora: string | null;
+      corredor: string | null;
+    },
+    after: PlanillaAfterSave
+  ) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   return (
@@ -987,16 +1043,20 @@ function Fase5Seguro({
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
             const montoRaw = String(fd.get("montoAsegurado") ?? "").trim();
-            onComplete({
-              aseguradora: String(fd.get("aseguradora") ?? ""),
-              numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
-              tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
-              vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
-              vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
-              montoAsegurado: montoRaw ? Number(montoRaw) : null,
-              telefonoAseguradora: String(fd.get("telefonoAseguradora") ?? "") || null,
-              corredor: String(fd.get("corredor") ?? "") || null,
-            });
+            onComplete(
+              {
+                aseguradora: String(fd.get("aseguradora") ?? ""),
+                numeroPoliza: String(fd.get("numeroPoliza") ?? "") || null,
+                tipoCobertura: String(fd.get("tipoCobertura") ?? "") || null,
+                vigenciaDesde: String(fd.get("vigenciaDesde") ?? "") || null,
+                vigenciaHasta: String(fd.get("vigenciaHasta") ?? "") || null,
+                montoAsegurado: montoRaw ? Number(montoRaw) : null,
+                telefonoAseguradora:
+                  String(fd.get("telefonoAseguradora") ?? "") || null,
+                corredor: String(fd.get("corredor") ?? "") || null,
+              },
+              afterFromFormData(fd)
+            );
           }}
         >
           <label className="block space-y-1.5">
@@ -1092,13 +1152,11 @@ function Fase5Seguro({
           </div>
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-            >
-              {pending ? "Guardando…" : "Guardar y abrir Matriculación"}
-            </button>
+            <PlanillaFaseActions
+              pending={pending}
+              continueLabel="Continuar a Matriculación"
+              asFormSubmit
+            />
           </div>
         </form>
       </section>
@@ -1126,8 +1184,8 @@ function Fase6Matriculacion({
   /** 1 = carpeta, 2 = placa. */
   paso: number;
   pending: boolean;
-  onSaveCarpeta: () => void;
-  onComplete: (placa: string) => void;
+  onSaveCarpeta: (after: PlanillaAfterSave) => void;
+  onComplete: (placa: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [placa, setPlaca] = useState(placaInicial);
@@ -1205,14 +1263,14 @@ function Fase6Matriculacion({
         </ul>
 
         {!pasoPlaca ? (
-          <button
-            type="button"
-            disabled={pending || !carpetaCompleta}
-            onClick={onSaveCarpeta}
-            className="mt-6 w-full rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
-          >
-            {pending ? "Guardando…" : "Guardar carpeta y continuar"}
-          </button>
+          <div className="mt-6">
+            <PlanillaFaseActions
+              pending={pending}
+              disabled={!carpetaCompleta}
+              continueLabel="Continuar a placa"
+              onAction={onSaveCarpeta}
+            />
+          </div>
         ) : null}
       </section>
 
@@ -1231,21 +1289,13 @@ function Fase6Matriculacion({
             />
           </label>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
-            <Link
-              href={`/puerto-libre/${vehiculoId}`}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500"
-            >
-              Ir a la ficha
-            </Link>
-            <button
-              type="button"
-              disabled={pending || !placa.trim()}
-              onClick={() => onComplete(placa.trim())}
-              className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : "Finalizar planilla"}
-            </button>
+          <div className="mt-6">
+            <PlanillaFaseActions
+              pending={pending}
+              disabled={!placa.trim()}
+              continueLabel="Finalizar y nacionalizar"
+              onAction={(after) => onComplete(placa.trim(), after)}
+            />
           </div>
         </section>
       ) : null}
