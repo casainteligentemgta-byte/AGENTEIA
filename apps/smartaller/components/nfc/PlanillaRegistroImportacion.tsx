@@ -11,11 +11,9 @@ import {
 import {
   AlertCircle,
   Camera,
-  Car,
   CheckCircle2,
   FileUp,
   Shield,
-  Ship,
   User,
 } from "lucide-react";
 import {
@@ -58,7 +56,10 @@ import {
   PlanillaVehiculoSelector,
   type PlanillaVehiculoOption,
 } from "@/components/nfc/PlanillaVehiculoSelector";
-import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
+import {
+  PuertoLibreFase1Form,
+  type PuertoLibreFase1FormValues,
+} from "@/components/nfc/PuertoLibreFase1Form";
 import {
   placaRealVisible,
   resolveCodigoExpediente,
@@ -722,314 +723,82 @@ function Fase1Registro({
   };
   onSave: (payload: Fase1RegistroPayload, after: PlanillaAfterSave) => void;
 }) {
-  const [fechaLlegadaBuque, setFechaLlegadaBuque] = useState(
-    initial.fechaLlegadaBuque
-  );
-  const [condicion, setCondicion] = useState<"nuevo" | "usado" | "">(
-    initial.condicion === "nuevo" || initial.condicion === "usado"
-      ? initial.condicion
-      : ""
-  );
-  const [esSubasta, setEsSubasta] = useState<"true" | "false" | "">(
-    initial.esSubasta === "true" || initial.esSubasta === "false"
-      ? initial.esSubasta
-      : ""
-  );
+  const formInitial: Partial<PuertoLibreFase1FormValues> = {
+    marca: initial.marca,
+    modelo: initial.modelo,
+    color: initial.color,
+    anio: initial.anio != null ? String(initial.anio) : "",
+    serialMotor: initial.serialMotor,
+    serialCarroceria: initial.serialCarroceria,
+    kilometraje:
+      initial.kilometraje != null ? String(initial.kilometraje) : "",
+    condicion:
+      initial.condicion === "nuevo" || initial.condicion === "usado"
+        ? initial.condicion
+        : "",
+    esSubasta:
+      initial.esSubasta === "true" || initial.esSubasta === "false"
+        ? initial.esSubasta
+        : "",
+    fechaLlegadaBuque: initial.fechaLlegadaBuque,
+    importadorNombre: initial.importadorNombre,
+    importadorDocumento: initial.importadorDocumento,
+    importadorTelefono: initial.importadorTelefono,
+    importadorEmail: initial.importadorEmail,
+    aduana: initial.aduana,
+    numeroBl: initial.numeroBl,
+    paisOrigen: initial.paisOrigen,
+    valorCif: initial.valorCif,
+    observaciones: initial.observaciones,
+  };
 
   return (
-    <form
-      className="space-y-8"
-      action={(fd) => {
-        const anioRaw = String(fd.get("anio") ?? "").trim();
-        const kmRaw = String(fd.get("kilometraje") ?? "").trim();
-        const condicionRaw = String(fd.get("condicion") ?? "").trim();
-        const subastaRaw = String(fd.get("esSubasta") ?? "").trim();
+    <PuertoLibreFase1Form
+      variant="planilla"
+      initial={formInitial}
+      onSubmit={(values, fd) => {
         onSave(
           {
-            marca: String(fd.get("marca") ?? ""),
-            modelo: String(fd.get("modelo") ?? ""),
-            color: String(fd.get("color") ?? ""),
-            anio: anioRaw ? Number(anioRaw) : Number.NaN,
-            serialMotor: String(fd.get("serialMotor") ?? ""),
-            serialCarroceria: String(fd.get("serialCarroceria") ?? ""),
-            kilometraje: kmRaw ? Number(kmRaw) : Number.NaN,
-            condicion: condicionRaw as "nuevo" | "usado",
+            marca: values.marca,
+            modelo: values.modelo,
+            color: values.color,
+            anio: values.anio ? Number(values.anio) : Number.NaN,
+            serialMotor: values.serialMotor,
+            serialCarroceria: values.serialCarroceria,
+            kilometraje: values.kilometraje
+              ? Number(values.kilometraje)
+              : Number.NaN,
+            condicion: values.condicion as "nuevo" | "usado",
             esSubasta:
-              condicionRaw === "usado"
-                ? subastaRaw === "true"
+              values.condicion === "usado"
+                ? values.esSubasta === "true"
                   ? true
-                  : subastaRaw === "false"
+                  : values.esSubasta === "false"
                     ? false
                     : null
                 : false,
-            fechaLlegadaBuque:
-              fechaLlegadaBuque || String(fd.get("fechaLlegadaBuque") ?? ""),
-            importadorNombre: String(fd.get("importadorNombre") ?? ""),
-            importadorDocumento: String(fd.get("importadorDocumento") ?? ""),
-            importadorTelefono: String(fd.get("importadorTelefono") ?? ""),
-            importadorEmail: String(fd.get("importadorEmail") ?? ""),
-            aduana: String(fd.get("aduana") ?? ""),
-            numeroBl: String(fd.get("numeroBl") ?? ""),
-            paisOrigen: String(fd.get("paisOrigen") ?? ""),
-            valorCif: String(fd.get("valorCif") ?? ""),
-            observaciones: String(fd.get("observaciones") ?? ""),
+            fechaLlegadaBuque: values.fechaLlegadaBuque,
+            importadorNombre: values.importadorNombre,
+            importadorDocumento: values.importadorDocumento,
+            importadorTelefono: values.importadorTelefono,
+            importadorEmail: values.importadorEmail,
+            aduana: values.aduana,
+            numeroBl: values.numeroBl,
+            paisOrigen: values.paisOrigen,
+            valorCif: values.valorCif,
+            observaciones: values.observaciones,
           },
           afterFromFormData(fd)
         );
       }}
-    >
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Car className="h-5 w-5 text-cyan-400" />
-          Datos del vehículo
-        </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <VehiculoCatalogoFields
-            initialMarca={initial.marca}
-            initialModelo={initial.modelo}
-            initialColor={initial.color}
-            initialAnio={initial.anio}
-          />
-          <RegistroField
-            label="Serial motor *"
-            name="serialMotor"
-            required
-            mono
-            upper
-            defaultValue={initial.serialMotor}
-          />
-          <RegistroField
-            label="Serial carrocería *"
-            name="serialCarroceria"
-            required
-            mono
-            upper
-            defaultValue={initial.serialCarroceria}
-          />
-          <RegistroField
-            label="Kilometraje *"
-            name="kilometraje"
-            type="number"
-            required
-            min={0}
-            defaultValue={
-              initial.kilometraje != null ? String(initial.kilometraje) : ""
-            }
-          />
-
-          <fieldset className="min-w-0 space-y-2 sm:col-span-2">
-            <legend className="text-sm text-slate-400">Condición *</legend>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { value: "nuevo", label: "Nuevo" },
-                  { value: "usado", label: "Usado" },
-                ] as const
-              ).map((op) => {
-                const selected = condicion === op.value;
-                return (
-                  <label
-                    key={op.value}
-                    className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                      selected
-                        ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
-                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="condicion"
-                      value={op.value}
-                      required
-                      checked={selected}
-                      onChange={() => {
-                        setCondicion(op.value);
-                        if (op.value === "nuevo") setEsSubasta("");
-                      }}
-                      className="sr-only"
-                    />
-                    {op.label}
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          {condicion === "usado" ? (
-            <fieldset className="min-w-0 space-y-2 sm:col-span-2">
-              <legend className="text-sm text-slate-400">¿Es de subasta? *</legend>
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { value: "true", label: "Sí" },
-                    { value: "false", label: "No" },
-                  ] as const
-                ).map((op) => {
-                  const selected = esSubasta === op.value;
-                  return (
-                    <label
-                      key={op.value}
-                      className={`inline-flex cursor-pointer items-center rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                        selected
-                          ? "border-cyan-500/60 bg-cyan-950/40 text-cyan-100"
-                          : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="esSubasta"
-                        value={op.value}
-                        required
-                        checked={selected}
-                        onChange={() => setEsSubasta(op.value)}
-                        className="sr-only"
-                      />
-                      {op.label}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Ship className="h-5 w-5 text-cyan-400" />
-          Datos del importador
-        </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <RegistroField
-            label="Nombre *"
-            name="importadorNombre"
-            required
-            wide
-            defaultValue={initial.importadorNombre}
-          />
-          <RegistroField
-            label="RIF"
-            name="importadorDocumento"
-            defaultValue={initial.importadorDocumento}
-          />
-          <RegistroField
-            label="Teléfono"
-            name="importadorTelefono"
-            defaultValue={initial.importadorTelefono}
-          />
-          <RegistroField
-            label="Email"
-            name="importadorEmail"
-            type="email"
-            wide
-            defaultValue={initial.importadorEmail}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="min-w-0 sm:col-span-2">
-            <PlanillaFechaField
-              label="Fecha llegada del buque *"
-              name="fechaLlegadaBuque"
-              value={fechaLlegadaBuque}
-              onChange={setFechaLlegadaBuque}
-              required
-            />
-          </div>
-          <RegistroField label="Aduana" name="aduana" defaultValue={initial.aduana} />
-          <RegistroField
-            label="Nº BL / Guía"
-            name="numeroBl"
-            mono
-            upper
-            defaultValue={initial.numeroBl}
-          />
-          <RegistroField
-            label="País de origen"
-            name="paisOrigen"
-            defaultValue={initial.paisOrigen}
-          />
-          <RegistroField
-            label="Valor CIF (USD)"
-            name="valorCif"
-            type="number"
-            min={0}
-            defaultValue={initial.valorCif}
-          />
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Observaciones</span>
-            <textarea
-              name="observaciones"
-              rows={3}
-              defaultValue={initial.observaciones}
-              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-        </div>
-      </section>
-
-      <PlanillaFaseActions
-        pending={pending}
-        continueLabel="Continuar a Embarque"
-        asFormSubmit
-      />
-    </form>
-  );
-}
-
-function RegistroField({
-  label,
-  name,
-  defaultValue,
-  type = "text",
-  required,
-  placeholder,
-  mono,
-  upper,
-  wide,
-  min,
-  max,
-}: {
-  label: string;
-  name: string;
-  defaultValue?: string;
-  type?: string;
-  required?: boolean;
-  placeholder?: string;
-  mono?: boolean;
-  upper?: boolean;
-  wide?: boolean;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
-      <span className="text-sm text-slate-400">{label}</span>
-      <input
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        required={required}
-        placeholder={placeholder}
-        min={min}
-        max={max}
-        onInput={
-          upper
-            ? (e) => {
-                const el = e.currentTarget;
-                const next = el.value.toUpperCase();
-                if (el.value !== next) el.value = next;
-              }
-            : undefined
-        }
-        className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
-          mono ? "font-mono uppercase" : ""
-        }`}
-      />
-    </label>
+      actions={
+        <PlanillaFaseActions
+          pending={pending}
+          continueLabel="Continuar a Embarque"
+          asFormSubmit
+        />
+      }
+    />
   );
 }
 
