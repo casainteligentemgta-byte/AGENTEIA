@@ -15,11 +15,13 @@ import {
   Package,
   Bike,
   ShieldCheck,
+  LayoutGrid,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { BrandLogo } from "@/components/app/brand-logo";
 
 const links = [
+  { href: "/portales", label: "Portales", icon: LayoutGrid },
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
   { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
