@@ -67,10 +67,16 @@ export function VehiculoCatalogoFields({
   const [colorOtra, setColorOtra] = useState(colorInit.custom);
 
   const anios = useMemo(() => aniosVehiculoCatalogo(), []);
+  const anioOptions = useMemo(() => {
+    if (initialAnio && !anios.includes(initialAnio)) {
+      return [...anios, initialAnio].sort((a, b) => b - a);
+    }
+    return anios;
+  }, [anios, initialAnio]);
   const anioDefault =
-    initialAnio && anios.includes(initialAnio)
+    initialAnio && anioOptions.includes(initialAnio)
       ? String(initialAnio)
-      : String(anios[0] ?? new Date().getFullYear());
+      : String(anioOptions[0] ?? new Date().getFullYear());
 
   const marcaValue =
     marcaSelect === VEHICULO_CATALOGO_OTRA ? marcaOtra : marcaSelect;
@@ -212,7 +218,7 @@ export function VehiculoCatalogoFields({
           defaultValue={anioDefault}
           className={selectClass}
         >
-          {anios.map((y) => (
+          {anioOptions.map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
