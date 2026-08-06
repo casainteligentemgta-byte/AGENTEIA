@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Camera, CheckCircle2, FileUp, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  FileUp,
+  Loader2,
+  XCircle,
+} from "lucide-react";
+import { verifyPuertoLibreImprontaAction } from "@/app/actions/nfc/puerto-libre-impronta";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { FotoDanoAnnotator } from "@/components/nfc/FotoDanoAnnotator";
 import {
@@ -12,6 +20,13 @@ import {
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type AcceptMode = "pdf" | "both";
+
+export type ImprontaVerifyUi = {
+  estado: "coincide" | "no_coincide" | "no_leido";
+  expected: string;
+  leido: string | null;
+  message: string;
+};
 
 type Props = {
   vehiculoId: string;
@@ -31,6 +46,14 @@ type Props = {
    * (círculo / lápiz) antes de subir.
    */
   annotateBeforeUpload?: boolean;
+  /**
+   * Si true (foto_impronta), verifica con OCR que el serial coincida
+   * con el del expediente antes/durante la subida.
+   */
+  verifySerialAgainstExpediente?: boolean;
+  /** Estado inicial de verificación (desde importacion). */
+  initialImprontaVerify?: ImprontaVerifyUi | null;
+  onImprontaVerified?: (result: ImprontaVerifyUi) => void;
 };
 
 const ACCEPT_BOTH =
@@ -52,6 +75,9 @@ export function ImportDocumentoUpload({
   acceptMode = "both",
   tone = "dark",
   annotateBeforeUpload = false,
+  verifySerialAgainstExpediente = false,
+  initialImprontaVerify = null,
+  onImprontaVerified,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -60,16 +86,22 @@ export function ImportDocumentoUpload({
   const [url, setUrl] = useState<string | null>(existingUrl ?? null);
   const [annotateUrl, setAnnotateUrl] = useState<string | null>(null);
   const [annotateName, setAnnotateName] = useState("foto.jpg");
+  const [impronta, setImpronta] = useState<ImprontaVerifyUi | null>(
+    initialImprontaVerify
+  );
   const light = tone === "light";
   const pdfOnly = acceptMode === "pdf";
+  const shouldVerify = verifySerialAgainstExpediente && tipo === "foto_impronta";
 
   const resolvedHint =
     hint ??
     (pdfOnly
       ? "Solo PDF · máx. 10 MB"
-      : annotateBeforeUpload
-        ? "Toma la foto, marca daños (círculo/lápiz) y guarda · máx. 10 MB"
-        : "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB");
+      : shouldVerify
+        ? "Foto de la impronta: se verifica que coincida con el serial del expediente"
+        : annotateBeforeUpload
+          ? "Toma la foto, marca daños (círculo/lápiz) y guarda · máx. 10 MB"
+          : "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB");
   const resolvedLabel =
     actionLabel ?? (pdfOnly ? "Subir PDF" : "Escanear / PDF");
 
@@ -79,17 +111,48 @@ export function ImportDocumentoUpload({
   }, [existingUrl]);
 
   useEffect(() => {
+    setImpronta(initialImprontaVerify);
+  }, [initialImprontaVerify]);
+
+  useEffect(() => {
     return () => {
       if (annotateUrl) URL.revokeObjectURL(annotateUrl);
     };
   }, [annotateUrl]);
 
-  function uploadFile(file: File) {
+  function uploadAndMaybeVerify(file: File) {
     setError(null);
     startTransition(async () => {
       try {
         const normalized =
-          file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
+          file.type === "application/pdf"
+            ? file
+            : await normalizeImageFileForUpload(file);
+
+        let verifyUi: ImprontaVerifyUi | null = null;
+        if (shouldVerify && normalized.type !== "application/pdf") {
+          const vfd = new FormData();
+          vfd.set("vehiculoId", vehiculoId);
+          vfd.set("file", normalized);
+          const verified = await verifyPuertoLibreImprontaAction(vfd);
+          if (!verified.success) {
+            setError(verified.error);
+            return;
+          }
+          verifyUi = {
+            estado: verified.estado,
+            expected: verified.expected,
+            leido: verified.leido,
+            message: verified.message,
+          };
+          setImpronta(verifyUi);
+          onImprontaVerified?.(verifyUi);
+          if (verified.estado === "no_coincide") {
+            setError(verified.message);
+            // Aún subimos la foto para dejar evidencia, pero el estado queda fallido.
+          }
+        }
+
         const formData = new FormData();
         formData.set("vehiculoId", vehiculoId);
         formData.set("tipo", tipo);
@@ -104,6 +167,9 @@ export function ImportDocumentoUpload({
         const nextUrl = result.documentos[tipo]?.url ?? null;
         setUrl(nextUrl);
         onUploaded?.(result.documentos);
+        if (verifyUi?.estado === "coincide") {
+          setError(null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al subir el archivo");
       }
@@ -132,7 +198,7 @@ export function ImportDocumentoUpload({
       return;
     }
 
-    uploadFile(file);
+    uploadAndMaybeVerify(file);
   }
 
   return (
@@ -150,6 +216,11 @@ export function ImportDocumentoUpload({
               className={`text-sm font-medium ${light ? "text-zinc-800" : "text-slate-200"}`}
             >
               {DOCUMENTO_LABELS[tipo]}
+              {shouldVerify ? (
+                <span className="ml-1 text-xs font-normal text-cyan-400/80">
+                  · verificación de serial
+                </span>
+              ) : null}
             </p>
             {url || done ? (
               <a
@@ -189,7 +260,13 @@ export function ImportDocumentoUpload({
             ) : (
               <Camera className="h-4 w-4" />
             )}
-            {pending ? "Subiendo…" : done ? "Cambiar archivo" : resolvedLabel}
+            {pending
+              ? shouldVerify
+                ? "Verificando…"
+                : "Subiendo…"
+              : done
+                ? "Cambiar archivo"
+                : resolvedLabel}
           </button>
         </div>
         <input
@@ -202,6 +279,7 @@ export function ImportDocumentoUpload({
             e.target.value = "";
           }}
         />
+        {impronta ? <ImprontaStatusBanner result={impronta} light={light} /> : null}
         {error ? (
           <p className={`mt-2 text-xs ${light ? "text-red-600" : "text-red-300"}`}>{error}</p>
         ) : null}
@@ -214,10 +292,53 @@ export function ImportDocumentoUpload({
           onCancel={closeAnnotator}
           onConfirm={(file) => {
             closeAnnotator();
-            uploadFile(file);
+            uploadAndMaybeVerify(file);
           }}
         />
       ) : null}
     </>
+  );
+}
+
+function ImprontaStatusBanner({
+  result,
+  light,
+}: {
+  result: ImprontaVerifyUi;
+  light: boolean;
+}) {
+  if (result.estado === "coincide") {
+    return (
+      <p
+        className={`mt-2 flex items-start gap-1.5 text-xs ${
+          light ? "text-emerald-700" : "text-emerald-300"
+        }`}
+      >
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        {result.message}
+      </p>
+    );
+  }
+  if (result.estado === "no_coincide") {
+    return (
+      <p
+        className={`mt-2 flex items-start gap-1.5 text-xs ${
+          light ? "text-red-700" : "text-red-300"
+        }`}
+      >
+        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        {result.message}
+      </p>
+    );
+  }
+  return (
+    <p
+      className={`mt-2 flex items-start gap-1.5 text-xs ${
+        light ? "text-amber-700" : "text-amber-200"
+      }`}
+    >
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      {result.message}
+    </p>
   );
 }

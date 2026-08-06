@@ -9,6 +9,26 @@ export function normalizarSerialCarroceria(serial: string): string {
   return serial.trim().toUpperCase().replace(/\s+/g, "");
 }
 
+/** Solo alfanumérico (útil para OCR con guiones/puntos). */
+export function compactarSerial(serial: string): string {
+  return serial.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Compara seriales tolerando espacios, guiones y lecturas parciales largas.
+ */
+export function serialesCoinciden(a: string, b: string): boolean {
+  const x = compactarSerial(a);
+  const y = compactarSerial(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  // VIN parcial: si ambos tienen ≥8 chars y uno contiene al otro.
+  if (x.length >= 8 && y.length >= 8 && (x.includes(y) || y.includes(x))) {
+    return true;
+  }
+  return false;
+}
+
 export const SERIAL_CARROCERIA_DUPLICADO =
   "Ya existe un vehículo con ese serial de carrocería.";
 
