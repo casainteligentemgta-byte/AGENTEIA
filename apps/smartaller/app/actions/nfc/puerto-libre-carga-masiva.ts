@@ -35,6 +35,12 @@ import {
 import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import type { PuertoLibreAltaInput } from "@/lib/schemas/puerto-libre-alta";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  applyImportadorDefaults,
+  getUltimoImportadorTaller,
+  saveUltimoImportadorTaller,
+  ultimoImportadorFromAlta,
+} from "@/lib/taller-preferencias";
 
 async function requireTallerAuth() {
   const user = await getUser();
@@ -146,7 +152,12 @@ export async function parseCargaMasivaSpreadsheetAction(
   const parsed = parseSpreadsheetBuffer(buffer, file.name);
   if (parsed.error) return { success: false, error: parsed.error };
 
-  return { success: true, rows: validateCargaMasivaRows(parsed.rows) };
+  const defaults = await getUltimoImportadorTaller(auth.taller.id);
+  const withDefaults = parsed.rows.map((row) =>
+    applyImportadorDefaults(row, defaults)
+  );
+
+  return { success: true, rows: validateCargaMasivaRows(withDefaults) };
 }
 
 export type ExtractCargaMasivaDocsResult =
@@ -277,9 +288,14 @@ export async function extractCargaMasivaDocumentosAction(
       };
     }
 
+    const defaults = await getUltimoImportadorTaller(auth.taller.id);
+    const withDefaults = vehicleRows.map((row) =>
+      applyImportadorDefaults(row, defaults)
+    );
+
     return {
       success: true,
-      rows: validateCargaMasivaRows(vehicleRows),
+      rows: validateCargaMasivaRows(withDefaults),
       warnings,
     };
   } catch (err) {
@@ -377,6 +393,27 @@ export async function createPuertoLibreCargaMasivaAction(
   }
 
   revalidatePath("/puerto-libre");
+
+  if (created.length > 0) {
+    const lastCreated = created[created.length - 1]!;
+    const lastRow = validated.find(
+      (r) =>
+        normalizarSerialCarroceria(r.serialCarroceria) ===
+        normalizarSerialCarroceria(lastCreated.serial)
+    );
+    const fromRow = lastRow
+      ? ultimoImportadorFromAlta({
+          importadorNombre: lastRow.importadorNombre,
+          importadorDocumento: lastRow.importadorDocumento,
+          importadorTelefono: lastRow.importadorTelefono,
+          importadorEmail: lastRow.importadorEmail,
+        })
+      : null;
+    if (fromRow) {
+      await saveUltimoImportadorTaller(tallerId, fromRow);
+    }
+  }
+
   return { success: true, created, failed };
 }
 

@@ -7,9 +7,15 @@ import {
   PuertoLibreFase1Form,
   type PuertoLibreFase1FormValues,
 } from "@/components/nfc/PuertoLibreFase1Form";
+import type { UltimoImportador } from "@/lib/taller-preferencias";
+
+type Props = {
+  /** Importador guardado del taller (último registro). */
+  initialImportador?: UltimoImportador | null;
+};
 
 /** Fase 1: datos del vehículo + importador (con OCR de factura/BL). */
-export function PlanillaAltaPuertoLibre() {
+export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +63,12 @@ export function PlanillaAltaPuertoLibre() {
   return (
     <PuertoLibreFase1Form
       variant="alta"
+      initial={{
+        importadorNombre: initialImportador?.importadorNombre ?? "",
+        importadorDocumento: initialImportador?.importadorDocumento ?? "",
+        importadorTelefono: initialImportador?.importadorTelefono ?? "",
+        importadorEmail: initialImportador?.importadorEmail ?? "",
+      }}
       onSubmit={handleSubmit}
       actions={
         <>

@@ -53,6 +53,10 @@ import {
 } from "@/lib/vehicles/serial";
 import { deleteVehiculoConDependencias } from "@/lib/vehicles/delete-cascade";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  saveUltimoImportadorTaller,
+  ultimoImportadorFromAlta,
+} from "@/lib/taller-preferencias";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -337,6 +341,12 @@ export async function createPuertoLibreVehiculoAction(
 
   revalidatePath("/puerto-libre");
   revalidatePath(`/puerto-libre/${created.id}/planilla`);
+
+  const importadorGuardar = ultimoImportadorFromAlta(data);
+  if (importadorGuardar) {
+    await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
+  }
+
   return { success: true, vehiculoId: created.id, codigoExpediente };
 }
 
@@ -424,6 +434,12 @@ export async function savePuertoLibreFase1RegistroAction(
   }
 
   revalidateFicha(data.vehiculoId);
+
+  const importadorGuardar = ultimoImportadorFromAlta(data);
+  if (importadorGuardar) {
+    await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
+  }
+
   return { success: true };
 }
 
@@ -457,6 +473,17 @@ export async function updatePuertoLibreImportacionAction(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(vehiculoId);
+
+  const importadorGuardar = ultimoImportadorFromAlta({
+    importadorNombre: importacion.importadorNombre ?? "",
+    importadorDocumento: importacion.importadorDocumento,
+    importadorTelefono: importacion.importadorTelefono,
+    importadorEmail: importacion.importadorEmail,
+  });
+  if (importadorGuardar) {
+    await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
+  }
+
   return { success: true };
 }
 

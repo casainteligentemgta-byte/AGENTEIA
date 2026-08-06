@@ -112,6 +112,7 @@ export function PuertoLibreFase1Form({
     ...initial,
   }));
   const [catalogKey, setCatalogKey] = useState(0);
+  const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
 
   const sectionClass =
     variant === "planilla"
@@ -296,6 +297,11 @@ export function PuertoLibreFase1Form({
           <Ship className="h-5 w-5 text-cyan-400" />
           Datos del importador
         </h2>
+        {importadorPrellenado ? (
+          <p className="mt-1 text-xs text-slate-500">
+            Prellenado con el último importador usado. Puedes editarlo si cambia.
+          </p>
+        ) : null}
         <div className={gridClass}>
           <ControlledField
             label="Nombre *"
