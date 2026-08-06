@@ -5,8 +5,7 @@ import { useState, useTransition } from "react";
 import { Car, Ship } from "lucide-react";
 import { createPuertoLibreVehiculoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
-
-const currentYear = new Date().getFullYear();
+import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
 
 /** Fase 1: datos del vehículo + importador. */
 export function PlanillaAltaPuertoLibre() {
@@ -65,24 +64,13 @@ export function PlanillaAltaPuertoLibre() {
         });
       }}
     >
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+      <section className="space-y-4">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Car className="h-5 w-5 text-cyan-400" />
           Datos del vehículo
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Marca *" name="marca" required placeholder="Ej. Toyota" />
-          <Field label="Modelo *" name="modelo" required placeholder="Ej. Corolla" />
-          <Field label="Color *" name="color" required />
-          <Field
-            label="Año *"
-            name="anio"
-            type="number"
-            required
-            defaultValue={String(currentYear)}
-            min={1950}
-            max={currentYear + 1}
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <VehiculoCatalogoFields />
           <Field label="Serial motor *" name="serialMotor" required mono upper />
           <Field
             label="Serial carrocería *"
@@ -177,12 +165,12 @@ export function PlanillaAltaPuertoLibre() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+      <section className="space-y-4 border-t border-slate-800 pt-8">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Ship className="h-5 w-5 text-cyan-400" />
           Datos del importador
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nombre *" name="importadorNombre" required wide />
           <Field label="RIF" name="importadorDocumento" />
           <Field label="Teléfono" name="importadorTelefono" />
@@ -190,9 +178,9 @@ export function PlanillaAltaPuertoLibre() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+      <section className="space-y-4 border-t border-slate-800 pt-8">
         <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="min-w-0 sm:col-span-2">
             <PlanillaFechaField
               label="Fecha llegada del buque *"
