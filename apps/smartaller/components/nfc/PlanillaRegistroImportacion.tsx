@@ -58,6 +58,7 @@ import {
   PlanillaVehiculoSelector,
   type PlanillaVehiculoOption,
 } from "@/components/nfc/PlanillaVehiculoSelector";
+import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
 import {
   placaRealVisible,
   resolveCodigoExpediente,
@@ -670,8 +671,6 @@ function afterFromFormData(fd: FormData): PlanillaAfterSave {
   return String(fd.get("after") ?? "") === "ficha" ? "ficha" : "next";
 }
 
-const currentYear = new Date().getFullYear();
-
 type Fase1RegistroPayload = {
   marca: string;
   modelo: string;
@@ -785,17 +784,11 @@ function Fase1Registro({
           Datos del vehículo
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <RegistroField label="Marca *" name="marca" required defaultValue={initial.marca} />
-          <RegistroField label="Modelo *" name="modelo" required defaultValue={initial.modelo} />
-          <RegistroField label="Color *" name="color" required defaultValue={initial.color} />
-          <RegistroField
-            label="Año *"
-            name="anio"
-            type="number"
-            required
-            defaultValue={String(initial.anio ?? currentYear)}
-            min={1950}
-            max={currentYear + 1}
+          <VehiculoCatalogoFields
+            initialMarca={initial.marca}
+            initialModelo={initial.modelo}
+            initialColor={initial.color}
+            initialAnio={initial.anio}
           />
           <RegistroField
             label="Serial motor *"
