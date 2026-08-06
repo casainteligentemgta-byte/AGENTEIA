@@ -10,7 +10,8 @@ export async function updateSession(request: NextRequest) {
     if (
       request.nextUrl.pathname.startsWith("/dashboard") ||
       request.nextUrl.pathname.startsWith("/app") ||
-      request.nextUrl.pathname.startsWith("/puerto-libre")
+      request.nextUrl.pathname.startsWith("/puerto-libre") ||
+      request.nextUrl.pathname.startsWith("/portales")
     ) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
@@ -46,7 +47,8 @@ export async function updateSession(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/app") ||
-    pathname.startsWith("/puerto-libre");
+    pathname.startsWith("/puerto-libre") ||
+    pathname.startsWith("/portales");
 
   if (!user && isProtected) {
     const loginUrl = request.nextUrl.clone();
@@ -62,8 +64,9 @@ export async function updateSession(request: NextRequest) {
       redirectTo &&
       (redirectTo.startsWith("/dashboard") ||
         redirectTo.startsWith("/app") ||
-        redirectTo.startsWith("/puerto-libre"));
-    target.pathname = allowedRedirect ? redirectTo : "/dashboard";
+        redirectTo.startsWith("/puerto-libre") ||
+        redirectTo.startsWith("/portales"));
+    target.pathname = allowedRedirect ? redirectTo : "/portales";
     target.search = "";
     return NextResponse.redirect(target);
   }

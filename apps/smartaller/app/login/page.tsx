@@ -34,8 +34,9 @@ function LoginForm() {
         : null
   );
 
+  // Hub de roles → Master / Aduana / Taller / Concesionario / Usuario
   const effectiveRedirect =
-    redirectParam ?? (accountType === "dueno" ? "/app" : "/dashboard");
+    redirectParam ?? (accountType === "dueno" ? "/app" : "/portales");
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +91,9 @@ function LoginForm() {
       <div className="mb-8">
         <BrandLogo size="md" theme="dark" showDot={false} />
         <p className="mt-3 text-sm text-zinc-500">
-          {isAppFlow ? "Accede a tu app de vehículos" : "Accede a tu panel de taller"}
+          {isAppFlow
+            ? "Accede a tu app de vehículos"
+            : "Accede a los portales (taller, aduana, master…)"}
         </p>
       </div>
 
@@ -197,7 +200,7 @@ function LoginForm() {
             {mode === "login"
               ? isAppFlow
                 ? "Entrar a la app"
-                : "Entrar al dashboard"
+                : "Entrar a portales"
               : "Crear cuenta"}
           </button>
         </form>

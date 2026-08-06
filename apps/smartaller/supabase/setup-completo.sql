@@ -1137,3 +1137,49 @@ begin
     where id = r.bike_id;
   end loop;
 end $$;
+
+-- =============================================================================
+-- Portales por rol (Master / Aduanera / Taller / Concesionario / Usuario)
+-- =============================================================================
+-- Master/Aduanera solo ven todo si ver_todo = true (habilitación explícita).
+
+create table if not exists public.portal_accesos (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  roles text[] not null default '{}'::text[],
+  ver_todo boolean not null default false,
+  taller_ids uuid[] not null default '{}'::uuid[],
+  org_nombre text,
+  notas text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint portal_accesos_roles_valid check (
+    roles <@ array['master', 'aduanera', 'taller', 'concesionario', 'usuario']::text[]
+  )
+);
+
+comment on table public.portal_accesos is
+  'Acceso a portales SmartTaller. Master con ver_todo solo si la ley/contrato lo permite.';
+
+comment on column public.portal_accesos.ver_todo is
+  'Habilita visión global para master/aduanera. Default false (principio de minimización).';
+
+alter table public.portal_accesos enable row level security;
+
+drop policy if exists "portal_accesos select own" on public.portal_accesos;
+create policy "portal_accesos select own"
+  on public.portal_accesos for select to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "portal_accesos all service role" on public.portal_accesos;
+create policy "portal_accesos all service role"
+  on public.portal_accesos for all to service_role
+  using (true) with check (true);
+
+create index if not exists idx_portal_accesos_roles
+  on public.portal_accesos using gin (roles);
+
+-- Ejemplo (ejecutar a mano con el user_id real):
+-- insert into public.portal_accesos (user_id, roles, ver_todo, org_nombre)
+-- values ('00000000-0000-0000-0000-000000000000', array['master','aduanera'], true, 'Operador autorizado')
+-- on conflict (user_id) do update
+--   set roles = excluded.roles, ver_todo = excluded.ver_todo, org_nombre = excluded.org_nombre;
