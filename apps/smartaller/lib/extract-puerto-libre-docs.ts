@@ -135,18 +135,36 @@ function parseFechaIso(value: unknown): string | null {
   return null;
 }
 
+function compactSerial(value: string | null): string | null {
+  if (!value) return null;
+  const compact = value.replace(/[\s\-]/g, "").toUpperCase();
+  return compact || null;
+}
+
 function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
   return {
     marca: parseString(parsed.marca),
     modelo: parseString(parsed.modelo),
     color: parseString(parsed.color),
     anio: parseIntSafe(parsed.anio ?? parsed.año ?? parsed.year),
-    serial_motor: parseString(parsed.serial_motor)?.toUpperCase() ?? null,
-    serial_carroceria:
-      parseString(parsed.serial_carroceria)?.toUpperCase() ??
-      parseString(parsed.vin)?.toUpperCase() ??
-      parseString(parsed.chasis)?.toUpperCase() ??
-      null,
+    serial_motor: compactSerial(
+      parseString(
+        parsed.serial_motor ??
+          parsed.engine_number ??
+          parsed.no_de_motor ??
+          parsed.numero_motor
+      )
+    ),
+    serial_carroceria: compactSerial(
+      parseString(
+        parsed.serial_carroceria ??
+          parsed.vin ??
+          parsed.vin_number ??
+          parsed.chasis ??
+          parsed.no_de_chasis ??
+          parsed.numero_chasis
+      )
+    ),
     kilometraje: parseIntSafe(parsed.kilometraje ?? parsed.odometro ?? parsed.odometer),
     condicion: parseCondicion(parsed.condicion ?? parsed.condition),
     es_subasta: parseBool(parsed.es_subasta ?? parsed.subasta ?? parsed.auction),
@@ -161,6 +179,35 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
     importador_telefono: parseString(parsed.importador_telefono),
     importador_email: parseString(parsed.importador_email),
   };
+}
+
+/** Une nº unidad / llave / código de hoja anexa en observaciones. */
+export function buildHojaAnexaObservaciones(
+  v: Record<string, unknown>
+): string | null {
+  const parts: string[] = [];
+  const unidad = parseString(
+    v.numero_unidad ?? v.no_unidad ?? v.unit_no ?? v.no
+  );
+  const llave = parseString(
+    v.numero_llave ?? v.no_llave ?? v.key_number ?? v.key_no
+  );
+  const codigo = parseString(
+    v.codigo_modelo ?? v.codigo ?? v.code ?? v.model_code
+  );
+  if (unidad) parts.push(`Unidad ${unidad}`);
+  if (llave) parts.push(`Llave ${llave}`);
+  if (codigo) parts.push(`Código ${codigo}`);
+  const obs = parseString(v.observaciones);
+  if (obs && !parts.some((p) => obs.includes(p))) parts.push(obs);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function resolveModeloFromHojaAnexa(v: Record<string, unknown>): string | null {
+  const modelo = parseString(v.modelo ?? v.model);
+  if (modelo) return modelo;
+  const codigo = parseString(v.codigo_modelo ?? v.codigo ?? v.code);
+  return codigo;
 }
 
 function mapBl(parsed: Record<string, unknown>): BlExtraido {
@@ -289,23 +336,46 @@ export function countFilledFields(fields: PuertoLibreRegistroScanFields): number
   return Object.values(fields).filter((v) => v != null && String(v).trim() !== "").length;
 }
 
-const FACTURA_MULTI_PROMPT = `Analiza esta factura comercial de importación de vehículos (puede listar UNO o VARIOS vehículos).
-Responde JSON con:
+const FACTURA_MULTI_PROMPT = `Analiza esta factura comercial / commercial invoice / HOJA ANEXA (Attached Sheet) de importación de vehículos.
+Puede ser la carátula de la factura O una tabla anexa con VARIAS unidades (una fila = un vehículo).
+
+Columnas típicas de hoja anexa (español/inglés):
+- No. / No. Unidad / Unit → numero_unidad
+- No. de Chasis / VIN Number / VIN → serial_carroceria (17 caracteres aprox., sin espacios)
+- No. de Motor / Engine Number → serial_motor
+- No. Llave / Key Number → numero_llave
+- Color (puede ser código corto: WC2, SK5, M42, R4P) → color (deja el código tal cual)
+- Código / Codigo / Code / model code → codigo_modelo (NO lo pongas como serial)
+
+IMPORTANTE:
+- Incluye TODAS las filas de vehículos visibles. No resumas ni omitas unidades.
+- Si el documento está rotado, lee igual la tabla.
+- Si solo hay carátula con 1 vehículo, "vehiculos" tendrá 1 elemento.
+- marca/año/importador suelen estar en la carátula; en hoja anexa pueden ser null (está bien).
+- Si la mercancía es nueva / new / 0 km, condicion = "nuevo".
+
+Responde SOLO JSON con:
 {
+  "numero_factura": string|null,
   "importador_nombre": string|null,
   "importador_documento": string|null,
   "importador_telefono": string|null,
   "importador_email": string|null,
   "pais_origen": string|null,
+  "marca": string|null,
+  "anio": number|null,
   "valor_cif_total": number|null,
   "vehiculos": [
     {
+      "numero_unidad": string|null,
       "marca": string|null,
       "modelo": string|null,
+      "codigo_modelo": string|null,
       "color": string|null,
       "anio": number|null,
       "serial_motor": string|null,
       "serial_carroceria": string|null,
+      "numero_llave": string|null,
       "kilometraje": number|null,
       "condicion": "nuevo"|"usado"|null,
       "es_subasta": boolean|null,
@@ -313,15 +383,14 @@ Responde JSON con:
       "pais_origen": string|null
     }
   ]
-}
-Si solo hay un vehículo, "vehiculos" debe tener 1 elemento.
-Si no encuentras un dato, usa null. Responde solo JSON.`;
+}`;
 
-const BL_MULTI_PROMPT = `Analiza este Bill of Lading / BL / conocimiento de embarque (puede listar UNO o VARIOS vehículos).
-Responde JSON con:
+const BL_MULTI_PROMPT = `Analiza este Bill of Lading / BL / conocimiento de embarque (puede listar UNO o VARIOS vehículos / VINs).
+Incluye TODOS los VIN o chasis listados en "vehiculos".
+Responde SOLO JSON con:
 {
   "numero_bl": string|null,
-  "fecha_llegada_buque": string|null (YYYY-MM-DD),
+  "fecha_llegada_buque": string|null,
   "aduana": string|null,
   "pais_origen": string|null,
   "importador_nombre": string|null,
@@ -344,8 +413,8 @@ Responde JSON con:
     }
   ]
 }
-Si solo hay un vehículo o la descripción es genérica, "vehiculos" puede ser [] o 1 elemento.
-Si no encuentras un dato, usa null. Responde solo JSON.`;
+fecha_llegada_buque en YYYY-MM-DD si aparece (ETA / arrival).
+Si la descripción es genérica sin VIN, "vehiculos" puede ser [].`;
 
 export type DocMultiExtracted = {
   shared: PuertoLibreRegistroScanFields;
@@ -357,6 +426,59 @@ function asRecordArray(value: unknown): Record<string, unknown>[] {
   return value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object");
 }
 
+function mapFacturaMultiVehiculo(
+  sharedParsed: Record<string, unknown>,
+  v: Record<string, unknown>
+): PuertoLibreRegistroScanFields {
+  const merged = { ...sharedParsed, ...v };
+  const modelo =
+    resolveModeloFromHojaAnexa(v) ?? resolveModeloFromHojaAnexa(sharedParsed);
+  const data = mapFactura({
+    ...merged,
+    modelo,
+    serial_carroceria:
+      v.serial_carroceria ??
+      v.vin ??
+      v.vin_number ??
+      v.chasis ??
+      v.no_de_chasis ??
+      sharedParsed.serial_carroceria,
+    serial_motor:
+      v.serial_motor ??
+      v.engine_number ??
+      v.no_de_motor ??
+      sharedParsed.serial_motor,
+  });
+  const fields = facturaToFormFields(data);
+  const obs = buildHojaAnexaObservaciones(v);
+  if (obs) fields.observaciones = obs;
+  if (!fields.condicion) fields.condicion = "nuevo";
+  if (fields.kilometraje == null) fields.kilometraje = "0";
+  return fields;
+}
+
+/** Deduplica por VIN/chasis; conserva el primero con más campos. */
+export function dedupeVehiculosBySerial(
+  vehiculos: PuertoLibreRegistroScanFields[]
+): PuertoLibreRegistroScanFields[] {
+  const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
+  const withoutSerial: PuertoLibreRegistroScanFields[] = [];
+
+  for (const v of vehiculos) {
+    const serial = compactSerial(v.serialCarroceria ?? null);
+    if (!serial) {
+      withoutSerial.push(v);
+      continue;
+    }
+    const prev = bySerial.get(serial);
+    if (!prev || countFilledFields(v) > countFilledFields(prev)) {
+      bySerial.set(serial, { ...v, serialCarroceria: serial });
+    }
+  }
+
+  return [...bySerial.values(), ...withoutSerial];
+}
+
 export async function extractFacturaMultiFromDocument(
   buffer: Buffer,
   mimeType: string
@@ -365,7 +487,8 @@ export async function extractFacturaMultiFromDocument(
     prompt: FACTURA_MULTI_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 2000,
+    maxTokens: 4500,
+    maxTextChars: 28000,
   });
 
   const shared = facturaToFormFields(mapFactura(parsed));
@@ -375,15 +498,29 @@ export async function extractFacturaMultiFromDocument(
       : Number(parsed.valor_cif_total);
     if (Number.isFinite(n)) shared.valorCif = String(n);
   }
+  // No poner nº factura en shared.observaciones: se concatena por vehículo abajo.
+  const numeroFactura = parseString(parsed.numero_factura ?? parsed.invoice_no);
+  const facturaLabel = numeroFactura ? `Factura ${numeroFactura}` : null;
 
-  const vehiculos = asRecordArray(parsed.vehiculos).map((v) =>
-    facturaToFormFields(mapFactura({ ...parsed, ...v }))
-  );
+  let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
+    const fields = mapFacturaMultiVehiculo(parsed, v);
+    fields.observaciones = [facturaLabel, fields.observaciones]
+      .filter((x): x is string => Boolean(x && String(x).trim()))
+      .join(" · ");
+    return fields;
+  });
 
   if (vehiculos.length === 0) {
-    const single = facturaToFormFields(mapFactura(parsed));
+    const single = mapFacturaMultiVehiculo(parsed, parsed);
+    if (facturaLabel) {
+      single.observaciones = [facturaLabel, single.observaciones]
+        .filter((x): x is string => Boolean(x && String(x).trim()))
+        .join(" · ");
+    }
     if (countFilledFields(single) > 0) vehiculos.push(single);
   }
+
+  vehiculos = dedupeVehiculosBySerial(vehiculos);
 
   return { shared, vehiculos };
 }
@@ -396,26 +533,30 @@ export async function extractBlMultiFromDocument(
     prompt: BL_MULTI_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 2000,
+    maxTokens: 3500,
+    maxTextChars: 24000,
   });
 
   const shared = blToFormFields(mapBl(parsed));
-  const vehiculos = asRecordArray(parsed.vehiculos).map((v) =>
-    blToFormFields(mapBl({ ...parsed, ...v }))
-  );
+  let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
+    const fields = blToFormFields(mapBl({ ...parsed, ...v }));
+    if (!fields.condicion) fields.condicion = "nuevo";
+    return fields;
+  });
 
   if (vehiculos.length === 0) {
     const single = blToFormFields(mapBl(parsed));
-    // Solo si hay datos de vehículo concretos
     if (single.marca || single.serialCarroceria || single.modelo) {
       vehiculos.push(single);
     }
   }
 
+  vehiculos = dedupeVehiculosBySerial(vehiculos);
+
   return { shared, vehiculos };
 }
 
-/** Combina campos OCR: el patch no pisa valores ya rellenados. */
+/** Combina campos OCR: el patch no pisa valores ya rellenados (observaciones se concatenan). */
 export function mergeScanFields(
   base: PuertoLibreRegistroScanFields,
   patch: PuertoLibreRegistroScanFields
@@ -427,6 +568,15 @@ export function mergeScanFields(
   ][]) {
     if (v == null || String(v).trim() === "") continue;
     const current = out[k];
+    if (k === "observaciones") {
+      const a = current != null ? String(current).trim() : "";
+      const b = String(v).trim();
+      if (!a) out.observaciones = b;
+      else if (!b || a.includes(b)) out.observaciones = a;
+      else if (b.includes(a)) out.observaciones = b;
+      else out.observaciones = `${a} · ${b}`;
+      continue;
+    }
     if (current == null || String(current).trim() === "") {
       (out as Record<string, unknown>)[k] = v;
     }

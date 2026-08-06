@@ -25,7 +25,8 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 async function jsonFromTextPrompt(
   prompt: string,
   documentText: string,
-  maxTokens: number
+  maxTokens: number,
+  maxTextChars: number
 ): Promise<Record<string, unknown>> {
   const openai = createOpenAIClient();
   const response = await openai.chat.completions.create({
@@ -36,7 +37,7 @@ async function jsonFromTextPrompt(
     messages: [
       {
         role: "user",
-        content: `${prompt}\n\nTexto del documento:\n"""\n${documentText.slice(0, 12000)}\n"""`,
+        content: `${prompt}\n\nTexto del documento:\n"""\n${documentText.slice(0, maxTextChars)}\n"""`,
       },
     ],
   });
@@ -53,8 +54,11 @@ export async function createDocumentJsonCompletion(params: {
   buffer: Buffer;
   mimeType: string;
   maxTokens?: number;
+  /** Caracteres de texto PDF enviados al LLM (hojas anexas largas). */
+  maxTextChars?: number;
 }): Promise<Record<string, unknown>> {
   const maxTokens = params.maxTokens ?? 800;
+  const maxTextChars = params.maxTextChars ?? 12000;
   const mime = params.mimeType || "application/octet-stream";
 
   if (!isPdfMime(mime)) {
@@ -69,7 +73,7 @@ export async function createDocumentJsonCompletion(params: {
   try {
     const text = await extractTextFromPdf(params.buffer);
     if (text.length >= 40) {
-      return jsonFromTextPrompt(params.prompt, text, maxTokens);
+      return jsonFromTextPrompt(params.prompt, text, maxTokens, maxTextChars);
     }
   } catch {
     // Continúa con intento multimodal PDF.

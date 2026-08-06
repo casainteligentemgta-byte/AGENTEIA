@@ -113,6 +113,59 @@ function scanFieldsToRow(
   });
 }
 
+function filledRowScore(row: CargaMasivaRow): number {
+  return Object.entries(row).filter(([k, v]) => {
+    if (k === "id" || k === "error" || k === "fuente") return false;
+    return typeof v === "string" && v.trim() !== "";
+  }).length;
+}
+
+/** Une filas con el mismo VIN (carátula + hoja anexa). */
+function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[] {
+  const bySerial = new Map<string, CargaMasivaRow>();
+  const without: CargaMasivaRow[] = [];
+
+  for (const row of rows) {
+    const serial = normalizarSerialCarroceria(row.serialCarroceria);
+    if (!serial) {
+      without.push(row);
+      continue;
+    }
+    const prev = bySerial.get(serial);
+    if (!prev) {
+      bySerial.set(serial, { ...row, serialCarroceria: serial });
+      continue;
+    }
+    const preferRow = filledRowScore(row) >= filledRowScore(prev);
+    const primary = preferRow ? row : prev;
+    const secondary = preferRow ? prev : row;
+    const merged: CargaMasivaRow = { ...primary, serialCarroceria: serial };
+    for (const key of Object.keys(merged) as (keyof CargaMasivaRow)[]) {
+      if (key === "id" || key === "error" || key === "fuente") continue;
+      const cur = merged[key];
+      const alt = secondary[key];
+      if (
+        typeof cur === "string" &&
+        !cur.trim() &&
+        typeof alt === "string" &&
+        alt.trim()
+      ) {
+        (merged as Record<string, unknown>)[key] = alt;
+      }
+    }
+    const obsA = primary.observaciones?.trim() ?? "";
+    const obsB = secondary.observaciones?.trim() ?? "";
+    if (obsA && obsB && !obsA.includes(obsB) && !obsB.includes(obsA)) {
+      merged.observaciones = `${obsA} · ${obsB}`;
+    } else {
+      merged.observaciones = obsA || obsB;
+    }
+    bySerial.set(serial, merged);
+  }
+
+  return [...bySerial.values(), ...without];
+}
+
 function resolveDocMime(file: File, buffer: Buffer): string {
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
     return "application/pdf";
@@ -225,6 +278,18 @@ export async function extractCargaMasivaDocumentosAction(
           warnings.push(`${file.name}: no se detectaron vehículos`);
           continue;
         }
+        const sinSerial = extracted.vehiculos.filter(
+          (v) => !v.serialCarroceria?.trim()
+        ).length;
+        if (sinSerial > 0) {
+          warnings.push(
+            `${file.name}: ${extracted.vehiculos.length} unidad(es); ${sinSerial} sin VIN/chasis — revisa la tabla`
+          );
+        } else {
+          warnings.push(
+            `${file.name}: ${extracted.vehiculos.length} vehículo(s) detectado(s)`
+          );
+        }
         for (const v of extracted.vehiculos) {
           const merged = mergeScanFields(extracted.shared, v);
           vehicleRows.push(scanFieldsToRow(merged, `Factura · ${file.name}`));
@@ -277,11 +342,19 @@ export async function extractCargaMasivaDocumentosAction(
         success: false,
         error:
           warnings[0] ??
-          "No se extrajeron vehículos. Prueba con fotos más nítidas o usa la plantilla Excel.",
+          "No se extrajeron vehículos. Prueba fotos más nítidas (Plan A) o la plantilla Excel (Plan B).",
       };
     }
 
-    if (vehicleRows.length > CARGA_MASIVA_MAX_ROWS) {
+    const before = vehicleRows.length;
+    const uniqueRows = dedupeCargaMasivaRowsBySerial(vehicleRows);
+    if (uniqueRows.length < before) {
+      warnings.push(
+        `Se unificaron ${before - uniqueRows.length} fila(s) duplicada(s) por el mismo VIN`
+      );
+    }
+
+    if (uniqueRows.length > CARGA_MASIVA_MAX_ROWS) {
       return {
         success: false,
         error: `Se detectaron más de ${CARGA_MASIVA_MAX_ROWS} vehículos`,
@@ -289,7 +362,7 @@ export async function extractCargaMasivaDocumentosAction(
     }
 
     const defaults = await getUltimoImportadorTaller(auth.taller.id);
-    const withDefaults = vehicleRows.map((row) =>
+    const withDefaults = uniqueRows.map((row) =>
       applyImportadorDefaults(row, defaults)
     );
 
@@ -306,7 +379,11 @@ export async function extractCargaMasivaDocumentosAction(
 function guessTipoFromName(name: string): string {
   const n = name.toLowerCase();
   if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
-  if (/factura|invoice|commercial|proforma/.test(n)) return "factura_comercial";
+  if (
+    /factura|invoice|commercial|proforma|anexa|attached|hoja/.test(n)
+  ) {
+    return "factura_comercial";
+  }
   return "factura_comercial";
 }
 
