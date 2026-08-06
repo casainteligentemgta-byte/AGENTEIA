@@ -920,6 +920,10 @@ function Fase2Llegada({
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Tras tomar la foto puedes marcar daños con círculo o lápiz antes de
+          guardar.
+        </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -929,6 +933,7 @@ function Fase2Llegada({
               existingUrl={docs[tipo]?.url}
               hint=""
               actionLabel="Tomar / subir foto"
+              annotateBeforeUpload
               onUploaded={(next) => {
                 setDocs(next);
                 onUploadedMessage("Foto guardada");
