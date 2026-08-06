@@ -347,6 +347,18 @@ export const importacionSchema = z.object({
   checklistLlegadaNotas: z.record(z.string()).optional().nullable(),
   /** Notas de otros dispositivos (fase 2). */
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
+  /**
+   * Verificación OCR de foto_impronta vs serial_carroceria del expediente:
+   * coincide | no_coincide | no_leido.
+   */
+  serialImprontaEstado: z
+    .enum(["coincide", "no_coincide", "no_leido"])
+    .optional()
+    .nullable(),
+  /** Serial leído por OCR en la impronta. */
+  serialImprontaLeido: z.string().trim().max(80).optional().nullable(),
+  /** ISO timestamp de la última verificación de impronta. */
+  serialImprontaVerificadoAt: z.string().trim().max(40).optional().nullable(),
   /** Dirección del comprador (fase 3). */
   compradorDireccion: z.string().trim().max(240).optional().nullable(),
 });
@@ -444,6 +456,14 @@ export function parseImportacion(raw: unknown): ImportacionData {
           : null,
     otrosDispositivosNotas:
       row.otrosDispositivosNotas ?? row.otros_dispositivos_notas,
+    serialImprontaEstado: asOptionalEnum(
+      row.serialImprontaEstado ?? row.serial_impronta_estado,
+      ["coincide", "no_coincide", "no_leido"] as const
+    ),
+    serialImprontaLeido:
+      row.serialImprontaLeido ?? row.serial_impronta_leido,
+    serialImprontaVerificadoAt:
+      row.serialImprontaVerificadoAt ?? row.serial_impronta_verificado_at,
     compradorDireccion: row.compradorDireccion ?? row.comprador_direccion,
   });
   return parsed.success ? parsed.data : {};
@@ -500,6 +520,9 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     checklist_llegada: data.checklistLlegada ?? null,
     checklist_llegada_notas: data.checklistLlegadaNotas ?? null,
     otros_dispositivos_notas: data.otrosDispositivosNotas?.trim() || null,
+    serial_impronta_estado: data.serialImprontaEstado || null,
+    serial_impronta_leido: data.serialImprontaLeido?.trim() || null,
+    serial_impronta_verificado_at: data.serialImprontaVerificadoAt?.trim() || null,
     comprador_direccion: data.compradorDireccion?.trim() || null,
   };
 }

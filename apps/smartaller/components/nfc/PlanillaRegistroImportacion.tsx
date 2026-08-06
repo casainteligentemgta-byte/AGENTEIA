@@ -402,10 +402,13 @@ export function PlanillaRegistroImportacion({
       ) : fase === 2 ? (
         <Fase2Llegada
           vehiculoId={vehiculoId}
+          serialCarroceria={serialCarroceria}
           docs={docs}
           setDocs={setDocs}
           fotosCount={fotosCount}
           fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
+          initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
+          initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
           checklist={checklist}
           setChecklist={setChecklist}
           checklistNotas={checklistNotas}
@@ -414,7 +417,7 @@ export function PlanillaRegistroImportacion({
           otrosNotas={otrosNotas}
           setOtrosNotas={setOtrosNotas}
           pending={pending}
-          onSave={(fechaIngreso, after) => {
+          onSave={(fechaIngreso, after, forzarImprontaSinVerificar) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -424,6 +427,7 @@ export function PlanillaRegistroImportacion({
                 checklistLlegada: checklist,
                 checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
+                forzarImprontaSinVerificar,
               });
               if (!result.success) {
                 setError(result.error);
@@ -861,10 +865,13 @@ function Fase1aEmbarque({
 
 function Fase2Llegada({
   vehiculoId,
+  serialCarroceria,
   docs,
   setDocs,
   fotosCount,
   fechaIngresoInicial,
+  initialImprontaEstado,
+  initialImprontaLeido,
   checklist,
   setChecklist,
   checklistNotas,
@@ -877,10 +884,13 @@ function Fase2Llegada({
   onUploadedMessage,
 }: {
   vehiculoId: string;
+  serialCarroceria: string | null;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   fotosCount: number;
   fechaIngresoInicial: string;
+  initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
+  initialImprontaLeido: string | null;
   checklist: LlegadaChecklistState;
   setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
   checklistNotas: LlegadaChecklistNotasState;
@@ -889,10 +899,27 @@ function Fase2Llegada({
   otrosNotas: string;
   setOtrosNotas: (v: string) => void;
   pending: boolean;
-  onSave: (fechaIngreso: string, after: PlanillaAfterSave) => void;
+  onSave: (
+    fechaIngreso: string,
+    after: PlanillaAfterSave,
+    forzarImprontaSinVerificar: boolean
+  ) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [fecha, setFecha] = useState(fechaIngresoInicial);
+  const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
+  const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
+  const [forzarImpronta, setForzarImpronta] = useState(false);
+
+  const expectedSerial = (serialCarroceria ?? "").trim();
+  const improntaOk = improntaEstado === "coincide";
+  const canForce =
+    Boolean(docs.foto_impronta?.url) &&
+    (improntaEstado === "no_leido" || improntaEstado == null);
+  const canContinue =
+    Boolean(fecha) &&
+    improntaEstado !== "no_coincide" &&
+    (improntaOk || (canForce && forzarImpronta));
 
   return (
     <div className="space-y-6">
@@ -921,8 +948,15 @@ function Fase2Llegada({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-500">
-          Tras tomar la foto puedes marcar daños con círculo o lápiz antes de
-          guardar.
+          Tras tomar la foto puedes marcar daños. En la impronta se verifica que
+          el serial coincida con el del expediente
+          {expectedSerial ? (
+            <>
+              {" "}
+              (<span className="font-mono text-slate-300">{expectedSerial}</span>)
+            </>
+          ) : null}
+          .
         </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
@@ -934,13 +968,60 @@ function Fase2Llegada({
               hint=""
               actionLabel="Tomar / subir foto"
               annotateBeforeUpload
+              verifySerialAgainstExpediente={tipo === "foto_impronta"}
+              initialImprontaVerify={
+                tipo === "foto_impronta" && improntaEstado
+                  ? {
+                      estado: improntaEstado,
+                      expected: expectedSerial,
+                      leido: improntaLeido,
+                      message:
+                        improntaEstado === "coincide"
+                          ? `Serial verificado: coincide con el del expediente (${expectedSerial}).`
+                          : improntaEstado === "no_coincide"
+                            ? `El serial leído (${improntaLeido ?? "—"}) no coincide con el precargado (${expectedSerial || "—"}).`
+                            : "No se pudo leer el serial en la foto anterior. Vuelve a tomarla.",
+                    }
+                  : null
+              }
+              onImprontaVerified={(result) => {
+                setImprontaEstado(result.estado);
+                setImprontaLeido(result.leido);
+                if (result.estado === "coincide") setForzarImpronta(false);
+              }}
               onUploaded={(next) => {
                 setDocs(next);
-                onUploadedMessage("Foto guardada");
+                onUploadedMessage(
+                  tipo === "foto_impronta"
+                    ? "Foto de impronta guardada · verificación de serial"
+                    : "Foto guardada"
+                );
               }}
             />
           ))}
         </div>
+
+        {improntaEstado === "no_coincide" ? (
+          <p className="mt-4 rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
+            No puedes continuar mientras el serial de la impronta no coincida.
+            Corrige el serial en Registro o toma otra foto.
+          </p>
+        ) : null}
+
+        {canForce && !improntaOk ? (
+          <label className="mt-4 flex items-start gap-2 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2.5 text-sm text-amber-100">
+            <input
+              type="checkbox"
+              checked={forzarImpronta}
+              onChange={(e) => setForzarImpronta(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              Confirmo que revisé la impronta manualmente (OCR no pudo leer el
+              serial con claridad).
+            </span>
+          </label>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
@@ -1001,9 +1082,9 @@ function Fase2Llegada({
 
       <PlanillaFaseActions
         pending={pending}
-        disabled={!fecha}
+        disabled={!canContinue}
         continueLabel="Continuar a Aduana"
-        onAction={(after) => onSave(fecha, after)}
+        onAction={(after) => onSave(fecha, after, forzarImpronta && canForce)}
       />
     </div>
   );

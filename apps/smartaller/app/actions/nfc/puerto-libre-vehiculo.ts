@@ -97,6 +97,8 @@ const fase2LlegadaSchema = z.object({
   checklistLlegada: z.record(z.string()).default({}),
   checklistLlegadaNotas: z.record(z.string()).default({}),
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
+  /** Solo si el OCR no pudo verificar pero el operador confirma revisión manual. */
+  forzarImprontaSinVerificar: z.boolean().optional().default(false),
 });
 
 const pinSchema = z.object({
@@ -710,9 +712,33 @@ export async function savePuertoLibreFase2LlegadaAction(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
+  const existingImportacion = parseImportacion(row.importacion);
+  const docs = parseVehiculosDocumentos(row.documentos);
+  if (!docs.foto_impronta?.url) {
+    return {
+      success: false,
+      error: "Falta la foto de la impronta para verificar el serial.",
+    };
+  }
+
+  const estadoImpronta = existingImportacion.serialImprontaEstado;
+  if (estadoImpronta === "no_coincide") {
+    return {
+      success: false,
+      error:
+        "El serial de la impronta no coincide con el del expediente. Corrige el serial en Registro o vuelve a tomar la foto.",
+    };
+  }
+  if (estadoImpronta !== "coincide" && !parsed.data.forzarImprontaSinVerificar) {
+    return {
+      success: false,
+      error:
+        "Debes verificar que el serial de la impronta coincida con el del expediente (toma la foto de la impronta).",
+    };
+  }
+
   const checklist = parsed.data.checklistLlegada;
   const checklistNotas = parsed.data.checklistLlegadaNotas;
-  const existingImportacion = parseImportacion(row.importacion);
   const existingSeguro = parseSeguro(row.seguro);
 
   const importacion = serializeImportacion({
