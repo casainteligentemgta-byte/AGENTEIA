@@ -51,11 +51,12 @@ const FIELD_COLS: {
   { key: "aduana", label: "Aduana" },
   { key: "paisOrigen", label: "Origen" },
   { key: "valorCif", label: "CIF" },
+  { key: "observaciones", label: "Obs. (unidad/llave)", wide: true },
 ];
 
 export function PuertoLibreCargaMasiva() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("plantilla");
+  const [mode, setMode] = useState<Mode>("documentos");
   const [rows, setRows] = useState<CargaMasivaRow[]>([]);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [pending, startTransition] = useTransition();
@@ -168,17 +169,24 @@ export function PuertoLibreCargaMasiva() {
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
         <h2 className="text-base font-semibold text-slate-100">
-          1. Envía la plantilla al equipo
+          Cómo registrar varios vehículos de una factura
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Descarga el Excel o CSV, rellénalo con un vehículo por fila (hasta{" "}
-          {CARGA_MASIVA_MAX_ROWS}) y súbelo aquí. También puedes cargar varias
-          facturas y BL en PDF/foto.
-        </p>
+        <ul className="mt-3 space-y-2 text-sm text-slate-400">
+          <li>
+            <span className="font-medium text-cyan-300">Plan A — PDFs / fotos:</span>{" "}
+            sube la factura y la hoja anexa (tabla con VIN, motor, color). La IA
+            arma una fila por unidad.
+          </li>
+          <li>
+            <span className="font-medium text-slate-200">Plan B — Excel / CSV:</span>{" "}
+            si el OCR falla, descarga la plantilla (hasta {CARGA_MASIVA_MAX_ROWS}{" "}
+            filas) y súbela completa.
+          </li>
+        </ul>
         <div className="mt-4 flex flex-wrap gap-2">
           <a
             href="/puerto-libre/carga-masiva/plantilla.xlsx"
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-950/50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4" />
             Plantilla Excel (.xlsx)
@@ -196,8 +204,8 @@ export function PuertoLibreCargaMasiva() {
       <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
         {(
           [
-            { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
-            { id: "documentos" as const, label: "PDFs / fotos", icon: FileUp },
+            { id: "documentos" as const, label: "Plan A · PDFs / fotos", icon: FileUp },
+            { id: "plantilla" as const, label: "Plan B · Excel / CSV", icon: FileSpreadsheet },
           ] as const
         ).map((tab) => {
           const active = mode === tab.id;
@@ -223,10 +231,10 @@ export function PuertoLibreCargaMasiva() {
       {mode === "plantilla" ? (
         <section className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
           <h2 className="text-base font-semibold text-slate-100">
-            2. Sube el archivo completado
+            Plan B — Sube el Excel/CSV completado
           </h2>
           <p className="mt-1 text-sm text-slate-400">
-            Acepta .xlsx, .xls o .csv (coma o punto y coma).
+            Una fila por vehículo. Acepta .xlsx, .xls o .csv (coma o punto y coma).
           </p>
           <button
             type="button"
@@ -256,11 +264,12 @@ export function PuertoLibreCargaMasiva() {
         <section className="space-y-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
           <div>
             <h2 className="text-base font-semibold text-slate-100">
-              2. Sube facturas y BL
+              Plan A — Sube facturas, hoja anexa y BL
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Varias facturas + varios BL, o un documento con varios carros. Marca
-              cada archivo como Factura o BL. La IA arma la tabla para revisar.
+              Ideal para hojas anexas con varios VIN. Sube la carátula + la tabla
+              anexa (+ BL si tienes). Marca cada archivo como Factura o BL. Revisa
+              la tabla antes de registrar.
             </p>
           </div>
           <button
