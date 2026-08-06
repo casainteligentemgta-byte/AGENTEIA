@@ -457,6 +457,12 @@ alter table public.talleres
 
 comment on column public.talleres.tipo_industria is 'Vertical B2B: concesionario, bicicletas o constructora';
 
+alter table public.talleres
+  add column if not exists preferencias jsonb not null default '{}'::jsonb;
+
+comment on column public.talleres.preferencias is
+  'Ajustes del taller: ultimoImportador { importadorNombre, importadorDocumento, importadorTelefono, importadorEmail }, etc.';
+
 -- Activos flexibles en vehículos
 create type public.tipo_activo as enum ('carro', 'bici', 'maquinaria');
 

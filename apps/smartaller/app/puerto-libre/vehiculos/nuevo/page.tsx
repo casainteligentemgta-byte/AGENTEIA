@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { PuertoLibreRegistroWizard } from "@/components/nfc/PuertoLibreRegistroWizard";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
+import { getUltimoImportadorTaller } from "@/lib/taller-preferencias";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export default async function NuevoVehiculoPuertoLibrePage() {
     );
   }
 
+  const initialImportador = await getUltimoImportadorTaller(taller.id);
+
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-2xl">
@@ -38,7 +41,7 @@ export default async function NuevoVehiculoPuertoLibrePage() {
           </h1>
         </div>
 
-        <PuertoLibreRegistroWizard />
+        <PuertoLibreRegistroWizard initialImportador={initialImportador} />
       </div>
     </main>
   );
