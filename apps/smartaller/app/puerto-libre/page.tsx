@@ -186,13 +186,22 @@ export default async function PuertoLibrePage() {
             Expediente Importación Vehicular
           </h1>
         </div>
-        <Link
-          href="/puerto-libre/vehiculos/nuevo"
-          className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2.5} />
-          Registrar vehículo
-        </Link>
+        <div className="flex w-full max-w-md flex-col gap-2">
+          <Link
+            href="/puerto-libre/vehiculos/nuevo"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
+            Registrar vehículo
+          </Link>
+          <Link
+            href="/puerto-libre/carga-masiva"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+          >
+            <FileText className="h-4 w-4 text-cyan-400" />
+            Carga masiva (Excel / PDFs)
+          </Link>
+        </div>
       </header>
 
       {!list.success ? (
@@ -205,7 +214,11 @@ export default async function PuertoLibrePage() {
           <Car className="mx-auto h-8 w-8 text-zinc-600" />
           <p className="mt-3 text-zinc-300">No hay vehículos registrados</p>
           <p className="mt-1 text-sm text-zinc-500">
-            Registra un vehículo para armar su expediente de importación.
+            Registra uno o usa{" "}
+            <Link href="/puerto-libre/carga-masiva" className="text-cyan-400 hover:underline">
+              carga masiva
+            </Link>{" "}
+            con plantilla Excel o PDFs.
           </p>
         </div>
       ) : (

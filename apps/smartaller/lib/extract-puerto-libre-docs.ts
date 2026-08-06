@@ -288,3 +288,148 @@ export function blToFormFields(data: BlExtraido): PuertoLibreRegistroScanFields 
 export function countFilledFields(fields: PuertoLibreRegistroScanFields): number {
   return Object.values(fields).filter((v) => v != null && String(v).trim() !== "").length;
 }
+
+const FACTURA_MULTI_PROMPT = `Analiza esta factura comercial de importación de vehículos (puede listar UNO o VARIOS vehículos).
+Responde JSON con:
+{
+  "importador_nombre": string|null,
+  "importador_documento": string|null,
+  "importador_telefono": string|null,
+  "importador_email": string|null,
+  "pais_origen": string|null,
+  "valor_cif_total": number|null,
+  "vehiculos": [
+    {
+      "marca": string|null,
+      "modelo": string|null,
+      "color": string|null,
+      "anio": number|null,
+      "serial_motor": string|null,
+      "serial_carroceria": string|null,
+      "kilometraje": number|null,
+      "condicion": "nuevo"|"usado"|null,
+      "es_subasta": boolean|null,
+      "valor_cif": number|null,
+      "pais_origen": string|null
+    }
+  ]
+}
+Si solo hay un vehículo, "vehiculos" debe tener 1 elemento.
+Si no encuentras un dato, usa null. Responde solo JSON.`;
+
+const BL_MULTI_PROMPT = `Analiza este Bill of Lading / BL / conocimiento de embarque (puede listar UNO o VARIOS vehículos).
+Responde JSON con:
+{
+  "numero_bl": string|null,
+  "fecha_llegada_buque": string|null (YYYY-MM-DD),
+  "aduana": string|null,
+  "pais_origen": string|null,
+  "importador_nombre": string|null,
+  "importador_documento": string|null,
+  "importador_telefono": string|null,
+  "importador_email": string|null,
+  "valor_cif_total": number|null,
+  "observaciones": string|null,
+  "vehiculos": [
+    {
+      "marca": string|null,
+      "modelo": string|null,
+      "color": string|null,
+      "anio": number|null,
+      "serial_motor": string|null,
+      "serial_carroceria": string|null,
+      "kilometraje": number|null,
+      "condicion": "nuevo"|"usado"|null,
+      "valor_cif": number|null
+    }
+  ]
+}
+Si solo hay un vehículo o la descripción es genérica, "vehiculos" puede ser [] o 1 elemento.
+Si no encuentras un dato, usa null. Responde solo JSON.`;
+
+export type DocMultiExtracted = {
+  shared: PuertoLibreRegistroScanFields;
+  vehiculos: PuertoLibreRegistroScanFields[];
+};
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object");
+}
+
+export async function extractFacturaMultiFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const parsed = await createDocumentJsonCompletion({
+    prompt: FACTURA_MULTI_PROMPT,
+    buffer,
+    mimeType,
+    maxTokens: 2000,
+  });
+
+  const shared = facturaToFormFields(mapFactura(parsed));
+  if (parsed.valor_cif_total != null && shared.valorCif == null) {
+    const n = typeof parsed.valor_cif_total === "number"
+      ? parsed.valor_cif_total
+      : Number(parsed.valor_cif_total);
+    if (Number.isFinite(n)) shared.valorCif = String(n);
+  }
+
+  const vehiculos = asRecordArray(parsed.vehiculos).map((v) =>
+    facturaToFormFields(mapFactura({ ...parsed, ...v }))
+  );
+
+  if (vehiculos.length === 0) {
+    const single = facturaToFormFields(mapFactura(parsed));
+    if (countFilledFields(single) > 0) vehiculos.push(single);
+  }
+
+  return { shared, vehiculos };
+}
+
+export async function extractBlMultiFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const parsed = await createDocumentJsonCompletion({
+    prompt: BL_MULTI_PROMPT,
+    buffer,
+    mimeType,
+    maxTokens: 2000,
+  });
+
+  const shared = blToFormFields(mapBl(parsed));
+  const vehiculos = asRecordArray(parsed.vehiculos).map((v) =>
+    blToFormFields(mapBl({ ...parsed, ...v }))
+  );
+
+  if (vehiculos.length === 0) {
+    const single = blToFormFields(mapBl(parsed));
+    // Solo si hay datos de vehículo concretos
+    if (single.marca || single.serialCarroceria || single.modelo) {
+      vehiculos.push(single);
+    }
+  }
+
+  return { shared, vehiculos };
+}
+
+/** Combina campos OCR: el patch no pisa valores ya rellenados. */
+export function mergeScanFields(
+  base: PuertoLibreRegistroScanFields,
+  patch: PuertoLibreRegistroScanFields
+): PuertoLibreRegistroScanFields {
+  const out: PuertoLibreRegistroScanFields = { ...base };
+  for (const [k, v] of Object.entries(patch) as [
+    keyof PuertoLibreRegistroScanFields,
+    PuertoLibreRegistroScanFields[keyof PuertoLibreRegistroScanFields],
+  ][]) {
+    if (v == null || String(v).trim() === "") continue;
+    const current = out[k];
+    if (current == null || String(current).trim() === "") {
+      (out as Record<string, unknown>)[k] = v;
+    }
+  }
+  return out;
+}
