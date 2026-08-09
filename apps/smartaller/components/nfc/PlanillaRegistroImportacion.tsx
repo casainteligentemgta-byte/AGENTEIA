@@ -947,17 +947,6 @@ function Fase2Llegada({
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Tras tomar la foto puedes marcar daños. En la impronta se verifica que
-          el serial coincida con el del expediente
-          {expectedSerial ? (
-            <>
-              {" "}
-              (<span className="font-mono text-slate-300">{expectedSerial}</span>)
-            </>
-          ) : null}
-          .
-        </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -1026,9 +1015,6 @@ function Fase2Llegada({
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="text-lg font-semibold leading-snug text-slate-100">Revisión al llegar</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Marca OK o Daño. Si hay daño, describe qué viste en la nota.
-        </p>
         <div className="mt-4">
           <PlanillaChecklistProgress
             marked={checklistMarked}
@@ -1188,9 +1174,6 @@ function Fase4Propietario({
           <User className="h-5 w-5 text-cyan-400" />
           Datos del comprador / propietario
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Persona a cuyo nombre quedará el vehículo. El nombre es obligatorio.
-        </p>
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
