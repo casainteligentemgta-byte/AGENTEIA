@@ -25,7 +25,7 @@ import {
   savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
-} from "@/app/actions/nfc/puerto-libre-vehiculo";
+} from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import {
@@ -38,7 +38,7 @@ import {
   type LlegadaChecklistNotasState,
   type LlegadaChecklistRespuesta,
   type LlegadaChecklistState,
-} from "@/lib/puerto-libre/llegada-catalog";
+} from "@/lib/importacion/llegada-catalog";
 import {
   DOCUMENTO_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
@@ -63,7 +63,7 @@ import {
 import {
   placaRealVisible,
   resolveCodigoExpediente,
-} from "@/lib/puerto-libre/expediente";
+} from "@/lib/importacion/expediente";
 
 export type PlanillaFaseUi = 1 | "1a" | 2 | 3 | 4 | 5 | 6;
 
@@ -241,17 +241,17 @@ export function PlanillaRegistroImportacion({
 
   function goFase(next: PlanillaFaseUi) {
     setFase(next);
-    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${String(next)}`);
+    router.replace(`/importacion/${vehiculoId}/planilla?fase=${String(next)}`);
   }
 
   function navigateAfterSave(after: PlanillaAfterSave, nextFase: PlanillaFaseUi) {
     if (after === "ficha") {
-      router.push(`/puerto-libre/${vehiculoId}`);
+      router.push(`/importacion/${vehiculoId}`);
       router.refresh();
       return;
     }
     setFase(nextFase);
-    router.replace(`/puerto-libre/${vehiculoId}/planilla?fase=${nextFase}`);
+    router.replace(`/importacion/${vehiculoId}/planilla?fase=${nextFase}`);
     router.refresh();
   }
 
@@ -558,7 +558,7 @@ export function PlanillaRegistroImportacion({
               setMatriculacionPaso(2);
               setMessage("Carpeta de matriculación guardada");
               if (after === "ficha") {
-                router.push(`/puerto-libre/${vehiculoId}`);
+                router.push(`/importacion/${vehiculoId}`);
               }
               router.refresh();
             });
@@ -577,9 +577,9 @@ export function PlanillaRegistroImportacion({
               }
               setMessage("Planilla completa · puedes nacionalizar");
               if (after === "ficha") {
-                router.push(`/puerto-libre/${vehiculoId}`);
+                router.push(`/importacion/${vehiculoId}`);
               } else {
-                router.push(`/puerto-libre/${vehiculoId}/nacionalizar`);
+                router.push(`/importacion/${vehiculoId}/nacionalizar`);
               }
               router.refresh();
             });

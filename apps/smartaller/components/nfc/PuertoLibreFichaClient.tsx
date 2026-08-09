@@ -10,7 +10,7 @@ import {
   updatePuertoLibreSeguroAction,
   updatePuertoLibreVehiculoAction,
   type PuertoLibreFicha,
-} from "@/app/actions/nfc/puerto-libre-vehiculo";
+} from "@/app/actions/nfc/importacion-vehiculo";
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { NFCQRCode } from "@/components/nfc/NFCQRCode";
@@ -24,12 +24,12 @@ import {
   SEGURO_DOCUMENTO_TIPOS,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
-import { placaRealVisible } from "@/lib/puerto-libre/expediente";
+import { placaRealVisible } from "@/lib/importacion/expediente";
 import {
   ADUANAS_VENEZUELA,
   resolveAduanaVenezuela,
-} from "@/lib/puerto-libre/aduanas-venezuela";
-import { PAISES, resolvePais } from "@/lib/puerto-libre/paises";
+} from "@/lib/importacion/aduanas-venezuela";
+import { PAISES, resolvePais } from "@/lib/importacion/paises";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -67,7 +67,7 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-slate-100">Documentos de importación</h2>
           <Link
-            href={`/puerto-libre/${ficha.id}/planilla`}
+            href={`/importacion/${ficha.id}/planilla`}
             className="inline-flex shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
           >
             Usar planilla

@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import {
   createPuertoLibreVehiculoAction,
   uploadPuertoLibreDocumentoAction,
-} from "@/app/actions/nfc/puerto-libre-vehiculo";
+} from "@/app/actions/nfc/importacion-vehiculo";
 import {
   PuertoLibreFase1Form,
   type PuertoLibreFase1FormValues,
@@ -86,12 +86,12 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
         setError(
           `Vehículo registrado, pero no se pudo guardar un documento: ${attachError}`
         );
-        router.push(`/puerto-libre/${result.vehiculoId}/planilla?fase=1a`);
+        router.push(`/importacion/${result.vehiculoId}/planilla?fase=1a`);
         router.refresh();
         return;
       }
 
-      router.push(`/puerto-libre/${result.vehiculoId}/planilla?fase=1a`);
+      router.push(`/importacion/${result.vehiculoId}/planilla?fase=1a`);
       router.refresh();
     });
   }

@@ -156,7 +156,7 @@ export async function createNfcStickerAction(raw: unknown): Promise<CreateNfcRes
     return { success: false, error: error?.message ?? "No se pudo crear el sticker" };
   }
 
-  revalidatePath("/puerto-libre");
+  revalidatePath("/importacion");
   return { success: true, id: row.id, token: row.token };
 }
 
@@ -245,7 +245,7 @@ export async function updateNfcStickerAction(raw: unknown): Promise<NfcActionRes
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/puerto-libre");
+  revalidatePath("/importacion");
   return { success: true };
 }
 

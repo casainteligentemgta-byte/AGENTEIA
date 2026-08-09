@@ -6,7 +6,7 @@ import { Nfc } from "lucide-react";
 import {
   setPuertoLibrePinAction,
   type PuertoLibreFicha,
-} from "@/app/actions/nfc/puerto-libre-vehiculo";
+} from "@/app/actions/nfc/importacion-vehiculo";
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
 import { NFCQRCode } from "@/components/nfc/NFCQRCode";
 import { PinFieldWithReveal } from "@/components/nfc/PinFieldWithReveal";

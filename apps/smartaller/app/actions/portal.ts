@@ -11,7 +11,7 @@ import {
 import {
   placaRealVisible,
   resolveCodigoExpediente,
-} from "@/lib/puerto-libre/expediente";
+} from "@/lib/importacion/expediente";
 
 export type PortalTallerRow = {
   id: string;

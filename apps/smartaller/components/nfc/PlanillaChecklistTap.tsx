@@ -1,7 +1,7 @@
 "use client";
 
-import type { TransportistaSeccion } from "@/lib/puerto-libre/inspeccion/catalog";
-import { exteriorTieneFoto } from "@/lib/puerto-libre/inspeccion/catalog";
+import type { TransportistaSeccion } from "@/lib/importacion/inspeccion/catalog";
+import { exteriorTieneFoto } from "@/lib/importacion/inspeccion/catalog";
 import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
 import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";

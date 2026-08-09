@@ -9,7 +9,7 @@ import {
   EXTERIOR_FOTO_POR_ITEM,
   transportistaPorSeccion,
   type TransportistaSeccion,
-} from "@/lib/puerto-libre/inspeccion/catalog";
+} from "@/lib/importacion/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
 import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
 import {
