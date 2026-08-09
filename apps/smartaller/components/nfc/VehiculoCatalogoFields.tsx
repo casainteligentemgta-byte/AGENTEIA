@@ -7,7 +7,7 @@ import {
   VEHICULO_MARCAS,
   aniosVehiculoCatalogo,
   modelosDeMarca,
-} from "@/lib/puerto-libre/vehiculo-catalog";
+} from "@/lib/importacion/vehiculo-catalog";
 
 const selectClass =
   "box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60";

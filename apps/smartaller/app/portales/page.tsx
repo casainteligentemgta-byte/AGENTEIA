@@ -6,6 +6,7 @@ import {
   Landmark,
   LayoutGrid,
   Shield,
+  ShieldCheck,
   Wrench,
 } from "lucide-react";
 import {
@@ -15,11 +16,13 @@ import {
   type PortalRole,
 } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
+import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 
 export const dynamic = "force-dynamic";
 
 const ICONS: Record<PortalRole, typeof Shield> = {
   master: Shield,
+  admin: ShieldCheck,
   aduanera: Landmark,
   taller: Wrench,
   concesionario: Building2,
@@ -46,9 +49,13 @@ export default async function PortalesHubPage() {
           Portales
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          Elige la sección según tu rol. Master y Aduanera solo muestran datos
-          globales si están autorizados (cumplimiento / contrato). Los usuarios
-          solo ven sus vehículos.
+          Elige la sección según tu rol. El módulo Importación vive en{" "}
+          <Link href={IMPORTACION_BASE} className="text-cyan-400 hover:underline">
+            /importacion
+          </Link>
+          . Máster y Administrador solo ven data global si están autorizados.
+          Talleres y concesionarios solo ven sus clientes. Los usuarios solo
+          ven vehículos propios o compartidos.
         </p>
         {access.orgNombre ? (
           <p className="mt-2 text-xs text-zinc-500">
@@ -63,7 +70,7 @@ export default async function PortalesHubPage() {
             const enabled = access.roles.includes(role);
             const Icon = ICONS[role];
             const masterBlocked =
-              (role === "master" || role === "aduanera") &&
+              (role === "master" || role === "admin" || role === "aduanera") &&
               enabled &&
               !access.verTodo &&
               access.tallerIds.length === 0;

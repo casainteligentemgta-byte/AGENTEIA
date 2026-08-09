@@ -16,6 +16,16 @@ const nextConfig = {
         destination: "/dashboard/smartbike",
         permanent: true,
       },
+      {
+        source: "/puerto-libre",
+        destination: "/importacion",
+        permanent: false,
+      },
+      {
+        source: "/puerto-libre/:path*",
+        destination: "/importacion/:path*",
+        permanent: false,
+      },
     ];
   },
 };

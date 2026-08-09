@@ -17,7 +17,7 @@ import {
   TRANSPORTISTA_SECCIONES,
   TRANSPORTISTA_CHECKLIST,
   transportistaPorSeccion,
-} from "@/lib/puerto-libre/inspeccion/catalog";
+} from "@/lib/importacion/inspeccion/catalog";
 import type {
   ChecklistRespuesta,
   InspeccionTransportistaStored,
@@ -158,7 +158,7 @@ export function InspeccionTransportistaForm({
           }
           setOk(true);
           router.refresh();
-          router.push(`/puerto-libre/${vehiculoId}`);
+          router.push(`/importacion/${vehiculoId}`);
         });
       }}
     >

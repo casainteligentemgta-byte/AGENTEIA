@@ -72,7 +72,7 @@ export function NuevoStickerForm({ vehiculos }: Props) {
         return;
       }
 
-      router.push(`/puerto-libre?created=${result.token}`);
+      router.push(`/importacion?created=${result.token}`);
       router.refresh();
     });
   }

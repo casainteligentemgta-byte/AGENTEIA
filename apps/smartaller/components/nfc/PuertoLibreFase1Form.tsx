@@ -12,8 +12,8 @@ import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-d
 import {
   ADUANAS_VENEZUELA,
   resolveAduanaVenezuela,
-} from "@/lib/puerto-libre/aduanas-venezuela";
-import { PAISES, resolvePais } from "@/lib/puerto-libre/paises";
+} from "@/lib/importacion/aduanas-venezuela";
+import { PAISES, resolvePais } from "@/lib/importacion/paises";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;

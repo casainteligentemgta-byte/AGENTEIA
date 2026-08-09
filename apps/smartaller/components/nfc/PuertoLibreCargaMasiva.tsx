@@ -16,11 +16,11 @@ import {
   createPuertoLibreCargaMasivaAction,
   extractCargaMasivaDocumentosAction,
   parseCargaMasivaSpreadsheetAction,
-} from "@/app/actions/nfc/puerto-libre-carga-masiva";
+} from "@/app/actions/nfc/importacion-carga-masiva";
 import {
   CARGA_MASIVA_MAX_ROWS,
   type CargaMasivaRow,
-} from "@/lib/puerto-libre/carga-masiva-template";
+} from "@/lib/importacion/carga-masiva-template";
 
 type Mode = "plantilla" | "documentos";
 
@@ -178,14 +178,14 @@ export function PuertoLibreCargaMasiva() {
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a
-            href="/puerto-libre/carga-masiva/plantilla.xlsx"
+            href="/importacion/carga-masiva/plantilla.xlsx"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4 shrink-0" />
             <span className="leading-tight">Plantilla Excel (.xlsx)</span>
           </a>
           <a
-            href="/puerto-libre/carga-masiva/plantilla.csv"
+            href="/importacion/carga-masiva/plantilla.csv"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4 shrink-0" />
@@ -357,7 +357,7 @@ export function PuertoLibreCargaMasiva() {
         <p className="flex items-center gap-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {resultMsg}{" "}
-          <Link href="/puerto-libre" className="underline hover:text-emerald-100">
+          <Link href="/importacion" className="underline hover:text-emerald-100">
             Ver listado
           </Link>
         </p>

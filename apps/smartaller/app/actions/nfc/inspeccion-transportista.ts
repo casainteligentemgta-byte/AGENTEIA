@@ -130,8 +130,8 @@ export async function saveInspeccionTransportistaAction(
     return { success: false, error: error.message };
   }
 
-  revalidatePath(`/puerto-libre/${parsed.data.vehiculoId}`);
-  revalidatePath(`/puerto-libre/${parsed.data.vehiculoId}/inspeccion`);
-  revalidatePath("/puerto-libre");
+  revalidatePath(`/importacion/${parsed.data.vehiculoId}`);
+  revalidatePath(`/importacion/${parsed.data.vehiculoId}/inspeccion`);
+  revalidatePath("/importacion");
   return { success: true };
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, ArrowLeft, Wrench, Car } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
+import { recordPortalLoginAction } from "@/app/actions/portal-login";
 
 type AccountType = "taller" | "dueno";
 
@@ -47,6 +48,7 @@ function LoginForm() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await recordPortalLoginAction(effectiveRedirect);
         window.location.href = effectiveRedirect;
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
@@ -71,7 +73,7 @@ function LoginForm() {
     setMessage(null);
     try {
       const supabase = createClient();
-      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(effectiveRedirect)}`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(effectiveRedirect)}&logLogin=1`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: callbackUrl },

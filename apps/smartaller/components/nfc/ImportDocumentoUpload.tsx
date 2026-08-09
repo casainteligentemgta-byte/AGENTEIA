@@ -9,8 +9,8 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { verifyPuertoLibreImprontaAction } from "@/app/actions/nfc/puerto-libre-impronta";
-import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { verifyPuertoLibreImprontaAction } from "@/app/actions/nfc/importacion-impronta";
+import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import { FotoDanoAnnotator } from "@/components/nfc/FotoDanoAnnotator";
 import {
   DOCUMENTO_LABELS,

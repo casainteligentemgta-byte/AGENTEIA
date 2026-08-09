@@ -6,7 +6,7 @@ import { Shield, User } from "lucide-react";
 import {
   updatePuertoLibrePropietarioAction,
   updatePuertoLibreSeguroAction,
-} from "@/app/actions/nfc/puerto-libre-vehiculo";
+} from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import {
   SEGURO_DOCUMENTO_TIPOS,

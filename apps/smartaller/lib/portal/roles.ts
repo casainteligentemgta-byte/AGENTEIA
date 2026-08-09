@@ -1,9 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import type { Taller } from "@/lib/taller";
+import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 
 export const PORTAL_ROLES = [
   "master",
+  "admin",
   "aduanera",
   "taller",
   "concesionario",
@@ -32,11 +34,18 @@ export const PORTAL_META: Record<
   }
 > = {
   master: {
-    title: "Master",
+    title: "Administrador máster",
     description:
-      "Visión global de talleres, flotas y expedientes (solo si está autorizado).",
+      "Ve y modifica todo, supervisa el módulo e ingresos (logs). Alcance global con autorización.",
     href: "/portales/master",
     accent: "border-amber-500/40 bg-amber-950/30 text-amber-100",
+  },
+  admin: {
+    title: "Administrador",
+    description:
+      "Ve y modifica toda la data de importación. No accede a logs de supervisión.",
+    href: IMPORTACION_BASE,
+    accent: "border-orange-500/40 bg-orange-950/30 text-orange-100",
   },
   aduanera: {
     title: "Aduanera",
@@ -45,21 +54,24 @@ export const PORTAL_META: Record<
     accent: "border-sky-500/40 bg-sky-950/30 text-sky-100",
   },
   taller: {
-    title: "Talleres",
-    description: "Operación del taller: mantenimientos, recepción y Puerto Libre.",
+    title: "Taller",
+    description:
+      "Operación del taller y módulo Importación: solo la data de tus clientes.",
     href: "/dashboard",
     accent: "border-cyan-500/40 bg-cyan-950/30 text-cyan-100",
   },
   concesionario: {
-    title: "Concesionarios",
-    description: "Flota y clientes vinculados a tu concesión.",
-    href: "/portales/concesionario",
+    title: "Concesionario",
+    description:
+      "Carga y modifica la data de tus clientes en Importación. No ves otros concesionarios.",
+    href: IMPORTACION_BASE,
     accent: "border-violet-500/40 bg-violet-950/30 text-violet-100",
   },
   usuario: {
-    title: "Usuarios",
-    description: "Solo tus vehículos e historial personal.",
-    href: "/app",
+    title: "Usuario",
+    description:
+      "Solo ves los vehículos de tu propiedad o los que un administrador te comparta.",
+    href: IMPORTACION_BASE,
     accent: "border-emerald-500/40 bg-emerald-950/30 text-emerald-100",
   },
 };
@@ -177,7 +189,7 @@ export function requirePortalRole(
     return { ok: false, error: `No tienes acceso al portal ${PORTAL_META[role].title}` };
   }
   if (
-    (role === "master" || role === "aduanera") &&
+    (role === "master" || role === "admin" || role === "aduanera") &&
     !access.verTodo &&
     access.tallerIds.length === 0
   ) {
@@ -185,8 +197,10 @@ export function requirePortalRole(
       ok: false,
       error:
         role === "master"
-          ? "Master sin alcance: activa ver_todo (si la ley lo permite) o asigna talleres."
-          : "Aduanera sin alcance: activa ver_todo (si la ley lo permite) o asigna talleres.",
+          ? "Administrador máster sin alcance: activa ver_todo o asigna talleres."
+          : role === "admin"
+            ? "Administrador sin alcance: activa ver_todo o asigna talleres."
+            : "Aduanera sin alcance: activa ver_todo o asigna talleres.",
     };
   }
   return { ok: true, access };
@@ -197,7 +211,7 @@ export function resolveVisibleTallerIds(
   access: PortalAccess,
   role: PortalRole
 ): { all: boolean; ids: string[] } {
-  if (role === "master" || role === "aduanera") {
+  if (role === "master" || role === "admin" || role === "aduanera") {
     if (access.verTodo) return { all: true, ids: [] };
     return { all: false, ids: access.tallerIds };
   }
@@ -209,10 +223,11 @@ export function resolveVisibleTallerIds(
 
 export function defaultHomeForAccess(access: PortalAccess): string {
   if (access.roles.includes("master") && access.verTodo) return "/portales/master";
+  if (access.roles.includes("admin")) return IMPORTACION_BASE;
   if (access.roles.includes("aduanera")) return "/portales/aduanera";
   if (access.roles.includes("concesionario") && !access.roles.includes("taller")) {
-    return "/portales/concesionario";
+    return IMPORTACION_BASE;
   }
   if (access.roles.includes("taller")) return "/dashboard";
-  return "/app";
+  return IMPORTACION_BASE;
 }

@@ -26,7 +26,7 @@ export function StickerList({ stickers, highlightToken, baseUrl }: Props) {
           Crea el primero para generar URL pública y QR de grabado.
         </p>
         <Link
-          href="/puerto-libre/nuevo"
+          href="/importacion/nuevo"
           className="mt-5 inline-flex rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
         >
           Nuevo sticker

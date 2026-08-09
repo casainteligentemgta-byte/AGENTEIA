@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Camera, CheckCircle2, FileText, Loader2, Ship } from "lucide-react";
-import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/puerto-libre-extract";
-import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
+import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";

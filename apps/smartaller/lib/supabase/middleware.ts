@@ -2,19 +2,39 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
+function isImportacionLogin(pathname: string): boolean {
+  return pathname === "/importacion/login";
+}
+
+function isProtectedPath(pathname: string): boolean {
+  if (isImportacionLogin(pathname)) return false;
+  return (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/app") ||
+    pathname.startsWith("/importacion") ||
+    pathname.startsWith("/portales")
+  );
+}
+
+function isAllowedRedirect(redirectTo: string): boolean {
+  return (
+    redirectTo.startsWith("/dashboard") ||
+    redirectTo.startsWith("/app") ||
+    redirectTo.startsWith("/importacion") ||
+    redirectTo.startsWith("/portales")
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 
   if (!url || !key) {
-    if (
-      request.nextUrl.pathname.startsWith("/dashboard") ||
-      request.nextUrl.pathname.startsWith("/app") ||
-      request.nextUrl.pathname.startsWith("/puerto-libre") ||
-      request.nextUrl.pathname.startsWith("/portales")
-    ) {
+    if (isProtectedPath(request.nextUrl.pathname) || isImportacionLogin(request.nextUrl.pathname)) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
+      loginUrl.pathname = isImportacionLogin(request.nextUrl.pathname)
+        ? "/importacion/login"
+        : "/login";
       loginUrl.searchParams.set("error", "config");
       return NextResponse.redirect(loginUrl);
     }
@@ -44,29 +64,23 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const isProtected =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/app") ||
-    pathname.startsWith("/puerto-libre") ||
-    pathname.startsWith("/portales");
-
-  if (!user && isProtected) {
+  if (!user && isProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
+    const importacionFlow = pathname.startsWith("/importacion");
+    loginUrl.pathname = importacionFlow ? "/importacion/login" : "/login";
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && pathname === "/login") {
+  if (user && (pathname === "/login" || isImportacionLogin(pathname))) {
     const redirectTo = request.nextUrl.searchParams.get("redirectTo");
     const target = request.nextUrl.clone();
-    const allowedRedirect =
-      redirectTo &&
-      (redirectTo.startsWith("/dashboard") ||
-        redirectTo.startsWith("/app") ||
-        redirectTo.startsWith("/puerto-libre") ||
-        redirectTo.startsWith("/portales"));
-    target.pathname = allowedRedirect ? redirectTo : "/portales";
+    const allowedRedirect = redirectTo && isAllowedRedirect(redirectTo);
+    if (isImportacionLogin(pathname)) {
+      target.pathname = allowedRedirect ? redirectTo : "/importacion";
+    } else {
+      target.pathname = allowedRedirect ? redirectTo : "/portales";
+    }
     target.search = "";
     return NextResponse.redirect(target);
   }

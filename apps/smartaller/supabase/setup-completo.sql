@@ -1153,7 +1153,7 @@ create table if not exists public.portal_accesos (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint portal_accesos_roles_valid check (
-    roles <@ array['master', 'aduanera', 'taller', 'concesionario', 'usuario']::text[]
+    roles <@ array['master', 'admin', 'aduanera', 'taller', 'concesionario', 'usuario']::text[]
   )
 );
 

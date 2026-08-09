@@ -39,7 +39,7 @@ export default async function PortalConcesionarioPage() {
           Panel de vehículos
         </Link>
         <Link
-          href="/puerto-libre"
+          href="/importacion"
           className="rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-sm text-cyan-100"
         >
           Puerto Libre
@@ -79,7 +79,7 @@ export default async function PortalConcesionarioPage() {
                 <td className="px-3 py-2">
                   {v.codigoExpediente ? (
                     <Link
-                      href={`/puerto-libre/${v.id}`}
+                      href={`/importacion/${v.id}`}
                       className="font-mono text-xs text-cyan-300 hover:underline"
                     >
                       {v.codigoExpediente}

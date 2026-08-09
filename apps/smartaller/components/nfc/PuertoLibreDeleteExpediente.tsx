@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, Trash2 } from "lucide-react";
-import { deletePuertoLibreVehiculoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import { deletePuertoLibreVehiculoAction } from "@/app/actions/nfc/importacion-vehiculo";
 
 type Props = {
   vehiculoId: string;
@@ -30,7 +30,7 @@ export function PuertoLibreDeleteExpediente({
         setError(result.error);
         return;
       }
-      router.push("/puerto-libre");
+      router.push("/importacion");
       router.refresh();
     });
   }

@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Car, ChevronDown, Pencil, Search, X } from "lucide-react";
-import type { PuertoLibreVehiculoListItem } from "@/app/actions/nfc/puerto-libre-vehiculo";
-import { placaRealVisible } from "@/lib/puerto-libre/expediente";
+import type { PuertoLibreVehiculoListItem } from "@/app/actions/nfc/importacion-vehiculo";
+import { placaRealVisible } from "@/lib/importacion/expediente";
 
 export type PlanillaVehiculoOption = Pick<
   PuertoLibreVehiculoListItem,
@@ -53,7 +53,7 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
     setOpen(false);
     setQ("");
     if (id === current.id) return;
-    router.push(`/puerto-libre/${id}/planilla`);
+    router.push(`/importacion/${id}/planilla`);
   }
 
   return (
