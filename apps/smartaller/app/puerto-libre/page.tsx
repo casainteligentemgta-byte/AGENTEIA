@@ -491,7 +491,8 @@ export default async function PuertoLibrePage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porSeniat.map((v) => {
-                      const href = `/puerto-libre/${v.id}`;
+                      /** Carpeta de requisitos ante SENIAT (vía de nacionalización). */
+                      const href = `/puerto-libre/${v.id}/nacionalizar`;
                       const urgente = v.diasSeniat != null && v.diasSeniat <= 7;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
@@ -517,7 +518,7 @@ export default async function PuertoLibrePage() {
                               {etiquetaDias(v.diasSeniat, "Sin fecha")}
                             </p>
                             <Link
-                              href={`${href}?edit=1`}
+                              href={href}
                               className="mt-1.5 inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
                             >
                               Gestionar
