@@ -325,6 +325,9 @@ export function PlanillaRegistroImportacion({
 
       {fase === 1 ? (
         <Fase1Registro
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
           pending={pending}
           initial={{
             marca: marca ?? "",
@@ -699,10 +702,16 @@ type Fase1RegistroPayload = {
 };
 
 function Fase1Registro({
+  vehiculoId,
+  docs,
+  setDocs,
   pending,
   initial,
   onSave,
 }: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
   pending: boolean;
   initial: {
     marca: string;
@@ -759,6 +768,9 @@ function Fase1Registro({
   return (
     <PuertoLibreFase1Form
       variant="planilla"
+      vehiculoId={vehiculoId}
+      existingDocumentos={docs}
+      onDocumentosChange={setDocs}
       initial={formInitial}
       onSubmit={(values, fd) => {
         onSave(
@@ -843,10 +855,15 @@ function Fase1aEmbarque({
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
               acceptMode="both"
-              hint="Foto o PDF · máx. 10 MB"
+              hint={docs[tipo]?.url ? "" : "Foto o PDF · máx. 10 MB"}
+              actionLabel={docs[tipo]?.url ? "Sustituir" : "Escanear / PDF"}
               onUploaded={(next) => {
                 setDocs(next);
-                onUploadedMessage("Documento guardado");
+                onUploadedMessage(
+                  tipo === "bl_guia"
+                    ? "BL guardado en el expediente"
+                    : "Documento guardado"
+                );
               }}
             />
           ))}
