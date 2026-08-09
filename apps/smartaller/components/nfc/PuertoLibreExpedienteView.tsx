@@ -281,26 +281,12 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
 
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
-      {(imp.planillaFase == null || imp.planillaFase < 7) && (
-        <Link
-          href={
-            imp.planillaFase != null && imp.planillaFase >= 6
-              ? `/puerto-libre/${ficha.id}/planilla?fase=6`
-              : imp.planillaFase === 5
-                ? `/puerto-libre/${ficha.id}/planilla?fase=5`
-                : imp.planillaFase === 4
-                  ? `/puerto-libre/${ficha.id}/planilla?fase=4`
-                  : imp.planillaFase === 3
-                    ? `/puerto-libre/${ficha.id}/planilla?fase=3`
-                    : imp.planillaFase === 2
-                      ? `/puerto-libre/${ficha.id}/planilla?fase=2`
-                      : `/puerto-libre/${ficha.id}/planilla?fase=1`
-          }
-          className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-cyan-500"
-        >
-          Usar planilla
-        </Link>
-      )}
+      <Link
+        href={`/puerto-libre/${ficha.id}?edit=1`}
+        className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-cyan-500"
+      >
+        Editar
+      </Link>
 
       {(imp.planillaFase ?? 0) >= 7 &&
       imp.estadoNacionalizacion !== "nacionalizado" &&
