@@ -213,11 +213,23 @@ export function ImportDocumentoUpload({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p
-              className={`text-sm font-medium ${light ? "text-zinc-800" : "text-slate-200"}`}
+              className={`flex flex-wrap items-center gap-2 text-sm font-medium ${light ? "text-zinc-800" : "text-slate-200"}`}
             >
               {DOCUMENTO_LABELS[tipo]}
+              {done ? (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                    light
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-emerald-900/40 text-emerald-300"
+                  }`}
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  Cargado
+                </span>
+              ) : null}
               {shouldVerify ? (
-                <span className="ml-1 text-xs font-normal text-cyan-400/80">
+                <span className="text-xs font-normal text-cyan-400/80">
                   · verificación de serial
                 </span>
               ) : null}
@@ -265,7 +277,7 @@ export function ImportDocumentoUpload({
                 ? "Verificando…"
                 : "Subiendo…"
               : done
-                ? "Cambiar archivo"
+                ? "Sustituir"
                 : resolvedLabel}
           </button>
         </div>

@@ -2,10 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createPuertoLibreVehiculoAction } from "@/app/actions/nfc/puerto-libre-vehiculo";
+import {
+  createPuertoLibreVehiculoAction,
+  uploadPuertoLibreDocumentoAction,
+} from "@/app/actions/nfc/puerto-libre-vehiculo";
 import {
   PuertoLibreFase1Form,
   type PuertoLibreFase1FormValues,
+  type PuertoLibreScanFiles,
 } from "@/components/nfc/PuertoLibreFase1Form";
 import type { UltimoImportador } from "@/lib/taller-preferencias";
 
@@ -14,13 +18,34 @@ type Props = {
   initialImportador?: UltimoImportador | null;
 };
 
+async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
+  const tipos = Object.keys(scanFiles) as (keyof PuertoLibreScanFiles)[];
+  for (const tipo of tipos) {
+    const file = scanFiles[tipo];
+    if (!file) continue;
+    const fd = new FormData();
+    fd.set("vehiculoId", vehiculoId);
+    fd.set("tipo", tipo);
+    fd.set("file", file);
+    const uploaded = await uploadPuertoLibreDocumentoAction(fd);
+    if (!uploaded.success) {
+      return uploaded.error;
+    }
+  }
+  return null;
+}
+
 /** Fase 1: datos del vehículo + importador (con OCR de factura/BL). */
 export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(values: PuertoLibreFase1FormValues) {
+  function handleSubmit(
+    values: PuertoLibreFase1FormValues,
+    _formData: FormData,
+    scanFiles: PuertoLibreScanFiles
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await createPuertoLibreVehiculoAction({
@@ -55,6 +80,17 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
         setError(result.error);
         return;
       }
+
+      const attachError = await attachScanFiles(result.vehiculoId, scanFiles);
+      if (attachError) {
+        setError(
+          `Vehículo registrado, pero no se pudo guardar un documento: ${attachError}`
+        );
+        router.push(`/puerto-libre/${result.vehiculoId}/planilla?fase=1a`);
+        router.refresh();
+        return;
+      }
+
       router.push(`/puerto-libre/${result.vehiculoId}/planilla?fase=1a`);
       router.refresh();
     });

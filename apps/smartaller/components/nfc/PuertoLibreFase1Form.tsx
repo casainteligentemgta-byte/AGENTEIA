@@ -3,7 +3,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Car, Ship } from "lucide-react";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
-import { PuertoLibreDocScan } from "@/components/nfc/PuertoLibreDocScan";
+import {
+  PuertoLibreDocScan,
+  type PuertoLibreScanTipo,
+} from "@/components/nfc/PuertoLibreDocScan";
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import {
@@ -11,6 +14,9 @@ import {
   resolveAduanaVenezuela,
 } from "@/lib/puerto-libre/aduanas-venezuela";
 import { PAISES, resolvePais } from "@/lib/puerto-libre/paises";
+import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+
+export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
 
 export type PuertoLibreFase1FormValues = {
   marca: string;
@@ -97,9 +103,18 @@ type Props = {
   initial?: Partial<PuertoLibreFase1FormValues>;
   /** Contenido tras el formulario (botones de acción). */
   actions: ReactNode;
-  onSubmit: (values: PuertoLibreFase1FormValues, formData: FormData) => void;
+  onSubmit: (
+    values: PuertoLibreFase1FormValues,
+    formData: FormData,
+    scanFiles: PuertoLibreScanFiles
+  ) => void;
   /** Estilo de sección: alta (sin card) o planilla (con card). */
   variant?: "alta" | "planilla";
+  /** Si existe, Autorellenar guarda factura/BL en vehiculos.documentos al escanear. */
+  vehiculoId?: string;
+  /** Documentos ya persistidos (mismo JSONB que Embarque). */
+  existingDocumentos?: VehiculosDocumentos;
+  onDocumentosChange?: (documentos: VehiculosDocumentos) => void;
 };
 
 /**
@@ -111,6 +126,9 @@ export function PuertoLibreFase1Form({
   actions,
   onSubmit,
   variant = "alta",
+  vehiculoId,
+  existingDocumentos,
+  onDocumentosChange,
 }: Props) {
   const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => {
     const merged = { ...emptyPuertoLibreFase1Values(), ...initial };
@@ -120,6 +138,7 @@ export function PuertoLibreFase1Form({
       paisOrigen: resolvePais(merged.paisOrigen),
     };
   });
+  const [scanFiles, setScanFiles] = useState<PuertoLibreScanFiles>({});
   const [catalogKey, setCatalogKey] = useState(0);
   const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
 
@@ -134,8 +153,13 @@ export function PuertoLibreFase1Form({
   const gridClass =
     variant === "planilla" ? "mt-4 grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2";
 
-  function patchFromScan(fields: PuertoLibreRegistroScanFields) {
+  function patchFromScan(
+    fields: PuertoLibreRegistroScanFields,
+    tipo: PuertoLibreScanTipo,
+    file: File
+  ) {
     setValues((prev) => mergeScanFields(prev, fields));
+    setScanFiles((prev) => ({ ...prev, [tipo]: file }));
     setCatalogKey((k) => k + 1);
   }
 
@@ -171,10 +195,18 @@ export function PuertoLibreFase1Form({
             values.fechaLlegadaBuque ||
             String(fd.get("fechaLlegadaBuque") ?? ""),
         };
-        onSubmit(synced, fd);
+        onSubmit(synced, fd, scanFiles);
       }}
     >
-      <PuertoLibreDocScan onExtracted={(fields) => patchFromScan(fields)} />
+      <PuertoLibreDocScan
+        vehiculoId={vehiculoId}
+        existingUrls={{
+          factura_comercial: existingDocumentos?.factura_comercial?.url,
+          bl_guia: existingDocumentos?.bl_guia?.url,
+        }}
+        onExtracted={patchFromScan}
+        onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
+      />
 
       <section className={sectionClass}>
         <h2 className={sectionTitleClass}>
