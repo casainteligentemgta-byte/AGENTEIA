@@ -216,8 +216,6 @@ export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
 export const PL_MATRICULACION_ORIGEN: Partial<
   Record<DocumentoTipo, string>
 > = {
-  factura_comercial: "Desde fase 1A Embarque",
-  certificado_origen: "Desde fase 1A Embarque",
   nacionalizacion: "Desde fase 3 Aduana (DUA)",
   rcv_seguro: "Desde fase 5 Seguro",
 };
