@@ -86,12 +86,13 @@ function SidebarPanel({
   return (
     <>
       <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 md:h-16 md:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <BrandLogo size="sm" theme="dark" markOnly showDot={false} />
-          <div className="min-w-0">
-            <p className="truncate font-semibold leading-none">{tallerNombre ?? "SmartTaller"}</p>
-            <p className="text-xs text-zinc-500">Panel del taller</p>
-          </div>
+        <div className="min-w-0">
+          <BrandLogo size="sm" theme="dark" showDot={false} />
+          {tallerNombre ? (
+            <p className="mt-1 truncate text-xs text-zinc-500">{tallerNombre}</p>
+          ) : (
+            <p className="mt-1 text-xs text-zinc-500">Panel del taller</p>
+          )}
         </div>
         <button
           type="button"
