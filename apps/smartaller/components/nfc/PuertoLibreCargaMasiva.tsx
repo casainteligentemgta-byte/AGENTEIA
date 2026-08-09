@@ -56,7 +56,7 @@ const FIELD_COLS: {
 
 export function PuertoLibreCargaMasiva() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("documentos");
+  const [mode, setMode] = useState<Mode>("plantilla");
   const [rows, setRows] = useState<CargaMasivaRow[]>([]);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [pending, startTransition] = useTransition();
@@ -169,34 +169,27 @@ export function PuertoLibreCargaMasiva() {
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
         <h2 className="text-base font-semibold text-slate-100">
-          Cómo registrar varios vehículos de una factura
+          1. Envía la plantilla al equipo
         </h2>
-        <ul className="mt-3 space-y-2 text-sm text-slate-400">
-          <li>
-            <span className="font-medium text-cyan-300">Plan A — PDFs / fotos:</span>{" "}
-            sube la factura y la hoja anexa (tabla con VIN, motor, color). La IA
-            arma una fila por unidad.
-          </li>
-          <li>
-            <span className="font-medium text-slate-200">Plan B — Excel / CSV:</span>{" "}
-            si el OCR falla, descarga la plantilla (hasta {CARGA_MASIVA_MAX_ROWS}{" "}
-            filas) y súbela completa.
-          </li>
-        </ul>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <p className="mt-1 text-justify text-sm text-slate-400">
+          Descarga el Excel o CSV, rellénalo con un vehículo por fila (hasta{" "}
+          {CARGA_MASIVA_MAX_ROWS}) y súbelo aquí. También puedes cargar varias
+          facturas y BL en PDF/foto.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <a
             href="/puerto-libre/carga-masiva/plantilla.xlsx"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-slate-500"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
-            <Download className="h-4 w-4" />
-            Plantilla Excel (.xlsx)
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="leading-tight">Plantilla Excel (.xlsx)</span>
           </a>
           <a
             href="/puerto-libre/carga-masiva/plantilla.csv"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-slate-500"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
-            <Download className="h-4 w-4" />
-            Plantilla CSV
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="leading-tight">Plantilla CSV</span>
           </a>
         </div>
       </section>
@@ -204,8 +197,8 @@ export function PuertoLibreCargaMasiva() {
       <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
         {(
           [
-            { id: "documentos" as const, label: "Plan A · PDFs / fotos", icon: FileUp },
-            { id: "plantilla" as const, label: "Plan B · Excel / CSV", icon: FileSpreadsheet },
+            { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
+            { id: "documentos" as const, label: "PDFs / fotos", icon: FileUp },
           ] as const
         ).map((tab) => {
           const active = mode === tab.id;
@@ -231,10 +224,10 @@ export function PuertoLibreCargaMasiva() {
       {mode === "plantilla" ? (
         <section className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
           <h2 className="text-base font-semibold text-slate-100">
-            Plan B — Sube el Excel/CSV completado
+            2. Sube el archivo
           </h2>
           <p className="mt-1 text-sm text-slate-400">
-            Una fila por vehículo. Acepta .xlsx, .xls o .csv (coma o punto y coma).
+            Acepta .xlsx, .xls o .csv (coma o punto y coma).
           </p>
           <button
             type="button"
@@ -262,16 +255,9 @@ export function PuertoLibreCargaMasiva() {
         </section>
       ) : (
         <section className="space-y-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
-          <div>
-            <h2 className="text-base font-semibold text-slate-100">
-              Plan A — Sube facturas, hoja anexa y BL
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Ideal para hojas anexas con varios VIN. Sube la carátula + la tabla
-              anexa (+ BL si tienes). Marca cada archivo como Factura o BL. Revisa
-              la tabla antes de registrar.
-            </p>
-          </div>
+          <h2 className="text-base font-semibold text-slate-100">
+            2. Sube facturas y BL
+          </h2>
           <button
             type="button"
             disabled={pending}

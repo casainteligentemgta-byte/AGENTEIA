@@ -37,9 +37,6 @@ export default async function CargaMasivaPuertoLibrePage() {
             <h1 className="text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
               Carga masiva de vehículos
             </h1>
-            <p className="text-sm text-zinc-500">
-              Plan A: PDFs/fotos (hoja anexa) · Plan B: plantilla Excel/CSV
-            </p>
           </div>
         </div>
 
