@@ -397,6 +397,76 @@ export default async function PuertoLibrePage() {
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                <Building2 className="h-4 w-4 text-sky-400" />
+                Por presentación SENIAT
+              </h2>
+              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+                {porSeniat.length}
+              </span>
+            </div>
+            {porSeniat.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No hay presentaciones SENIAT pendientes o agendadas.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-sky-900/30 bg-zinc-950/40">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
+                      <th className="px-3 py-3 font-medium">Vehículo</th>
+                      <th className="px-3 py-3 font-medium">Presentación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {porSeniat.map((v) => {
+                      /** Carpeta de requisitos ante SENIAT (vía de nacionalización). */
+                      const href = `/puerto-libre/${v.id}/nacionalizar`;
+                      const urgente = v.diasSeniat != null && v.diasSeniat <= 7;
+                      return (
+                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
+                              {labelExpediente(v)}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-zinc-300">
+                            <p className="text-xs leading-snug sm:text-sm">
+                              {labelVehiculo(v)}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="inline-flex flex-col items-start gap-1.5">
+                              <Link
+                                href={href}
+                                className="inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
+                              >
+                                Gestionar
+                              </Link>
+                              <p
+                                className={`text-xs whitespace-nowrap sm:text-sm ${
+                                  urgente ? "text-red-300" : "text-zinc-300"
+                                }`}
+                              >
+                                {formatFechaDia(v.fechaPresentacionSeniat)}
+                              </p>
+                              <p className="text-[11px] text-zinc-500">
+                                {etiquetaDias(v.diasSeniat, "Sin fecha")}
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
                 <Flag className="h-4 w-4 text-amber-400" />
                 Por nacionalizar
               </h2>
@@ -455,76 +525,6 @@ export default async function PuertoLibrePage() {
                             >
                               Nacionalizar
                             </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <Building2 className="h-4 w-4 text-sky-400" />
-                Por presentación SENIAT
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {porSeniat.length}
-              </span>
-            </div>
-            {porSeniat.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No hay presentaciones SENIAT pendientes o agendadas.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-sky-900/30 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Presentación</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porSeniat.map((v) => {
-                      /** Carpeta de requisitos ante SENIAT (vía de nacionalización). */
-                      const href = `/puerto-libre/${v.id}/nacionalizar`;
-                      const urgente = v.diasSeniat != null && v.diasSeniat <= 7;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="inline-flex flex-col items-start gap-1.5">
-                              <Link
-                                href={href}
-                                className="inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
-                              >
-                                Gestionar
-                              </Link>
-                              <p
-                                className={`text-xs whitespace-nowrap sm:text-sm ${
-                                  urgente ? "text-red-300" : "text-zinc-300"
-                                }`}
-                              >
-                                {formatFechaDia(v.fechaPresentacionSeniat)}
-                              </p>
-                              <p className="text-[11px] text-zinc-500">
-                                {etiquetaDias(v.diasSeniat, "Sin fecha")}
-                              </p>
-                            </div>
                           </td>
                         </tr>
                       );
