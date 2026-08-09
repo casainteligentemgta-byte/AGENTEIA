@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { LayoutDashboard } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
 
 type NavbarProps = {
@@ -8,14 +7,17 @@ type NavbarProps = {
   variant?: "minimal" | "full";
 };
 
+const authButtonBase =
+  "inline-flex h-9 w-[8.75rem] shrink-0 items-center justify-center rounded-xl px-3 text-sm font-medium transition";
+
 export function Navbar({ active = "home", variant = "full" }: NavbarProps) {
   return (
     <header className="fixed top-0 z-50 w-full border-b border-zinc-800/60 glass">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:gap-6 sm:px-6">
+        <Link href="/" className="flex shrink-0 items-center">
           <BrandLogo size="sm" theme="dark" showDot={false} />
         </Link>
-        <nav className="flex items-center gap-2 sm:gap-3">
+        <nav className="flex shrink-0 items-center gap-3">
           {variant === "full" && (
             <>
               <Link
@@ -44,19 +46,18 @@ export function Navbar({ active = "home", variant = "full" }: NavbarProps) {
           )}
           <Link
             href="/login?redirectTo=/dashboard&mode=signup"
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+            className={`${authButtonBase} ${
               variant === "minimal"
                 ? "border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white"
-                : "hidden sm:inline-flex border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white"
+                : "hidden border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white sm:inline-flex"
             }`}
           >
             Registro
           </Link>
           <Link
             href="/login?redirectTo=/dashboard"
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            className={`${authButtonBase} bg-blue-600 text-white hover:bg-blue-500`}
           >
-            <LayoutDashboard className="h-4 w-4" />
             Iniciar sesión
           </Link>
         </nav>
