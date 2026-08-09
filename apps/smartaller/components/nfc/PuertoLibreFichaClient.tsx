@@ -25,6 +25,11 @@ import {
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { placaRealVisible } from "@/lib/puerto-libre/expediente";
+import {
+  ADUANAS_VENEZUELA,
+  resolveAduanaVenezuela,
+} from "@/lib/puerto-libre/aduanas-venezuela";
+import { PAISES, resolvePais } from "@/lib/puerto-libre/paises";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -144,7 +149,13 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             name="regimen"
             defaultValue={ficha.importacion.regimen ?? "Puerto Libre"}
           />
-          <Field label="Aduana" name="aduana" defaultValue={ficha.importacion.aduana ?? ""} />
+          <SelectField
+            label="Aduana"
+            name="aduana"
+            defaultValue={resolveAduanaVenezuela(ficha.importacion.aduana)}
+            options={ADUANAS_VENEZUELA}
+            placeholder="Selecciona aduana"
+          />
           <Field
             label="Fecha llegada del buque"
             name="fechaLlegadaBuque"
@@ -162,10 +173,12 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
             name="numeroBl"
             defaultValue={ficha.importacion.numeroBl ?? ""}
           />
-          <Field
+          <SelectField
             label="País de origen"
             name="paisOrigen"
-            defaultValue={ficha.importacion.paisOrigen ?? ""}
+            defaultValue={resolvePais(ficha.importacion.paisOrigen)}
+            options={PAISES}
+            placeholder="Selecciona país"
           />
           <Field
             label="Valor CIF (USD)"
@@ -664,6 +677,45 @@ function Field({
         placeholder={placeholder}
         className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
       />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  defaultValue = "",
+  options,
+  placeholder,
+  className = "",
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  options: readonly string[];
+  placeholder?: string;
+  className?: string;
+}) {
+  const items =
+    defaultValue.trim() && !options.some((o) => o === defaultValue.trim())
+      ? [defaultValue.trim(), ...options]
+      : options;
+
+  return (
+    <label className={`block space-y-1.5 ${className}`}>
+      <span className="text-sm text-slate-400">{label}</span>
+      <select
+        name={name}
+        defaultValue={defaultValue}
+        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+      >
+        <option value="">{placeholder ?? "Selecciona…"}</option>
+        {items.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
