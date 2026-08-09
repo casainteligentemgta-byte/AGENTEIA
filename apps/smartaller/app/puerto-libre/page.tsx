@@ -261,9 +261,9 @@ export default async function PuertoLibrePage() {
                           <td className="px-3 py-3">
                             <Link
                               href={href}
-                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
+                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-cyan-300 transition hover:border-cyan-500/60"
                             >
-                              Cargar docs
+                              Cargar
                             </Link>
                           </td>
                         </tr>
