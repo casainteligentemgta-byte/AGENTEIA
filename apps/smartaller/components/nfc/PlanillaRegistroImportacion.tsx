@@ -947,17 +947,6 @@ function Fase2Llegada({
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Tras tomar la foto puedes marcar daños. En la impronta se verifica que
-          el serial coincida con el del expediente
-          {expectedSerial ? (
-            <>
-              {" "}
-              (<span className="font-mono text-slate-300">{expectedSerial}</span>)
-            </>
-          ) : null}
-          .
-        </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
