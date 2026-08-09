@@ -25,13 +25,11 @@ async function prepareFile(file: File): Promise<File> {
 function ScanButton({
   tipo,
   label,
-  hint,
   icon: Icon,
   onExtracted,
 }: {
   tipo: ScanTipo;
   label: string;
-  hint: string;
   icon: typeof Camera;
   onExtracted: Props["onExtracted"];
 }) {
@@ -66,13 +64,12 @@ function ScanButton({
 
   return (
     <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-3.5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-medium text-slate-100">
+          <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-slate-100">
             <Icon className="h-4 w-4 shrink-0 text-cyan-400" />
             {label}
           </p>
-          <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
           {doneMsg ? (
             <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -85,7 +82,7 @@ function ScanButton({
           type="button"
           disabled={pending}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -113,25 +110,19 @@ function ScanButton({
 export function PuertoLibreDocScan({ onExtracted }: Props) {
   return (
     <section className="space-y-3 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-4 sm:p-5">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-100">Autollenar con documentos</h2>
-        <p className="mt-1 text-xs text-slate-400">
-          Toma una foto o sube el PDF. La IA rellena los campos que pueda leer; tú confirmas antes de
-          registrar.
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-100">
+        Autorellenar con documentos
+      </h2>
+      <div className="grid gap-3">
         <ScanButton
           tipo="factura_comercial"
           label="Factura comercial"
-          hint="Marca, modelo, color, año, seriales…"
           icon={FileText}
           onExtracted={onExtracted}
         />
         <ScanButton
           tipo="bl_guia"
           label="BL / Guía"
-          hint="Importador, Nº BL, origen, fechas…"
           icon={Ship}
           onExtracted={onExtracted}
         />
