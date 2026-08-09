@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Car, Ship } from "lucide-react";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { PuertoLibreDocScan } from "@/components/nfc/PuertoLibreDocScan";
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
+import {
+  ADUANAS_VENEZUELA,
+  resolveAduanaVenezuela,
+} from "@/lib/puerto-libre/aduanas-venezuela";
+import { PAISES, resolvePais } from "@/lib/puerto-libre/paises";
 
 export type PuertoLibreFase1FormValues = {
   marca: string;
@@ -80,9 +85,9 @@ function mergeScanFields(
   assign("importadorDocumento", patch.importadorDocumento);
   assign("importadorTelefono", patch.importadorTelefono);
   assign("importadorEmail", patch.importadorEmail);
-  assign("aduana", patch.aduana);
+  assign("aduana", resolveAduanaVenezuela(patch.aduana) || undefined);
   assign("numeroBl", patch.numeroBl);
-  assign("paisOrigen", patch.paisOrigen);
+  assign("paisOrigen", resolvePais(patch.paisOrigen) || undefined);
   assign("valorCif", patch.valorCif);
   assign("observaciones", patch.observaciones);
   return next;
@@ -107,10 +112,14 @@ export function PuertoLibreFase1Form({
   onSubmit,
   variant = "alta",
 }: Props) {
-  const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => ({
-    ...emptyPuertoLibreFase1Values(),
-    ...initial,
-  }));
+  const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => {
+    const merged = { ...emptyPuertoLibreFase1Values(), ...initial };
+    return {
+      ...merged,
+      aduana: resolveAduanaVenezuela(merged.aduana),
+      paisOrigen: resolvePais(merged.paisOrigen),
+    };
+  });
   const [catalogKey, setCatalogKey] = useState(0);
   const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
 
@@ -352,11 +361,12 @@ export function PuertoLibreFase1Form({
               required
             />
           </div>
-          <ControlledField
+          <ControlledSelect
             label="Aduana"
             name="aduana"
-            placeholder="Ej. Guanta"
+            placeholder="Selecciona aduana"
             value={values.aduana}
+            options={ADUANAS_VENEZUELA}
             onChange={(v) => setField("aduana", v)}
           />
           <ControlledField
@@ -368,11 +378,12 @@ export function PuertoLibreFase1Form({
             value={values.numeroBl}
             onChange={(v) => setField("numeroBl", v)}
           />
-          <ControlledField
+          <ControlledSelect
             label="País de origen"
             name="paisOrigen"
-            placeholder="Ej. China"
+            placeholder="Selecciona país"
             value={values.paisOrigen}
+            options={PAISES}
             onChange={(v) => setField("paisOrigen", v)}
           />
           <ControlledField
@@ -449,6 +460,54 @@ function ControlledField({
           mono ? "font-mono uppercase" : ""
         }`}
       />
+    </label>
+  );
+}
+
+function ControlledSelect({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  placeholder,
+  required,
+  wide,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  placeholder?: string;
+  required?: boolean;
+  wide?: boolean;
+}) {
+  const items = useMemo(() => {
+    const trimmed = value.trim();
+    if (trimmed && !options.some((o) => o === trimmed)) {
+      return [trimmed, ...options];
+    }
+    return options;
+  }, [options, value]);
+
+  return (
+    <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
+      <span className="text-sm text-slate-400">{label}</span>
+      <select
+        name={name}
+        value={value}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+        className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+      >
+        <option value="">{placeholder ?? "Selecciona…"}</option>
+        {items.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
