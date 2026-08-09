@@ -374,15 +374,15 @@ export default async function PuertoLibrePage() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="inline-flex flex-col items-center gap-1.5">
-                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
-                                {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
-                              </p>
                               <Link
                                 href={href}
                                 className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
                               >
                                 Completar
                               </Link>
+                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
+                                {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
+                              </p>
                             </div>
                           </td>
                         </tr>
@@ -507,22 +507,24 @@ export default async function PuertoLibrePage() {
                             </p>
                           </td>
                           <td className="px-3 py-3">
-                            <p
-                              className={`text-xs whitespace-nowrap sm:text-sm ${
-                                urgente ? "text-red-300" : "text-zinc-300"
-                              }`}
-                            >
-                              {formatFechaDia(v.fechaPresentacionSeniat)}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-zinc-500">
-                              {etiquetaDias(v.diasSeniat, "Sin fecha")}
-                            </p>
-                            <Link
-                              href={href}
-                              className="mt-1.5 inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
-                            >
-                              Gestionar
-                            </Link>
+                            <div className="inline-flex flex-col items-start gap-1.5">
+                              <Link
+                                href={href}
+                                className="inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
+                              >
+                                Gestionar
+                              </Link>
+                              <p
+                                className={`text-xs whitespace-nowrap sm:text-sm ${
+                                  urgente ? "text-red-300" : "text-zinc-300"
+                                }`}
+                              >
+                                {formatFechaDia(v.fechaPresentacionSeniat)}
+                              </p>
+                              <p className="text-[11px] text-zinc-500">
+                                {etiquetaDias(v.diasSeniat, "Sin fecha")}
+                              </p>
+                            </div>
                           </td>
                         </tr>
                       );
