@@ -3,14 +3,10 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
-  Building2,
   Car,
   ChevronRight,
   FileText,
-  Flag,
   Plus,
-  Ship,
-  AlertTriangle,
 } from "lucide-react";
 import {
   listPuertoLibreVehiculos,
@@ -18,6 +14,10 @@ import {
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { listPortalVehiculosAction } from "@/app/actions/portal";
 import { listUsuarioVehiculoIdsAction } from "@/app/actions/vehiculo-compartidos";
+import {
+  PuertoLibreDashboardBucket,
+  type DashboardBucketRow,
+} from "@/components/nfc/PuertoLibreDashboardBucket";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import {
   canAccessAllImportacionData,
@@ -84,10 +84,6 @@ function formatFechaDia(isoDate: string | null): string {
 function labelExpediente(v: PuertoLibreVehiculoListItem): string {
   return v.codigoExpediente ?? "—";
 }
-
-/** Código de expediente siempre en una sola línea (no parte en el guion). */
-const EXPEDIENTE_CODE_CLASS =
-  "inline-block whitespace-nowrap font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm";
 
 function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
   const marcaModelo = [v.marca, v.modelo].filter(Boolean).join(" ");
@@ -384,6 +380,137 @@ export default async function PuertoLibrePage() {
     }
   );
 
+  const rowsPorRegistro: DashboardBucketRow[] = porRegistro.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}/planilla?fase=1`,
+      cells: { expediente, vehiculo, accion: "Completar" },
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Completar",
+      actionTone: "cyan",
+    };
+  });
+
+  const rowsPorEmbarque: DashboardBucketRow[] = porEmbarque.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}/planilla?fase=2`,
+      cells: { expediente, vehiculo, accion: "Cargar" },
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Cargar",
+      actionTone: "cyan",
+    };
+  });
+
+  const rowsPorRecibir: DashboardBucketRow[] = porRecibir.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}/planilla?fase=3`,
+      cells: {
+        expediente,
+        vehiculo,
+        llegada: formatFechaDia(v.fechaLlegadaBuque),
+      },
+      dateValue: v.fechaLlegadaBuque,
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Recibir",
+      actionTone: "cyan",
+    };
+  });
+
+  const rowsPendientes: DashboardBucketRow[] = pendientes.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    const modificadoIso = (v.updated_at ?? v.created_at).slice(0, 10);
+    return {
+      id: v.id,
+      href: completarHref(v),
+      cells: {
+        expediente,
+        vehiculo,
+        modificado: formatFechaHoraCorta(v.updated_at ?? v.created_at),
+      },
+      dateValue: modificadoIso || null,
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
+      actionLabel: "Completar",
+      actionTone: "cyan",
+    };
+  });
+
+  const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}`,
+      cells: {
+        expediente,
+        vehiculo,
+        rechazo: formatFechaDia(v.fechaRechazoSeniat?.slice(0, 10) ?? null),
+      },
+      subcells: v.motivoRechazoSeniat
+        ? { vehiculo: v.motivoRechazoSeniat }
+        : undefined,
+      dateValue: v.fechaRechazoSeniat?.slice(0, 10) ?? null,
+      searchText: `${expediente} ${vehiculo} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Corregir",
+      actionTone: "red",
+    };
+  });
+
+  const rowsPorSeniat: DashboardBucketRow[] = porSeniat.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}/nacionalizar`,
+      cells: {
+        expediente,
+        vehiculo,
+        presentacion: formatFechaDia(v.fechaPresentacionSeniat),
+      },
+      subcells: {
+        presentacion: etiquetaDias(v.diasSeniat, "Sin fecha"),
+      },
+      dateValue: v.fechaPresentacionSeniat,
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Gestionar",
+      actionTone: "sky",
+      urgent: v.diasSeniat != null && v.diasSeniat <= 7,
+    };
+  });
+
+  const rowsPorNacionalizar: DashboardBucketRow[] = porNacionalizar.map((v) => {
+    const expediente = labelExpediente(v);
+    const vehiculo = labelVehiculo(v);
+    return {
+      id: v.id,
+      href: `/importacion/${v.id}/nacionalizar`,
+      cells: {
+        expediente,
+        vehiculo,
+        limite: formatFechaDia(v.fechaLimiteNacionalizacion),
+      },
+      subcells: {
+        limite: etiquetaDias(
+          v.diasNacionalizacion,
+          "Límite 3 años (permanencia)"
+        ),
+      },
+      dateValue: v.fechaLimiteNacionalizacion,
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Nacionalizar",
+      actionTone: "amber",
+      urgent: v.diasNacionalizacion != null && v.diasNacionalizacion <= 7,
+    };
+  });
+
   return (
     <PuertoLibreShell>
       <header className="mb-5 space-y-4">
@@ -444,438 +571,106 @@ export default async function PuertoLibrePage() {
       ) : (
         <div className="space-y-7">
           {porRegistro.length > 0 ? (
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                  <FileText className="h-4 w-4 text-cyan-400" />
-                  Por completar registro
-                </h2>
-                <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                  {porRegistro.length}
-                </span>
-              </div>
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porRegistro.map((v) => {
-                      const href = `/importacion/${v.id}/planilla?fase=1`;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <Link
-                              href={href}
-                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-cyan-300 transition hover:border-cyan-500/60"
-                            >
-                              Completar
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <PuertoLibreDashboardBucket
+              title="Por completar registro"
+              icon="file"
+              emptyMessage="No hay vehículos por completar registro."
+              columns={[
+                { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+                { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+                { key: "accion", header: "Acción", pdfWidth: 0.8 },
+              ]}
+              rows={rowsPorRegistro}
+              actionColumnKey="accion"
+            />
           ) : null}
 
           {porEmbarque.length > 0 ? (
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                  <FileText className="h-4 w-4 text-cyan-400" />
-                  Por cargar docs de embarque
-                </h2>
-                <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                  {porEmbarque.length}
-                </span>
-              </div>
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porEmbarque.map((v) => {
-                      const href = `/importacion/${v.id}/planilla?fase=2`;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <Link
-                              href={href}
-                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-cyan-300 transition hover:border-cyan-500/60"
-                            >
-                              Cargar
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <PuertoLibreDashboardBucket
+              title="Por cargar docs de embarque"
+              icon="file"
+              emptyMessage="No hay vehículos por cargar docs de embarque."
+              columns={[
+                { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+                { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+                { key: "accion", header: "Acción", pdfWidth: 0.8 },
+              ]}
+              rows={rowsPorEmbarque}
+              actionColumnKey="accion"
+            />
           ) : null}
 
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <Ship className="h-4 w-4 text-cyan-400" />
-                Por recibir en puerto
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {porRecibir.length}
-              </span>
-            </div>
-            {porRecibir.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No hay vehículos pendientes de recepción en puerto.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Llegada</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porRecibir.map((v) => {
-                      const llegadaHref = `/importacion/${v.id}/planilla?fase=3`;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={llegadaHref} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="inline-flex flex-col items-center gap-1.5">
-                              <p className="text-xs whitespace-nowrap text-zinc-300 sm:text-sm">
-                                {formatFechaDia(v.fechaLlegadaBuque)}
-                              </p>
-                              <Link
-                                href={llegadaHref}
-                                className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
-                              >
-                                Recibir
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <PuertoLibreDashboardBucket
+            title="Por recibir en puerto"
+            icon="ship"
+            emptyMessage="No hay vehículos pendientes de recepción en puerto."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
+            ]}
+            rows={rowsPorRecibir}
+            dateFilterLabel="Llegada"
+            actionColumnKey="llegada"
+          />
 
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-200">
-                Pendiente a completar
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {pendientes.length}
-              </span>
-            </div>
-            {pendientes.length === 0 ? (
-              <p className="text-sm text-zinc-500">No hay expedientes pendientes.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Modificado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {pendientes.map((v) => {
-                      const href = completarHref(v);
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="inline-flex flex-col items-center gap-1.5">
-                              <Link
-                                href={href}
-                                className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-500/60"
-                              >
-                                Completar
-                              </Link>
-                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
-                                {formatFechaHoraCorta(v.updated_at ?? v.created_at)}
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <PuertoLibreDashboardBucket
+            title="Pendiente a completar"
+            emptyMessage="No hay expedientes pendientes."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+            ]}
+            rows={rowsPendientes}
+            dateFilterLabel="Modificado"
+            actionColumnKey="modificado"
+          />
 
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                Rechazados SENIAT
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {rechazadosSeniat.length}
-              </span>
-            </div>
-            {rechazadosSeniat.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No hay expedientes con rechazo SENIAT pendiente de corrección.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-red-900/30 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">
-                        Expediente
-                      </th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Rechazo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {rechazadosSeniat.map((v) => {
-                      const href = `/importacion/${v.id}`;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                            {v.motivoRechazoSeniat ? (
-                              <p className="mt-1 line-clamp-2 text-[11px] text-red-300/80">
-                                {v.motivoRechazoSeniat}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="inline-flex flex-col items-start gap-1.5">
-                              <Link
-                                href={href}
-                                className="inline-flex rounded-lg border border-red-800/50 bg-red-950/30 px-2.5 py-1 text-xs font-medium text-red-200 transition hover:border-red-600/50"
-                              >
-                                Corregir
-                              </Link>
-                              <p className="text-xs whitespace-nowrap text-zinc-400 sm:text-sm">
-                                {formatFechaDia(
-                                  v.fechaRechazoSeniat?.slice(0, 10) ?? null
-                                )}
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <PuertoLibreDashboardBucket
+            title="Rechazados SENIAT"
+            icon="alert"
+            emptyMessage="No hay expedientes con rechazo SENIAT pendiente de corrección."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2.2 },
+              { key: "rechazo", header: "Rechazo", pdfWidth: 1 },
+            ]}
+            rows={rowsRechazados}
+            dateFilterLabel="Rechazo"
+            borderClassName="border-red-900/30"
+            actionColumnKey="rechazo"
+          />
 
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <Building2 className="h-4 w-4 text-sky-400" />
-                Por presentación SENIAT
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {porSeniat.length}
-              </span>
-            </div>
-            {porSeniat.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No hay presentaciones SENIAT pendientes o agendadas.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-sky-900/30 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Presentación</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porSeniat.map((v) => {
-                      /** Carpeta de requisitos ante SENIAT (vía de nacionalización). */
-                      const href = `/importacion/${v.id}/nacionalizar`;
-                      const urgente = v.diasSeniat != null && v.diasSeniat <= 7;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="inline-flex flex-col items-start gap-1.5">
-                              <Link
-                                href={href}
-                                className="inline-flex rounded-lg border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-200 transition hover:border-sky-500/50"
-                              >
-                                Gestionar
-                              </Link>
-                              <p
-                                className={`text-xs whitespace-nowrap sm:text-sm ${
-                                  urgente ? "text-red-300" : "text-zinc-300"
-                                }`}
-                              >
-                                {formatFechaDia(v.fechaPresentacionSeniat)}
-                              </p>
-                              <p className="text-[11px] text-zinc-500">
-                                {etiquetaDias(v.diasSeniat, "Sin fecha")}
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <PuertoLibreDashboardBucket
+            title="Por presentación SENIAT"
+            icon="building"
+            emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
+            ]}
+            rows={rowsPorSeniat}
+            dateFilterLabel="Presentación"
+            borderClassName="border-sky-900/30"
+            actionColumnKey="presentacion"
+          />
 
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <Flag className="h-4 w-4 text-amber-400" />
-                Por nacionalizar
-              </h2>
-              <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
-                {porNacionalizar.length}
-              </span>
-            </div>
-            {porNacionalizar.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                No hay vehículos pendientes de nacionalización.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-amber-900/30 bg-zinc-950/40">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
-                      <th className="px-3 py-3 font-medium">Vehículo</th>
-                      <th className="px-3 py-3 font-medium">Límite</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {porNacionalizar.map((v) => {
-                      const href = `/importacion/${v.id}/nacionalizar`;
-                      const urgente =
-                        v.diasNacionalizacion != null && v.diasNacionalizacion <= 7;
-                      return (
-                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
-                              {labelExpediente(v)}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-zinc-300">
-                            <p className="text-xs leading-snug sm:text-sm">
-                              {labelVehiculo(v)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <p
-                              className={`text-xs whitespace-nowrap sm:text-sm ${
-                                urgente ? "text-red-300" : "text-zinc-300"
-                              }`}
-                            >
-                              {formatFechaDia(v.fechaLimiteNacionalizacion)}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-zinc-500">
-                              {etiquetaDias(
-                                v.diasNacionalizacion,
-                                "Límite 3 años (permanencia)"
-                              )}
-                            </p>
-                            <Link
-                              href={href}
-                              className="mt-1.5 inline-flex rounded-lg border border-amber-700/40 bg-amber-950/30 px-2.5 py-1 text-xs font-medium text-amber-200 transition hover:border-amber-500/50"
-                            >
-                              Nacionalizar
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          <PuertoLibreDashboardBucket
+            title="Por nacionalizar"
+            icon="flag"
+            emptyMessage="No hay vehículos pendientes de nacionalización."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "limite", header: "Límite", pdfWidth: 1.3 },
+            ]}
+            rows={rowsPorNacionalizar}
+            dateFilterLabel="Límite"
+            borderClassName="border-amber-900/30"
+            actionColumnKey="limite"
+          />
 
           <section>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
