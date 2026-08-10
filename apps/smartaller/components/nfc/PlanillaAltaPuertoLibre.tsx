@@ -35,6 +35,48 @@ async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFil
   return null;
 }
 
+function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
+  return {
+    marca: values.marca,
+    modelo: values.modelo,
+    color: values.color,
+    anio: values.anio ? Number(values.anio) : undefined,
+    serialMotor: values.serialMotor,
+    vin: values.vin,
+    serialCarroceria: values.serialCarroceria,
+    kilometraje: values.kilometraje ? Number(values.kilometraje) : undefined,
+    condicion: values.condicion,
+    esSubasta:
+      values.condicion === "usado"
+        ? values.esSubasta === "true"
+          ? true
+          : values.esSubasta === "false"
+            ? false
+            : null
+        : false,
+    partidaArancelaria: values.partidaArancelaria,
+    cilindradaCc: values.cilindradaCc,
+    tipoCombustible: values.tipoCombustible || null,
+    fechaLlegadaBuque: values.fechaLlegadaBuque,
+    importadorNombre: values.importadorNombre,
+    importadorDocumento: values.importadorDocumento,
+    importadorTelefono: values.importadorTelefono,
+    importadorEmail: values.importadorEmail,
+    importadorDireccion: values.importadorDireccion,
+    aduana: values.aduana,
+    numeroBl: values.numeroBl,
+    paisOrigen: values.paisOrigen,
+    valorCif: values.valorCif,
+    tasaCambioBcv: values.tasaCambioBcv,
+    numeroExpedienteSeniat: values.numeroExpedienteSeniat,
+    numeroDav: values.numeroDav,
+    numeroCertificadoOrigen: values.numeroCertificadoOrigen,
+    numeroListaEmpaque: values.numeroListaEmpaque,
+    numeroPolizaTransporte: values.numeroPolizaTransporte,
+    observaciones: values.observaciones,
+  };
+}
+
 /** Fase 1: datos del vehículo + importador (con OCR de factura/BL). */
 export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   const router = useRouter();
@@ -48,34 +90,7 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   ) {
     setError(null);
     startTransition(async () => {
-      const result = await createPuertoLibreVehiculoAction({
-        marca: values.marca,
-        modelo: values.modelo,
-        color: values.color,
-        anio: values.anio ? Number(values.anio) : undefined,
-        serialMotor: values.serialMotor,
-        serialCarroceria: values.serialCarroceria,
-        kilometraje: values.kilometraje ? Number(values.kilometraje) : undefined,
-        condicion: values.condicion,
-        esSubasta:
-          values.condicion === "usado"
-            ? values.esSubasta === "true"
-              ? true
-              : values.esSubasta === "false"
-                ? false
-                : null
-            : false,
-        fechaLlegadaBuque: values.fechaLlegadaBuque,
-        importadorNombre: values.importadorNombre,
-        importadorDocumento: values.importadorDocumento,
-        importadorTelefono: values.importadorTelefono,
-        importadorEmail: values.importadorEmail,
-        aduana: values.aduana,
-        numeroBl: values.numeroBl,
-        paisOrigen: values.paisOrigen,
-        valorCif: values.valorCif,
-        observaciones: values.observaciones,
-      });
+      const result = await createPuertoLibreVehiculoAction(valuesToAltaPayload(values));
       if (!result.success) {
         setError(result.error);
         return;
@@ -104,6 +119,7 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
         importadorDocumento: initialImportador?.importadorDocumento ?? "",
         importadorTelefono: initialImportador?.importadorTelefono ?? "",
         importadorEmail: initialImportador?.importadorEmail ?? "",
+        importadorDireccion: initialImportador?.importadorDireccion ?? "",
       }}
       onSubmit={handleSubmit}
       actions={

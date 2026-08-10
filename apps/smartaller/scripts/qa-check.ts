@@ -85,6 +85,20 @@ async function main() {
     fileContains(resolve(process.cwd(), "supabase/setup-completo.sql"), "vehiculo_id")
   );
 
+  // Defensa en profundidad: Server Actions PL no deben olvidar auth de taller.
+  const { runImportacionAuthAudit } = await import("./audit-importacion-auth");
+  const authAudit = runImportacionAuthAudit();
+  check(
+    "Importación Server Actions: gate requireTallerAuth / getUser+getMyTaller",
+    authAudit.ok,
+    authAudit.ok
+      ? `${authAudit.scanned} archivos OK`
+      : authAudit.findings
+          .map((f) => `${f.file}::${f.fn}`)
+          .slice(0, 5)
+          .join(", ")
+  );
+
   check("NEXT_PUBLIC_SUPABASE_URL", isRealKey(process.env.NEXT_PUBLIC_SUPABASE_URL), undefined, !strictEnv);
   check("NEXT_PUBLIC_SUPABASE_ANON_KEY", isRealKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), undefined, !strictEnv);
   check("SUPABASE_SERVICE_ROLE_KEY", isRealKey(process.env.SUPABASE_SERVICE_ROLE_KEY), undefined, !strictEnv);

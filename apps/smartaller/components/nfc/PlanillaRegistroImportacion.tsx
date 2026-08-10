@@ -88,6 +88,11 @@ type Props = {
   initialDocumentos: VehiculosDocumentos;
   /** Fase forzada por query (?fase=1|1a|2|3|4|5|6). */
   faseInicial?: PlanillaFaseUi;
+  /**
+   * Operador (admin/taller/concesionario) puede forzar avance si OCR no lee la impronta.
+   * Calculado en servidor con `canForzarImprontaSinVerificar` / `canMutateImportacionData`.
+   */
+  canForzarImpronta?: boolean;
   vehiculoSelector?: {
     current: PlanillaVehiculoOption;
     vehiculos: PlanillaVehiculoOption[];
@@ -140,6 +145,7 @@ export function PlanillaRegistroImportacion({
   initialSeguro,
   initialDocumentos,
   faseInicial,
+  canForzarImpronta = false,
   vehiculoSelector,
 }: Props) {
   const router = useRouter();
@@ -189,8 +195,11 @@ export function PlanillaRegistroImportacion({
       color?.trim() &&
       initialImportacion.anio &&
       serialMotor?.trim() &&
+      initialImportacion.vin?.trim() &&
       serialCarroceria?.trim() &&
       kilometrajeUltimo != null &&
+      (initialImportacion.condicionVehiculo !== "usado" ||
+        kilometrajeUltimo > 0) &&
       initialImportacion.condicionVehiculo &&
       (initialImportacion.condicionVehiculo === "nuevo" ||
         typeof initialImportacion.esSubasta === "boolean") &&
@@ -335,6 +344,7 @@ export function PlanillaRegistroImportacion({
             color: color ?? "",
             anio: initialImportacion.anio ?? undefined,
             serialMotor: serialMotor ?? "",
+            vin: initialImportacion.vin ?? serialCarroceria ?? "",
             serialCarroceria: serialCarroceria ?? "",
             kilometraje: kilometrajeUltimo,
             condicion: initialImportacion.condicionVehiculo ?? "",
@@ -344,11 +354,18 @@ export function PlanillaRegistroImportacion({
                 : initialImportacion.esSubasta === false
                   ? "false"
                   : "",
+            partidaArancelaria: initialImportacion.partidaArancelaria ?? "",
+            cilindradaCc:
+              initialImportacion.cilindradaCc != null
+                ? String(initialImportacion.cilindradaCc)
+                : "",
+            tipoCombustible: initialImportacion.tipoCombustible ?? "",
             fechaLlegadaBuque: initialImportacion.fechaLlegadaBuque ?? "",
             importadorNombre: initialImportacion.importadorNombre ?? "",
             importadorDocumento: initialImportacion.importadorDocumento ?? "",
             importadorTelefono: initialImportacion.importadorTelefono ?? "",
             importadorEmail: initialImportacion.importadorEmail ?? "",
+            importadorDireccion: initialImportacion.importadorDireccion ?? "",
             aduana: initialImportacion.aduana ?? "",
             numeroBl: initialImportacion.numeroBl ?? "",
             paisOrigen: initialImportacion.paisOrigen ?? "",
@@ -356,6 +373,18 @@ export function PlanillaRegistroImportacion({
               initialImportacion.valorCif != null
                 ? String(initialImportacion.valorCif)
                 : "",
+            tasaCambioBcv:
+              initialImportacion.tasaCambioBcv != null
+                ? String(initialImportacion.tasaCambioBcv)
+                : "",
+            numeroExpedienteSeniat:
+              initialImportacion.numeroExpedienteSeniat ?? "",
+            numeroDav: initialImportacion.numeroDav ?? "",
+            numeroCertificadoOrigen:
+              initialImportacion.numeroCertificadoOrigen ?? "",
+            numeroListaEmpaque: initialImportacion.numeroListaEmpaque ?? "",
+            numeroPolizaTransporte:
+              initialImportacion.numeroPolizaTransporte ?? "",
             observaciones: initialImportacion.observaciones ?? "",
           }}
           onSave={(payload, after) => {
@@ -420,6 +449,7 @@ export function PlanillaRegistroImportacion({
           otrosNotas={otrosNotas}
           setOtrosNotas={setOtrosNotas}
           pending={pending}
+          canForzarImpronta={canForzarImpronta}
           onSave={(fechaIngreso, after, forzarImprontaSinVerificar) => {
             setError(null);
             setMessage(null);
@@ -430,7 +460,8 @@ export function PlanillaRegistroImportacion({
                 checklistLlegada: checklist,
                 checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
-                forzarImprontaSinVerificar,
+                forzarImprontaSinVerificar:
+                  canForzarImpronta && forzarImprontaSinVerificar,
               });
               if (!result.success) {
                 setError(result.error);
@@ -685,19 +716,30 @@ type Fase1RegistroPayload = {
   color: string;
   anio: number;
   serialMotor: string;
+  vin: string;
   serialCarroceria: string;
   kilometraje: number;
   condicion: "nuevo" | "usado";
   esSubasta: boolean | null;
+  partidaArancelaria: string;
+  cilindradaCc: string;
+  tipoCombustible: string;
   fechaLlegadaBuque: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
   importadorEmail: string;
+  importadorDireccion: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
+  tasaCambioBcv: string;
+  numeroExpedienteSeniat: string;
+  numeroDav: string;
+  numeroCertificadoOrigen: string;
+  numeroListaEmpaque: string;
+  numeroPolizaTransporte: string;
   observaciones: string;
 };
 
@@ -719,19 +761,30 @@ function Fase1Registro({
     color: string;
     anio?: number | null;
     serialMotor: string;
+    vin: string;
     serialCarroceria: string;
     kilometraje: number | null;
     condicion: string;
     esSubasta: string;
+    partidaArancelaria: string;
+    cilindradaCc: string;
+    tipoCombustible: string;
     fechaLlegadaBuque: string;
     importadorNombre: string;
     importadorDocumento: string;
     importadorTelefono: string;
     importadorEmail: string;
+    importadorDireccion: string;
     aduana: string;
     numeroBl: string;
     paisOrigen: string;
     valorCif: string;
+    tasaCambioBcv: string;
+    numeroExpedienteSeniat: string;
+    numeroDav: string;
+    numeroCertificadoOrigen: string;
+    numeroListaEmpaque: string;
+    numeroPolizaTransporte: string;
     observaciones: string;
   };
   onSave: (payload: Fase1RegistroPayload, after: PlanillaAfterSave) => void;
@@ -742,6 +795,7 @@ function Fase1Registro({
     color: initial.color,
     anio: initial.anio != null ? String(initial.anio) : "",
     serialMotor: initial.serialMotor,
+    vin: initial.vin,
     serialCarroceria: initial.serialCarroceria,
     kilometraje:
       initial.kilometraje != null ? String(initial.kilometraje) : "",
@@ -753,15 +807,33 @@ function Fase1Registro({
       initial.esSubasta === "true" || initial.esSubasta === "false"
         ? initial.esSubasta
         : "",
+    partidaArancelaria: initial.partidaArancelaria,
+    cilindradaCc: initial.cilindradaCc,
+    tipoCombustible:
+      initial.tipoCombustible === "gasolina" ||
+      initial.tipoCombustible === "diesel" ||
+      initial.tipoCombustible === "electrico" ||
+      initial.tipoCombustible === "hibrido" ||
+      initial.tipoCombustible === "gnv" ||
+      initial.tipoCombustible === "otro"
+        ? initial.tipoCombustible
+        : "",
     fechaLlegadaBuque: initial.fechaLlegadaBuque,
     importadorNombre: initial.importadorNombre,
     importadorDocumento: initial.importadorDocumento,
     importadorTelefono: initial.importadorTelefono,
     importadorEmail: initial.importadorEmail,
+    importadorDireccion: initial.importadorDireccion,
     aduana: initial.aduana,
     numeroBl: initial.numeroBl,
     paisOrigen: initial.paisOrigen,
     valorCif: initial.valorCif,
+    tasaCambioBcv: initial.tasaCambioBcv,
+    numeroExpedienteSeniat: initial.numeroExpedienteSeniat,
+    numeroDav: initial.numeroDav,
+    numeroCertificadoOrigen: initial.numeroCertificadoOrigen,
+    numeroListaEmpaque: initial.numeroListaEmpaque,
+    numeroPolizaTransporte: initial.numeroPolizaTransporte,
     observaciones: initial.observaciones,
   };
 
@@ -780,6 +852,7 @@ function Fase1Registro({
             color: values.color,
             anio: values.anio ? Number(values.anio) : Number.NaN,
             serialMotor: values.serialMotor,
+            vin: values.vin,
             serialCarroceria: values.serialCarroceria,
             kilometraje: values.kilometraje
               ? Number(values.kilometraje)
@@ -793,15 +866,25 @@ function Fase1Registro({
                     ? false
                     : null
                 : false,
+            partidaArancelaria: values.partidaArancelaria,
+            cilindradaCc: values.cilindradaCc,
+            tipoCombustible: values.tipoCombustible,
             fechaLlegadaBuque: values.fechaLlegadaBuque,
             importadorNombre: values.importadorNombre,
             importadorDocumento: values.importadorDocumento,
             importadorTelefono: values.importadorTelefono,
             importadorEmail: values.importadorEmail,
+            importadorDireccion: values.importadorDireccion,
             aduana: values.aduana,
             numeroBl: values.numeroBl,
             paisOrigen: values.paisOrigen,
             valorCif: values.valorCif,
+            tasaCambioBcv: values.tasaCambioBcv,
+            numeroExpedienteSeniat: values.numeroExpedienteSeniat,
+            numeroDav: values.numeroDav,
+            numeroCertificadoOrigen: values.numeroCertificadoOrigen,
+            numeroListaEmpaque: values.numeroListaEmpaque,
+            numeroPolizaTransporte: values.numeroPolizaTransporte,
             observaciones: values.observaciones,
           },
           afterFromFormData(fd)
@@ -897,6 +980,7 @@ function Fase2Llegada({
   otrosNotas,
   setOtrosNotas,
   pending,
+  canForzarImpronta,
   onSave,
   onUploadedMessage,
 }: {
@@ -916,6 +1000,8 @@ function Fase2Llegada({
   otrosNotas: string;
   setOtrosNotas: (v: string) => void;
   pending: boolean;
+  /** Solo operadores con permiso de mutación (admin/taller). */
+  canForzarImpronta: boolean;
   onSave: (
     fechaIngreso: string,
     after: PlanillaAfterSave,
@@ -931,6 +1017,7 @@ function Fase2Llegada({
   const expectedSerial = (serialCarroceria ?? "").trim();
   const improntaOk = improntaEstado === "coincide";
   const canForce =
+    canForzarImpronta &&
     Boolean(docs.foto_impronta?.url) &&
     (improntaEstado === "no_leido" || improntaEstado == null);
   const canContinue =
@@ -1027,6 +1114,16 @@ function Fase2Llegada({
               serial con claridad).
             </span>
           </label>
+        ) : null}
+
+        {!canForzarImpronta &&
+        !improntaOk &&
+        improntaEstado !== "no_coincide" &&
+        Boolean(docs.foto_impronta?.url) ? (
+          <p className="mt-4 rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
+            El OCR no verificó el serial. Un operador del taller debe confirmar
+            la impronta o debes tomar otra foto más clara.
+          </p>
         ) : null}
       </section>
 

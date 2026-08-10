@@ -68,6 +68,15 @@ export function canMutateImportacionData(access: PortalAccess): boolean {
   return isTallerOrConcesionario(access) && access.tallerIds.length > 0;
 }
 
+/**
+ * Forzar avance de Fase 2 sin OCR de impronta (`no_leido`).
+ * Misma barra que mutar data: admin/taller/concesionario — nunca usuario ni aduanera solo-lectura.
+ * Debe aplicarse en Server Action; la UI solo oculta el checkbox.
+ */
+export function canForzarImprontaSinVerificar(access: PortalAccess): boolean {
+  return canMutateImportacionData(access);
+}
+
 /** Usuario final: solo vehículos propios o compartidos. */
 export function isImportacionUsuarioOnly(access: PortalAccess): boolean {
   if (isMasterAdmin(access) || isDataAdmin(access)) return false;

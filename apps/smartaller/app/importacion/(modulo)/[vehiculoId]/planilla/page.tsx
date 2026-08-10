@@ -6,8 +6,10 @@ import {
   listPuertoLibreVehiculos,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { PlanillaRegistroImportacion } from "@/components/nfc/PlanillaRegistroImportacion";
-import { getUser } from "@/lib/supabase/server";
+import { canForzarImprontaSinVerificar } from "@/lib/importacion/access";
 import { resolveCodigoExpediente } from "@/lib/importacion/expediente";
+import { resolvePortalAccess } from "@/lib/portal/roles";
+import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +25,10 @@ export default async function PlanillaRegistroImportacionPage({
   const user = await getUser();
   if (!user) redirect(`/login?next=/importacion/${params.vehiculoId}/planilla`);
 
-  const [result, list] = await Promise.all([
+  const [result, list, access] = await Promise.all([
     getPuertoLibreFicha(params.vehiculoId),
     listPuertoLibreVehiculos(),
+    resolvePortalAccess(),
   ]);
 
   if (!result.success) {
@@ -40,6 +43,9 @@ export default async function PlanillaRegistroImportacionPage({
   }
 
   const { ficha } = result;
+  const canForzarImpronta = access
+    ? canForzarImprontaSinVerificar(access)
+    : false;
   const faseParam = searchParams?.fase;
   const faseInicial =
     faseParam === "1" || faseParam === "registro"
@@ -117,6 +123,7 @@ export default async function PlanillaRegistroImportacionPage({
           initialSeguro={ficha.seguro}
           initialDocumentos={ficha.documentos}
           faseInicial={faseInicial}
+          canForzarImpronta={canForzarImpronta}
           vehiculoSelector={{ current, vehiculos }}
         />
       </div>

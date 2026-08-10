@@ -46,6 +46,8 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
+import { canForzarImprontaSinVerificar } from "@/lib/importacion/access";
+import { resolvePortalAccess } from "@/lib/portal/roles";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -156,15 +158,6 @@ function maxNumeroExpedienteEnFilas(
     if (parts && parts.year === year && parts.month === month) {
       max = Math.max(max, parts.numero);
     }
-    if (
-      typeof imp.numeroExpediente === "number" &&
-      Number.isFinite(imp.numeroExpediente) &&
-      parts &&
-      parts.year === year &&
-      parts.month === month
-    ) {
-      max = Math.max(max, imp.numeroExpediente);
-    }
   }
   return max;
 }
@@ -240,7 +233,6 @@ async function backfillCodigosExpediente(
     const merged = serializeImportacion({
       ...existing,
       codigoExpediente: codigo,
-      numeroExpediente: next,
     });
     const { error } = await admin
       .from("vehiculos")
@@ -291,21 +283,31 @@ export async function createPuertoLibreVehiculoAction(
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
+    vin: data.vin || null,
+    partidaArancelaria: data.partidaArancelaria || null,
+    cilindradaCc: data.cilindradaCc,
+    tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
     importadorTelefono: data.importadorTelefono || null,
     importadorEmail: data.importadorEmail || null,
+    importadorDireccion: data.importadorDireccion || null,
     aduana: data.aduana || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
+    tasaCambioBcv: data.tasaCambioBcv,
+    numeroExpedienteSeniat: data.numeroExpedienteSeniat || null,
+    numeroDav: data.numeroDav || null,
+    numeroCertificadoOrigen: data.numeroCertificadoOrigen || null,
+    numeroListaEmpaque: data.numeroListaEmpaque || null,
+    numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
     estadoNacionalizacion: "pendiente",
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,
-    numeroExpediente: numero,
   });
 
   const { data: created, error } = await admin
@@ -400,15 +402,26 @@ export async function savePuertoLibreFase1RegistroAction(
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
+    vin: data.vin || null,
+    partidaArancelaria: data.partidaArancelaria || null,
+    cilindradaCc: data.cilindradaCc,
+    tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
     importadorTelefono: data.importadorTelefono || null,
     importadorEmail: data.importadorEmail || null,
+    importadorDireccion: data.importadorDireccion || null,
     aduana: data.aduana || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
+    tasaCambioBcv: data.tasaCambioBcv,
+    numeroExpedienteSeniat: data.numeroExpedienteSeniat || null,
+    numeroDav: data.numeroDav || null,
+    numeroCertificadoOrigen: data.numeroCertificadoOrigen || null,
+    numeroListaEmpaque: data.numeroListaEmpaque || null,
+    numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
     planillaFase: existing.planillaFase ?? 1,
   });
@@ -481,6 +494,7 @@ export async function updatePuertoLibreImportacionAction(
     importadorDocumento: importacion.importadorDocumento,
     importadorTelefono: importacion.importadorTelefono,
     importadorEmail: importacion.importadorEmail,
+    importadorDireccion: importacion.importadorDireccion,
   });
   if (importadorGuardar) {
     await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
@@ -711,6 +725,17 @@ export async function savePuertoLibreFase2LlegadaAction(
 
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  if (parsed.data.forzarImprontaSinVerificar) {
+    const access = await resolvePortalAccess();
+    if (!access || !canForzarImprontaSinVerificar(access)) {
+      return {
+        success: false,
+        error:
+          "No tienes permiso para forzar el avance sin verificación de impronta. Solo operadores (admin/taller) pueden confirmar revisión manual.",
+      };
+    }
+  }
 
   const existingImportacion = parseImportacion(row.importacion);
   const docs = parseVehiculosDocumentos(row.documentos);

@@ -424,8 +424,12 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Color", value: txt(ficha.color) },
     { label: "Año", value: txt(imp.anio) },
     { label: "Serial motor", value: txt(ficha.serial_motor) },
+    { label: "VIN", value: txt(imp.vin) },
     { label: "Serial carrocería", value: txt(ficha.serial_carroceria) },
     { label: "Kilometraje", value: txt(ficha.kilometraje_ultimo) },
+    { label: "Partida arancelaria", value: txt(imp.partidaArancelaria) },
+    { label: "Cilindrada (cc)", value: txt(imp.cilindradaCc) },
+    { label: "Combustible", value: txt(imp.tipoCombustible) },
     {
       label: "Condición",
       value:
@@ -455,14 +459,15 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
   y = drawSectionTitle(page, bold, "Importador / comprador", y);
   ({ page, y } = drawPairs(pdf, page, font, bold, [
     { label: "Importador", value: txt(imp.importadorNombre) },
-    { label: "Documento importador", value: txt(imp.importadorDocumento) },
+    { label: "RIF importador", value: txt(imp.importadorDocumento) },
     { label: "Tel. importador", value: txt(imp.importadorTelefono) },
     { label: "Email importador", value: txt(imp.importadorEmail) },
+    { label: "Dirección fiscal", value: txt(imp.importadorDireccion) },
     { label: "Propietario", value: txt(ficha.nombre_cliente) },
     { label: "Cédula propietario", value: txt(ficha.cedula_propietario) },
     { label: "Tel. propietario", value: txt(ficha.telefono_cliente) },
     { label: "Email propietario", value: txt(ficha.email_propietario) },
-    { label: "Dirección", value: txt(imp.compradorDireccion) },
+    { label: "Dirección comprador", value: txt(imp.compradorDireccion) },
   ], y));
 
   y -= 10;
@@ -479,6 +484,12 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Nº BL / Guía", value: txt(imp.numeroBl) },
     { label: "País origen", value: txt(imp.paisOrigen) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
+    { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
+    { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
+    { label: "Nº DAV", value: txt(imp.numeroDav) },
+    { label: "Nº certificado origen", value: txt(imp.numeroCertificadoOrigen) },
+    { label: "Nº lista empaque", value: txt(imp.numeroListaEmpaque) },
+    { label: "Nº póliza transporte", value: txt(imp.numeroPolizaTransporte) },
     {
       label: "Nacionalización",
       value:
