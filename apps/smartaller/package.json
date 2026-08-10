@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "qa": "tsx scripts/qa-check.ts"
+    "qa": "tsx scripts/qa-check.ts",
+    "audit:importacion-auth": "tsx scripts/audit-importacion-auth.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",

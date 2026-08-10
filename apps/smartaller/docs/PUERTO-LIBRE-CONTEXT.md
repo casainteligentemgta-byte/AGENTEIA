@@ -176,7 +176,15 @@ Grupos:
 
 `aseguradora`, `numeroPoliza`, `tipoCobertura`, `vigenciaDesde`/`Hasta`, `montoAsegurado`, `telefonoAseguradora`, `corredor`, `observaciones`, `tieneAlarma`, `tieneGps`, `tieneInmovilizador`, `dispositivosSeguridad`, `contactoEmergencia`, `telefonoEmergencia`.
 
-**RLS:** mutaciones vía Server Actions con cliente admin/server tras `requireTallerAuth` + `assertVehiculoTaller`.
+**RLS y defensa en profundidad**
+
+| Capa | Qué hace |
+|------|----------|
+| RLS `authenticated` | SELECT/INSERT/UPDATE/DELETE de `vehiculos` solo si `taller_id = get_my_taller_id()`. Migración `20260810120000_vehiculos_rls_taller_mutations.sql` (antes solo había SELECT por taller). `nfc_stickers` ya tenía CRUD por taller. |
+| Service role | Las Server Actions de PL usan `createAdminClient()` → **saltan RLS**. Obligatorias: `requireTallerAuth` (o `getUser`+`getMyTaller`) y, en mutaciones por id, `assertVehiculoTaller` / filtro `taller_id`. |
+| Audit estático | `npm run audit:importacion-auth` (también en `npm run qa`) falla si una action exportada en `app/actions/nfc` olvida el gate o muta `vehiculos` con admin sin ownership. Exentos: `verify-nfc` (público), `extractPuertoLibreDocumentoAction` (solo OCR). |
+
+**Riesgo residual:** un endpoint nuevo con service role y sin el gate sigue pudiendo filtrar datos entre talleres. No sustituir el audit ni el checklist de PR por “ya hay RLS”. A medio plazo, preferir migrar mutaciones PL al cliente de usuario (RLS aplica) y reservar admin para webhooks/NFC públicos/portales multi-taller.
 
 ---
 
@@ -252,4 +260,5 @@ Preferencias taller: último importador prellenado (`talleres.preferencias.ultim
 7. Unicidad: `serial_carroceria` por taller.
 8. Nacionalización: `pendiente` → `en_proceso` (elegir vía) → `nacionalizado` (completar). No documentar un salto directo pendiente→nacionalizado.
 9. Dashboard: usar los **labels y condiciones de la sección 4**, no parafrasearlos.
-10. Responder en español; KISS y tipado estricto.
+10. Seguridad: toda Server Action nueva de Importación que use `createAdminClient` debe llamar `requireTallerAuth` (o `getUser`+`getMyTaller`) y filtrar por `taller_id` / `assertVehiculoTaller`. Correr `npm run audit:importacion-auth` antes de merge.
+11. Responder en español; KISS y tipado estricto.
