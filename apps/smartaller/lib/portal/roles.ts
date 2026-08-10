@@ -224,7 +224,15 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
 }
 
 export function hasPortalRole(access: PortalAccess, role: PortalRole): boolean {
-  return access.roles.includes(role);
+  if (access.roles.includes(role)) return true;
+  // El máster puede abrir Administración y Aduanera.
+  if (
+    access.roles.includes("master") &&
+    (role === "admin" || role === "aduanera")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function requirePortalRole(

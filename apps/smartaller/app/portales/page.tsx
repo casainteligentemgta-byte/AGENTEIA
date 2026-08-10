@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import {
   PORTAL_META,
+  hasPortalRole,
   resolvePortalAccess,
   type PortalRole,
 } from "@/lib/portal/roles";
@@ -106,8 +107,17 @@ export default async function PortalesHubPage() {
 
         <div className="mt-8 flex flex-col gap-3">
           {HUB_BUTTONS.map((btn) => {
-            const enabled = btn.roles.some((r) => access.roles.includes(r));
-            const blocked = enabled && isBlocked(btn.roles, access);
+            const enabled =
+              btn.roles.some((r) => hasPortalRole(access, r)) ||
+              (access.roles.includes("master") &&
+                (btn.key === "admin" || btn.key === "aduanera"));
+            const blocked =
+              enabled &&
+              !(
+                access.roles.includes("master") &&
+                (btn.key === "admin" || btn.key === "aduanera")
+              ) &&
+              isBlocked(btn.roles, access);
             const Icon = btn.Icon;
 
             let href = btn.href;
