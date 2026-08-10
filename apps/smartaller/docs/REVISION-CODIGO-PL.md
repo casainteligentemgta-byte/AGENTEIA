@@ -1,114 +1,115 @@
-# Guía de revisión de código — Puerto Libre / Importación
+# Pack de revisión — Puerto Libre / Importación
 
-Orden sugerido de lectura para validar los hallazgos de la auditoría de producto.
-Ruta base: `apps/smartaller/`.
+**Orden obligatorio** (validar en esta secuencia). Ruta base: `apps/smartaller/`.
 
----
-
-## 1. `lib/importacion/expediente.ts` + `lib/importacion/nacionalizacion.ts`
-
-**Qué validar:** códigos PL vs SENIAT; **no** aquí viven las transiciones de `estadoSeniat` / `estadoNacionalizacion`.
-
-| Archivo | Responsabilidad real |
-|---------|----------------------|
-| `expediente.ts` | `PL-Y.M.N`, parse/format, placa `NP-*`, `placaRealVisible` |
-| `nacionalizacion.ts` | Vía M2/M3 por años, `fechaLimitePermanencia3Anios`, docs faltantes |
-
-**Transiciones de estado** están en:
-
-- Schema/enums: `lib/schemas/vehiculo-documentos.ts` (`ESTADOS_SENIAT`, `ESTADOS_NACIONALIZACION`, `esProximoSeniat`, `esProximoNacionalizar`)
-- Mutaciones: `app/actions/nfc/importacion-vehiculo.ts` → `elegirViaNacionalizacionAction` (`en_proceso`), `completarNacionalizacionAction` (`nacionalizado` + `estadoSeniat: presentada`)
-
-**Hallazgos ya confirmados:**
-
-- `agendada` / `no_aplica`: sin action automática; solo select en ficha.
-- No existe `rechazada` / flujo de corrección SENIAT.
-- `en_proceso` sí se setea al elegir vía (no es salto directo pendiente→nacionalizado).
+Enlaces GitHub (branch `cursor/seniat-formulario-campos-3dab`): prefijo
+`https://github.com/casainteligentemgta-byte/AGENTEIA/blob/cursor/seniat-formulario-campos-3dab/apps/smartaller/`.
 
 ---
 
-## 2. `app/actions/nfc/importacion-vehiculo.ts`
+## 1. Estados reales — `expediente.ts` + `nacionalizacion.ts`
 
-**Qué validar:** cada action mutante llama `requireTallerAuth` + (si hay `vehiculoId`) `assertVehiculoTaller` / `.eq("taller_id", …)`.
+| Archivo | Qué contiene | Qué **no** contiene |
+|---------|--------------|---------------------|
+| [`lib/importacion/expediente.ts`](../lib/importacion/expediente.ts) | `PL-Y.M.N`, parse/format, `NP-*`, `placaRealVisible` | Transiciones `estadoSeniat` / `estadoNacionalizacion` |
+| [`lib/importacion/nacionalizacion.ts`](../lib/importacion/nacionalizacion.ts) | Vía M2/M3, `fechaLimitePermanencia3Anios`, docs faltantes | Setters de estado |
 
-**Patrón:** usa `createAdminClient()` → **salta RLS**. El gate de app es la defensa principal.
+**Transiciones reales** (seguir a estos archivos después del §1):
 
-**Punto crítico — forzar impronta (fase 2):**
+| Evento | Dónde | Valor |
+|--------|-------|--------|
+| Alta | `importacion-vehiculo.ts` ~305–306 | `estadoNacionalizacion: pendiente`, `estadoSeniat: pendiente` |
+| Elegir vía | `elegirViaNacionalizacionAction` ~1119 | `en_proceso` |
+| Avanzar paso | `avanzarPasoNacionalizacionAction` ~1178 | mantiene `en_proceso` |
+| Completar nac. | `completarNacionalizacionAction` ~1232–1233 | `nacionalizado` + `estadoSeniat: presentada` |
+| Enums / buckets | `lib/schemas/vehiculo-documentos.ts` 278–290, 615–624 | `ESTADOS_*`, `esProximoSeniat`, `esProximoNacionalizar` |
 
-```ts
-// savePuertoLibreFase2LlegadaAction
-// - no_coincide → bloquea siempre
-// - forzarImprontaSinVerificar → aceptado sin chequeo de rol portal
-//   (solo requireTallerAuth + assertVehiculoTaller)
-```
-
-**Conclusión:** el “forzar” **no** está limitado a admin/taller vs usuario en el servidor. Ver también UI en §5.
-
-**Audit estático:** `npm run audit:importacion-auth` (también en `npm run qa`).
-
----
-
-## 3. `lib/importacion/access.ts`
-
-**Qué validar:** roles y mutación; **no** contiene la lógica de forzar impronta.
-
-| Helper | Comportamiento |
-|--------|----------------|
-| `canAccessAllImportacionData` | master/admin/aduanera + `verTodo` |
-| `canMutateImportacionData` | master/admin; aduanera+verTodo = **false** (solo lectura); taller/concesionario con `tallerIds` |
-| `isImportacionUsuarioOnly` | rol `usuario` |
-
-**Gap:** `savePuertoLibreFase2LlegadaAction` **no** llama `canMutateImportacionData` ni filtra `forzarImprontaSinVerificar` por rol. `access.ts` define el permiso “correcto” para mutar, pero el forzar impronta no lo usa.
-
-**Aduanera + verTodo:** portal de monitoreo (legacy en migraciones); sin consentimiento/aviso a importadores en producto.
+**Validar:** no hay `rechazada`; `agendada`/`no_aplica` sin action automática; sí hay `en_proceso` (no salto directo pendiente→nacionalizado).
 
 ---
 
-## 4. Migraciones RLS
+## 2. Auth en mutaciones — `importacion-vehiculo.ts`
 
-### Pedida: `supabase/migrations/20260809120000_importacion_roles_login_logs.sql`
+Archivo: [`app/actions/nfc/importacion-vehiculo.ts`](../app/actions/nfc/importacion-vehiculo.ts)
 
-- Amplía roles en `portal_accesos` (incluye `aduanera` legacy).
-- Crea `portal_login_logs` y `vehiculo_compartidos`.
-- RLS: `portal_login_logs` → **solo `service_role`** (sin políticas para `authenticated`).
-- `vehiculo_compartidos` → SELECT propio + service_role.
-- **No** toca políticas de escritura de `vehiculos`.
+| Qué mirar | Líneas aprox. |
+|-----------|----------------|
+| `requireTallerAuth` / `assertVehiculoTaller` | 109–117 |
+| Schema `forzarImprontaSinVerificar` | 101 |
+| `savePuertoLibreFase2LlegadaAction` | 711–798 |
+| Gate impronta (`no_coincide` bloquea; forzar acepta `no_leido`) | 736–750 |
 
-### Complemento (este PR): `20260810120000_vehiculos_rls_taller_mutations.sql`
+**Validar:** cada action mutante llama `requireTallerAuth` + (si hay `vehiculoId`) `assertVehiculoTaller` / `.eq("taller_id", …)`.
 
-- INSERT/UPDATE/DELETE de `vehiculos` para `authenticated` si `taller_id = get_my_taller_id()`.
-- Defensa si se usa cliente de usuario; las actions PL con admin **siguen saltando RLS**.
+**Hallazgo crítico:** `forzarImprontaSinVerificar` se acepta **sin** chequeo de rol portal (solo auth de taller). Usa `createAdminClient()` → salta RLS.
 
-Leer ambas: la primera = roles/logs; la segunda = RLS de mutación en `vehiculos`.
+Audit: `npm run audit:importacion-auth` (también en `npm run qa`).
 
 ---
 
-## 5. Dashboard + planilla (buckets e impronta)
+## 3. Roles — `access.ts` (y el “forzar” que **no** está aquí)
 
-### Buckets — `app/importacion/(modulo)/page.tsx`
+Archivo: [`lib/importacion/access.ts`](../lib/importacion/access.ts)
 
-Ya alineados a `planillaFase` (no hay dashboard “viejo” desconectado):
+| Helper | Líneas | Comportamiento |
+|--------|--------|----------------|
+| `canAccessAllImportacionData` | 47–52 | master/admin/aduanera + `verTodo` |
+| `canMutateImportacionData` | 65–69 | master/admin; aduanera+verTodo = **solo lectura**; taller/concesionario con `tallerIds` |
+| `isImportacionUsuarioOnly` | 72–77 | rol `usuario` |
+| `resolveImportacionTallerScope` | 80–95 | alcance por taller / global / usuario |
 
-| Label UI | Condición |
-|----------|-----------|
-| Por cargar docs de embarque | `fase === 1` && sin `fechaIngreso` |
+**Validar:** la lógica de “forzar avance” de impronta **no** vive en este archivo. `canMutateImportacionData` existe pero `savePuertoLibreFase2LlegadaAction` **no la usa** para restringir el forzar.
+
+---
+
+## 4. Migración roles/logs — ¿RLS o tablas planas?
+
+Archivo: [`supabase/migrations/20260809120000_importacion_roles_login_logs.sql`](../supabase/migrations/20260809120000_importacion_roles_login_logs.sql)
+
+| Bloque | Qué hace | RLS |
+|--------|----------|-----|
+| `portal_accesos` roles | CHECK con master/admin/aduanera/taller/concesionario/usuario | (tabla ya existente) |
+| `portal_login_logs` | create + índices | **Sí** `ENABLE ROW LEVEL SECURITY`; política **solo `service_role`**; **sin** políticas para `authenticated` |
+| `vehiculo_compartidos` | create + unique | **Sí** RLS: SELECT propio (`user_id = auth.uid()`) + all `service_role` |
+
+**Conclusión:** no son “tablas planas” sin RLS: hay RLS activado. Escritura/lectura de logs queda cerrada a service_role (app). **No** define INSERT/UPDATE/DELETE de `vehiculos`.
+
+Complemento en este PR: `20260810120000_vehiculos_rls_taller_mutations.sql` (mutaciones `vehiculos` si `taller_id = get_my_taller_id()`). Las actions PL con admin client **siguen saltando** ese RLS.
+
+---
+
+## 5. Buckets dashboard + checkbox forzar — planilla / page
+
+### Buckets (no hay dashboard “viejo” desconectado)
+
+Archivo: [`app/importacion/(modulo)/page.tsx`](../app/importacion/(modulo)/page.tsx)
+
+| Label UI | Condición (aprox.) |
+|----------|---------------------|
+| Por cargar docs de embarque | `planillaFase === 1` && sin `fechaIngreso` |
 | Por recibir en puerto | sin ingreso && (`fase` null \|\| `2`) |
 | Pendiente a completar | `fase` null \|\| `< 7` |
 | Por presentación SENIAT | `esProximoSeniat` |
-| Por nacionalizar | `esProximoNacionalizar` (+ `diasHasta` plazo 3 años, UI pasiva) |
+| Por nacionalizar | `esProximoNacionalizar` (+ UI pasiva de días al plazo) |
 
-### Forzar impronta — `components/nfc/PlanillaRegistroImportacion.tsx` (`Fase2Llegada`)
+Helpers de bucket: `vehiculo-documentos.ts` `esProximoSeniat` / `esProximoNacionalizar`.
 
-- Checkbox si hay foto y estado `no_leido` o `null`.
-- Sin filtro por rol portal.
-- Envía `forzarImprontaSinVerificar` a la action del §2.
+### Forzar impronta UI
+
+Archivo: [`components/nfc/PlanillaRegistroImportacion.tsx`](../components/nfc/PlanillaRegistroImportacion.tsx) — `Fase2Llegada` ~958–1165
+
+- `canForce` si hay foto y estado `no_leido` o `null` (~1008–1010)
+- Checkbox sin filtro por rol portal (~1092–1105)
+- Envía `forzarImprontaSinVerificar` a la action del §2 (~446–456, ~1165)
+
+**Validar punto 3 (buckets):** labels y filtros ya usan `planillaFase` + helpers actuales; no hay segundo set de buckets legacy en esta page.
 
 ---
 
-## Limitaciones conocidas (fuera de estos 5 puntos)
+## Limitaciones conocidas (fuera del pack)
 
 1. Sin estado SENIAT `rechazada` / flujo de corrección.
-2. Sin alertas/cron para `fechaLimiteNacionalizacion` ni `seguro.vigenciaHasta` (solo bucket UI para nacionalizar).
+2. Sin alertas/cron para `fechaLimiteNacionalizacion` ni `seguro.vigenciaHasta`.
 3. `numeroExpediente` eliminado; correlativo N se deriva de `codigoExpediente`.
 
-Contexto completo: `docs/PUERTO-LIBRE-CONTEXT.md`.
+Contexto completo: [`PUERTO-LIBRE-CONTEXT.md`](./PUERTO-LIBRE-CONTEXT.md).
