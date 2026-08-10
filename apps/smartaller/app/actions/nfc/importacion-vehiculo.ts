@@ -156,15 +156,6 @@ function maxNumeroExpedienteEnFilas(
     if (parts && parts.year === year && parts.month === month) {
       max = Math.max(max, parts.numero);
     }
-    if (
-      typeof imp.numeroExpediente === "number" &&
-      Number.isFinite(imp.numeroExpediente) &&
-      parts &&
-      parts.year === year &&
-      parts.month === month
-    ) {
-      max = Math.max(max, imp.numeroExpediente);
-    }
   }
   return max;
 }
@@ -240,7 +231,6 @@ async function backfillCodigosExpediente(
     const merged = serializeImportacion({
       ...existing,
       codigoExpediente: codigo,
-      numeroExpediente: next,
     });
     const { error } = await admin
       .from("vehiculos")
@@ -316,7 +306,6 @@ export async function createPuertoLibreVehiculoAction(
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,
-    numeroExpediente: numero,
   });
 
   const { data: created, error } = await admin

@@ -573,7 +573,6 @@ async function insertOneVehiculo(params: {
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,
-    numeroExpediente: numero,
   });
 
   const { data: created, error } = await admin

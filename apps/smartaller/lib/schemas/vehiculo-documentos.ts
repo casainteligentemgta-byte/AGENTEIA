@@ -371,10 +371,8 @@ export const importacionSchema = z.object({
    * 1 = carpeta a consignar, 2 = registrar placa (tras guardar carpeta).
    */
   matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
-  /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). */
+  /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). El correlativo N se deriva parseando este código. */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
-  /** Número secuencial del expediente dentro del mes. */
-  numeroExpediente: z.coerce.number().int().min(1).optional().nullable(),
   /** Checklist de llegada (fase 2). */
   checklistLlegada: z.record(z.string()).optional().nullable(),
   /** Notas de daño por ítem del checklist de llegada. */
@@ -502,7 +500,6 @@ export function parseImportacion(raw: unknown): ImportacionData {
       row.matriculacionPaso ?? row.matriculacion_paso
     ),
     codigoExpediente: row.codigoExpediente ?? row.codigo_expediente,
-    numeroExpediente: asOptionalAnio(row.numeroExpediente ?? row.numero_expediente),
     checklistLlegada:
       row.checklistLlegada && typeof row.checklistLlegada === "object"
         ? (row.checklistLlegada as Record<string, string>)
@@ -591,10 +588,6 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
         ? data.matriculacionPaso
         : null,
     codigo_expediente: data.codigoExpediente?.trim() || null,
-    numero_expediente:
-      data.numeroExpediente != null && !Number.isNaN(data.numeroExpediente)
-        ? data.numeroExpediente
-        : null,
     checklist_llegada: data.checklistLlegada ?? null,
     checklist_llegada_notas: data.checklistLlegadaNotas ?? null,
     otros_dispositivos_notas: data.otrosDispositivosNotas?.trim() || null,
