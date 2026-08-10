@@ -103,13 +103,30 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
 
   const admin = createAdminClient();
 
-  const { data: tallerRow } = await admin
-    .from("talleres")
-    .select("id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, tipo_industria, created_at")
-    .eq("owner_user_id", user.id)
-    .maybeSingle();
+  let tallerPropio: Taller | null = null;
+  {
+    const withAislado = await admin
+      .from("talleres")
+      .select(
+        "id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, tipo_industria, created_at, aislado_at"
+      )
+      .eq("owner_user_id", user.id)
+      .is("aislado_at", null)
+      .maybeSingle();
 
-  const tallerPropio = (tallerRow as Taller | null) ?? null;
+    if (withAislado.error?.message?.toLowerCase().includes("aislado_at")) {
+      const legacy = await admin
+        .from("talleres")
+        .select(
+          "id, nombre, owner_user_id, telegram_chat_id, codigo_vinculo, tipo_industria, created_at"
+        )
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+      tallerPropio = (legacy.data as Taller | null) ?? null;
+    } else {
+      tallerPropio = (withAislado.data as Taller | null) ?? null;
+    }
+  }
 
   let roles: PortalRole[] = [];
   let verTodo = false;
@@ -118,22 +135,52 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
 
   const { data: row, error: portalError } = await admin
     .from("portal_accesos")
-    .select("roles, ver_todo, taller_ids, org_nombre")
+    .select("roles, ver_todo, taller_ids, org_nombre, aislado_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Soft-fail si la tabla aún no existe (migración pendiente).
-  if (!portalError && row) {
-    roles = parseRoles((row as { roles?: unknown }).roles);
-    verTodo = Boolean((row as { ver_todo?: boolean }).ver_todo);
-    const ids = (row as { taller_ids?: unknown }).taller_ids;
+  // Soft-fail: columna aislado_at aún no migrada.
+  let portalRow = row;
+  let portalErr = portalError;
+  if (portalError?.message?.toLowerCase().includes("aislado_at")) {
+    const legacy = await admin
+      .from("portal_accesos")
+      .select("roles, ver_todo, taller_ids, org_nombre")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    portalRow = legacy.data;
+    portalErr = legacy.error;
+  }
+
+  const portalAislado =
+    !portalErr &&
+    portalRow &&
+    (portalRow as { aislado_at?: string | null }).aislado_at != null;
+
+  if (!portalErr && portalRow && !portalAislado) {
+    roles = parseRoles((portalRow as { roles?: unknown }).roles);
+    verTodo = Boolean((portalRow as { ver_todo?: boolean }).ver_todo);
+    const ids = (portalRow as { taller_ids?: unknown }).taller_ids;
     tallerIds = Array.isArray(ids)
       ? ids.filter((id): id is string => typeof id === "string")
       : [];
     orgNombre =
-      typeof (row as { org_nombre?: unknown }).org_nombre === "string"
-        ? ((row as { org_nombre: string }).org_nombre.trim() || null)
+      typeof (portalRow as { org_nombre?: unknown }).org_nombre === "string"
+        ? ((portalRow as { org_nombre: string }).org_nombre.trim() || null)
         : null;
+  }
+
+  // Acceso aislado: sin roles de portal (ni inferencia de taller).
+  if (portalAislado) {
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      roles: [],
+      verTodo: false,
+      tallerIds: [],
+      orgNombre: null,
+      tallerPropio: null,
+    };
   }
 
   // Inferencia sin fila (o complementar): dueño de taller / dueño de vehículos.

@@ -76,6 +76,7 @@ export async function listPortalTalleresAction(
   let talleresQuery = admin
     .from("talleres")
     .select("id, nombre, tipo_industria, owner_user_id")
+    .is("aislado_at", null)
     .order("nombre");
   if (!scope.all) {
     if (scope.ids.length === 0) {
@@ -158,7 +159,25 @@ export async function listPortalVehiculosAction(
     scope.all ? "all" : tallerIds.length ? tallerIds : []
   );
 
-  let rows: PortalVehiculoRow[] = (data ?? []).map((row) => {
+  // Excluir vehículos de talleres aislados (solo máster los ve en panel de aislamiento).
+  const aisladosIds = new Set<string>();
+  if (tallerIds.length > 0) {
+    const { data: aislados } = await admin
+      .from("talleres")
+      .select("id")
+      .in("id", tallerIds)
+      .not("aislado_at", "is", null);
+    for (const t of aislados ?? []) {
+      aisladosIds.add(t.id as string);
+    }
+  }
+
+  let rows: PortalVehiculoRow[] = (data ?? [])
+    .filter((row) => {
+      const tid = row.taller_id as string | null;
+      return !tid || !aisladosIds.has(tid);
+    })
+    .map((row) => {
     const imp = parseImportacion(row.importacion);
     const codigoExpediente = resolveCodigoExpediente({
       codigoExpediente: imp.codigoExpediente,

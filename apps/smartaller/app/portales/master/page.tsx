@@ -4,6 +4,11 @@ import {
   listPortalTalleresAction,
   listPortalVehiculosAction,
 } from "@/app/actions/portal";
+import {
+  listMasterTalleresAction,
+  listMasterPortalUsersAction,
+} from "@/app/actions/portal-master";
+import { MasterAislamientoPanel } from "@/components/portal/MasterAislamientoPanel";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { resolvePortalAccess, requirePortalRole } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
@@ -26,21 +31,35 @@ export default async function PortalMasterPage() {
     );
   }
 
-  const [talleresRes, vehiculosRes] = await Promise.all([
-    listPortalTalleresAction("master"),
-    listPortalVehiculosAction("master"),
-  ]);
+  const [talleresRes, vehiculosRes, masterTalleresRes, masterUsersRes] =
+    await Promise.all([
+      listPortalTalleresAction("master"),
+      listPortalVehiculosAction("master"),
+      listMasterTalleresAction(),
+      listMasterPortalUsersAction(),
+    ]);
 
   const talleres = talleresRes.success ? talleresRes.talleres : [];
   const vehiculos = vehiculosRes.success ? vehiculosRes.vehiculos : [];
   const verTodo = talleresRes.success ? talleresRes.verTodo : false;
+
+  const talleresActivos = masterTalleresRes.success
+    ? masterTalleresRes.activos
+    : [];
+  const talleresAislados = masterTalleresRes.success
+    ? masterTalleresRes.aislados
+    : [];
+  const usuariosActivos = masterUsersRes.success ? masterUsersRes.activos : [];
+  const usuariosAislados = masterUsersRes.success
+    ? masterUsersRes.aislados
+    : [];
 
   return (
     <PortalShell
       title="Administrador máster"
       subtitle={
         verTodo
-          ? "Visión global autorizada de talleres, flotas y supervisión."
+          ? "Visión global, aislamiento y borrado definitivo de entidades."
           : "Visión acotada a talleres asignados (sin ver_todo)."
       }
     >
@@ -61,14 +80,36 @@ export default async function PortalMasterPage() {
         </div>
       ) : (
         <p className="mb-6 rounded-xl border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
-          Principio de minimización: sin `ver_todo` solo ves talleres en tu
-          alcance. Actívalo solo si el contrato y la ley lo permiten.
+          Sin `ver_todo` no puedes aislar ni borrar. Actívalo solo si el contrato
+          y la ley lo permiten.
         </p>
       )}
 
+      {verTodo ? (
+        <div className="mb-10">
+          <MasterAislamientoPanel
+            talleresActivos={talleresActivos}
+            talleresAislados={talleresAislados}
+            usuariosActivos={usuariosActivos}
+            usuariosAislados={usuariosAislados}
+          />
+          {masterTalleresRes.success === false ? (
+            <p className="mt-3 text-sm text-amber-200">
+              Gestión de aislamiento: {masterTalleresRes.error}. ¿Ejecutaste la
+              migración `20260810140000_portal_aislamiento.sql`?
+            </p>
+          ) : null}
+          {masterUsersRes.success === false ? (
+            <p className="mt-3 text-sm text-amber-200">
+              Usuarios de portal: {masterUsersRes.error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <section className="mb-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-          Talleres ({talleres.length})
+          Resumen de talleres visibles ({talleres.length})
         </h2>
         <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-800">
           <table className="min-w-full text-left text-sm">
