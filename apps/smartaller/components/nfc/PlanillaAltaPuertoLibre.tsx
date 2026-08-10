@@ -77,7 +77,7 @@ function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
   };
 }
 
-/** Fase 1: datos del vehículo + importador (con OCR de factura/BL). */
+/** Fase 1: datos del vehículo + importador (con OCR de factura de compra). */
 export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -101,12 +101,12 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
         setError(
           `Vehículo registrado, pero no se pudo guardar un documento: ${attachError}`
         );
-        router.push(`/importacion/${result.vehiculoId}/planilla?fase=1a`);
+        router.push(`/importacion/${result.vehiculoId}/planilla?fase=1`);
         router.refresh();
         return;
       }
 
-      router.push(`/importacion/${result.vehiculoId}/planilla?fase=1a`);
+      router.push(`/importacion/${result.vehiculoId}/planilla?fase=1`);
       router.refresh();
     });
   }

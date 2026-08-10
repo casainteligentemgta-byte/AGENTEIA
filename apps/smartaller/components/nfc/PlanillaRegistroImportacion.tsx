@@ -17,7 +17,7 @@ import {
   User,
 } from "lucide-react";
 import {
-  completePuertoLibreFase1aEmbarqueAction,
+  completePuertoLibreFase2EmbarqueAction,
   completePuertoLibreFase3Action,
   completePuertoLibreFase4PropietarioAction,
   completePuertoLibreFase5SeguroAction,
@@ -44,6 +44,7 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_ADUANA_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
   PL_MATRICULACION_ORIGEN,
   SEGURO_DOCUMENTO_TIPOS,
@@ -65,7 +66,8 @@ import {
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
 
-export type PlanillaFaseUi = 1 | "1a" | 2 | 3 | 4 | 5 | 6;
+/** UI chips 1–7. En BD planillaFase 8 = completa. */
+export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 /** Tras guardar una fase: seguir en planilla o volver a la ficha. */
 type PlanillaAfterSave = "next" | "ficha";
@@ -86,7 +88,7 @@ type Props = {
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
-  /** Fase forzada por query (?fase=1|1a|2|3|4|5|6). */
+  /** Fase forzada por query (?fase=1|2|3|4|5|6|7). */
   faseInicial?: PlanillaFaseUi;
   /**
    * Operador (admin/taller/concesionario) puede forzar avance si OCR no lee la impronta.
@@ -105,23 +107,24 @@ function resolveFase(
 ): PlanillaFaseUi {
   if (
     forced === 1 ||
-    forced === "1a" ||
     forced === 2 ||
     forced === 3 ||
     forced === 4 ||
     forced === 5 ||
-    forced === 6
+    forced === 6 ||
+    forced === 7
   ) {
     return forced;
   }
   const f = importacion.planillaFase ?? 1;
-  if (f >= 6) return 6;
+  if (f >= 7) return 7;
+  if (f === 6) return 6;
   if (f === 5) return 5;
   if (f === 4) return 4;
   if (f === 3) return 3;
   if (f === 2) return 2;
   if (f === 1) return 1;
-  return "1a";
+  return 1;
 }
 
 function countDocs(docs: VehiculosDocumentos, tipos: DocumentoTipo[]) {
@@ -182,6 +185,7 @@ export function PlanillaRegistroImportacion({
   );
 
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
+  const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
   const aduanaCount = countDocs(docs, PL_ADUANA_DOCUMENTO_TIPOS);
   const checklistMarked = useMemo(
@@ -189,23 +193,24 @@ export function PlanillaRegistroImportacion({
     [checklist]
   );
 
-  const registroCompleto = Boolean(
-    marca?.trim() &&
-      modelo?.trim() &&
-      color?.trim() &&
-      initialImportacion.anio &&
-      serialMotor?.trim() &&
-      initialImportacion.vin?.trim() &&
-      serialCarroceria?.trim() &&
-      kilometrajeUltimo != null &&
-      (initialImportacion.condicionVehiculo !== "usado" ||
-        kilometrajeUltimo > 0) &&
-      initialImportacion.condicionVehiculo &&
-      (initialImportacion.condicionVehiculo === "nuevo" ||
-        typeof initialImportacion.esSubasta === "boolean") &&
-      initialImportacion.fechaLlegadaBuque?.trim() &&
-      initialImportacion.importadorNombre?.trim()
-  );
+  const registroCompleto =
+    Boolean(
+      marca?.trim() &&
+        modelo?.trim() &&
+        color?.trim() &&
+        initialImportacion.anio &&
+        serialMotor?.trim() &&
+        initialImportacion.vin?.trim() &&
+        serialCarroceria?.trim() &&
+        kilometrajeUltimo != null &&
+        (initialImportacion.condicionVehiculo !== "usado" ||
+          kilometrajeUltimo > 0) &&
+        initialImportacion.condicionVehiculo &&
+        (initialImportacion.condicionVehiculo === "nuevo" ||
+          typeof initialImportacion.esSubasta === "boolean") &&
+        initialImportacion.fechaLlegadaBuque?.trim() &&
+        initialImportacion.importadorNombre?.trim()
+    ) && registroDocsCount === PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.length;
 
   const embarqueCompleto = embarqueCount === PL_EMBARQUE_DOCUMENTO_TIPOS.length;
 
@@ -219,7 +224,7 @@ export function PlanillaRegistroImportacion({
   const seguroCompleto = Boolean(
     initialSeguro.aseguradora?.trim() ||
       (initialImportacion.planillaFase != null &&
-        initialImportacion.planillaFase >= 6)
+        initialImportacion.planillaFase >= 7)
   );
   const matriculacionCount = countDocs(docs, PL_MATRICULACION_CARPETA_TIPOS);
   const placaVisible = placaRealVisible(
@@ -277,46 +282,46 @@ export function PlanillaRegistroImportacion({
           onClick={() => goFase(1)}
         />
         <FaseChip
-          n="1A"
+          n={2}
           label="Embarque"
           completo={embarqueCompleto}
-          current={fase === "1a"}
-          onClick={() => goFase("1a")}
-        />
-        <FaseChip
-          n={2}
-          label="Llegada"
-          completo={llegadaCompleta}
           current={fase === 2}
           onClick={() => goFase(2)}
         />
         <FaseChip
           n={3}
-          label="Aduana"
-          completo={aduanaCompleta}
+          label="Llegada"
+          completo={llegadaCompleta}
           current={fase === 3}
           onClick={() => goFase(3)}
         />
         <FaseChip
           n={4}
-          label="Propietario"
-          completo={propietarioCompleto}
+          label="Aduana"
+          completo={aduanaCompleta}
           current={fase === 4}
           onClick={() => goFase(4)}
         />
         <FaseChip
           n={5}
-          label="Seguro"
-          completo={seguroCompleto}
+          label="Propietario"
+          completo={propietarioCompleto}
           current={fase === 5}
           onClick={() => goFase(5)}
         />
         <FaseChip
           n={6}
-          label="Matrícula"
-          completo={matriculacionCompleta}
+          label="Seguro"
+          completo={seguroCompleto}
           current={fase === 6}
           onClick={() => goFase(6)}
+        />
+        <FaseChip
+          n={7}
+          label="Matrícula"
+          completo={matriculacionCompleta}
+          current={fase === 7}
+          onClick={() => goFase(7)}
         />
       </div>
 
@@ -400,12 +405,12 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Registro guardado");
-              navigateAfterSave(after, "1a");
+              navigateAfterSave(after, 2);
             });
           }}
         />
-      ) : fase === "1a" ? (
-        <Fase1aEmbarque
+      ) : fase === 2 ? (
+        <Fase2Embarque
           vehiculoId={vehiculoId}
           docs={docs}
           setDocs={setDocs}
@@ -416,13 +421,13 @@ export function PlanillaRegistroImportacion({
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const result = await completePuertoLibreFase1aEmbarqueAction(vehiculoId);
+              const result = await completePuertoLibreFase2EmbarqueAction(vehiculoId);
               if (!result.success) {
                 setError(result.error);
                 return;
               }
               setMessage("Documentos de embarque guardados");
-              navigateAfterSave(after, 2);
+              navigateAfterSave(after, 3);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -431,7 +436,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 2 ? (
+      ) : fase === 3 ? (
         <Fase2Llegada
           vehiculoId={vehiculoId}
           serialCarroceria={serialCarroceria}
@@ -467,8 +472,8 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMessage("Fase 2 guardada");
-              navigateAfterSave(after, 3);
+              setMessage("Llegada guardada");
+              navigateAfterSave(after, 4);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -477,7 +482,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 3 ? (
+      ) : fase === 4 ? (
         <Fase3Aduana
           vehiculoId={vehiculoId}
           docs={docs}
@@ -495,7 +500,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Liquidación aduanera guardada");
-              navigateAfterSave(after, 4);
+              navigateAfterSave(after, 5);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -504,7 +509,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 4 ? (
+      ) : fase === 5 ? (
         <Fase4Propietario
           vehiculoId={vehiculoId}
           docs={docs}
@@ -528,7 +533,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Propietario guardado");
-              navigateAfterSave(after, 5);
+              navigateAfterSave(after, 6);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -537,7 +542,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 5 ? (
+      ) : fase === 6 ? (
         <Fase5Seguro
           vehiculoId={vehiculoId}
           docs={docs}
@@ -557,7 +562,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Seguro guardado");
-              navigateAfterSave(after, 6);
+              navigateAfterSave(after, 7);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -901,7 +906,7 @@ function Fase1Registro({
   );
 }
 
-function Fase1aEmbarque({
+function Fase2Embarque({
   vehiculoId,
   docs,
   setDocs,

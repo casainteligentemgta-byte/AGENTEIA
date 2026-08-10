@@ -103,12 +103,12 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   cedula: "Cédula del comprador",
   titulo: "Título de propiedad",
-  factura_comercial: "Factura comercial / contrato",
-  bl_guia: "BL / conocimiento de embarque",
+  factura_comercial: "Factura de compra",
+  bl_guia: "BL / Guía",
   certificado_origen: "Certificado de origen",
-  lista_empaque: "Lista de empaque",
+  lista_empaque: "Lista de embarque",
   dav: "Declaración Andina de Valor (DAV)",
-  poliza_transporte: "Póliza de seguro de transporte",
+  poliza_transporte: "Póliza de transporte",
   permiso_importacion: "Permiso de importación",
   nacionalizacion: "Liquidación aduanera (CVA / DUA)",
   documento_importacion: "Documento de importación",
@@ -141,12 +141,17 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
 };
 
 /**
- * Documentos de embarque (fase 1A): se obtienen antes de la llegada física.
- * Factura, certificado de origen, BL, lista de empaque, DAV y póliza de transporte.
+ * Documentos de fase 1 (Registro): factura de compra y certificado de origen.
  */
-export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+export const PL_FASE1_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "certificado_origen",
+];
+
+/**
+ * Documentos de fase 2 (Embarque): BL, lista, DAV y póliza de transporte.
+ */
+export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
   "dav",
@@ -154,13 +159,14 @@ export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Recaudos de aduana / retiro (fase 3): tras ingreso a PL.
+ * Recaudos de aduana / retiro (fase 4): tras ingreso a PL.
  * Liquidación CVA/DUA emitida por SENIAT.
  */
 export const PL_ADUANA_DOCUMENTO_TIPOS: DocumentoTipo[] = ["nacionalizacion"];
 
-/** @deprecated Preferir PL_EMBARQUE_DOCUMENTO_TIPOS + PL_ADUANA_DOCUMENTO_TIPOS. */
+/** Docs de registro + embarque + aduana (conteo faltantes en listados). */
 export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  ...PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   ...PL_EMBARQUE_DOCUMENTO_TIPOS,
   ...PL_ADUANA_DOCUMENTO_TIPOS,
 ];
@@ -387,11 +393,12 @@ export const importacionSchema = z.object({
   /** Dirección fiscal del importador (SENIAT). */
   importadorDireccion: z.string().trim().max(240).optional().nullable(),
   /**
-   * 1 = datos (pendiente 1A embarque),
-   * 2 = llegada, 3 = aduana / retiro, 4 = propietario, 5 = seguro,
-   * 6 = matriculación inicial, 7 = planilla completa.
+   * 1 = registro (+ factura, certificado origen),
+   * 2 = embarque (BL, lista, DAV, póliza),
+   * 3 = llegada, 4 = aduana, 5 = propietario, 6 = seguro,
+   * 7 = matriculación, 8 = planilla completa.
    */
-  planillaFase: z.coerce.number().int().min(1).max(7).optional().nullable(),
+  planillaFase: z.coerce.number().int().min(1).max(8).optional().nullable(),
   /**
    * Subpaso de fase 6 Matriculación:
    * 1 = carpeta a consignar, 2 = registrar placa (tras guardar carpeta).
@@ -680,7 +687,7 @@ export function esProximoNacionalizar(data: ImportacionData): boolean {
   const estado = data.estadoNacionalizacion ?? "pendiente";
   if (estado !== "pendiente" && estado !== "en_proceso") return false;
   const fase = data.planillaFase ?? 0;
-  return fase >= 7;
+  return fase >= 8;
 }
 
 export function esProximoSeniat(data: ImportacionData): boolean {
