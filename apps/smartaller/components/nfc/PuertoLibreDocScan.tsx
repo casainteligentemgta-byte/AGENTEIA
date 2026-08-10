@@ -221,10 +221,6 @@ export function PuertoLibreDocScan({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-100">
           Autorellenar con documentos
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Factura y BL rellenan campos. Certificado de origen, lista de empaque, DAV y
-          póliza de transporte se adjuntan al expediente.
-        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
@@ -238,16 +234,6 @@ export function PuertoLibreDocScan({
           ocr={OCR_TIPOS.has("factura_comercial")}
         />
         <ScanButton
-          tipo="bl_guia"
-          label="BL / Guía"
-          icon={Ship}
-          vehiculoId={vehiculoId}
-          existingUrl={existingUrls?.bl_guia}
-          onExtracted={onExtracted}
-          onDocumentUploaded={onDocumentUploaded}
-          ocr={OCR_TIPOS.has("bl_guia")}
-        />
-        <ScanButton
           tipo="certificado_origen"
           label="Certificado de origen"
           icon={ClipboardList}
@@ -256,6 +242,16 @@ export function PuertoLibreDocScan({
           onExtracted={onExtracted}
           onDocumentUploaded={onDocumentUploaded}
           ocr={false}
+        />
+        <ScanButton
+          tipo="bl_guia"
+          label="BL / Guía"
+          icon={Ship}
+          vehiculoId={vehiculoId}
+          existingUrl={existingUrls?.bl_guia}
+          onExtracted={onExtracted}
+          onDocumentUploaded={onDocumentUploaded}
+          ocr={OCR_TIPOS.has("bl_guia")}
         />
         <ScanButton
           tipo="lista_empaque"

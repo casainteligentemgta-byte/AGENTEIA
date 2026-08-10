@@ -167,8 +167,8 @@ export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
-  "bl_guia",
   "certificado_origen",
+  "bl_guia",
   "lista_empaque",
   "dav",
   "poliza_transporte",
