@@ -130,6 +130,18 @@ function hasForzarImprontaRoleGate(body: string): boolean {
   );
 }
 
+/** Acciones de rechazo SENIAT → exigen canMutateImportacionData. */
+function isRechazoSeniatAction(name: string): boolean {
+  return (
+    name === "marcarRechazoSeniatAction" ||
+    name === "resolverRechazoSeniatAction"
+  );
+}
+
+function hasMutateRoleGate(body: string): boolean {
+  return body.includes("canMutateImportacionData");
+}
+
 function auditFile(filePath: string): Finding[] {
   const base = relative(ACTIONS_DIR, filePath) || filePath.split("/").pop()!;
   if (FILE_EXEMPT.has(base)) return [];
@@ -167,6 +179,15 @@ function auditFile(filePath: string): Finding[] {
         fn: name,
         issue:
           "Acepta forzarImprontaSinVerificar sin canForzarImprontaSinVerificar / canMutateImportacionData",
+      });
+    }
+
+    if (isRechazoSeniatAction(name) && !hasMutateRoleGate(body)) {
+      findings.push({
+        file: base,
+        fn: name,
+        issue:
+          "Acción de rechazo SENIAT sin canMutateImportacionData (chequeo de rol)",
       });
     }
   }

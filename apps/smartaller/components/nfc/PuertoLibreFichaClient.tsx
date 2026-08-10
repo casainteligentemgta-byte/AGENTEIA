@@ -25,6 +25,7 @@ import {
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { placaRealVisible } from "@/lib/importacion/expediente";
+import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 import {
   ADUANAS_VENEZUELA,
   resolveAduanaVenezuela,
@@ -34,9 +35,14 @@ import { PAISES, resolvePais } from "@/lib/importacion/paises";
 type Props = {
   ficha: PuertoLibreFicha;
   baseUrl: string;
+  canMutate?: boolean;
 };
 
-export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
+export function PuertoLibreFichaClient({
+  ficha,
+  baseUrl,
+  canMutate = false,
+}: Props) {
   const router = useRouter();
   const [docs, setDocs] = useState<VehiculosDocumentos>(ficha.documentos);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,6 +67,12 @@ export function PuertoLibreFichaClient({ ficha, baseUrl }: Props) {
           {error ?? message}
         </div>
       )}
+
+      <SeniatRechazoPanel
+        vehiculoId={ficha.id}
+        importacion={ficha.importacion}
+        canMutate={canMutate}
+      />
 
       {/* 1. Documentos de importación */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">

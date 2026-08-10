@@ -112,20 +112,24 @@ Vías (`viaNacionalizacion`):
 
 | Valor | Quién lo setea |
 |-------|----------------|
-| `pendiente` | Alta / carga masiva |
+| `pendiente` | Alta / carga masiva; también `resolverRechazoSeniatAction` si no había presentación formal |
 | `agendada` | **Solo** override manual en Editar ficha. No hay action/fase “Agendar cita SENIAT”. El dashboard sí la contempla (`esProximoSeniat`). |
-| `presentada` | `completarNacionalizacionAction` |
+| `presentada` | `completarNacionalizacionAction`; `resolverRechazoSeniatAction` si había `fechaPresentacionSeniat` |
+| `rechazada` | `marcarRechazoSeniatAction` (motivo + fecha + historial). **No** cambia `planillaFase`. |
 | `no_aplica` | **Solo** override manual en Editar ficha. |
 
 Enums:
 
 - `estadoNacionalizacion`: `pendiente | en_proceso | nacionalizado | no_aplica`
-- `estadoSeniat`: `pendiente | agendada | presentada | no_aplica`
+- `estadoSeniat`: `pendiente | agendada | presentada | rechazada | no_aplica`
 
 Helpers:
 
 - `esProximoNacionalizar` = fase ≥ 7 **y** (`pendiente` **o** `en_proceso`) — **no** distingue “no empezó wizard” vs “a mitad”.
 - `esProximoSeniat` = `pendiente` **o** `agendada`.
+- `esRechazadoSeniat` = `rechazada` (bucket propio en dashboard).
+
+Alertas email (Vercel Cron `/api/cron/alertas-vencimiento`, 13:00 UTC ≈ 09:00 VET): deadline 90d + seguro 30d vía Resend; cooldown 30d (`ultimaAlertaDeadlineEnviada` / `ultimaAlertaSeguroEnviada`).
 
 ---
 
@@ -139,6 +143,7 @@ El dashboard **ya está conectado** a `planillaFase` (1–7). Labels y filtros e
 | **Por recibir en puerto** | `porRecibir` | sin `fechaIngreso` && (`planillaFase` null \|\| `=== 2`) | `?fase=2` |
 | **Pendiente a completar** | `pendientes` | `planillaFase` null \|\| `< 7` | `completarHref` → `?fase=1`…`6` según fase |
 | **Por presentación SENIAT** | `porSeniat` | `proximoSeniat` / `esProximoSeniat` | `/nacionalizar` |
+| **Rechazados SENIAT** | `rechazadosSeniat` | `estadoSeniat === "rechazada"` (ordenado por `fechaRechazoSeniat` desc) | ficha `/importacion/[id]` |
 | **Por nacionalizar** | `porNacionalizar` | `proximoNacionalizar` / `esProximoNacionalizar` | `/nacionalizar` |
 
 Notas:

@@ -37,6 +37,13 @@ export type PortalVehiculoRow = {
   regimen: string | null;
   numeroBl: string | null;
   fechaLlegadaBuque: string | null;
+  fechaIngreso: string | null;
+  estadoNacionalizacion: string | null;
+  fechaLimiteNacionalizacion: string | null;
+  estadoSeniat: string | null;
+  fechaPresentacionSeniat: string | null;
+  fechaRechazoSeniat: string | null;
+  motivoRechazoSeniat: string | null;
   createdAt: string;
 };
 
@@ -206,6 +213,13 @@ export async function listPortalVehiculosAction(
       regimen: imp.regimen ?? null,
       numeroBl: imp.numeroBl ?? null,
       fechaLlegadaBuque: imp.fechaLlegadaBuque ?? null,
+      fechaIngreso: imp.fechaIngreso ?? null,
+      estadoNacionalizacion: imp.estadoNacionalizacion ?? null,
+      fechaLimiteNacionalizacion: imp.fechaLimiteNacionalizacion ?? null,
+      estadoSeniat: imp.estadoSeniat ?? null,
+      fechaPresentacionSeniat: imp.fechaPresentacionSeniat ?? null,
+      fechaRechazoSeniat: imp.fechaRechazoSeniat ?? null,
+      motivoRechazoSeniat: imp.motivoRechazoSeniat ?? null,
       createdAt: String(row.created_at ?? ""),
     };
   });

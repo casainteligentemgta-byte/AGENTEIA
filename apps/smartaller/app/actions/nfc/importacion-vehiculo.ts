@@ -46,7 +46,7 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
-import { canForzarImprontaSinVerificar } from "@/lib/importacion/access";
+import { canForzarImprontaSinVerificar, canMutateImportacionData } from "@/lib/importacion/access";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import {
   findDuplicateSerialCarroceria,
@@ -1259,6 +1259,130 @@ export async function completarNacionalizacionAction(
   return { success: true };
 }
 
+const rechazoSeniatSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  motivo: z.string().trim().min(1, "El motivo de rechazo es obligatorio").max(1000),
+});
+
+/**
+ * Marca el expediente como rechazado por SENIAT.
+ * No cambia planillaFase: el operador corrige docs y reintenta.
+ */
+export async function marcarRechazoSeniatAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const access = await resolvePortalAccess();
+  if (!access || !canMutateImportacionData(access)) {
+    return {
+      success: false,
+      error: "No tienes permiso para marcar un rechazo SENIAT.",
+    };
+  }
+
+  const parsed = rechazoSeniatSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const ahora = new Date().toISOString();
+  const motivo = parsed.data.motivo.trim();
+  const historial = [
+    ...(existing.historialRechazosSeniat ?? []),
+    {
+      motivo,
+      fecha: ahora,
+      usuarioId: access.userId,
+    },
+  ].slice(-50);
+
+  const importacion = serializeImportacion({
+    ...existing,
+    estadoSeniat: "rechazada",
+    motivoRechazoSeniat: motivo,
+    fechaRechazoSeniat: ahora,
+    historialRechazosSeniat: historial,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: ahora })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/**
+ * Tras corregir y re-subir documentos: sale de "rechazada".
+ * Vuelve a "presentada" si ya había presentación formal; si no, a "pendiente".
+ */
+export async function resolverRechazoSeniatAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const access = await resolvePortalAccess();
+  if (!access || !canMutateImportacionData(access)) {
+    return {
+      success: false,
+      error: "No tienes permiso para resolver un rechazo SENIAT.",
+    };
+  }
+
+  const idParsed = z
+    .object({ vehiculoId: z.string().uuid() })
+    .safeParse(typeof raw === "string" ? { vehiculoId: raw } : raw);
+  if (!idParsed.success) return { success: false, error: "ID inválido" };
+
+  const row = await assertVehiculoTaller(idParsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  if (existing.estadoSeniat !== "rechazada") {
+    return { success: false, error: "El expediente no está en estado rechazada." };
+  }
+
+  const siguienteEstado = existing.fechaPresentacionSeniat?.trim()
+    ? "presentada"
+    : "pendiente";
+
+  const importacion = serializeImportacion({
+    ...existing,
+    estadoSeniat: siguienteEstado,
+    motivoRechazoSeniat: null,
+    fechaRechazoSeniat: null,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", idParsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(idParsed.data.vehiculoId);
+  return { success: true };
+}
+
 export async function setPuertoLibrePinAction(raw: unknown): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
@@ -1433,10 +1557,13 @@ export type PuertoLibreVehiculoListItem = {
   fechaLimiteNacionalizacion: string | null;
   estadoSeniat: string | null;
   fechaPresentacionSeniat: string | null;
+  fechaRechazoSeniat: string | null;
+  motivoRechazoSeniat: string | null;
   diasNacionalizacion: number | null;
   diasSeniat: number | null;
   proximoNacionalizar: boolean;
   proximoSeniat: boolean;
+  rechazadoSeniat: boolean;
   codigoExpediente: string | null;
   fotoUrl: string | null;
 };
@@ -1557,10 +1684,13 @@ function mapListItem(
     fechaLimiteNacionalizacion: importacion.fechaLimiteNacionalizacion ?? null,
     estadoSeniat: importacion.estadoSeniat ?? null,
     fechaPresentacionSeniat: importacion.fechaPresentacionSeniat ?? null,
+    fechaRechazoSeniat: importacion.fechaRechazoSeniat ?? null,
+    motivoRechazoSeniat: importacion.motivoRechazoSeniat ?? null,
     diasNacionalizacion: diasHasta(importacion.fechaLimiteNacionalizacion),
     diasSeniat: diasHasta(importacion.fechaPresentacionSeniat),
     proximoNacionalizar: esProximoNacionalizar(importacion),
     proximoSeniat: esProximoSeniat(importacion),
+    rechazadoSeniat: (importacion.estadoSeniat ?? "pendiente") === "rechazada",
     codigoExpediente: resolveCodigoExpediente({
       codigoExpediente: importacion.codigoExpediente,
       placa,

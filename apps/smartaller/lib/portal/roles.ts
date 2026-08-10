@@ -140,7 +140,19 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
     .maybeSingle();
 
   // Soft-fail: columna aislado_at aún no migrada.
-  let portalRow = row;
+  let portalRow: {
+    roles?: unknown;
+    ver_todo?: boolean;
+    taller_ids?: unknown;
+    org_nombre?: unknown;
+    aislado_at?: string | null;
+  } | null = row as {
+    roles?: unknown;
+    ver_todo?: boolean;
+    taller_ids?: unknown;
+    org_nombre?: unknown;
+    aislado_at?: string | null;
+  } | null;
   let portalErr = portalError;
   if (portalError?.message?.toLowerCase().includes("aislado_at")) {
     const legacy = await admin
@@ -148,7 +160,9 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
       .select("roles, ver_todo, taller_ids, org_nombre")
       .eq("user_id", user.id)
       .maybeSingle();
-    portalRow = legacy.data;
+    portalRow = legacy.data
+      ? { ...(legacy.data as object), aislado_at: null }
+      : null;
     portalErr = legacy.error;
   }
 

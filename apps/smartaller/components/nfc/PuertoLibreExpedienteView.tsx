@@ -20,11 +20,13 @@ import {
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { placaRealVisible } from "@/lib/importacion/expediente";
+import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 
 type Props = {
   ficha: PuertoLibreFicha;
   /** @deprecated Ya no se usa en la ficha de solo lectura. */
   baseUrl?: string;
+  canMutate?: boolean;
 };
 
 function valor(v: string | number | null | undefined, fallback = "—") {
@@ -74,7 +76,7 @@ function DocRow({
   );
 }
 
-export function PuertoLibreExpedienteView({ ficha }: Props) {
+export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
   const imp = ficha.importacion;
   const codigo = ficha.codigoExpediente ?? "—";
   const titulo =
@@ -124,6 +126,12 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
           <PuertoLibreDescargarPdf vehiculoId={ficha.id} variant="icon" />
         </div>
       </header>
+
+      <SeniatRechazoPanel
+        vehiculoId={ficha.id}
+        importacion={imp}
+        canMutate={canMutate}
+      />
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
         <h2 className="text-sm font-semibold text-zinc-200">Datos del vehículo</h2>

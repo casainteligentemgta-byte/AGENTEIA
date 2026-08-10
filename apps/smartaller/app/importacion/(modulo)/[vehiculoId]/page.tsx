@@ -5,6 +5,8 @@ import { getPuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
 import { PuertoLibreExpedienteView } from "@/components/nfc/PuertoLibreExpedienteView";
 import { PuertoLibreFichaClient } from "@/components/nfc/PuertoLibreFichaClient";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { canMutateImportacionData } from "@/lib/importacion/access";
+import { resolvePortalAccess } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,10 @@ export default async function PuertoLibreFichaPage({ params, searchParams }: Pro
   const user = await getUser();
   if (!user) redirect(`/login?next=/importacion/${params.vehiculoId}`);
 
-  const result = await getPuertoLibreFicha(params.vehiculoId);
+  const [result, access] = await Promise.all([
+    getPuertoLibreFicha(params.vehiculoId),
+    resolvePortalAccess(),
+  ]);
   if (!result.success) {
     if (result.error === "Vehículo no encontrado") notFound();
     return (
@@ -33,6 +38,7 @@ export default async function PuertoLibreFichaPage({ params, searchParams }: Pro
   const { ficha } = result;
   const editing = searchParams?.edit === "1";
   const codigo = ficha.codigoExpediente ?? "—";
+  const canMutate = access ? canMutateImportacionData(access) : false;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -66,10 +72,18 @@ export default async function PuertoLibreFichaPage({ params, searchParams }: Pro
                 {[ficha.marca, ficha.modelo].filter(Boolean).join(" ") || ficha.placa}
               </p>
             </header>
-            <PuertoLibreFichaClient ficha={ficha} baseUrl={getAppBaseUrl()} />
+            <PuertoLibreFichaClient
+              ficha={ficha}
+              baseUrl={getAppBaseUrl()}
+              canMutate={canMutate}
+            />
           </>
         ) : (
-          <PuertoLibreExpedienteView ficha={ficha} baseUrl={getAppBaseUrl()} />
+          <PuertoLibreExpedienteView
+            ficha={ficha}
+            baseUrl={getAppBaseUrl()}
+            canMutate={canMutate}
+          />
         )}
       </div>
     </main>
