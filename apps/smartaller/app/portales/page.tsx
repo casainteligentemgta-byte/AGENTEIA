@@ -16,7 +16,6 @@ import {
   type PortalRole,
 } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
-import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -45,18 +44,6 @@ export default async function PortalesHubPage() {
             SmartTaller
           </span>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
-          Portales
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          Elige la sección según tu rol. El módulo Importación vive en{" "}
-          <Link href={IMPORTACION_BASE} className="text-cyan-400 hover:underline">
-            /importacion
-          </Link>
-          . Máster y Administrador solo ven data global si están autorizados.
-          Talleres y concesionarios solo ven sus clientes. Los usuarios solo
-          ven vehículos propios o compartidos.
-        </p>
         {access.orgNombre ? (
           <p className="mt-2 text-xs text-zinc-500">
             Organización: {access.orgNombre}
