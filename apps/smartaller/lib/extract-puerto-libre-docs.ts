@@ -273,19 +273,36 @@ export type PuertoLibreRegistroScanFields = {
   color?: string;
   anio?: string;
   serialMotor?: string;
+  vin?: string;
   serialCarroceria?: string;
   kilometraje?: string;
   condicion?: "nuevo" | "usado";
   esSubasta?: "true" | "false";
+  partidaArancelaria?: string;
+  cilindradaCc?: string;
+  tipoCombustible?:
+    | "gasolina"
+    | "diesel"
+    | "electrico"
+    | "hibrido"
+    | "gnv"
+    | "otro";
   fechaLlegadaBuque?: string;
   importadorNombre?: string;
   importadorDocumento?: string;
   importadorTelefono?: string;
   importadorEmail?: string;
+  importadorDireccion?: string;
   aduana?: string;
   numeroBl?: string;
   paisOrigen?: string;
   valorCif?: string;
+  tasaCambioBcv?: string;
+  numeroExpedienteSeniat?: string;
+  numeroDav?: string;
+  numeroCertificadoOrigen?: string;
+  numeroListaEmpaque?: string;
+  numeroPolizaTransporte?: string;
   observaciones?: string;
 };
 
@@ -298,7 +315,10 @@ export function facturaToFormFields(
   if (data.color) fields.color = data.color;
   if (data.anio != null) fields.anio = String(data.anio);
   if (data.serial_motor) fields.serialMotor = data.serial_motor;
-  if (data.serial_carroceria) fields.serialCarroceria = data.serial_carroceria;
+  if (data.serial_carroceria) {
+    fields.serialCarroceria = data.serial_carroceria;
+    fields.vin = data.serial_carroceria;
+  }
   if (data.kilometraje != null) fields.kilometraje = String(data.kilometraje);
   if (data.condicion) fields.condicion = data.condicion;
   if (data.es_subasta != null) fields.esSubasta = data.es_subasta ? "true" : "false";
@@ -327,7 +347,10 @@ export function blToFormFields(data: BlExtraido): PuertoLibreRegistroScanFields 
   if (data.color) fields.color = data.color;
   if (data.anio != null) fields.anio = String(data.anio);
   if (data.serial_motor) fields.serialMotor = data.serial_motor;
-  if (data.serial_carroceria) fields.serialCarroceria = data.serial_carroceria;
+  if (data.serial_carroceria) {
+    fields.serialCarroceria = data.serial_carroceria;
+    fields.vin = data.serial_carroceria;
+  }
   if (data.observaciones) fields.observaciones = data.observaciones;
   return fields;
 }
@@ -472,7 +495,11 @@ export function dedupeVehiculosBySerial(
     }
     const prev = bySerial.get(serial);
     if (!prev || countFilledFields(v) > countFilledFields(prev)) {
-      bySerial.set(serial, { ...v, serialCarroceria: serial });
+      bySerial.set(serial, {
+        ...v,
+        serialCarroceria: serial,
+        vin: v.vin?.trim() || serial,
+      });
     }
   }
 

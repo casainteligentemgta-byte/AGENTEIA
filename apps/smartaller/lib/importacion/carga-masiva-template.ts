@@ -8,10 +8,16 @@ export const CARGA_MASIVA_COLUMNS = [
   { key: "anio", header: "anio", required: true, hint: "2024" },
   { key: "serial_motor", header: "serial_motor", required: true, hint: "Serial motor" },
   {
+    key: "vin",
+    header: "vin",
+    required: true,
+    hint: "VIN internacional",
+  },
+  {
     key: "serial_carroceria",
     header: "serial_carroceria",
     required: true,
-    hint: "VIN / chasis",
+    hint: "Serial carrocería SENIAT",
   },
   { key: "kilometraje", header: "kilometraje", required: true, hint: "0" },
   {
@@ -25,6 +31,24 @@ export const CARGA_MASIVA_COLUMNS = [
     header: "es_subasta",
     required: false,
     hint: "si|no (obligatorio si usado)",
+  },
+  {
+    key: "partida_arancelaria",
+    header: "partida_arancelaria",
+    required: false,
+    hint: "Ej. 8703.23.91",
+  },
+  {
+    key: "cilindrada_cc",
+    header: "cilindrada_cc",
+    required: false,
+    hint: "cc",
+  },
+  {
+    key: "tipo_combustible",
+    header: "tipo_combustible",
+    required: false,
+    hint: "gasolina|diesel|electrico|hibrido|gnv|otro",
   },
   {
     key: "fecha_llegada_buque",
@@ -42,7 +66,7 @@ export const CARGA_MASIVA_COLUMNS = [
     key: "importador_documento",
     header: "importador_documento",
     required: false,
-    hint: "RIF",
+    hint: "J-12345678-9",
   },
   {
     key: "importador_telefono",
@@ -56,10 +80,47 @@ export const CARGA_MASIVA_COLUMNS = [
     required: false,
     hint: "",
   },
+  {
+    key: "importador_direccion",
+    header: "importador_direccion",
+    required: false,
+    hint: "Dirección fiscal",
+  },
   { key: "aduana", header: "aduana", required: false, hint: "Ej. Guanta" },
   { key: "numero_bl", header: "numero_bl", required: false, hint: "Nº BL" },
   { key: "pais_origen", header: "pais_origen", required: false, hint: "China" },
   { key: "valor_cif", header: "valor_cif", required: false, hint: "USD" },
+  {
+    key: "tasa_cambio_bcv",
+    header: "tasa_cambio_bcv",
+    required: false,
+    hint: "Bs/USD",
+  },
+  {
+    key: "numero_expediente_seniat",
+    header: "numero_expediente_seniat",
+    required: false,
+    hint: "Expediente SENIAT",
+  },
+  { key: "numero_dav", header: "numero_dav", required: false, hint: "Nº DAV" },
+  {
+    key: "numero_certificado_origen",
+    header: "numero_certificado_origen",
+    required: false,
+    hint: "",
+  },
+  {
+    key: "numero_lista_empaque",
+    header: "numero_lista_empaque",
+    required: false,
+    hint: "",
+  },
+  {
+    key: "numero_poliza_transporte",
+    header: "numero_poliza_transporte",
+    required: false,
+    hint: "",
+  },
   {
     key: "observaciones",
     header: "observaciones",
@@ -78,19 +139,30 @@ export type CargaMasivaRow = {
   color: string;
   anio: string;
   serialMotor: string;
+  vin: string;
   serialCarroceria: string;
   kilometraje: string;
   condicion: string;
   esSubasta: string;
+  partidaArancelaria: string;
+  cilindradaCc: string;
+  tipoCombustible: string;
   fechaLlegadaBuque: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
   importadorEmail: string;
+  importadorDireccion: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
+  tasaCambioBcv: string;
+  numeroExpedienteSeniat: string;
+  numeroDav: string;
+  numeroCertificadoOrigen: string;
+  numeroListaEmpaque: string;
+  numeroPolizaTransporte: string;
   observaciones: string;
   /** Origen: archivo o OCR. */
   fuente?: string;
@@ -110,10 +182,10 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   serialmotor: "serial_motor",
   "serial motor": "serial_motor",
   engine: "serial_motor",
+  vin: "vin",
   serial_carroceria: "serial_carroceria",
   serialcarroceria: "serial_carroceria",
   "serial carroceria": "serial_carroceria",
-  vin: "serial_carroceria",
   chasis: "serial_carroceria",
   kilometraje: "kilometraje",
   km: "kilometraje",
@@ -125,6 +197,15 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   essubasta: "es_subasta",
   subasta: "es_subasta",
   auction: "es_subasta",
+  partida_arancelaria: "partida_arancelaria",
+  partida: "partida_arancelaria",
+  arancel: "partida_arancelaria",
+  cilindrada_cc: "cilindrada_cc",
+  cilindrada: "cilindrada_cc",
+  cc: "cilindrada_cc",
+  tipo_combustible: "tipo_combustible",
+  combustible: "tipo_combustible",
+  fuel: "tipo_combustible",
   fecha_llegada_buque: "fecha_llegada_buque",
   fechallegadabuque: "fecha_llegada_buque",
   "fecha llegada buque": "fecha_llegada_buque",
@@ -140,6 +221,9 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   telefono: "importador_telefono",
   importador_email: "importador_email",
   email: "importador_email",
+  importador_direccion: "importador_direccion",
+  direccion_fiscal: "importador_direccion",
+  direccion: "importador_direccion",
   aduana: "aduana",
   puerto: "aduana",
   numero_bl: "numero_bl",
@@ -153,6 +237,19 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   valor_cif: "valor_cif",
   valorcif: "valor_cif",
   cif: "valor_cif",
+  tasa_cambio_bcv: "tasa_cambio_bcv",
+  tasa_bcv: "tasa_cambio_bcv",
+  bcv: "tasa_cambio_bcv",
+  numero_expediente_seniat: "numero_expediente_seniat",
+  expediente_seniat: "numero_expediente_seniat",
+  numero_dav: "numero_dav",
+  dav: "numero_dav",
+  numero_certificado_origen: "numero_certificado_origen",
+  certificado_origen: "numero_certificado_origen",
+  numero_lista_empaque: "numero_lista_empaque",
+  lista_empaque: "numero_lista_empaque",
+  numero_poliza_transporte: "numero_poliza_transporte",
+  poliza_transporte: "numero_poliza_transporte",
   observaciones: "observaciones",
   notas: "observaciones",
 };
@@ -169,19 +266,30 @@ export function emptyCargaMasivaRow(
     color: "",
     anio: "",
     serialMotor: "",
+    vin: "",
     serialCarroceria: "",
     kilometraje: "0",
     condicion: "nuevo",
     esSubasta: "",
+    partidaArancelaria: "",
+    cilindradaCc: "",
+    tipoCombustible: "",
     fechaLlegadaBuque: "",
     importadorNombre: "",
     importadorDocumento: "",
     importadorTelefono: "",
     importadorEmail: "",
+    importadorDireccion: "",
     aduana: "",
     numeroBl: "",
     paisOrigen: "",
     valorCif: "",
+    tasaCambioBcv: "",
+    numeroExpedienteSeniat: "",
+    numeroDav: "",
+    numeroCertificadoOrigen: "",
+    numeroListaEmpaque: "",
+    numeroPolizaTransporte: "",
     observaciones: "",
     fuente: partial?.fuente,
     error: null,
@@ -223,18 +331,29 @@ export function buildCargaMasivaCsvTemplate(): string {
     "2024",
     "ENG123456",
     "JTDBR32E720123456",
+    "JTDBR32E720123456",
     "0",
     "nuevo",
     "",
+    "8703.23.91",
+    "1800",
+    "gasolina",
     "2026-09-15",
     "Importadora Ejemplo CA",
     "J-12345678-9",
     "04141234567",
     "contacto@ejemplo.com",
+    "Av. Principal, Caracas",
     "Guanta",
     "BL-ABC-001",
     "Japon",
     "18500",
+    "36.50",
+    "",
+    "",
+    "",
+    "",
+    "",
     "Ejemplo de fila — borrar o editar",
   ];
   const blank = CARGA_MASIVA_COLUMNS.map(() => "");
@@ -251,25 +370,38 @@ export function rowFromSpreadsheetRecord(
   fuente?: string
 ): CargaMasivaRow {
   const get = (key: CargaMasivaColumnKey) => (record[key] ?? "").trim();
+  const serialCarroceria = get("serial_carroceria");
+  const vin = get("vin") || serialCarroceria;
   return emptyCargaMasivaRow({
     marca: get("marca"),
     modelo: get("modelo"),
     color: get("color"),
     anio: get("anio"),
     serialMotor: get("serial_motor"),
-    serialCarroceria: get("serial_carroceria"),
+    vin,
+    serialCarroceria: serialCarroceria || vin,
     kilometraje: get("kilometraje") || "0",
     condicion: get("condicion").toLowerCase() || "nuevo",
     esSubasta: normalizeSiNo(get("es_subasta")),
+    partidaArancelaria: get("partida_arancelaria"),
+    cilindradaCc: get("cilindrada_cc"),
+    tipoCombustible: get("tipo_combustible").toLowerCase(),
     fechaLlegadaBuque: normalizeFecha(get("fecha_llegada_buque")),
     importadorNombre: get("importador_nombre"),
     importadorDocumento: get("importador_documento"),
     importadorTelefono: get("importador_telefono"),
     importadorEmail: get("importador_email"),
+    importadorDireccion: get("importador_direccion"),
     aduana: get("aduana"),
     numeroBl: get("numero_bl"),
     paisOrigen: get("pais_origen"),
     valorCif: get("valor_cif"),
+    tasaCambioBcv: get("tasa_cambio_bcv"),
+    numeroExpedienteSeniat: get("numero_expediente_seniat"),
+    numeroDav: get("numero_dav"),
+    numeroCertificadoOrigen: get("numero_certificado_origen"),
+    numeroListaEmpaque: get("numero_lista_empaque"),
+    numeroPolizaTransporte: get("numero_poliza_transporte"),
     observaciones: get("observaciones"),
     fuente,
   });
@@ -328,25 +460,39 @@ export function cargaMasivaRowToAltaInput(
           : null
       : false;
 
+  const vin = row.vin.trim() || row.serialCarroceria.trim();
+  const serialCarroceria = row.serialCarroceria.trim() || vin;
+
   const parsed = puertoLibreAltaSchema.safeParse({
     marca: row.marca,
     modelo: row.modelo,
     color: row.color,
     anio: row.anio ? Number(row.anio) : undefined,
     serialMotor: row.serialMotor,
-    serialCarroceria: row.serialCarroceria,
+    vin,
+    serialCarroceria,
     kilometraje: row.kilometraje !== "" ? Number(row.kilometraje) : undefined,
     condicion,
     esSubasta,
+    partidaArancelaria: row.partidaArancelaria,
+    cilindradaCc: row.cilindradaCc,
+    tipoCombustible: row.tipoCombustible || null,
     fechaLlegadaBuque: row.fechaLlegadaBuque,
     importadorNombre: row.importadorNombre,
     importadorDocumento: row.importadorDocumento,
     importadorTelefono: row.importadorTelefono,
     importadorEmail: row.importadorEmail,
+    importadorDireccion: row.importadorDireccion,
     aduana: row.aduana,
     numeroBl: row.numeroBl,
     paisOrigen: row.paisOrigen,
     valorCif: row.valorCif,
+    tasaCambioBcv: row.tasaCambioBcv,
+    numeroExpedienteSeniat: row.numeroExpedienteSeniat,
+    numeroDav: row.numeroDav,
+    numeroCertificadoOrigen: row.numeroCertificadoOrigen,
+    numeroListaEmpaque: row.numeroListaEmpaque,
+    numeroPolizaTransporte: row.numeroPolizaTransporte,
     observaciones: row.observaciones,
   });
 

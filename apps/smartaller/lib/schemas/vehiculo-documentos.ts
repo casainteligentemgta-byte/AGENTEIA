@@ -14,6 +14,9 @@ export const DOCUMENTO_TIPOS = [
   "factura_comercial",
   "bl_guia",
   "certificado_origen",
+  "lista_empaque",
+  "dav",
+  "poliza_transporte",
   "permiso_importacion",
   "nacionalizacion",
   "documento_importacion",
@@ -55,6 +58,9 @@ export const vehiculosDocumentosSchema = z.object({
   factura_comercial: vehiculoDocumentoRefSchema.optional(),
   bl_guia: vehiculoDocumentoRefSchema.optional(),
   certificado_origen: vehiculoDocumentoRefSchema.optional(),
+  lista_empaque: vehiculoDocumentoRefSchema.optional(),
+  dav: vehiculoDocumentoRefSchema.optional(),
+  poliza_transporte: vehiculoDocumentoRefSchema.optional(),
   permiso_importacion: vehiculoDocumentoRefSchema.optional(),
   nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   documento_importacion: vehiculoDocumentoRefSchema.optional(),
@@ -100,12 +106,15 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   factura_comercial: "Factura comercial / contrato",
   bl_guia: "BL / conocimiento de embarque",
   certificado_origen: "Certificado de origen",
+  lista_empaque: "Lista de empaque",
+  dav: "Declaración Andina de Valor (DAV)",
+  poliza_transporte: "Póliza de seguro de transporte",
   permiso_importacion: "Permiso de importación",
   nacionalizacion: "Liquidación aduanera (CVA / DUA)",
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
-  poliza_seguro: "Póliza de seguro",
+  poliza_seguro: "Póliza de seguro del vehículo",
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
   rcv_seguro: "Póliza RCV / responsabilidad civil",
@@ -133,12 +142,15 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
 
 /**
  * Documentos de embarque (fase 1A): se obtienen antes de la llegada física.
- * Factura, certificado de origen y BL.
+ * Factura, certificado de origen, BL, lista de empaque, DAV y póliza de transporte.
  */
 export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "certificado_origen",
   "bl_guia",
+  "lista_empaque",
+  "dav",
+  "poliza_transporte",
 ];
 
 /**
@@ -157,6 +169,9 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "bl_guia",
   "certificado_origen",
+  "lista_empaque",
+  "dav",
+  "poliza_transporte",
   "permiso_importacion",
   "documento_importacion",
   "manual_vehiculo",
@@ -301,6 +316,14 @@ export const importacionSchema = z.object({
   numeroBl: z.string().trim().max(80).optional().nullable(),
   paisOrigen: z.string().trim().max(80).optional().nullable(),
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** Tasa BCV del día de la declaración (Bs por USD). */
+  tasaCambioBcv: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** Nº de expediente asignado por SENIAT (distinto del PL interno). */
+  numeroExpedienteSeniat: z.string().trim().max(64).optional().nullable(),
+  numeroDav: z.string().trim().max(80).optional().nullable(),
+  numeroCertificadoOrigen: z.string().trim().max(80).optional().nullable(),
+  numeroListaEmpaque: z.string().trim().max(80).optional().nullable(),
+  numeroPolizaTransporte: z.string().trim().max(80).optional().nullable(),
   agenteAduanal: z.string().trim().max(120).optional().nullable(),
   observaciones: z.string().trim().max(1000).optional().nullable(),
   estadoNacionalizacion: z.enum(ESTADOS_NACIONALIZACION).optional().nullable(),
@@ -320,10 +343,23 @@ export const importacionSchema = z.object({
   condicionVehiculo: z.enum(["nuevo", "usado"]).optional().nullable(),
   /** Si es usado: proviene de subasta. */
   esSubasta: z.boolean().optional().nullable(),
+  /** VIN internacional (puede diferir del serial de carrocería). */
+  vin: z.string().trim().max(32).optional().nullable(),
+  /** Partida / código arancelario. */
+  partidaArancelaria: z.string().trim().max(32).optional().nullable(),
+  /** Cilindrada del motor en cc. */
+  cilindradaCc: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** Tipo de combustible del vehículo. */
+  tipoCombustible: z
+    .enum(["gasolina", "diesel", "electrico", "hibrido", "gnv", "otro"])
+    .optional()
+    .nullable(),
   importadorNombre: z.string().trim().max(120).optional().nullable(),
   importadorDocumento: z.string().trim().max(40).optional().nullable(),
   importadorTelefono: z.string().trim().max(40).optional().nullable(),
   importadorEmail: z.string().trim().max(120).optional().nullable(),
+  /** Dirección fiscal del importador (SENIAT). */
+  importadorDireccion: z.string().trim().max(240).optional().nullable(),
   /**
    * 1 = datos (pendiente 1A embarque),
    * 2 = llegada, 3 = aduana / retiro, 4 = propietario, 5 = seguro,
@@ -397,6 +433,20 @@ export function parseImportacion(raw: unknown): ImportacionData {
         : typeof row.valor_cif === "number"
           ? row.valor_cif
           : row.valorCif ?? row.valor_cif,
+    tasaCambioBcv:
+      typeof row.tasaCambioBcv === "number"
+        ? row.tasaCambioBcv
+        : typeof row.tasa_cambio_bcv === "number"
+          ? row.tasa_cambio_bcv
+          : row.tasaCambioBcv ?? row.tasa_cambio_bcv,
+    numeroExpedienteSeniat:
+      row.numeroExpedienteSeniat ?? row.numero_expediente_seniat,
+    numeroDav: row.numeroDav ?? row.numero_dav,
+    numeroCertificadoOrigen:
+      row.numeroCertificadoOrigen ?? row.numero_certificado_origen,
+    numeroListaEmpaque: row.numeroListaEmpaque ?? row.numero_lista_empaque,
+    numeroPolizaTransporte:
+      row.numeroPolizaTransporte ?? row.numero_poliza_transporte,
     agenteAduanal: row.agenteAduanal ?? row.agente_aduanal,
     observaciones: row.observaciones,
     estadoNacionalizacion: asOptionalEnum(
@@ -430,10 +480,23 @@ export function parseImportacion(raw: unknown): ImportacionData {
       if (raw === "false" || raw === 0 || raw === "0") return false;
       return null;
     })(),
+    vin: row.vin,
+    partidaArancelaria: row.partidaArancelaria ?? row.partida_arancelaria,
+    cilindradaCc:
+      typeof row.cilindradaCc === "number"
+        ? row.cilindradaCc
+        : typeof row.cilindrada_cc === "number"
+          ? row.cilindrada_cc
+          : row.cilindradaCc ?? row.cilindrada_cc,
+    tipoCombustible: asOptionalEnum(
+      row.tipoCombustible ?? row.tipo_combustible,
+      ["gasolina", "diesel", "electrico", "hibrido", "gnv", "otro"] as const
+    ),
     importadorNombre: row.importadorNombre ?? row.importador_nombre,
     importadorDocumento: row.importadorDocumento ?? row.importador_documento,
     importadorTelefono: row.importadorTelefono ?? row.importador_telefono,
     importadorEmail: row.importadorEmail ?? row.importador_email,
+    importadorDireccion: row.importadorDireccion ?? row.importador_direccion,
     planillaFase: asOptionalAnio(row.planillaFase ?? row.planilla_fase),
     matriculacionPaso: asOptionalAnio(
       row.matriculacionPaso ?? row.matriculacion_paso
@@ -477,6 +540,15 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     pais_origen: data.paisOrigen?.trim() || null,
     valor_cif:
       data.valorCif != null && !Number.isNaN(data.valorCif) ? data.valorCif : null,
+    tasa_cambio_bcv:
+      data.tasaCambioBcv != null && !Number.isNaN(data.tasaCambioBcv)
+        ? data.tasaCambioBcv
+        : null,
+    numero_expediente_seniat: data.numeroExpedienteSeniat?.trim() || null,
+    numero_dav: data.numeroDav?.trim() || null,
+    numero_certificado_origen: data.numeroCertificadoOrigen?.trim() || null,
+    numero_lista_empaque: data.numeroListaEmpaque?.trim() || null,
+    numero_poliza_transporte: data.numeroPolizaTransporte?.trim() || null,
     agente_aduanal: data.agenteAduanal?.trim() || null,
     observaciones: data.observaciones?.trim() || null,
     estado_nacionalizacion: data.estadoNacionalizacion || null,
@@ -498,10 +570,18 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
           : typeof data.esSubasta === "boolean"
             ? data.esSubasta
             : null,
+    vin: data.vin?.trim() || null,
+    partida_arancelaria: data.partidaArancelaria?.trim() || null,
+    cilindrada_cc:
+      data.cilindradaCc != null && !Number.isNaN(data.cilindradaCc)
+        ? data.cilindradaCc
+        : null,
+    tipo_combustible: data.tipoCombustible || null,
     importador_nombre: data.importadorNombre?.trim() || null,
     importador_documento: data.importadorDocumento?.trim() || null,
     importador_telefono: data.importadorTelefono?.trim() || null,
     importador_email: data.importadorEmail?.trim() || null,
+    importador_direccion: data.importadorDireccion?.trim() || null,
     planilla_fase:
       data.planillaFase != null && !Number.isNaN(data.planillaFase)
         ? data.planillaFase

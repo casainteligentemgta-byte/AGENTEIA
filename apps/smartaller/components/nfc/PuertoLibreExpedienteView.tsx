@@ -133,8 +133,26 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
           <Dato label="Color" value={ficha.color} />
           <Dato label="Año" value={imp.anio} />
           <Dato label="Serial motor" value={ficha.serial_motor} mono />
+          <Dato label="VIN" value={imp.vin} mono />
           <Dato label="Serial carrocería" value={ficha.serial_carroceria} mono />
           <Dato label="Kilometraje" value={ficha.kilometraje_ultimo} />
+          <Dato label="Partida arancelaria" value={imp.partidaArancelaria} mono />
+          <Dato label="Cilindrada (cc)" value={imp.cilindradaCc} />
+          <Dato
+            label="Combustible"
+            value={
+              imp.tipoCombustible
+                ? ({
+                    gasolina: "Gasolina",
+                    diesel: "Diésel",
+                    electrico: "Eléctrico",
+                    hibrido: "Híbrido",
+                    gnv: "GNV / gas",
+                    otro: "Otro",
+                  } as const)[imp.tipoCombustible]
+                : null
+            }
+          />
           <Dato
             label="Condición"
             value={
@@ -170,11 +188,12 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
         <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Nombre" value={imp.importadorNombre ?? ficha.nombre_cliente} />
           <Dato
-            label="Documento"
+            label="RIF"
             value={imp.importadorDocumento ?? ficha.cedula_propietario}
           />
           <Dato label="Teléfono" value={imp.importadorTelefono ?? ficha.telefono_cliente} />
           <Dato label="Email" value={imp.importadorEmail ?? ficha.email_propietario} />
+          <Dato label="Dirección fiscal" value={imp.importadorDireccion} wide />
         </dl>
       </section>
 
@@ -201,6 +220,20 @@ export function PuertoLibreExpedienteView({ ficha }: Props) {
           <Dato label="Nº BL / Guía" value={imp.numeroBl} />
           <Dato label="País origen" value={imp.paisOrigen} />
           <Dato label="Valor CIF" value={imp.valorCif} />
+          <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
+          <Dato label="Nº expediente SENIAT" value={imp.numeroExpedienteSeniat} mono />
+          <Dato label="Nº DAV" value={imp.numeroDav} mono />
+          <Dato
+            label="Nº certificado origen"
+            value={imp.numeroCertificadoOrigen}
+            mono
+          />
+          <Dato label="Nº lista empaque" value={imp.numeroListaEmpaque} mono />
+          <Dato
+            label="Nº póliza transporte"
+            value={imp.numeroPolizaTransporte}
+            mono
+          />
           <Dato
             label="Nacionalización"
             value={

@@ -189,8 +189,11 @@ export function PlanillaRegistroImportacion({
       color?.trim() &&
       initialImportacion.anio &&
       serialMotor?.trim() &&
+      initialImportacion.vin?.trim() &&
       serialCarroceria?.trim() &&
       kilometrajeUltimo != null &&
+      (initialImportacion.condicionVehiculo !== "usado" ||
+        kilometrajeUltimo > 0) &&
       initialImportacion.condicionVehiculo &&
       (initialImportacion.condicionVehiculo === "nuevo" ||
         typeof initialImportacion.esSubasta === "boolean") &&
@@ -335,6 +338,7 @@ export function PlanillaRegistroImportacion({
             color: color ?? "",
             anio: initialImportacion.anio ?? undefined,
             serialMotor: serialMotor ?? "",
+            vin: initialImportacion.vin ?? serialCarroceria ?? "",
             serialCarroceria: serialCarroceria ?? "",
             kilometraje: kilometrajeUltimo,
             condicion: initialImportacion.condicionVehiculo ?? "",
@@ -344,11 +348,18 @@ export function PlanillaRegistroImportacion({
                 : initialImportacion.esSubasta === false
                   ? "false"
                   : "",
+            partidaArancelaria: initialImportacion.partidaArancelaria ?? "",
+            cilindradaCc:
+              initialImportacion.cilindradaCc != null
+                ? String(initialImportacion.cilindradaCc)
+                : "",
+            tipoCombustible: initialImportacion.tipoCombustible ?? "",
             fechaLlegadaBuque: initialImportacion.fechaLlegadaBuque ?? "",
             importadorNombre: initialImportacion.importadorNombre ?? "",
             importadorDocumento: initialImportacion.importadorDocumento ?? "",
             importadorTelefono: initialImportacion.importadorTelefono ?? "",
             importadorEmail: initialImportacion.importadorEmail ?? "",
+            importadorDireccion: initialImportacion.importadorDireccion ?? "",
             aduana: initialImportacion.aduana ?? "",
             numeroBl: initialImportacion.numeroBl ?? "",
             paisOrigen: initialImportacion.paisOrigen ?? "",
@@ -356,6 +367,18 @@ export function PlanillaRegistroImportacion({
               initialImportacion.valorCif != null
                 ? String(initialImportacion.valorCif)
                 : "",
+            tasaCambioBcv:
+              initialImportacion.tasaCambioBcv != null
+                ? String(initialImportacion.tasaCambioBcv)
+                : "",
+            numeroExpedienteSeniat:
+              initialImportacion.numeroExpedienteSeniat ?? "",
+            numeroDav: initialImportacion.numeroDav ?? "",
+            numeroCertificadoOrigen:
+              initialImportacion.numeroCertificadoOrigen ?? "",
+            numeroListaEmpaque: initialImportacion.numeroListaEmpaque ?? "",
+            numeroPolizaTransporte:
+              initialImportacion.numeroPolizaTransporte ?? "",
             observaciones: initialImportacion.observaciones ?? "",
           }}
           onSave={(payload, after) => {
@@ -685,19 +708,30 @@ type Fase1RegistroPayload = {
   color: string;
   anio: number;
   serialMotor: string;
+  vin: string;
   serialCarroceria: string;
   kilometraje: number;
   condicion: "nuevo" | "usado";
   esSubasta: boolean | null;
+  partidaArancelaria: string;
+  cilindradaCc: string;
+  tipoCombustible: string;
   fechaLlegadaBuque: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
   importadorEmail: string;
+  importadorDireccion: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
+  tasaCambioBcv: string;
+  numeroExpedienteSeniat: string;
+  numeroDav: string;
+  numeroCertificadoOrigen: string;
+  numeroListaEmpaque: string;
+  numeroPolizaTransporte: string;
   observaciones: string;
 };
 
@@ -719,19 +753,30 @@ function Fase1Registro({
     color: string;
     anio?: number | null;
     serialMotor: string;
+    vin: string;
     serialCarroceria: string;
     kilometraje: number | null;
     condicion: string;
     esSubasta: string;
+    partidaArancelaria: string;
+    cilindradaCc: string;
+    tipoCombustible: string;
     fechaLlegadaBuque: string;
     importadorNombre: string;
     importadorDocumento: string;
     importadorTelefono: string;
     importadorEmail: string;
+    importadorDireccion: string;
     aduana: string;
     numeroBl: string;
     paisOrigen: string;
     valorCif: string;
+    tasaCambioBcv: string;
+    numeroExpedienteSeniat: string;
+    numeroDav: string;
+    numeroCertificadoOrigen: string;
+    numeroListaEmpaque: string;
+    numeroPolizaTransporte: string;
     observaciones: string;
   };
   onSave: (payload: Fase1RegistroPayload, after: PlanillaAfterSave) => void;
@@ -742,6 +787,7 @@ function Fase1Registro({
     color: initial.color,
     anio: initial.anio != null ? String(initial.anio) : "",
     serialMotor: initial.serialMotor,
+    vin: initial.vin,
     serialCarroceria: initial.serialCarroceria,
     kilometraje:
       initial.kilometraje != null ? String(initial.kilometraje) : "",
@@ -753,15 +799,33 @@ function Fase1Registro({
       initial.esSubasta === "true" || initial.esSubasta === "false"
         ? initial.esSubasta
         : "",
+    partidaArancelaria: initial.partidaArancelaria,
+    cilindradaCc: initial.cilindradaCc,
+    tipoCombustible:
+      initial.tipoCombustible === "gasolina" ||
+      initial.tipoCombustible === "diesel" ||
+      initial.tipoCombustible === "electrico" ||
+      initial.tipoCombustible === "hibrido" ||
+      initial.tipoCombustible === "gnv" ||
+      initial.tipoCombustible === "otro"
+        ? initial.tipoCombustible
+        : "",
     fechaLlegadaBuque: initial.fechaLlegadaBuque,
     importadorNombre: initial.importadorNombre,
     importadorDocumento: initial.importadorDocumento,
     importadorTelefono: initial.importadorTelefono,
     importadorEmail: initial.importadorEmail,
+    importadorDireccion: initial.importadorDireccion,
     aduana: initial.aduana,
     numeroBl: initial.numeroBl,
     paisOrigen: initial.paisOrigen,
     valorCif: initial.valorCif,
+    tasaCambioBcv: initial.tasaCambioBcv,
+    numeroExpedienteSeniat: initial.numeroExpedienteSeniat,
+    numeroDav: initial.numeroDav,
+    numeroCertificadoOrigen: initial.numeroCertificadoOrigen,
+    numeroListaEmpaque: initial.numeroListaEmpaque,
+    numeroPolizaTransporte: initial.numeroPolizaTransporte,
     observaciones: initial.observaciones,
   };
 
@@ -780,6 +844,7 @@ function Fase1Registro({
             color: values.color,
             anio: values.anio ? Number(values.anio) : Number.NaN,
             serialMotor: values.serialMotor,
+            vin: values.vin,
             serialCarroceria: values.serialCarroceria,
             kilometraje: values.kilometraje
               ? Number(values.kilometraje)
@@ -793,15 +858,25 @@ function Fase1Registro({
                     ? false
                     : null
                 : false,
+            partidaArancelaria: values.partidaArancelaria,
+            cilindradaCc: values.cilindradaCc,
+            tipoCombustible: values.tipoCombustible,
             fechaLlegadaBuque: values.fechaLlegadaBuque,
             importadorNombre: values.importadorNombre,
             importadorDocumento: values.importadorDocumento,
             importadorTelefono: values.importadorTelefono,
             importadorEmail: values.importadorEmail,
+            importadorDireccion: values.importadorDireccion,
             aduana: values.aduana,
             numeroBl: values.numeroBl,
             paisOrigen: values.paisOrigen,
             valorCif: values.valorCif,
+            tasaCambioBcv: values.tasaCambioBcv,
+            numeroExpedienteSeniat: values.numeroExpedienteSeniat,
+            numeroDav: values.numeroDav,
+            numeroCertificadoOrigen: values.numeroCertificadoOrigen,
+            numeroListaEmpaque: values.numeroListaEmpaque,
+            numeroPolizaTransporte: values.numeroPolizaTransporte,
             observaciones: values.observaciones,
           },
           afterFromFormData(fd)

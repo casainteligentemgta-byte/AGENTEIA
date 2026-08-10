@@ -88,26 +88,39 @@ function scanFieldsToRow(
   fields: PuertoLibreRegistroScanFields,
   fuente: string
 ): CargaMasivaRow {
+  const serial = fields.serialCarroceria ?? "";
+  const vin = fields.vin ?? serial;
   return emptyCargaMasivaRow({
     marca: fields.marca ?? "",
     modelo: fields.modelo ?? "",
     color: fields.color ?? "",
     anio: fields.anio ?? "",
     serialMotor: fields.serialMotor ?? "",
-    serialCarroceria: fields.serialCarroceria ?? "",
+    vin,
+    serialCarroceria: serial || vin,
     kilometraje: fields.kilometraje ?? "0",
     condicion: fields.condicion ?? "nuevo",
     esSubasta:
       fields.esSubasta === "true" ? "si" : fields.esSubasta === "false" ? "no" : "",
+    partidaArancelaria: fields.partidaArancelaria ?? "",
+    cilindradaCc: fields.cilindradaCc ?? "",
+    tipoCombustible: fields.tipoCombustible ?? "",
     fechaLlegadaBuque: fields.fechaLlegadaBuque ?? "",
     importadorNombre: fields.importadorNombre ?? "",
     importadorDocumento: fields.importadorDocumento ?? "",
     importadorTelefono: fields.importadorTelefono ?? "",
     importadorEmail: fields.importadorEmail ?? "",
+    importadorDireccion: fields.importadorDireccion ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
     paisOrigen: fields.paisOrigen ?? "",
     valorCif: fields.valorCif ?? "",
+    tasaCambioBcv: fields.tasaCambioBcv ?? "",
+    numeroExpedienteSeniat: fields.numeroExpedienteSeniat ?? "",
+    numeroDav: fields.numeroDav ?? "",
+    numeroCertificadoOrigen: fields.numeroCertificadoOrigen ?? "",
+    numeroListaEmpaque: fields.numeroListaEmpaque ?? "",
+    numeroPolizaTransporte: fields.numeroPolizaTransporte ?? "",
     observaciones: fields.observaciones ?? "",
     fuente,
   });
@@ -133,13 +146,21 @@ function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[]
     }
     const prev = bySerial.get(serial);
     if (!prev) {
-      bySerial.set(serial, { ...row, serialCarroceria: serial });
+      bySerial.set(serial, {
+        ...row,
+        serialCarroceria: serial,
+        vin: row.vin.trim() || serial,
+      });
       continue;
     }
     const preferRow = filledRowScore(row) >= filledRowScore(prev);
     const primary = preferRow ? row : prev;
     const secondary = preferRow ? prev : row;
-    const merged: CargaMasivaRow = { ...primary, serialCarroceria: serial };
+    const merged: CargaMasivaRow = {
+      ...primary,
+      serialCarroceria: serial,
+      vin: primary.vin.trim() || secondary.vin.trim() || serial,
+    };
     for (const key of Object.keys(merged) as (keyof CargaMasivaRow)[]) {
       if (key === "id" || key === "error" || key === "fuente") continue;
       const cur = merged[key];
@@ -484,6 +505,7 @@ export async function createPuertoLibreCargaMasivaAction(
           importadorDocumento: lastRow.importadorDocumento,
           importadorTelefono: lastRow.importadorTelefono,
           importadorEmail: lastRow.importadorEmail,
+          importadorDireccion: lastRow.importadorDireccion,
         })
       : null;
     if (fromRow) {
@@ -526,15 +548,26 @@ async function insertOneVehiculo(params: {
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
+    vin: data.vin || null,
+    partidaArancelaria: data.partidaArancelaria || null,
+    cilindradaCc: data.cilindradaCc,
+    tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
     importadorNombre: data.importadorNombre,
     importadorDocumento: data.importadorDocumento || null,
     importadorTelefono: data.importadorTelefono || null,
     importadorEmail: data.importadorEmail || null,
+    importadorDireccion: data.importadorDireccion || null,
     aduana: data.aduana || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
+    tasaCambioBcv: data.tasaCambioBcv,
+    numeroExpedienteSeniat: data.numeroExpedienteSeniat || null,
+    numeroDav: data.numeroDav || null,
+    numeroCertificadoOrigen: data.numeroCertificadoOrigen || null,
+    numeroListaEmpaque: data.numeroListaEmpaque || null,
+    numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
     estadoNacionalizacion: "pendiente",
     estadoSeniat: "pendiente",

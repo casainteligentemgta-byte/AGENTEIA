@@ -6,6 +6,7 @@ export type UltimoImportador = {
   importadorDocumento: string;
   importadorTelefono: string;
   importadorEmail: string;
+  importadorDireccion: string;
 };
 
 export type TallerPreferencias = {
@@ -34,6 +35,9 @@ export function parseUltimoImportador(raw: unknown): UltimoImportador | null {
     importadorEmail: asString(
       o.importadorEmail ?? o.importador_email ?? o.email
     ),
+    importadorDireccion: asString(
+      o.importadorDireccion ?? o.importador_direccion ?? o.direccion
+    ),
   };
 }
 
@@ -50,6 +54,7 @@ export function ultimoImportadorFromAlta(data: {
   importadorDocumento?: string | null;
   importadorTelefono?: string | null;
   importadorEmail?: string | null;
+  importadorDireccion?: string | null;
 }): UltimoImportador | null {
   const importadorNombre = data.importadorNombre?.trim() ?? "";
   if (!importadorNombre) return null;
@@ -58,6 +63,7 @@ export function ultimoImportadorFromAlta(data: {
     importadorDocumento: data.importadorDocumento?.trim() ?? "",
     importadorTelefono: data.importadorTelefono?.trim() ?? "",
     importadorEmail: data.importadorEmail?.trim() ?? "",
+    importadorDireccion: data.importadorDireccion?.trim() ?? "",
   };
 }
 
@@ -102,6 +108,7 @@ export async function getUltimoImportadorTaller(
       importadorDocumento: imp.importadorDocumento?.trim() ?? "",
       importadorTelefono: imp.importadorTelefono?.trim() ?? "",
       importadorEmail: imp.importadorEmail?.trim() ?? "",
+      importadorDireccion: imp.importadorDireccion?.trim() ?? "",
     };
   }
 
@@ -156,6 +163,7 @@ export function applyImportadorDefaults<
     importadorDocumento?: string;
     importadorTelefono?: string;
     importadorEmail?: string;
+    importadorDireccion?: string;
   },
 >(row: T, defaults: UltimoImportador | null): T {
   if (!defaults) return row;
@@ -173,5 +181,8 @@ export function applyImportadorDefaults<
     importadorEmail: row.importadorEmail?.trim()
       ? row.importadorEmail
       : defaults.importadorEmail,
+    importadorDireccion: row.importadorDireccion?.trim()
+      ? row.importadorDireccion
+      : defaults.importadorDireccion,
   };
 }

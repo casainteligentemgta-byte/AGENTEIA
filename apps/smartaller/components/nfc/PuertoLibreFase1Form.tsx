@@ -14,7 +14,13 @@ import {
   resolveAduanaVenezuela,
 } from "@/lib/importacion/aduanas-venezuela";
 import { PAISES, resolvePais } from "@/lib/importacion/paises";
+import {
+  TIPOS_COMBUSTIBLE,
+  TIPO_COMBUSTIBLE_LABELS,
+  type TipoCombustible,
+} from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
 
@@ -24,19 +30,30 @@ export type PuertoLibreFase1FormValues = {
   color: string;
   anio: string;
   serialMotor: string;
+  vin: string;
   serialCarroceria: string;
   kilometraje: string;
   condicion: "nuevo" | "usado" | "";
   esSubasta: "true" | "false" | "";
+  partidaArancelaria: string;
+  cilindradaCc: string;
+  tipoCombustible: TipoCombustible | "";
   fechaLlegadaBuque: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
   importadorEmail: string;
+  importadorDireccion: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
+  tasaCambioBcv: string;
+  numeroExpedienteSeniat: string;
+  numeroDav: string;
+  numeroCertificadoOrigen: string;
+  numeroListaEmpaque: string;
+  numeroPolizaTransporte: string;
   observaciones: string;
 };
 
@@ -46,19 +63,30 @@ export const emptyPuertoLibreFase1Values = (): PuertoLibreFase1FormValues => ({
   color: "",
   anio: "",
   serialMotor: "",
+  vin: "",
   serialCarroceria: "",
   kilometraje: "",
   condicion: "",
   esSubasta: "",
+  partidaArancelaria: "",
+  cilindradaCc: "",
+  tipoCombustible: "",
   fechaLlegadaBuque: "",
   importadorNombre: "",
   importadorDocumento: "",
   importadorTelefono: "",
   importadorEmail: "",
+  importadorDireccion: "",
   aduana: "",
   numeroBl: "",
   paisOrigen: "",
   valorCif: "",
+  tasaCambioBcv: "",
+  numeroExpedienteSeniat: "",
+  numeroDav: "",
+  numeroCertificadoOrigen: "",
+  numeroListaEmpaque: "",
+  numeroPolizaTransporte: "",
   observaciones: "",
 });
 
@@ -82,19 +110,37 @@ function mergeScanFields(
   assign("color", patch.color);
   assign("anio", patch.anio);
   assign("serialMotor", patch.serialMotor);
+  assign("vin", patch.vin);
   assign("serialCarroceria", patch.serialCarroceria);
+  // Si OCR trae VIN pero no serial carrocería, prellenar serial (el usuario puede editar).
+  if (patch.vin && !next.serialCarroceria.trim()) {
+    next.serialCarroceria = patch.vin;
+  }
+  if (patch.serialCarroceria && !next.vin.trim()) {
+    next.vin = patch.serialCarroceria;
+  }
   assign("kilometraje", patch.kilometraje);
   if (patch.condicion) next.condicion = patch.condicion;
   if (patch.esSubasta) next.esSubasta = patch.esSubasta;
+  assign("partidaArancelaria", patch.partidaArancelaria);
+  assign("cilindradaCc", patch.cilindradaCc);
+  if (patch.tipoCombustible) next.tipoCombustible = patch.tipoCombustible;
   assign("fechaLlegadaBuque", patch.fechaLlegadaBuque);
   assign("importadorNombre", patch.importadorNombre);
   assign("importadorDocumento", patch.importadorDocumento);
   assign("importadorTelefono", patch.importadorTelefono);
   assign("importadorEmail", patch.importadorEmail);
+  assign("importadorDireccion", patch.importadorDireccion);
   assign("aduana", resolveAduanaVenezuela(patch.aduana) || undefined);
   assign("numeroBl", patch.numeroBl);
   assign("paisOrigen", resolvePais(patch.paisOrigen) || undefined);
   assign("valorCif", patch.valorCif);
+  assign("tasaCambioBcv", patch.tasaCambioBcv);
+  assign("numeroExpedienteSeniat", patch.numeroExpedienteSeniat);
+  assign("numeroDav", patch.numeroDav);
+  assign("numeroCertificadoOrigen", patch.numeroCertificadoOrigen);
+  assign("numeroListaEmpaque", patch.numeroListaEmpaque);
+  assign("numeroPolizaTransporte", patch.numeroPolizaTransporte);
   assign("observaciones", patch.observaciones);
   return next;
 }
@@ -141,6 +187,8 @@ export function PuertoLibreFase1Form({
   const [scanFiles, setScanFiles] = useState<PuertoLibreScanFiles>({});
   const [catalogKey, setCatalogKey] = useState(0);
   const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
+  const kmMin = values.condicion === "usado" ? 1 : 0;
+  const kmPlaceholder = values.condicion === "usado" ? "Ej. 45000" : "0";
 
   const sectionClass =
     variant === "planilla"
@@ -191,6 +239,9 @@ export function PuertoLibreFase1Form({
             | "true"
             | "false"
             | "",
+          tipoCombustible: String(
+            fd.get("tipoCombustible") ?? values.tipoCombustible
+          ) as TipoCombustible | "",
           fechaLlegadaBuque:
             values.fechaLlegadaBuque ||
             String(fd.get("fechaLlegadaBuque") ?? ""),
@@ -203,6 +254,10 @@ export function PuertoLibreFase1Form({
         existingUrls={{
           factura_comercial: existingDocumentos?.factura_comercial?.url,
           bl_guia: existingDocumentos?.bl_guia?.url,
+          certificado_origen: existingDocumentos?.certificado_origen?.url,
+          lista_empaque: existingDocumentos?.lista_empaque?.url,
+          dav: existingDocumentos?.dav?.url,
+          poliza_transporte: existingDocumentos?.poliza_transporte?.url,
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
@@ -231,23 +286,75 @@ export function PuertoLibreFase1Form({
             onChange={(v) => setField("serialMotor", v)}
           />
           <ControlledField
+            label="VIN *"
+            name="vin"
+            required
+            mono
+            upper
+            placeholder="VIN internacional (17 caracteres)"
+            hint="Puede diferir del serial de carrocería en SENIAT."
+            value={values.vin}
+            onChange={(v) => setField("vin", v)}
+          />
+          <ControlledField
             label="Serial carrocería *"
             name="serialCarroceria"
             required
             mono
             upper
+            placeholder="Serial de carrocería / chasis"
+            hint="Dato SENIAT; a veces distinto del VIN."
             value={values.serialCarroceria}
             onChange={(v) => setField("serialCarroceria", v)}
           />
           <ControlledField
-            label="Kilometraje *"
+            label={
+              values.condicion === "usado"
+                ? "Kilometraje * (obligatorio > 0)"
+                : "Kilometraje *"
+            }
             name="kilometraje"
             type="number"
             required
-            min={0}
-            placeholder="0"
+            min={kmMin}
+            placeholder={kmPlaceholder}
+            hint={
+              values.condicion === "usado"
+                ? "En usados no puede ser 0."
+                : "En nuevos suele ser 0."
+            }
             value={values.kilometraje}
             onChange={(v) => setField("kilometraje", v)}
+          />
+          <ControlledField
+            label="Partida arancelaria"
+            name="partidaArancelaria"
+            placeholder="Ej. 8703.23.91"
+            mono
+            value={values.partidaArancelaria}
+            onChange={(v) => setField("partidaArancelaria", v)}
+          />
+          <ControlledField
+            label="Cilindrada (cc)"
+            name="cilindradaCc"
+            type="number"
+            min={0}
+            placeholder="Ej. 2000"
+            value={values.cilindradaCc}
+            onChange={(v) => setField("cilindradaCc", v)}
+          />
+          <ControlledSelect
+            label="Tipo de combustible"
+            name="tipoCombustible"
+            placeholder="Selecciona combustible"
+            value={values.tipoCombustible}
+            options={TIPOS_COMBUSTIBLE.map((t) => ({
+              value: t,
+              label: TIPO_COMBUSTIBLE_LABELS[t],
+            }))}
+            onChange={(v) =>
+              setField("tipoCombustible", v as TipoCombustible | "")
+            }
           />
 
           <fieldset className="min-w-0 space-y-2 sm:col-span-2">
@@ -277,7 +384,15 @@ export function PuertoLibreFase1Form({
                       checked={selected}
                       onChange={() => {
                         setField("condicion", op.value);
-                        if (op.value === "nuevo") setField("esSubasta", "");
+                        if (op.value === "nuevo") {
+                          setField("esSubasta", "");
+                          if (!values.kilometraje.trim()) setField("kilometraje", "0");
+                        } else if (
+                          values.kilometraje.trim() === "" ||
+                          values.kilometraje.trim() === "0"
+                        ) {
+                          setField("kilometraje", "");
+                        }
                       }}
                       className="sr-only"
                     />
@@ -355,6 +470,10 @@ export function PuertoLibreFase1Form({
           <ControlledField
             label="RIF"
             name="importadorDocumento"
+            placeholder={RIF_PLACEHOLDER}
+            hint={RIF_FORMAT_HINT}
+            upper
+            mono
             value={values.importadorDocumento}
             onChange={(v) => setField("importadorDocumento", v)}
           />
@@ -368,10 +487,20 @@ export function PuertoLibreFase1Form({
             label="Email"
             name="importadorEmail"
             type="email"
-            wide
             value={values.importadorEmail}
             onChange={(v) => setField("importadorEmail", v)}
           />
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Dirección fiscal</span>
+            <textarea
+              name="importadorDireccion"
+              rows={2}
+              value={values.importadorDireccion}
+              onChange={(e) => setField("importadorDireccion", e.target.value)}
+              placeholder="Dirección fiscal del importador (SENIAT)"
+              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            />
+          </label>
         </div>
       </section>
 
@@ -427,6 +556,59 @@ export function PuertoLibreFase1Form({
             value={values.valorCif}
             onChange={(v) => setField("valorCif", v)}
           />
+          <ControlledField
+            label="Tasa BCV (Bs/USD)"
+            name="tasaCambioBcv"
+            type="number"
+            placeholder="Ej. 36.50"
+            min={0}
+            hint="Tasa del día de la declaración."
+            value={values.tasaCambioBcv}
+            onChange={(v) => setField("tasaCambioBcv", v)}
+          />
+          <ControlledField
+            label="Nº expediente SENIAT"
+            name="numeroExpedienteSeniat"
+            placeholder="Asignado por SENIAT"
+            mono
+            upper
+            hint="Distinto del código interno PL-…"
+            value={values.numeroExpedienteSeniat}
+            onChange={(v) => setField("numeroExpedienteSeniat", v)}
+          />
+          <ControlledField
+            label="Nº DAV"
+            name="numeroDav"
+            placeholder="Declaración Andina de Valor"
+            mono
+            upper
+            value={values.numeroDav}
+            onChange={(v) => setField("numeroDav", v)}
+          />
+          <ControlledField
+            label="Nº certificado de origen"
+            name="numeroCertificadoOrigen"
+            mono
+            upper
+            value={values.numeroCertificadoOrigen}
+            onChange={(v) => setField("numeroCertificadoOrigen", v)}
+          />
+          <ControlledField
+            label="Nº lista de empaque"
+            name="numeroListaEmpaque"
+            mono
+            upper
+            value={values.numeroListaEmpaque}
+            onChange={(v) => setField("numeroListaEmpaque", v)}
+          />
+          <ControlledField
+            label="Nº póliza de transporte"
+            name="numeroPolizaTransporte"
+            mono
+            upper
+            value={values.numeroPolizaTransporte}
+            onChange={(v) => setField("numeroPolizaTransporte", v)}
+          />
           <label className="block min-w-0 space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Observaciones</span>
             <textarea
@@ -454,6 +636,7 @@ function ControlledField({
   type = "text",
   required,
   placeholder,
+  hint,
   mono,
   upper,
   wide,
@@ -467,6 +650,7 @@ function ControlledField({
   type?: string;
   required?: boolean;
   placeholder?: string;
+  hint?: string;
   mono?: boolean;
   upper?: boolean;
   wide?: boolean;
@@ -492,6 +676,7 @@ function ControlledField({
           mono ? "font-mono uppercase" : ""
         }`}
       />
+      {hint ? <span className="block text-xs text-slate-500">{hint}</span> : null}
     </label>
   );
 }
@@ -510,18 +695,26 @@ function ControlledSelect({
   name: string;
   value: string;
   onChange: (value: string) => void;
-  options: readonly string[];
+  options: readonly string[] | readonly { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
   wide?: boolean;
 }) {
+  const normalized = useMemo(
+    () =>
+      options.map((o) =>
+        typeof o === "string" ? { value: o, label: o } : o
+      ),
+    [options]
+  );
+
   const items = useMemo(() => {
     const trimmed = value.trim();
-    if (trimmed && !options.some((o) => o === trimmed)) {
-      return [trimmed, ...options];
+    if (trimmed && !normalized.some((o) => o.value === trimmed)) {
+      return [{ value: trimmed, label: trimmed }, ...normalized];
     }
-    return options;
-  }, [options, value]);
+    return normalized;
+  }, [normalized, value]);
 
   return (
     <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
@@ -535,8 +728,8 @@ function ControlledSelect({
       >
         <option value="">{placeholder ?? "Selecciona…"}</option>
         {items.map((option) => (
-          <option key={option} value={option}>
-            {option}
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>
