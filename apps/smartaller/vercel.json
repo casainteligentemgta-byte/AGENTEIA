@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/recordatorios",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/alertas-vencimiento",
+      "schedule": "0 13 * * *"
     }
   ]
 }

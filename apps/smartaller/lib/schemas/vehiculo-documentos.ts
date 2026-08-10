@@ -286,6 +286,7 @@ export const ESTADOS_SENIAT = [
   "pendiente",
   "agendada",
   "presentada",
+  "rechazada",
   "no_aplica",
 ] as const;
 
@@ -303,8 +304,19 @@ export const ESTADO_SENIAT_LABELS: Record<EstadoSeniat, string> = {
   pendiente: "Pendiente SENIAT",
   agendada: "Presentación SENIAT agendada",
   presentada: "Presentada en SENIAT",
+  rechazada: "Rechazada por SENIAT",
   no_aplica: "SENIAT no aplica",
 };
+
+export const rechazoSeniatHistorialItemSchema = z.object({
+  motivo: z.string().trim().min(1).max(1000),
+  fecha: z.string().trim().max(40),
+  usuarioId: z.string().uuid().optional().nullable(),
+});
+
+export type RechazoSeniatHistorialItem = z.infer<
+  typeof rechazoSeniatHistorialItemSchema
+>;
 
 export const importacionSchema = z.object({
   regimen: z.string().trim().max(80).optional().nullable(),
@@ -337,6 +349,20 @@ export const importacionSchema = z.object({
   nacionalizacionPaso: z.coerce.number().int().min(1).max(4).optional().nullable(),
   estadoSeniat: z.enum(ESTADOS_SENIAT).optional().nullable(),
   fechaPresentacionSeniat: z.string().trim().max(32).optional().nullable(),
+  /** Motivo del rechazo SENIAT más reciente. */
+  motivoRechazoSeniat: z.string().trim().max(1000).optional().nullable(),
+  /** Fecha ISO del rechazo SENIAT más reciente. */
+  fechaRechazoSeniat: z.string().trim().max(40).optional().nullable(),
+  /** Historial de rechazos (ciclos de corrección). */
+  historialRechazosSeniat: z
+    .array(rechazoSeniatHistorialItemSchema)
+    .max(50)
+    .optional()
+    .nullable(),
+  /** Última alerta email por deadline de nacionalización (ISO). */
+  ultimaAlertaDeadlineEnviada: z.string().trim().max(40).optional().nullable(),
+  /** Última alerta email por vencimiento de seguro (ISO). */
+  ultimaAlertaSeguroEnviada: z.string().trim().max(40).optional().nullable(),
   /** Año del vehículo (modelo). */
   anio: z.coerce.number().int().min(1950).max(2100).optional().nullable(),
   /** Condición al registrar: nuevo o usado. */
@@ -466,6 +492,30 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     fechaPresentacionSeniat:
       row.fechaPresentacionSeniat ?? row.fecha_presentacion_seniat,
+    motivoRechazoSeniat:
+      row.motivoRechazoSeniat ?? row.motivo_rechazo_seniat,
+    fechaRechazoSeniat: row.fechaRechazoSeniat ?? row.fecha_rechazo_seniat,
+    historialRechazosSeniat: (() => {
+      const raw =
+        row.historialRechazosSeniat ?? row.historial_rechazos_seniat;
+      if (!Array.isArray(raw)) return null;
+      const items: RechazoSeniatHistorialItem[] = [];
+      for (const entry of raw) {
+        if (!entry || typeof entry !== "object") continue;
+        const e = entry as Record<string, unknown>;
+        const parsed = rechazoSeniatHistorialItemSchema.safeParse({
+          motivo: e.motivo ?? e.reason,
+          fecha: e.fecha ?? e.date,
+          usuarioId: e.usuarioId ?? e.usuario_id ?? null,
+        });
+        if (parsed.success) items.push(parsed.data);
+      }
+      return items.length > 0 ? items : null;
+    })(),
+    ultimaAlertaDeadlineEnviada:
+      row.ultimaAlertaDeadlineEnviada ?? row.ultima_alerta_deadline_enviada,
+    ultimaAlertaSeguroEnviada:
+      row.ultimaAlertaSeguroEnviada ?? row.ultima_alerta_seguro_enviada,
     anio: asOptionalAnio(row.anio ?? row.anio_vehiculo),
     condicionVehiculo: asOptionalEnum(
       row.condicionVehiculo ?? row.condicion_vehiculo,
@@ -557,6 +607,20 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
         : null,
     estado_seniat: data.estadoSeniat || null,
     fecha_presentacion_seniat: data.fechaPresentacionSeniat?.trim() || null,
+    motivo_rechazo_seniat: data.motivoRechazoSeniat?.trim() || null,
+    fecha_rechazo_seniat: data.fechaRechazoSeniat?.trim() || null,
+    historial_rechazos_seniat:
+      data.historialRechazosSeniat && data.historialRechazosSeniat.length > 0
+        ? data.historialRechazosSeniat.map((h) => ({
+            motivo: h.motivo,
+            fecha: h.fecha,
+            usuario_id: h.usuarioId ?? null,
+          }))
+        : null,
+    ultima_alerta_deadline_enviada:
+      data.ultimaAlertaDeadlineEnviada?.trim() || null,
+    ultima_alerta_seguro_enviada:
+      data.ultimaAlertaSeguroEnviada?.trim() || null,
     anio: data.anio != null && !Number.isNaN(data.anio) ? data.anio : null,
     condicion_vehiculo: data.condicionVehiculo || null,
     es_subasta:
@@ -622,6 +686,11 @@ export function esProximoNacionalizar(data: ImportacionData): boolean {
 export function esProximoSeniat(data: ImportacionData): boolean {
   const estado = data.estadoSeniat ?? "pendiente";
   return estado === "pendiente" || estado === "agendada";
+}
+
+/** Expediente marcado como rechazado por SENIAT (queda en la misma fase). */
+export function esRechazadoSeniat(data: ImportacionData): boolean {
+  return (data.estadoSeniat ?? "pendiente") === "rechazada";
 }
 
 export const seguroSchema = z.object({

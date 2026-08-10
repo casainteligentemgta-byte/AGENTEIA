@@ -1,0 +1,34 @@
+import { NextResponse } from "next/server";
+import { procesarAlertasVencimientoImportacion } from "@/lib/importacion/alertas-vencimiento";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+function isAuthorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!secret) {
+    return !isProd;
+  }
+
+  const auth = req.headers.get("authorization");
+  return auth === `Bearer ${secret}`;
+}
+
+/** Vercel Cron diario: alertas deadline nacionalización + vigencia seguro PL. */
+export async function GET(req: Request) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const result = await procesarAlertasVencimientoImportacion();
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Error procesando alertas de vencimiento";
+    console.error("[cron/alertas-vencimiento]", message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
