@@ -29,7 +29,7 @@ Persistido en `vehiculos.importacion.planilla_fase`. UI: `?fase=1|2|3|4|5|6|7` (
 Alta → fase 1 (Registro: datos + factura de compra + certificado de origen)
   → fase 2 Embarque (BL, lista de embarque, DAV, póliza transporte)
   → fase 3 Llegada (fecha + fotos + checklist + impronta)
-  → fase 4 Aduana (CVA/DUA)
+  → fase 4 Desaduanamiento SENIAT (carpeta + Agente de Aduanas)
   → fase 5 Propietario
   → fase 6 Seguro
   → fase 7 Matrícula (carpeta → placa) → fase 8 (planilla completa)
@@ -62,31 +62,40 @@ Estados impronta: `coincide | no_coincide | no_leido`. Sin `coincide` no avanza,
 
 **Forzar impronta (`forzarImprontaSinVerificar`):** solo operadores con `canForzarImprontaSinVerificar` (= `canMutateImportacionData`: master/admin/taller/concesionario). Rol `usuario` y aduanera solo-lectura: UI sin checkbox; Server Action rechaza el flag. `no_coincide` bloquea siempre (nadie puede forzar).
 
-Action: `savePuertoLibreFase2LlegadaAction` → fase 3.
+Action: `savePuertoLibreFase2LlegadaAction` → fase 4.
 
-### Fase 3 — Aduana
+### Fase 4 — Desaduanamiento SENIAT
 
-Doc: `nacionalizacion` (liquidación CVA/DUA).  
-`completePuertoLibreFase3Action` → fase 4.
+Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUANAMIENTO_DOCUMENTO_TIPOS`):
 
-### Fase 4 — Propietario
+1. `bl_guia` — B/L original  
+2. `factura_comercial` — factura / contrato de venta  
+3. `certificado_origen`  
+4. `nacionalizacion` — DUA + `dav` — Declaración Andina de Valor  
+5. `declaracion_jurada_origen_fondos`  
+6. `planilla_liquidacion_aduanera` — impuestos y tasas (exenciones PL)
+
+PDF carpeta física: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`).  
+`completePuertoLibreFase3Action({ vehiculoId, agenteAduanal })` → fase 5.
+
+### Fase 5 — Propietario
 
 Comprador: nombre (obligatorio), cédula, tel, email, dirección (`compradorDireccion`).  
-`completePuertoLibreFase4PropietarioAction` → fase 5.
+`completePuertoLibreFase4PropietarioAction` → fase 6.
 
-### Fase 5 — Seguro del vehículo
+### Fase 6 — Seguro del vehículo
 
 `aseguradora` obligatoria + docs (`poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`).  
 ≠ póliza de **transporte** del embarque.  
-`completePuertoLibreFase5SeguroAction` → fase 6.
+`completePuertoLibreFase5SeguroAction` → fase 7.
 
-### Fase 6 — Matriculación
+### Fase 7 — Matriculación
 
 Subpaso 1 (`matriculacionPaso=1`): carpeta docs → paso 2.  
 Subpaso 2: registrar placa real.  
-Al completar → **fase 7** y `fechaLimiteNacionalizacion` = fechaIngreso + 3 años (si falta).
+Al completar → **fase 8** y `fechaLimiteNacionalizacion` = fechaIngreso + 3 años (si falta).
 
-### Fase 7 — Planilla completa
+### Fase 8 — Planilla completa
 
 Habilita wizard `/importacion/[id]/nacionalizar`.
 
@@ -174,8 +183,9 @@ Por tipo: `{ url, path, scanned_at?, file_name? }`.
 
 Grupos:
 
-- Embarque: `factura_comercial`, `certificado_origen`, `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`
-- Aduana: `nacionalizacion`
+- Registro: `factura_comercial`, `certificado_origen`
+- Embarque: `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`
+- Desaduanamiento: carpeta completa + nuevos `nacionalizacion` (DUA), `declaracion_jurada_origen_fondos`, `planilla_liquidacion_aduanera`
 - Fotos: `foto_frontal`, `foto_trasera`, `foto_lateral_izq`, `foto_lateral_der`, `foto_motor`, `foto_impronta`, `foto_odometro` (+ `foto_vin`, `foto_danos`, `foto_placa`, `foto_comprador`)
 - Seguro: `poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`
 - Matriculación extras: `experticia_verificacion_legal`, `planilla_sumica_put`, `pago_tasas`

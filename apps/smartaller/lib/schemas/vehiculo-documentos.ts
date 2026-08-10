@@ -19,6 +19,8 @@ export const DOCUMENTO_TIPOS = [
   "poliza_transporte",
   "permiso_importacion",
   "nacionalizacion",
+  "declaracion_jurada_origen_fondos",
+  "planilla_liquidacion_aduanera",
   "documento_importacion",
   "manual_vehiculo",
   "otro_importacion",
@@ -63,6 +65,8 @@ export const vehiculosDocumentosSchema = z.object({
   poliza_transporte: vehiculoDocumentoRefSchema.optional(),
   permiso_importacion: vehiculoDocumentoRefSchema.optional(),
   nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  declaracion_jurada_origen_fondos: vehiculoDocumentoRefSchema.optional(),
+  planilla_liquidacion_aduanera: vehiculoDocumentoRefSchema.optional(),
   documento_importacion: vehiculoDocumentoRefSchema.optional(),
   manual_vehiculo: vehiculoDocumentoRefSchema.optional(),
   otro_importacion: vehiculoDocumentoRefSchema.optional(),
@@ -110,7 +114,10 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   dav: "Declaración Andina de Valor (DAV)",
   poliza_transporte: "Póliza de transporte",
   permiso_importacion: "Permiso de importación",
-  nacionalizacion: "Liquidación aduanera (CVA / DUA)",
+  nacionalizacion: "Declaración Única de Aduanas (DUA)",
+  declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
+  planilla_liquidacion_aduanera:
+    "Planilla de liquidación de impuestos y tasas aduaneras",
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
@@ -159,16 +166,45 @@ export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Recaudos de aduana / retiro (fase 4): tras ingreso a PL.
- * Liquidación CVA/DUA emitida por SENIAT.
+ * Carpeta de desaduanamiento SENIAT (fase 4 UI), vía Agente de Aduanas.
+ * Incluye docs de fases previas + DUA, declaración jurada y planilla de liquidación.
  */
-export const PL_ADUANA_DOCUMENTO_TIPOS: DocumentoTipo[] = ["nacionalizacion"];
+export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  "bl_guia",
+  "factura_comercial",
+  "certificado_origen",
+  "nacionalizacion",
+  "dav",
+  "declaracion_jurada_origen_fondos",
+  "planilla_liquidacion_aduanera",
+];
 
-/** Docs de registro + embarque + aduana (conteo faltantes en listados). */
+/** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
+export const PL_ADUANA_DOCUMENTO_TIPOS = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS;
+
+/** Solo los que suelen cargarse por primera vez en desaduanamiento. */
+export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
+  "nacionalizacion",
+  "declaracion_jurada_origen_fondos",
+  "planilla_liquidacion_aduanera",
+];
+
+export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
+  bl_guia: "Desde fase Embarque (B/L original)",
+  factura_comercial: "Desde fase Registro (factura / contrato de venta)",
+  certificado_origen: "Desde fase Registro (país de procedencia)",
+  dav: "Desde fase Embarque (Declaración Andina de Valor)",
+  nacionalizacion: "Declaración Única de Aduanas (DUA) ante SENIAT",
+  declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
+  planilla_liquidacion_aduanera:
+    "Liquidación de impuestos y tasas (exenciones PL aplicables)",
+};
+
+/** Docs de registro + embarque + desaduanamiento (conteo faltantes en listados). */
 export const PL_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   ...PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   ...PL_EMBARQUE_DOCUMENTO_TIPOS,
-  ...PL_ADUANA_DOCUMENTO_TIPOS,
+  ...PL_DESADUANAMIENTO_NUEVOS_TIPOS,
 ];
 
 export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -182,6 +218,8 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "documento_importacion",
   "manual_vehiculo",
   "nacionalizacion",
+  "declaracion_jurada_origen_fondos",
+  "planilla_liquidacion_aduanera",
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
@@ -237,8 +275,8 @@ export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
 export const PL_MATRICULACION_ORIGEN: Partial<
   Record<DocumentoTipo, string>
 > = {
-  nacionalizacion: "Desde fase 3 Aduana (DUA)",
-  rcv_seguro: "Desde fase 5 Seguro",
+  nacionalizacion: "Desde fase Desaduanamiento (DUA)",
+  rcv_seguro: "Desde fase Seguro",
 };
 
 /** Vías de nacionalización desde Puerto Libre. */
@@ -395,7 +433,7 @@ export const importacionSchema = z.object({
   /**
    * 1 = registro (+ factura, certificado origen),
    * 2 = embarque (BL, lista, DAV, póliza),
-   * 3 = llegada, 4 = aduana, 5 = propietario, 6 = seguro,
+   * 3 = llegada, 4 = desaduanamiento SENIAT, 5 = propietario, 6 = seguro,
    * 7 = matriculación, 8 = planilla completa.
    */
   planillaFase: z.coerce.number().int().min(1).max(8).optional().nullable(),

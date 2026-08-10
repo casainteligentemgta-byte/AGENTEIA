@@ -8,7 +8,7 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
@@ -82,19 +82,19 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
   const titulo =
     [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Expediente Puerto Libre";
 
-  const docTipos: DocumentoTipo[] = [
-    ...PL_EMBARQUE_DOCUMENTO_TIPOS,
-    ...PL_ADUANA_DOCUMENTO_TIPOS,
-    "manual_vehiculo",
-    "cedula",
-    "titulo",
-    ...SEGURO_DOCUMENTO_TIPOS,
-    ...PL_MATRICULACION_NUEVOS_TIPOS,
-    ...PL_NACIONALIZACION_M2_TIPOS,
-    ...PL_NACIONALIZACION_M3_TIPOS.filter(
-      (t) => !PL_NACIONALIZACION_M2_TIPOS.includes(t)
-    ),
-  ];
+  const docTipos: DocumentoTipo[] = Array.from(
+    new Set<DocumentoTipo>([
+      ...PL_EMBARQUE_DOCUMENTO_TIPOS,
+      ...PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+      "manual_vehiculo",
+      "cedula",
+      "titulo",
+      ...SEGURO_DOCUMENTO_TIPOS,
+      ...PL_MATRICULACION_NUEVOS_TIPOS,
+      ...PL_NACIONALIZACION_M2_TIPOS,
+      ...PL_NACIONALIZACION_M3_TIPOS,
+    ])
+  );
   const docsCargados = docTipos.filter((t) => Boolean(ficha.documentos[t]?.url));
   const fotosCargadas = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) =>
     Boolean(ficha.documentos[t]?.url)

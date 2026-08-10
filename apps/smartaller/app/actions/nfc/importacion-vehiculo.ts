@@ -9,7 +9,7 @@ import { hashPin } from "@/lib/nfc/crypto";
 import {
   DOCUMENTO_TIPOS,
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
@@ -834,43 +834,66 @@ export async function savePuertoLibreFase2LlegadaAction(
   return { success: true };
 }
 
-/** Marca fase 4 (liquidación aduana / retiro) completa → fase 5 propietario. */
+const desaduanamientoCompleteSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  agenteAduanal: z
+    .string()
+    .trim()
+    .min(2, "Indica el Agente de Aduanas autorizado")
+    .max(120),
+});
+
+/**
+ * Marca fase 4 (desaduanamiento SENIAT) completa → fase 5 propietario.
+ * Exige carpeta documental completa + Agente de Aduanas.
+ */
 export async function completePuertoLibreFase3Action(
-  vehiculoId: string
+  raw: unknown
 ): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const idParsed = z.string().uuid().safeParse(vehiculoId);
-  if (!idParsed.success) return { success: false, error: "ID inválido" };
+  const parsed = desaduanamientoCompleteSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
 
-  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_ADUANA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  const faltantes = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.filter(
+    (t) => !docs[t]?.url
+  );
   if (faltantes.length > 0) {
     return {
       success: false,
       error:
-        "Carga la planilla de liquidación aduanera (CVA / DUA) para autorizar el retiro",
+        "Completa la carpeta de desaduanamiento (B/L, factura, origen, DUA, DAV, declaración jurada y planilla de liquidación)",
     };
   }
 
   const existing = parseImportacion(row.importacion);
-  const importacion = serializeImportacion({ ...existing, planillaFase: 5 });
+  const importacion = serializeImportacion({
+    ...existing,
+    agenteAduanal: parsed.data.agenteAduanal,
+    planillaFase: 5,
+  });
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
     .update({ importacion, updated_at: new Date().toISOString() })
-    .eq("id", idParsed.data)
+    .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
   if (error) return { success: false, error: error.message };
-  revalidateFicha(idParsed.data);
+  revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
 

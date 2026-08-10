@@ -39,10 +39,12 @@ import {
   type LlegadaChecklistRespuesta,
   type LlegadaChecklistState,
 } from "@/lib/importacion/llegada-catalog";
+import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
 import {
   DOCUMENTO_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
@@ -187,7 +189,7 @@ export function PlanillaRegistroImportacion({
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
-  const aduanaCount = countDocs(docs, PL_ADUANA_DOCUMENTO_TIPOS);
+  const aduanaCount = countDocs(docs, PL_DESADUANAMIENTO_DOCUMENTO_TIPOS);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
     [checklist]
@@ -219,7 +221,8 @@ export function PlanillaRegistroImportacion({
     fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
     checklistMarked === LLEGADA_CHECKLIST_ITEMS.length;
 
-  const aduanaCompleta = aduanaCount === PL_ADUANA_DOCUMENTO_TIPOS.length;
+  const aduanaCompleta =
+    aduanaCount === PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.length;
   const propietarioCompleto = Boolean(compradorNombre?.trim());
   const seguroCompleto = Boolean(
     initialSeguro.aseguradora?.trim() ||
@@ -297,7 +300,7 @@ export function PlanillaRegistroImportacion({
         />
         <FaseChip
           n={4}
-          label="Aduana"
+          label="Desaduana"
           completo={aduanaCompleta}
           current={fase === 4}
           onClick={() => goFase(4)}
@@ -490,16 +493,20 @@ export function PlanillaRegistroImportacion({
           docsCount={aduanaCount}
           pending={pending}
           canComplete={aduanaCompleta}
-          onComplete={(after) => {
+          agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
+          onComplete={(agenteAduanal, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const result = await completePuertoLibreFase3Action(vehiculoId);
+              const result = await completePuertoLibreFase3Action({
+                vehiculoId,
+                agenteAduanal,
+              });
               if (!result.success) {
                 setError(result.error);
                 return;
               }
-              setMessage("Liquidación aduanera guardada");
+              setMessage("Desaduanamiento guardado");
               navigateAfterSave(after, 5);
             });
           }}
@@ -1188,7 +1195,7 @@ function Fase2Llegada({
       <PlanillaFaseActions
         pending={pending}
         disabled={!canContinue}
-        continueLabel="Continuar a Aduana"
+        continueLabel="Continuar a Desaduanamiento"
         onAction={(after) => onSave(fecha, after, forzarImpronta && canForce)}
       />
     </div>
@@ -1202,6 +1209,7 @@ function Fase3Aduana({
   docsCount,
   pending,
   canComplete,
+  agenteAduanalInicial,
   onComplete,
   onUploadedMessage,
 }: {
@@ -1211,42 +1219,115 @@ function Fase3Aduana({
   docsCount: number;
   pending: boolean;
   canComplete: boolean;
-  onComplete: (after: PlanillaAfterSave) => void;
+  agenteAduanalInicial: string;
+  onComplete: (agenteAduanal: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
+  const [agenteAduanal, setAgenteAduanal] = useState(agenteAduanalInicial);
+  const agenteOk = agenteAduanal.trim().length >= 2;
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Liquidación aduanera
+          Desaduanamiento SENIAT
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {docsCount}/{PL_ADUANA_DOCUMENTO_TIPOS.length}
+            {docsCount}/{PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
-        <div className="mt-4 grid gap-3">
-          {PL_ADUANA_DOCUMENTO_TIPOS.map((tipo) => (
-            <ImportDocumentoUpload
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              existingUrl={docs[tipo]?.url}
-              acceptMode="both"
-              hint="Foto o PDF · máx. 10 MB"
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Documento guardado");
-              }}
-            />
-          ))}
+        <p className="mt-2 text-sm text-slate-400">
+          Canalizar mediante un Agente de Aduanas autorizado en la circunscripción
+          (ej. El Guamache). Carga o verifica los recaudos para imprimir la carpeta
+          física.
+        </p>
+
+        <label className="mt-5 block space-y-1.5">
+          <span className="text-sm text-slate-400">Agente de Aduanas autorizado *</span>
+          <input
+            value={agenteAduanal}
+            onChange={(e) => setAgenteAduanal(e.target.value)}
+            placeholder="Nombre del agente / agencia"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
+
+        <ul className="mt-5 space-y-3">
+          {PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.map((tipo, index) => {
+            const origen = PL_DESADUANAMIENTO_ORIGEN[tipo];
+            const loaded = Boolean(docs[tipo]?.url);
+            return (
+              <li
+                key={tipo}
+                className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
+              >
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-100">
+                      {index + 1}. {DOCUMENTO_LABELS[tipo]}
+                    </p>
+                    {origen ? (
+                      <p className="mt-0.5 text-xs text-slate-500">{origen}</p>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Cargar en PDF o foto / escaneo
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      loaded
+                        ? "bg-emerald-950/60 text-emerald-300"
+                        : "bg-red-950/50 text-red-300"
+                    }`}
+                  >
+                    {loaded ? "Listo" : "Pendiente"}
+                  </span>
+                </div>
+                {loaded && docs[tipo]?.url ? (
+                  <a
+                    href={docs[tipo]!.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
+                  >
+                    Ver documento
+                  </a>
+                ) : null}
+                <ImportDocumentoUpload
+                  vehiculoId={vehiculoId}
+                  tipo={tipo}
+                  existingUrl={docs[tipo]?.url}
+                  acceptMode="both"
+                  hint="Foto o PDF · máx. 10 MB"
+                  actionLabel={loaded ? "Reemplazar" : "Cargar"}
+                  onUploaded={(next) => {
+                    setDocs(next);
+                    onUploadedMessage("Documento guardado");
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-6 space-y-3">
+          <PuertoLibreDescargarDesaduanamientoPdf
+            vehiculoId={vehiculoId}
+            variant="compact"
+          />
+          <p className="text-xs text-slate-500">
+            El PDF incluye portada, índice y los documentos cargados para armar la
+            carpeta física.
+          </p>
         </div>
       </section>
 
       <PlanillaFaseActions
         pending={pending}
-        disabled={!canComplete}
+        disabled={!canComplete || !agenteOk}
         continueLabel="Continuar a Propietario"
-        onAction={onComplete}
+        onAction={(after) => onComplete(agenteAduanal.trim(), after)}
       />
     </div>
   );

@@ -5,8 +5,10 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
-  PL_ADUANA_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+  PL_DESADUANAMIENTO_NUEVOS_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
   PL_NACIONALIZACION_M3_TIPOS,
@@ -63,21 +65,30 @@ function txt(v: string | number | null | undefined, fallback = "-"): string {
   return winAnsi(String(v));
 }
 
+function uniqueTipos(...groups: DocumentoTipo[][]): DocumentoTipo[] {
+  const seen = new Set<DocumentoTipo>();
+  const out: DocumentoTipo[] = [];
+  for (const group of groups) {
+    for (const tipo of group) {
+      if (seen.has(tipo)) continue;
+      seen.add(tipo);
+      out.push(tipo);
+    }
+  }
+  return out;
+}
+
 function expedienteDocTipos(): DocumentoTipo[] {
-  return [
-    ...PL_EMBARQUE_DOCUMENTO_TIPOS,
-    ...PL_ADUANA_DOCUMENTO_TIPOS,
-    "manual_vehiculo",
-    "cedula",
-    "titulo",
-    "foto_comprador",
-    ...SEGURO_DOCUMENTO_TIPOS,
-    ...PL_MATRICULACION_NUEVOS_TIPOS,
-    ...PL_NACIONALIZACION_M2_TIPOS,
-    ...PL_NACIONALIZACION_M3_TIPOS.filter(
-      (t) => !PL_NACIONALIZACION_M2_TIPOS.includes(t)
-    ),
-  ];
+  return uniqueTipos(
+    PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
+    PL_EMBARQUE_DOCUMENTO_TIPOS,
+    PL_DESADUANAMIENTO_NUEVOS_TIPOS,
+    ["manual_vehiculo", "cedula", "titulo", "foto_comprador"],
+    SEGURO_DOCUMENTO_TIPOS,
+    PL_MATRICULACION_NUEVOS_TIPOS,
+    PL_NACIONALIZACION_M2_TIPOS,
+    PL_NACIONALIZACION_M3_TIPOS
+  );
 }
 
 function wrapLines(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
@@ -557,4 +568,121 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
 export function expedientePdfFileName(codigo: string | null | undefined, placa: string): string {
   const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
   return `Expediente-${raw}.pdf`;
+}
+
+/**
+ * PDF de carpeta física de desaduanamiento SENIAT:
+ * portada + índice + documentos consignables (para imprimir / archivar).
+ */
+export async function buildDesaduanamientoPdf(
+  ficha: ExpedientePdfSource
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const placa = placaRealVisible(ficha.placa, ficha.codigoExpediente);
+  const imp = ficha.importacion;
+  const tituloVehiculo =
+    [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Vehiculo";
+
+  let page = addBlankPage(pdf);
+  let y = drawHeader(
+    page,
+    font,
+    bold,
+    "Carpeta de desaduanamiento SENIAT",
+    `${codigo} · SmartTaller`
+  );
+
+  y = drawSectionTitle(page, bold, "Expediente", y);
+  ({ page, y } = drawPairs(
+    pdf,
+    page,
+    font,
+    bold,
+    [
+      { label: "Expediente PL", value: codigo },
+      { label: "Vehiculo", value: tituloVehiculo },
+      { label: "Color / anio", value: `${txt(ficha.color)} / ${txt(imp.anio)}` },
+      { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
+      { label: "Placa", value: txt(placa) },
+      { label: "Aduana / circunscripcion", value: txt(imp.aduana) },
+      { label: "Agente de aduanas", value: txt(imp.agenteAduanal) },
+      { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
+      { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
+      { label: "Nº BL / Guia", value: txt(imp.numeroBl) },
+      { label: "Nº DAV", value: txt(imp.numeroDav) },
+      { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
+      { label: "Importador", value: txt(imp.importadorNombre) },
+      { label: "RIF importador", value: txt(imp.importadorDocumento) },
+    ],
+    y
+  ));
+
+  page = addBlankPage(pdf);
+  y = drawHeader(
+    page,
+    font,
+    bold,
+    "Indice — recaudos para desaduanamiento",
+    codigo
+  );
+  y = drawSectionTitle(page, bold, "Documentos a consignar", y);
+
+  const indexPairs: LinePair[] = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.map(
+    (tipo, i) => ({
+      label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
+      value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
+    })
+  );
+  ({ page, y } = drawPairs(pdf, page, font, bold, indexPairs, y));
+
+  page.drawText(
+    winAnsi(
+      "Canalizar mediante Agente de Aduanas autorizado. Imprimir esta carpeta para el expediente fisico."
+    ),
+    {
+      x: MARGIN,
+      y: MARGIN + 12,
+      size: 8,
+      font,
+      color: rgb(0.35, 0.4, 0.45),
+    }
+  );
+
+  const pagesUsed = { count: 0 };
+  for (const tipo of PL_DESADUANAMIENTO_DOCUMENTO_TIPOS) {
+    const url = ficha.documentos[tipo]?.url;
+    if (!url) {
+      separatorPage(
+        pdf,
+        bold,
+        font,
+        DOCUMENTO_LABELS[tipo],
+        "Documento pendiente de carga en el expediente digital."
+      );
+      pagesUsed.count += 1;
+      continue;
+    }
+    await appendAttachment(
+      pdf,
+      bold,
+      font,
+      DOCUMENTO_LABELS[tipo],
+      url,
+      pagesUsed
+    );
+  }
+
+  return pdf.save({ useObjectStreams: false });
+}
+
+export function desaduanamientoPdfFileName(
+  codigo: string | null | undefined,
+  placa: string
+): string {
+  const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
+  return `Desaduanamiento-${raw}.pdf`;
 }
