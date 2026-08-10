@@ -253,11 +253,7 @@ export function PuertoLibreFase1Form({
         vehiculoId={vehiculoId}
         existingUrls={{
           factura_comercial: existingDocumentos?.factura_comercial?.url,
-          bl_guia: existingDocumentos?.bl_guia?.url,
           certificado_origen: existingDocumentos?.certificado_origen?.url,
-          lista_empaque: existingDocumentos?.lista_empaque?.url,
-          dav: existingDocumentos?.dav?.url,
-          poliza_transporte: existingDocumentos?.poliza_transporte?.url,
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}

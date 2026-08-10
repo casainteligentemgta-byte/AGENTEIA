@@ -11,6 +11,7 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_ADUANA_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   VIAS_NACIONALIZACION,
@@ -396,7 +397,20 @@ export async function savePuertoLibreFase1RegistroAction(
     return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
   }
 
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const faltantesRegistro = PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.filter(
+    (t) => !docs[t]?.url
+  );
+  if (faltantesRegistro.length > 0) {
+    return {
+      success: false,
+      error:
+        "Carga la factura de compra y el certificado de origen antes de continuar",
+    };
+  }
+
   const existing = parseImportacion(row.importacion);
+  const faseActual = existing.planillaFase ?? 1;
   const importacion = serializeImportacion({
     ...existing,
     anio: data.anio,
@@ -423,7 +437,7 @@ export async function savePuertoLibreFase1RegistroAction(
     numeroListaEmpaque: data.numeroListaEmpaque || null,
     numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
-    planillaFase: existing.planillaFase ?? 1,
+    planillaFase: Math.max(faseActual, 2),
   });
 
   const { error } = await admin
@@ -670,8 +684,11 @@ export async function updatePuertoLibrePropietarioAction(
   return { success: true };
 }
 
-/** Marca fase 1A (docs de embarque) completa y avanza a fase 2 (llegada). */
-export async function completePuertoLibreFase1aEmbarqueAction(
+/**
+ * Marca fase 2 (docs de embarque) completa y avanza a fase 3 (llegada).
+ * Alias histórico: completePuertoLibreFase1aEmbarqueAction.
+ */
+export async function completePuertoLibreFase2EmbarqueAction(
   vehiculoId: string
 ): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
@@ -690,12 +707,15 @@ export async function completePuertoLibreFase1aEmbarqueAction(
   if (faltantes.length > 0) {
     return {
       success: false,
-      error: "Carga factura, certificado de origen y BL antes de continuar",
+      error: "Carga BL/Guía, lista de embarque, DAV y póliza de transporte",
     };
   }
 
   const existing = parseImportacion(row.importacion);
-  const importacion = serializeImportacion({ ...existing, planillaFase: 2 });
+  const importacion = serializeImportacion({
+    ...existing,
+    planillaFase: Math.max(existing.planillaFase ?? 2, 3),
+  });
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -709,7 +729,11 @@ export async function completePuertoLibreFase1aEmbarqueAction(
   return { success: true };
 }
 
-/** Guarda fase 2 (llegada) y avanza a fase 3 (aduana / retiro). */
+/** @deprecated Usar completePuertoLibreFase2EmbarqueAction. */
+export const completePuertoLibreFase1aEmbarqueAction =
+  completePuertoLibreFase2EmbarqueAction;
+
+/** Guarda fase 3 (llegada) y avanza a fase 4 (aduana / retiro). */
 export async function savePuertoLibreFase2LlegadaAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -772,7 +796,7 @@ export async function savePuertoLibreFase2LlegadaAction(
     checklistLlegada: checklist,
     checklistLlegadaNotas: checklistNotas,
     otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
-    planillaFase: 3,
+    planillaFase: 4,
   });
 
   const seguro = serializeSeguro({
@@ -810,7 +834,7 @@ export async function savePuertoLibreFase2LlegadaAction(
   return { success: true };
 }
 
-/** Marca fase 3 (liquidación aduana / retiro) completa → fase 4 propietario. */
+/** Marca fase 4 (liquidación aduana / retiro) completa → fase 5 propietario. */
 export async function completePuertoLibreFase3Action(
   vehiculoId: string
 ): Promise<PuertoLibreActionResult> {
@@ -836,7 +860,7 @@ export async function completePuertoLibreFase3Action(
   }
 
   const existing = parseImportacion(row.importacion);
-  const importacion = serializeImportacion({ ...existing, planillaFase: 4 });
+  const importacion = serializeImportacion({ ...existing, planillaFase: 5 });
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -850,7 +874,7 @@ export async function completePuertoLibreFase3Action(
   return { success: true };
 }
 
-/** Guarda propietario (fase 4) y avanza a fase 5 (seguro). */
+/** Guarda propietario (fase 5) y avanza a fase 6 (seguro). */
 export async function completePuertoLibreFase4PropietarioAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -874,7 +898,7 @@ export async function completePuertoLibreFase4PropietarioAction(
   const importacion = serializeImportacion({
     ...existingImportacion,
     compradorDireccion: parsed.data.direccion ?? existingImportacion.compradorDireccion,
-    planillaFase: 5,
+    planillaFase: 6,
   });
 
   const admin = createAdminClient();
@@ -924,7 +948,7 @@ export async function completePuertoLibreFase5SeguroAction(
   const existingImportacion = parseImportacion(row.importacion);
   const importacion = serializeImportacion({
     ...existingImportacion,
-    planillaFase: 6,
+    planillaFase: 7,
   });
 
   const admin = createAdminClient();
@@ -970,7 +994,7 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
   const existing = parseImportacion(row.importacion);
   const importacion = serializeImportacion({
     ...existing,
-    planillaFase: 6,
+    planillaFase: 7,
     matriculacionPaso: 2,
   });
 
@@ -996,7 +1020,7 @@ const fase6MatriculacionSchema = z.object({
     .max(20),
 });
 
-/** Registra placa y marca planilla completa (fase 7). */
+/** Registra placa y marca planilla completa (fase 8). */
 export async function completePuertoLibreFase6MatriculacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1066,7 +1090,7 @@ export async function completePuertoLibreFase6MatriculacionAction(
 
   const importacion = serializeImportacion({
     ...existing,
-    planillaFase: 7,
+    planillaFase: 8,
     matriculacionPaso: 2,
     estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
     fechaLimiteNacionalizacion: fechaLimite,
@@ -1116,7 +1140,7 @@ export async function elegirViaNacionalizacionAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const existing = parseImportacion(row.importacion);
-  if ((existing.planillaFase ?? 0) < 7) {
+  if ((existing.planillaFase ?? 0) < 8) {
     return {
       success: false,
       error: "Completa la planilla y la matriculación (placa) antes de nacionalizar",

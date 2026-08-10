@@ -7,8 +7,6 @@ import {
   ClipboardList,
   FileText,
   Loader2,
-  Ship,
-  Shield,
 } from "lucide-react";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
@@ -19,19 +17,15 @@ import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
 
-/** OCR (factura/BL) + adjuntos de embarque sin OCR. */
+/** Documentos de Registro (fase 1): OCR solo en factura de compra. */
 export type PuertoLibreScanTipo =
   | "factura_comercial"
-  | "bl_guia"
-  | "certificado_origen"
-  | "lista_empaque"
-  | "dav"
-  | "poliza_transporte";
+  | "certificado_origen";
 
-const OCR_TIPOS = new Set<PuertoLibreScanTipo>(["factura_comercial", "bl_guia"]);
+const OCR_TIPOS = new Set<PuertoLibreScanTipo>(["factura_comercial"]);
 
 type Props = {
-  /** Si hay vehículo, el archivo se guarda en vehiculos.documentos (mismo destino que Embarque). */
+  /** Si hay vehículo, el archivo se guarda en vehiculos.documentos. */
   vehiculoId?: string;
   /** URLs ya persistidas para mostrar estado cargado. */
   existingUrls?: Partial<Record<PuertoLibreScanTipo, string | null | undefined>>;
@@ -101,9 +95,8 @@ function ScanButton({
             return;
           }
           filledCount = result.filledCount;
-          onExtracted(result.fields, result.tipo, prepared);
+          onExtracted(result.fields, tipo, prepared);
         } else {
-          // Adjunto sin OCR: solo encola el archivo para el alta / planilla.
           onExtracted({}, tipo, prepared);
         }
 
@@ -208,7 +201,7 @@ function ScanButton({
   );
 }
 
-/** Escaneo OCR de factura/BL + adjuntos de embarque; persiste cuando hay vehiculoId. */
+/** Escaneo OCR de factura de compra + certificado de origen; persiste cuando hay vehiculoId. */
 export function PuertoLibreDocScan({
   vehiculoId,
   existingUrls,
@@ -225,7 +218,7 @@ export function PuertoLibreDocScan({
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
           tipo="factura_comercial"
-          label="Factura comercial"
+          label="Factura de compra"
           icon={FileText}
           vehiculoId={vehiculoId}
           existingUrl={existingUrls?.factura_comercial}
@@ -239,46 +232,6 @@ export function PuertoLibreDocScan({
           icon={ClipboardList}
           vehiculoId={vehiculoId}
           existingUrl={existingUrls?.certificado_origen}
-          onExtracted={onExtracted}
-          onDocumentUploaded={onDocumentUploaded}
-          ocr={false}
-        />
-        <ScanButton
-          tipo="bl_guia"
-          label="BL / Guía"
-          icon={Ship}
-          vehiculoId={vehiculoId}
-          existingUrl={existingUrls?.bl_guia}
-          onExtracted={onExtracted}
-          onDocumentUploaded={onDocumentUploaded}
-          ocr={OCR_TIPOS.has("bl_guia")}
-        />
-        <ScanButton
-          tipo="lista_empaque"
-          label="Lista de empaque"
-          icon={ClipboardList}
-          vehiculoId={vehiculoId}
-          existingUrl={existingUrls?.lista_empaque}
-          onExtracted={onExtracted}
-          onDocumentUploaded={onDocumentUploaded}
-          ocr={false}
-        />
-        <ScanButton
-          tipo="dav"
-          label="DAV"
-          icon={FileText}
-          vehiculoId={vehiculoId}
-          existingUrl={existingUrls?.dav}
-          onExtracted={onExtracted}
-          onDocumentUploaded={onDocumentUploaded}
-          ocr={false}
-        />
-        <ScanButton
-          tipo="poliza_transporte"
-          label="Póliza de transporte"
-          icon={Shield}
-          vehiculoId={vehiculoId}
-          existingUrl={existingUrls?.poliza_transporte}
           onExtracted={onExtracted}
           onDocumentUploaded={onDocumentUploaded}
           ocr={false}
