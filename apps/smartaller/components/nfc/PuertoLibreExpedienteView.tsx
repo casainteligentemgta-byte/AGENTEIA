@@ -329,7 +329,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         Editar
       </Link>
 
-      {(imp.planillaFase ?? 0) >= 7 &&
+      {(imp.planillaFase ?? 0) >= 8 &&
       imp.estadoNacionalizacion !== "nacionalizado" &&
       imp.estadoNacionalizacion !== "no_aplica" ? (
         <Link

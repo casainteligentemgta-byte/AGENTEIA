@@ -21,23 +21,24 @@ Distinciones críticas:
 
 ---
 
-## 2. Flujo de la planilla (`planillaFase` 1–7)
+## 2. Flujo de la planilla (`planillaFase` 1–8)
 
-Persistido en `vehiculos.importacion.planilla_fase`. UI: `?fase=1|1a|2|3|4|5|6`.
+Persistido en `vehiculos.importacion.planilla_fase`. UI: `?fase=1|2|3|4|5|6|7` (`1a` legacy → 2).
 
 ```
-Alta → fase 1 (Registro)
-  → UI 1a Embarque (docs) → complete → fase 2
-  → Llegada (fecha + fotos + checklist + impronta) → fase 3
-  → Aduana (CVA/DUA) → fase 4
-  → Propietario/comprador → fase 5
-  → Seguro → fase 6 (carpeta → placa) → fase 7 (planilla completa)
+Alta → fase 1 (Registro: datos + factura de compra + certificado de origen)
+  → fase 2 Embarque (BL, lista de embarque, DAV, póliza transporte)
+  → fase 3 Llegada (fecha + fotos + checklist + impronta)
+  → fase 4 Aduana (CVA/DUA)
+  → fase 5 Propietario
+  → fase 6 Seguro
+  → fase 7 Matrícula (carpeta → placa) → fase 8 (planilla completa)
   → /nacionalizar (M2 o M3) → nacionalizado
 ```
 
 ### Fase 1 — Registro
 
-Formulario: vehículo + importador + datos importación. OCR/adjuntos opcionales.
+Formulario: vehículo + importador + datos importación. Docs obligatorios: factura de compra, certificado de origen.
 
 Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria, kilometraje, condicion (`nuevo`|`usado`), esSubasta (si usado), partidaArancelaria, cilindradaCc, tipoCombustible, fechaLlegadaBuque, importador (nombre, RIF, tel, email, **dirección fiscal**), aduana, numeroBl, paisOrigen, valorCif, **tasaCambioBcv**, **numeroExpedienteSeniat**, numeroDav, numeroCertificadoOrigen, numeroListaEmpaque, numeroPolizaTransporte, observaciones.
 
@@ -45,14 +46,15 @@ Reglas: usado → esSubasta obligatorio y km > 0; nuevo → km puede ser 0; RIF 
 
 Al crear: `planillaFase=1`, `estadoNacionalizacion=pendiente`, `estadoSeniat=pendiente`, `regimen="Puerto Libre"`.
 
-### Fase 1a — Embarque (UI; BD pasa a 2 al completar)
+Al continuar registro (docs OK): `planillaFase=2`.
 
-Docs obligatorios (`PL_EMBARQUE_DOCUMENTO_TIPOS`):
-`factura_comercial`, `certificado_origen`, `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`.
+### Fase 2 — Embarque
 
-Action: `completePuertoLibreFase1aEmbarqueAction` → fase 2.
+Docs (`PL_EMBARQUE_DOCUMENTO_TIPOS`): `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`.
 
-### Fase 2 — Llegada
+Action: `completePuertoLibreFase2EmbarqueAction` → fase 3.
+
+### Fase 3 — Llegada
 
 `fechaIngreso`, memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
 

@@ -96,22 +96,24 @@ function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
 }
 
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase == null || v.planillaFase < 7;
+  return v.planillaFase == null || v.planillaFase < 8;
 }
 
-/**
- * Docs de embarque listos (o legado sin fase 1A) y aún sin recepción física.
- * Fase 1 = pendiente 1A Embarque (no aparece aquí).
- */
+/** Fase 3 (llegada) pendiente: docs de embarque listos, sin fecha de ingreso. */
 function esPorRecibirEnPuerto(v: PuertoLibreVehiculoListItem): boolean {
   if (v.fechaIngreso) return false;
   const f = v.planillaFase;
-  return f == null || f === 2;
+  return f == null || f === 3;
 }
 
-/** Registrado, aún sin documentos de embarque (fase 1A). */
-function esPorCargarEmbarque(v: PuertoLibreVehiculoListItem): boolean {
+/** Fase 1: registro (datos + factura + certificado de origen). */
+function esPorCompletarRegistro(v: PuertoLibreVehiculoListItem): boolean {
   return v.planillaFase === 1 && !v.fechaIngreso;
+}
+
+/** Fase 2: docs de embarque (BL, lista, DAV, póliza). */
+function esPorCargarEmbarque(v: PuertoLibreVehiculoListItem): boolean {
+  return v.planillaFase === 2 && !v.fechaIngreso;
 }
 
 function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
@@ -125,7 +127,8 @@ function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = v.planillaFase;
-  if (f != null && f >= 6) return `/importacion/${v.id}/planilla?fase=6`;
+  if (f != null && f >= 7) return `/importacion/${v.id}/planilla?fase=7`;
+  if (f === 6) return `/importacion/${v.id}/planilla?fase=6`;
   if (f === 5) return `/importacion/${v.id}/planilla?fase=5`;
   if (f === 4) return `/importacion/${v.id}/planilla?fase=4`;
   if (f === 3) return `/importacion/${v.id}/planilla?fase=3`;
@@ -357,6 +360,9 @@ export default async function PuertoLibrePage() {
       access.roles.includes("admin"));
 
   const vehiculos = loaded.vehiculos;
+  const porRegistro = sortPorLlegadaBuque(
+    vehiculos.filter(esPorCompletarRegistro)
+  );
   const porEmbarque = sortPorLlegadaBuque(vehiculos.filter(esPorCargarEmbarque));
   const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
   const pendientes = vehiculos.filter(esPendienteCompletar);
@@ -437,6 +443,58 @@ export default async function PuertoLibrePage() {
         </div>
       ) : (
         <div className="space-y-7">
+          {porRegistro.length > 0 ? (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                  <FileText className="h-4 w-4 text-cyan-400" />
+                  Por completar registro
+                </h2>
+                <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+                  {porRegistro.length}
+                </span>
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Expediente</th>
+                      <th className="px-3 py-3 font-medium">Vehículo</th>
+                      <th className="px-3 py-3 font-medium">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {porRegistro.map((v) => {
+                      const href = `/importacion/${v.id}/planilla?fase=1`;
+                      return (
+                        <tr key={v.id} className="align-top hover:bg-zinc-900/50">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <Link href={href} className={EXPEDIENTE_CODE_CLASS}>
+                              {labelExpediente(v)}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-zinc-300">
+                            <p className="text-xs leading-snug sm:text-sm">
+                              {labelVehiculo(v)}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Link
+                              href={href}
+                              className="inline-flex rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-cyan-300 transition hover:border-cyan-500/60"
+                            >
+                              Completar
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
           {porEmbarque.length > 0 ? (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
@@ -459,7 +517,7 @@ export default async function PuertoLibrePage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porEmbarque.map((v) => {
-                      const href = `/importacion/${v.id}/planilla?fase=1a`;
+                      const href = `/importacion/${v.id}/planilla?fase=2`;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
                           <td className="px-3 py-3 whitespace-nowrap">
@@ -515,7 +573,7 @@ export default async function PuertoLibrePage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/80">
                     {porRecibir.map((v) => {
-                      const llegadaHref = `/importacion/${v.id}/planilla?fase=2`;
+                      const llegadaHref = `/importacion/${v.id}/planilla?fase=3`;
                       return (
                         <tr key={v.id} className="align-top hover:bg-zinc-900/50">
                           <td className="px-3 py-3 whitespace-nowrap">
