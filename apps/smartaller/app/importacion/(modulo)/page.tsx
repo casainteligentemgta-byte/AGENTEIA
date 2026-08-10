@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileText,
   Plus,
+  Scale,
 } from "lucide-react";
 import {
   listPuertoLibreVehiculos,
@@ -548,6 +549,13 @@ export default async function PuertoLibrePage() {
             Vista de solo lectura: vehículos de tu propiedad o compartidos contigo.
           </p>
         )}
+        <Link
+          href="/importacion/biblioteca-legal"
+          className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+        >
+          <Scale className="h-4 w-4 text-cyan-400" />
+          Biblioteca legal
+        </Link>
       </header>
 
       {vehiculos.length === 0 ? (

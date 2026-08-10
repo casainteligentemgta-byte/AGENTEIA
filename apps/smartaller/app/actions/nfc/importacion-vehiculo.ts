@@ -43,6 +43,7 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
+import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
@@ -273,6 +274,16 @@ export async function createPuertoLibreVehiculoAction(
     return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
   }
 
+  const cupo = await evaluarCupoPersonaNatural({
+    admin,
+    tallerId: auth.taller.id,
+    importadorDocumento: data.importadorDocumento || null,
+    fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+  });
+  if (!cupo.ok) {
+    return { success: false, error: cupo.error };
+  }
+
   const { year, month } = partsFromDate();
   const numero = await nextNumeroExpedienteMes(admin, auth.taller.id, year, month);
   const codigoExpediente = formatCodigoExpediente(year, month, numero);
@@ -395,6 +406,17 @@ export async function savePuertoLibreFase1RegistroAction(
   );
   if (existingSerial) {
     return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
+  }
+
+  const cupo = await evaluarCupoPersonaNatural({
+    admin,
+    tallerId: auth.taller.id,
+    importadorDocumento: data.importadorDocumento || null,
+    excludeVehiculoId: data.vehiculoId,
+    fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+  });
+  if (!cupo.ok) {
+    return { success: false, error: cupo.error };
   }
 
   const docs = parseVehiculosDocumentos(row.documentos);

@@ -467,7 +467,7 @@ export function PuertoLibreFase1Form({
             label="RIF"
             name="importadorDocumento"
             placeholder={RIF_PLACEHOLDER}
-            hint={RIF_FORMAT_HINT}
+            hint={`${RIF_FORMAT_HINT}. Persona natural (V/E): máx. 1 vehículo en menos de 3 años.`}
             upper
             mono
             value={values.importadorDocumento}

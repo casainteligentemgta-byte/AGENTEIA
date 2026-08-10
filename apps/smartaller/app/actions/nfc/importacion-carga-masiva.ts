@@ -27,6 +27,7 @@ import {
   mergeScanFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
+import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -538,6 +539,16 @@ async function insertOneVehiculo(params: {
   );
   if (existingSerial) {
     return { ok: false, error: SERIAL_CARROCERIA_DUPLICADO };
+  }
+
+  const cupo = await evaluarCupoPersonaNatural({
+    admin,
+    tallerId,
+    importadorDocumento: data.importadorDocumento || null,
+    fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+  });
+  if (!cupo.ok) {
+    return { ok: false, error: cupo.error };
   }
 
   const codigoExpediente = formatCodigoExpediente(year, month, numero);
