@@ -46,6 +46,8 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
+import { canForzarImprontaSinVerificar } from "@/lib/importacion/access";
+import { resolvePortalAccess } from "@/lib/portal/roles";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -723,6 +725,17 @@ export async function savePuertoLibreFase2LlegadaAction(
 
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  if (parsed.data.forzarImprontaSinVerificar) {
+    const access = await resolvePortalAccess();
+    if (!access || !canForzarImprontaSinVerificar(access)) {
+      return {
+        success: false,
+        error:
+          "No tienes permiso para forzar el avance sin verificación de impronta. Solo operadores (admin/taller) pueden confirmar revisión manual.",
+      };
+    }
+  }
 
   const existingImportacion = parseImportacion(row.importacion);
   const docs = parseVehiculosDocumentos(row.documentos);

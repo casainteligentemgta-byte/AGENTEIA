@@ -88,6 +88,11 @@ type Props = {
   initialDocumentos: VehiculosDocumentos;
   /** Fase forzada por query (?fase=1|1a|2|3|4|5|6). */
   faseInicial?: PlanillaFaseUi;
+  /**
+   * Operador (admin/taller/concesionario) puede forzar avance si OCR no lee la impronta.
+   * Calculado en servidor con `canForzarImprontaSinVerificar` / `canMutateImportacionData`.
+   */
+  canForzarImpronta?: boolean;
   vehiculoSelector?: {
     current: PlanillaVehiculoOption;
     vehiculos: PlanillaVehiculoOption[];
@@ -140,6 +145,7 @@ export function PlanillaRegistroImportacion({
   initialSeguro,
   initialDocumentos,
   faseInicial,
+  canForzarImpronta = false,
   vehiculoSelector,
 }: Props) {
   const router = useRouter();
@@ -443,6 +449,7 @@ export function PlanillaRegistroImportacion({
           otrosNotas={otrosNotas}
           setOtrosNotas={setOtrosNotas}
           pending={pending}
+          canForzarImpronta={canForzarImpronta}
           onSave={(fechaIngreso, after, forzarImprontaSinVerificar) => {
             setError(null);
             setMessage(null);
@@ -453,7 +460,8 @@ export function PlanillaRegistroImportacion({
                 checklistLlegada: checklist,
                 checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
-                forzarImprontaSinVerificar,
+                forzarImprontaSinVerificar:
+                  canForzarImpronta && forzarImprontaSinVerificar,
               });
               if (!result.success) {
                 setError(result.error);
@@ -972,6 +980,7 @@ function Fase2Llegada({
   otrosNotas,
   setOtrosNotas,
   pending,
+  canForzarImpronta,
   onSave,
   onUploadedMessage,
 }: {
@@ -991,6 +1000,8 @@ function Fase2Llegada({
   otrosNotas: string;
   setOtrosNotas: (v: string) => void;
   pending: boolean;
+  /** Solo operadores con permiso de mutación (admin/taller). */
+  canForzarImpronta: boolean;
   onSave: (
     fechaIngreso: string,
     after: PlanillaAfterSave,
@@ -1006,6 +1017,7 @@ function Fase2Llegada({
   const expectedSerial = (serialCarroceria ?? "").trim();
   const improntaOk = improntaEstado === "coincide";
   const canForce =
+    canForzarImpronta &&
     Boolean(docs.foto_impronta?.url) &&
     (improntaEstado === "no_leido" || improntaEstado == null);
   const canContinue =
@@ -1102,6 +1114,16 @@ function Fase2Llegada({
               serial con claridad).
             </span>
           </label>
+        ) : null}
+
+        {!canForzarImpronta &&
+        !improntaOk &&
+        improntaEstado !== "no_coincide" &&
+        Boolean(docs.foto_impronta?.url) ? (
+          <p className="mt-4 rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
+            El OCR no verificó el serial. Un operador del taller debe confirmar
+            la impronta o debes tomar otra foto más clara.
+          </p>
         ) : null}
       </section>
 

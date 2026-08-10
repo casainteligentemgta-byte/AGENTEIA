@@ -9,6 +9,8 @@
  * - Debe llamar requireTallerAuth O (getUser + getMyTaller).
  * - Si escribe en vehiculos vía admin (.from("vehiculos") + insert|update|delete),
  *   debe comprobar pertenencia (assertVehiculoTaller o .eq("taller_id" / taller.id).
+ * - Si menciona forzarImprontaSinVerificar, debe gatear con
+ *   canForzarImprontaSinVerificar o canMutateImportacionData (rol portal).
  * - Exentos: verify-nfc (público por diseño), extract solo OCR sin persistir vehículo.
  */
 import { existsSync, readdirSync, readFileSync } from "fs";
@@ -116,6 +118,18 @@ function hasVehiculoOwnershipCheck(body: string): boolean {
   return false;
 }
 
+/** Acepta el flag de forzar impronta → exige chequeo de rol portal en el mismo body. */
+function acceptsForzarImpronta(body: string): boolean {
+  return body.includes("forzarImprontaSinVerificar");
+}
+
+function hasForzarImprontaRoleGate(body: string): boolean {
+  return (
+    body.includes("canForzarImprontaSinVerificar") ||
+    body.includes("canMutateImportacionData")
+  );
+}
+
 function auditFile(filePath: string): Finding[] {
   const base = relative(ACTIONS_DIR, filePath) || filePath.split("/").pop()!;
   if (FILE_EXEMPT.has(base)) return [];
@@ -144,6 +158,15 @@ function auditFile(filePath: string): Finding[] {
         fn: name,
         issue:
           "Mutación admin de vehiculos sin assertVehiculoTaller / filtro taller_id",
+      });
+    }
+
+    if (acceptsForzarImpronta(body) && !hasForzarImprontaRoleGate(body)) {
+      findings.push({
+        file: base,
+        fn: name,
+        issue:
+          "Acepta forzarImprontaSinVerificar sin canForzarImprontaSinVerificar / canMutateImportacionData",
       });
     }
   }

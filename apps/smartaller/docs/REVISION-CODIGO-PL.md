@@ -41,13 +41,20 @@ Archivo: [`app/actions/nfc/importacion-vehiculo.ts`](../app/actions/nfc/importac
 
 **Validar:** cada action mutante llama `requireTallerAuth` + (si hay `vehiculoId`) `assertVehiculoTaller` / `.eq("taller_id", …)`.
 
-**Hallazgo crítico:** `forzarImprontaSinVerificar` se acepta **sin** chequeo de rol portal (solo auth de taller). Usa `createAdminClient()` → salta RLS.
+**Forzar impronta (fase 2) — corregido en este PR:**
 
-Audit: `npm run audit:importacion-auth` (también en `npm run qa`).
+```ts
+// savePuertoLibreFase2LlegadaAction
+// - si forzarImprontaSinVerificar → resolvePortalAccess + canForzarImprontaSinVerificar
+// - no_coincide → bloquea siempre
+// - sin coincide y sin forzar válido → bloquea
+```
+
+Audit: `npm run audit:importacion-auth` falla si el body acepta `forzarImprontaSinVerificar` sin `canForzarImprontaSinVerificar` / `canMutateImportacionData`.
 
 ---
 
-## 3. Roles — `access.ts` (y el “forzar” que **no** está aquí)
+## 3. Roles — `access.ts` (permiso de forzar impronta)
 
 Archivo: [`lib/importacion/access.ts`](../lib/importacion/access.ts)
 
@@ -55,10 +62,9 @@ Archivo: [`lib/importacion/access.ts`](../lib/importacion/access.ts)
 |--------|--------|----------------|
 | `canAccessAllImportacionData` | 47–52 | master/admin/aduanera + `verTodo` |
 | `canMutateImportacionData` | 65–69 | master/admin; aduanera+verTodo = **solo lectura**; taller/concesionario con `tallerIds` |
-| `isImportacionUsuarioOnly` | 72–77 | rol `usuario` |
-| `resolveImportacionTallerScope` | 80–95 | alcance por taller / global / usuario |
+| `canForzarImprontaSinVerificar` | ~71–78 | Alias de `canMutateImportacionData`; usado por action + UI |
 
-**Validar:** la lógica de “forzar avance” de impronta **no** vive en este archivo. `canMutateImportacionData` existe pero `savePuertoLibreFase2LlegadaAction` **no la usa** para restringir el forzar.
+**Validar:** `savePuertoLibreFase2LlegadaAction` llama `canForzarImprontaSinVerificar` cuando llega el flag. Checkbox en planilla solo si `canForzarImpronta` (server → prop).
 
 ---
 
@@ -96,11 +102,11 @@ Helpers de bucket: `vehiculo-documentos.ts` `esProximoSeniat` / `esProximoNacion
 
 ### Forzar impronta UI
 
-Archivo: [`components/nfc/PlanillaRegistroImportacion.tsx`](../components/nfc/PlanillaRegistroImportacion.tsx) — `Fase2Llegada` ~958–1165
+Archivo: [`components/nfc/PlanillaRegistroImportacion.tsx`](../components/nfc/PlanillaRegistroImportacion.tsx) — `Fase2Llegada`
 
-- `canForce` si hay foto y estado `no_leido` o `null` (~1008–1010)
-- Checkbox sin filtro por rol portal (~1092–1105)
-- Envía `forzarImprontaSinVerificar` a la action del §2 (~446–456, ~1165)
+- Prop `canForzarImpronta` desde `planilla/page.tsx` (`canForzarImprontaSinVerificar(access)`).
+- Checkbox solo si rol operador + foto + estado `no_leido`/`null`.
+- Sin permiso: mensaje para reintentar foto / pedir operador; no envía el flag.
 
 **Validar punto 3 (buckets):** labels y filtros ya usan `planillaFase` + helpers actuales; no hay segundo set de buckets legacy en esta page.
 

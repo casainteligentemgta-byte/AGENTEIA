@@ -56,7 +56,9 @@ Action: `completePuertoLibreFase1aEmbarqueAction` → fase 2.
 
 `fechaIngreso`, memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
 
-Estados impronta: `coincide | no_coincide | no_leido`. Sin coincide (o forzar si no_leido) no avanza.
+Estados impronta: `coincide | no_coincide | no_leido`. Sin `coincide` no avanza, salvo **forzar** si OCR quedó en `no_leido`.
+
+**Forzar impronta (`forzarImprontaSinVerificar`):** solo operadores con `canForzarImprontaSinVerificar` (= `canMutateImportacionData`: master/admin/taller/concesionario). Rol `usuario` y aduanera solo-lectura: UI sin checkbox; Server Action rechaza el flag. `no_coincide` bloquea siempre (nadie puede forzar).
 
 Action: `savePuertoLibreFase2LlegadaAction` → fase 3.
 
