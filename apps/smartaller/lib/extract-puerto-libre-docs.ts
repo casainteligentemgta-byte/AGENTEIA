@@ -478,6 +478,45 @@ Responde SOLO JSON con:
 fecha_llegada_buque en YYYY-MM-DD si aparece (ETA / arrival).
 Si la descripción es genérica sin VIN, "vehiculos" puede ser [].`;
 
+const CERTIFICADO_ORIGEN_MULTI_PROMPT = `Analiza este CERTIFICADO DE ORIGEN / Certificate of Origin (COO) de vehículos importados.
+Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
+
+Extrae datos que suelen faltar en la factura comercial:
+- serial_motor / engine number (muy frecuente aquí)
+- marca, modelo, color, año
+- serial_carroceria / VIN / chasis
+- país de origen (country of origin)
+- número del certificado
+
+IMPORTANTE:
+- Incluye TODAS las unidades visibles. No omitas filas.
+- Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
+- No inventes seriales. Si no se lee el motor, null.
+
+Responde SOLO JSON con:
+{
+  "numero_certificado_origen": string|null,
+  "pais_origen": string|null,
+  "marca": string|null,
+  "anio": number|null,
+  "importador_nombre": string|null,
+  "importador_documento": string|null,
+  "vehiculos": [
+    {
+      "marca": string|null,
+      "modelo": string|null,
+      "color": string|null,
+      "anio": number|null,
+      "serial_motor": string|null,
+      "serial_carroceria": string|null,
+      "numero_llave": string|null,
+      "kilometraje": number|null,
+      "condicion": "nuevo"|"usado"|null,
+      "pais_origen": string|null
+    }
+  ]
+}`;
+
 export type DocMultiExtracted = {
   shared: PuertoLibreRegistroScanFields;
   vehiculos: PuertoLibreRegistroScanFields[];
@@ -671,6 +710,76 @@ export async function extractBlMultiFromDocument(
   return { shared, vehiculos };
 }
 
+export async function extractCertificadoOrigenMultiFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const parsed = await createDocumentJsonCompletion({
+    prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+    buffer,
+    mimeType,
+    maxTokens: 4500,
+    maxTextChars: 32000,
+  });
+
+  const shared: PuertoLibreRegistroScanFields = {};
+  const pais = parseString(parsed.pais_origen ?? parsed.country_of_origin);
+  if (pais) shared.paisOrigen = pais;
+  const marca = parseString(parsed.marca);
+  if (marca) shared.marca = marca;
+  const anio = parseIntSafe(parsed.anio);
+  if (anio != null) shared.anio = String(anio);
+  const certNo = parseString(
+    parsed.numero_certificado_origen ?? parsed.certificate_no ?? parsed.coo_no
+  );
+  if (certNo) shared.numeroCertificadoOrigen = certNo;
+  const impNombre = parseString(
+    parsed.importador_nombre ?? parsed.consignee ?? parsed.importer
+  );
+  if (impNombre) shared.importadorNombre = impNombre;
+  const impDoc = parseString(parsed.importador_documento ?? parsed.rif);
+  if (impDoc) shared.importadorDocumento = impDoc;
+
+  let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
+    const fields = facturaToFormFields(
+      mapFactura({
+        ...parsed,
+        ...v,
+        serial_carroceria:
+          v.serial_carroceria ?? v.vin ?? v.chasis ?? parsed.serial_carroceria,
+        serial_motor: v.serial_motor ?? v.engine_number ?? parsed.serial_motor,
+        pais_origen: v.pais_origen ?? parsed.pais_origen,
+      })
+    );
+    if (certNo) {
+      fields.numeroCertificadoOrigen = certNo;
+    }
+    if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
+    if (!fields.marca && marca) fields.marca = marca;
+    if (!fields.anio && anio != null) fields.anio = String(anio);
+    if (!fields.condicion) fields.condicion = "nuevo";
+    if (fields.kilometraje == null) fields.kilometraje = "0";
+    const llave = parseString(v.numero_llave ?? v.key_number);
+    if (llave) {
+      fields.observaciones = [`Llave ${llave}`, fields.observaciones]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    return fields;
+  });
+
+  if (vehiculos.length === 0) {
+    const single = facturaToFormFields(mapFactura(parsed));
+    if (certNo) single.numeroCertificadoOrigen = certNo;
+    if (single.marca || single.serialCarroceria || single.serialMotor || single.modelo) {
+      vehiculos.push(single);
+    }
+  }
+
+  vehiculos = dedupeVehiculosBySerial(vehiculos);
+  return { shared, vehiculos };
+}
+
 /** Combina campos OCR: el patch no pisa valores ya rellenados (observaciones se concatenan). */
 export function mergeScanFields(
   base: PuertoLibreRegistroScanFields,
@@ -692,7 +801,12 @@ export function mergeScanFields(
       else out.observaciones = `${a} · ${b}`;
       continue;
     }
-    if (current == null || String(current).trim() === "") {
+    const currentBlank =
+      current == null ||
+      String(current).trim() === "" ||
+      (k === "serialMotor" &&
+        String(current).trim().toUpperCase() === "POR-COMPLETAR");
+    if (currentBlank) {
       (out as Record<string, unknown>)[k] = v;
     }
   }

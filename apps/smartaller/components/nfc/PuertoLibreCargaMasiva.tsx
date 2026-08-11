@@ -28,7 +28,7 @@ type Mode = "plantilla" | "documentos";
 type DocItem = {
   id: string;
   file: File;
-  tipo: "factura_comercial" | "bl_guia";
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
 };
 
 type SharedFields = {
@@ -240,8 +240,9 @@ export function PuertoLibreCargaMasiva() {
         let attached = 0;
         let attachFail = 0;
         const factura = docs.find((d) => d.tipo === "factura_comercial");
+        const certificado = docs.find((d) => d.tipo === "certificado_origen");
         const bl = docs.find((d) => d.tipo === "bl_guia");
-        const toAttach = [factura, bl].filter(Boolean) as DocItem[];
+        const toAttach = [factura, certificado, bl].filter(Boolean) as DocItem[];
         for (const c of result.created) {
           for (const d of toAttach) {
             const fd = new FormData();
@@ -378,8 +379,9 @@ export function PuertoLibreCargaMasiva() {
             2. Sube facturas y BL
           </h2>
           <p className="text-sm text-slate-400">
-            Soporta carátula multipágina (Chery, etc.) y hoja anexa (MAV, etc.).
-            Marca cada archivo como Factura o BL.
+            Sube factura (carátula o anexa), certificado de origen y BL. El
+            certificado rellena lo que falte (motor, origen, etc.) emparejando
+            por VIN.
           </p>
           <button
             type="button"
@@ -429,6 +431,7 @@ export function PuertoLibreCargaMasiva() {
                     className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
                   >
                     <option value="factura_comercial">Factura</option>
+                    <option value="certificado_origen">Certificado origen</option>
                     <option value="bl_guia">BL / Guía</option>
                   </select>
                   <button
@@ -630,5 +633,6 @@ export function PuertoLibreCargaMasiva() {
 function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
   if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
+  if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
 }

@@ -23,6 +23,7 @@ import {
 import { parseImportacion, serializeImportacion } from "@/lib/schemas/vehiculo-documentos";
 import {
   extractBlMultiFromDocument,
+  extractCertificadoOrigenMultiFromDocument,
   extractFacturaMultiFromDocument,
   mergeScanFields,
   type PuertoLibreRegistroScanFields,
@@ -241,9 +242,11 @@ export type ExtractCargaMasivaDocsResult =
   | { success: false; error: string };
 
 /**
- * Extrae vehículos desde varios PDFs/fotos (facturas y/o BL).
- * FormData: files[] + tipos[] (factura_comercial|bl_guia) alineados por índice,
+ * Extrae vehículos desde varios PDFs/fotos (facturas, certificado de origen y/o BL).
+ * FormData: files[] + tipos[] (factura_comercial|certificado_origen|bl_guia) alineados por índice,
  * o tipo_<index>.
+ *
+ * Orden de fusión: factura arma las filas; certificado y BL rellenan lo que falte (p. ej. motor).
  */
 export async function extractCargaMasivaDocumentosAction(
   formData: FormData
@@ -271,7 +274,9 @@ export async function extractCargaMasivaDocumentosAction(
   const tipos = formData.getAll("tipos").map((t) => String(t));
   const warnings: string[] = [];
   let sharedFromBl: PuertoLibreRegistroScanFields = {};
+  let sharedFromCert: PuertoLibreRegistroScanFields = {};
   const vehicleRows: CargaMasivaRow[] = [];
+  const certVehicles: PuertoLibreRegistroScanFields[] = [];
 
   try {
     for (let i = 0; i < files.length; i++) {
@@ -281,7 +286,11 @@ export async function extractCargaMasivaDocumentosAction(
         String(formData.get(`tipo_${i}`) ?? "") ||
         guessTipoFromName(file.name);
 
-      if (tipoRaw !== "factura_comercial" && tipoRaw !== "bl_guia") {
+      if (
+        tipoRaw !== "factura_comercial" &&
+        tipoRaw !== "bl_guia" &&
+        tipoRaw !== "certificado_origen"
+      ) {
         warnings.push(`${file.name}: tipo desconocido, se omitió`);
         continue;
       }
@@ -315,7 +324,6 @@ export async function extractCargaMasivaDocumentosAction(
         }
         for (const v of extracted.vehiculos) {
           const merged = mergeScanFields(extracted.shared, v);
-          // No heredar CIF de shared (puede ser basura); priorizar unitario del vehículo.
           if (v.valorCif) merged.valorCif = v.valorCif;
           else delete merged.valorCif;
           vehicleRows.push(scanFieldsToRow(merged, `Factura · ${file.name}`));
@@ -327,13 +335,33 @@ export async function extractCargaMasivaDocumentosAction(
         ).length;
         if (sinMotor > 0) {
           warnings.push(
-            `${file.name}: ${sinMotor} unidad(es) sin motor en la factura (se marcó POR-COMPLETAR; complétalo después)`
+            `${file.name}: ${sinMotor} unidad(es) sin motor — se completarán con el certificado de origen si lo subes`
           );
         }
         if (!extracted.shared.importadorDocumento && !extracted.shared.importadorNombre) {
           warnings.push(
             `${file.name}: no se leyó importador/RIF — completa los datos compartidos antes de registrar`
           );
+        }
+      } else if (tipoRaw === "certificado_origen") {
+        const extracted = await extractCertificadoOrigenMultiFromDocument(
+          buffer,
+          mimeType
+        );
+        sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
+        if (extracted.vehiculos.length > 0) {
+          warnings.push(
+            `${file.name}: certificado — ${extracted.vehiculos.length} unidad(es); se usará para rellenar datos faltantes`
+          );
+          for (const v of extracted.vehiculos) {
+            certVehicles.push(mergeScanFields(extracted.shared, v));
+          }
+        } else if (Object.keys(extracted.shared).length > 0) {
+          warnings.push(
+            `${file.name}: certificado leído (origen/nº); se aplicará a las filas`
+          );
+        } else {
+          warnings.push(`${file.name}: no se pudieron leer datos del certificado`);
         }
       } else {
         const extracted = await extractBlMultiFromDocument(buffer, mimeType);
@@ -347,7 +375,6 @@ export async function extractCargaMasivaDocumentosAction(
             vehicleRows.push(scanFieldsToRow(merged, `BL · ${file.name}`));
           }
         } else if (Object.keys(extracted.shared).length > 0) {
-          // BL solo con datos de embarque: se aplicará a las facturas.
           warnings.push(
             `${file.name}: BL leído (importador/embarque); se aplicará a los vehículos de las facturas`
           );
@@ -357,23 +384,57 @@ export async function extractCargaMasivaDocumentosAction(
       }
     }
 
+    // Certificado: rellenar filas existentes por VIN; si no hay filas, crearlas.
+    if (certVehicles.length > 0) {
+      if (vehicleRows.length === 0) {
+        for (const v of certVehicles) {
+          vehicleRows.push(
+            scanFieldsToRow(mergeScanFields(sharedFromCert, v), "Certificado origen")
+          );
+        }
+      } else {
+        let matched = 0;
+        const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
+        for (const v of certVehicles) {
+          const serial = normalizarSerialCarroceria(v.serialCarroceria ?? v.vin ?? "");
+          if (serial) bySerial.set(serial, v);
+        }
+        for (let i = 0; i < vehicleRows.length; i++) {
+          const row = vehicleRows[i]!;
+          const serial = normalizarSerialCarroceria(
+            row.serialCarroceria || row.vin || ""
+          );
+          const fromCert = serial ? bySerial.get(serial) : undefined;
+          const patch = fromCert
+            ? mergeScanFields(sharedFromCert, fromCert)
+            : sharedFromCert;
+          const base = rowToScanFields(row);
+          const merged = mergeScanFields(base, patch);
+          if (fromCert) matched += 1;
+          vehicleRows[i] = scanFieldsToRow(
+            merged,
+            row.fuente ? `${row.fuente} + cert.` : "Certificado origen"
+          );
+        }
+        warnings.push(
+          matched > 0
+            ? `Certificado: se completaron datos en ${matched} fila(s) emparejada(s) por VIN`
+            : "Certificado: no hubo match por VIN; se aplicaron solo datos compartidos (origen/nº)"
+        );
+      }
+    } else if (Object.keys(sharedFromCert).length > 0 && vehicleRows.length > 0) {
+      for (let i = 0; i < vehicleRows.length; i++) {
+        const row = vehicleRows[i]!;
+        const merged = mergeScanFields(rowToScanFields(row), sharedFromCert);
+        vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento");
+      }
+    }
+
     // Si hay BL compartido y filas de factura, enriquecer filas sin esos campos.
     if (Object.keys(sharedFromBl).length > 0 && vehicleRows.length > 0) {
       for (let i = 0; i < vehicleRows.length; i++) {
         const row = vehicleRows[i]!;
-        const asFields: PuertoLibreRegistroScanFields = {
-          importadorNombre: row.importadorNombre || undefined,
-          importadorDocumento: row.importadorDocumento || undefined,
-          importadorTelefono: row.importadorTelefono || undefined,
-          importadorEmail: row.importadorEmail || undefined,
-          fechaLlegadaBuque: row.fechaLlegadaBuque || undefined,
-          aduana: row.aduana || undefined,
-          numeroBl: row.numeroBl || undefined,
-          paisOrigen: row.paisOrigen || undefined,
-          valorCif: row.valorCif || undefined,
-          observaciones: row.observaciones || undefined,
-        };
-        const merged = mergeScanFields(asFields, sharedFromBl);
+        const merged = mergeScanFields(rowToScanFields(row), sharedFromBl);
         vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento");
       }
     }
@@ -383,7 +444,7 @@ export async function extractCargaMasivaDocumentosAction(
         success: false,
         error:
           warnings[0] ??
-          "No se extrajeron vehículos. Prueba fotos más nítidas (Plan A) o la plantilla Excel (Plan B).",
+          "No se extrajeron vehículos. Sube factura y/o certificado de origen, o usa la plantilla Excel.",
       };
     }
 
@@ -417,9 +478,39 @@ export async function extractCargaMasivaDocumentosAction(
   }
 }
 
+function rowToScanFields(row: CargaMasivaRow): PuertoLibreRegistroScanFields {
+  return {
+    marca: row.marca || undefined,
+    modelo: row.modelo || undefined,
+    color: row.color || undefined,
+    anio: row.anio || undefined,
+    serialMotor: row.serialMotor || undefined,
+    vin: row.vin || undefined,
+    serialCarroceria: row.serialCarroceria || undefined,
+    kilometraje: row.kilometraje || undefined,
+    condicion:
+      row.condicion === "usado" || row.condicion === "nuevo"
+        ? row.condicion
+        : undefined,
+    fechaLlegadaBuque: row.fechaLlegadaBuque || undefined,
+    importadorNombre: row.importadorNombre || undefined,
+    importadorDocumento: row.importadorDocumento || undefined,
+    importadorTelefono: row.importadorTelefono || undefined,
+    importadorEmail: row.importadorEmail || undefined,
+    importadorDireccion: row.importadorDireccion || undefined,
+    aduana: row.aduana || undefined,
+    numeroBl: row.numeroBl || undefined,
+    paisOrigen: row.paisOrigen || undefined,
+    valorCif: row.valorCif || undefined,
+    numeroCertificadoOrigen: row.numeroCertificadoOrigen || undefined,
+    observaciones: row.observaciones || undefined,
+  };
+}
+
 function guessTipoFromName(name: string): string {
   const n = name.toLowerCase();
   if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
+  if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   if (
     /factura|invoice|commercial|proforma|anexa|attached|hoja/.test(n)
   ) {
