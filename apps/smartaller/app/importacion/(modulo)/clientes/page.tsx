@@ -45,10 +45,6 @@ export default async function ImportacionClientesPage() {
             <h1 className="text-xl font-semibold tracking-tight text-zinc-50 sm:text-2xl">
               Importadores
             </h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Personas naturales o jurídicas. Son el primer paso al registrar una
-              importación.
-            </p>
           </div>
         </div>
 
