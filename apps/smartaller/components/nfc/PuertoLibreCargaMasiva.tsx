@@ -19,7 +19,7 @@ import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import {
   completarCargaMasivaConCertificadosAction,
   createPuertoLibreCargaMasivaAction,
-  extractCargaMasivaDocumentosAction,
+  extractCargaMasivaEtapaAction,
   parseCargaMasivaSpreadsheetAction,
 } from "@/app/actions/nfc/importacion-carga-masiva";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
@@ -28,6 +28,13 @@ import {
   type CargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
 import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
+import {
+  CARGA_MASIVA_ETAPA_HINTS,
+  CARGA_MASIVA_ETAPA_LABELS,
+  CARGA_MASIVA_ETAPAS,
+  type CargaMasivaEtapaId,
+  type CargaMasivaEtapaProgress,
+} from "@/lib/importacion/carga-masiva-etapas";
 import {
   applySharedShipmentToRows,
   detectedImportadorFromRows,
@@ -75,6 +82,11 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [extractProgress, setExtractProgress] =
+    useState<CargaMasivaEtapaProgress | null>(null);
+  const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
+    null
+  );
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
@@ -196,19 +208,77 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     setError(null);
     setResultMsg(null);
     setWarnings([]);
+    setExtractProgress(null);
+    setActiveEtapa(null);
+
+    const hasCertOrBl = docs.some(
+      (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
+    );
+    const etapas: CargaMasivaEtapaId[] = hasCertOrBl
+      ? ["vins", "datos", "certs"]
+      : ["vins", "datos"];
+
     startTransition(async () => {
-      const fd = new FormData();
-      for (const d of docs) {
-        fd.append("files", d.file);
-        fd.append("tipos", d.tipo);
+      let currentRows: CargaMasivaRow[] = [];
+      const allWarnings: string[] = [];
+      let lastCertMatches: CertMatch[] = [];
+
+      for (let i = 0; i < etapas.length; i++) {
+        const etapa = etapas[i]!;
+        setActiveEtapa(etapa);
+        setExtractProgress({
+          etapa,
+          label: CARGA_MASIVA_ETAPA_LABELS[etapa],
+          hint: CARGA_MASIVA_ETAPA_HINTS[etapa],
+          vinsEncontrados: currentRows.filter(
+            (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
+          ).length,
+          filasCompletas: currentRows.filter(
+            (r) => vehicleCompleteness(r).complete
+          ).length,
+          totalFilas: currentRows.length,
+          pct: Math.round((i / etapas.length) * 100),
+        });
+
+        const fd = new FormData();
+        fd.set("etapa", etapa);
+        for (const d of docs) {
+          fd.append("files", d.file);
+          fd.append("tipos", d.tipo);
+        }
+        if (etapa !== "vins") {
+          fd.set("rowsJson", JSON.stringify(currentRows));
+        }
+
+        const result = await extractCargaMasivaEtapaAction(fd);
+        if (!result.success) {
+          setError(result.error);
+          setActiveEtapa(null);
+          setExtractProgress(null);
+          setWarnings(allWarnings);
+          return;
+        }
+
+        currentRows = result.rows;
+        allWarnings.push(...result.warnings);
+        if (result.certMatches.length > 0) {
+          lastCertMatches = result.certMatches;
+        }
+        ingestExtracted(result.rows, result.certMatches);
+        setExtractProgress({
+          ...result.progress,
+          pct: Math.round(((i + 1) / etapas.length) * 100),
+        });
+        setWarnings([...allWarnings]);
       }
-      const result = await extractCargaMasivaDocumentosAction(fd);
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      ingestExtracted(result.rows, result.certMatches);
-      setWarnings(result.warnings);
+
+      setCertMatches(lastCertMatches);
+      setActiveEtapa(null);
+      setResultMsg(
+        `Extracción por etapas lista: ${currentRows.length} vehículo(s). ${
+          currentRows.filter((r) => vehicleCompleteness(r).complete).length
+        } con datos completos.`
+      );
     });
   }
 
@@ -654,8 +724,73 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
             ) : (
               <FileUp className="h-4 w-4" />
             )}
-            {pending ? "Extrayendo con IA…" : "Extraer vehículos"}
+            {pending ? "Extrayendo por etapas…" : "Extraer vehículos"}
           </button>
+
+          {(pending && extractProgress) || extractProgress ? (
+            <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
+                Extracción por etapas
+              </p>
+              <ol className="mt-2 space-y-1.5">
+                {CARGA_MASIVA_ETAPAS.map((id) => {
+                  const done =
+                    extractProgress &&
+                    CARGA_MASIVA_ETAPAS.indexOf(extractProgress.etapa) >
+                      CARGA_MASIVA_ETAPAS.indexOf(id);
+                  const current = activeEtapa === id;
+                  const skipped =
+                    id === "certs" &&
+                    !docs.some(
+                      (d) =>
+                        d.tipo === "certificado_origen" || d.tipo === "bl_guia"
+                    );
+                  return (
+                    <li
+                      key={id}
+                      className={`flex items-center gap-2 text-sm ${
+                        skipped
+                          ? "text-slate-600"
+                          : current
+                            ? "text-cyan-100"
+                            : done
+                              ? "text-emerald-300/90"
+                              : "text-slate-500"
+                      }`}
+                    >
+                      {current ? (
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                      ) : done ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-current opacity-40" />
+                      )}
+                      <span>
+                        {CARGA_MASIVA_ETAPA_LABELS[id]}
+                        {skipped ? " (omitida)" : ""}
+                        {current ? ` — ${CARGA_MASIVA_ETAPA_HINTS[id]}` : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {extractProgress ? (
+                <div className="mt-3">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                      style={{ width: `${extractProgress.pct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    {extractProgress.vinsEncontrados} VIN ·{" "}
+                    {extractProgress.filasCompletas}/
+                    {extractProgress.totalFilas || "—"} filas completas
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       )}
 

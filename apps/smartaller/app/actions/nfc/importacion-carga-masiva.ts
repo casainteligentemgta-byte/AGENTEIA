@@ -24,10 +24,18 @@ import { parseImportacion, serializeImportacion } from "@/lib/schemas/vehiculo-d
 import {
   extractBlMultiFromDocument,
   extractCertificadoOrigenMultiFromDocument,
+  enrichFacturaRowsStageFromDocument,
   extractFacturaMultiFromDocument,
+  extractFacturaVinsStageFromDocument,
   mergeScanFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
+import {
+  buildEtapaProgress,
+  nextCargaMasivaEtapa,
+  type CargaMasivaEtapaId,
+  type CargaMasivaEtapaResult,
+} from "@/lib/importacion/carga-masiva-etapas";
 import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
 import {
   ensureImportadorForTaller,
@@ -501,6 +509,345 @@ export async function extractCargaMasivaDocumentosAction(
       rows: validateCargaMasivaRows(withDefaults),
       warnings,
       certMatches,
+    };
+  } catch (err) {
+    return { success: false, error: formatLlmAuthError(err) };
+  }
+}
+
+function parseRowsJson(raw: unknown): CargaMasivaRow[] | null {
+  try {
+    const parsed = JSON.parse(String(raw ?? "")) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed as CargaMasivaRow[];
+  } catch {
+    return null;
+  }
+}
+
+function mergeRowByVin(
+  base: CargaMasivaRow,
+  patch: PuertoLibreRegistroScanFields,
+  fuente: string
+): CargaMasivaRow {
+  const merged = mergeScanFields(rowToScanFields(base), patch);
+  return scanFieldsToRow(
+    merged,
+    base.fuente ? `${base.fuente} + ${fuente}` : fuente,
+    base.id
+  );
+}
+
+/**
+ * Extracción por etapas (Fase B):
+ * 1. vins — cosecha VIN de facturas
+ * 2. datos — modelo/color/CIF/cabecera
+ * 3. certs — certificados + BL
+ *
+ * FormData: etapa, files[], tipos[], rowsJson (etapas 2–3).
+ */
+export async function extractCargaMasivaEtapaAction(
+  formData: FormData
+): Promise<
+  | ({ success: true } & CargaMasivaEtapaResult)
+  | { success: false; error: string }
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+  if (!isLlmConfigured()) {
+    return {
+      success: false,
+      error: "Falta configurar OPENAI_API_KEY para leer documentos con IA.",
+    };
+  }
+
+  const etapaRaw = String(formData.get("etapa") ?? "vins");
+  if (etapaRaw !== "vins" && etapaRaw !== "datos" && etapaRaw !== "certs") {
+    return { success: false, error: "Etapa inválida" };
+  }
+  const etapa = etapaRaw as CargaMasivaEtapaId;
+
+  const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+  if (files.length === 0) {
+    return { success: false, error: "Selecciona al menos un PDF o foto" };
+  }
+  if (files.length > 20) {
+    return { success: false, error: "Máximo 20 documentos por carga" };
+  }
+
+  const tipos = formData.getAll("tipos").map((t) => String(t));
+  const facturas: { file: File; buffer: Buffer; mimeType: string }[] = [];
+  const certs: { file: File; buffer: Buffer; mimeType: string }[] = [];
+  const bls: { file: File; buffer: Buffer; mimeType: string }[] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!;
+    const tipoRaw =
+      tipos[i] ||
+      String(formData.get(`tipo_${i}`) ?? "") ||
+      guessTipoFromName(file.name);
+    const validationError = validateVehiculoDocumentoFile(file);
+    if (validationError) {
+      warnings.push(`${file.name}: ${validationError}`);
+      continue;
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const mimeType = resolveDocMime(file, buffer);
+    if (tipoRaw === "factura_comercial") {
+      facturas.push({ file, buffer, mimeType });
+    } else if (tipoRaw === "certificado_origen") {
+      certs.push({ file, buffer, mimeType });
+    } else if (tipoRaw === "bl_guia") {
+      bls.push({ file, buffer, mimeType });
+    } else {
+      warnings.push(`${file.name}: tipo desconocido, se omitió`);
+    }
+  }
+
+  const hasCertOrBl = certs.length > 0 || bls.length > 0;
+  const defaults = await getUltimoImportadorTaller(auth.taller.id);
+
+  try {
+    if (etapa === "vins") {
+      if (facturas.length === 0) {
+        return {
+          success: false,
+          error: "Agrega al menos una factura para cosechar VIN",
+        };
+      }
+      const vehicleRows: CargaMasivaRow[] = [];
+      for (const f of facturas) {
+        const extracted = await extractFacturaVinsStageFromDocument(
+          f.buffer,
+          f.mimeType
+        );
+        if (extracted.vehiculos.length === 0) {
+          warnings.push(`${f.file.name}: no se detectaron VIN`);
+          continue;
+        }
+        warnings.push(
+          `${f.file.name}: etapa VIN — ${extracted.vehiculos.length} chasis`
+        );
+        for (const v of extracted.vehiculos) {
+          const merged = mergeScanFields(extracted.shared, v);
+          vehicleRows.push(
+            scanFieldsToRow(merged, `VIN · ${f.file.name}`)
+          );
+        }
+      }
+      const deduped = dedupeCargaMasivaRowsBySerial(vehicleRows);
+      if (deduped.length === 0) {
+        return {
+          success: false,
+          error:
+            warnings[0] ??
+            "No se detectaron VIN. Prueba una foto más nítida de la tabla.",
+        };
+      }
+      const rows = validateCargaMasivaRows(
+        deduped.map((r) => applyImportadorDefaults(r, defaults))
+      );
+      return {
+        success: true,
+        etapa,
+        nextEtapa: nextCargaMasivaEtapa(etapa, hasCertOrBl),
+        rows,
+        warnings,
+        certMatches: [],
+        progress: buildEtapaProgress(etapa, rows, 100),
+      };
+    }
+
+    if (etapa === "datos") {
+      const existing = parseRowsJson(formData.get("rowsJson"));
+      if (!existing || existing.length === 0) {
+        return {
+          success: false,
+          error: "No hay filas VIN de la etapa anterior",
+        };
+      }
+      if (facturas.length === 0) {
+        return {
+          success: false,
+          error: "Falta la factura para enriquecer datos",
+        };
+      }
+      const knownVins = existing
+        .map((r) => normalizarSerialCarroceria(r.serialCarroceria || r.vin))
+        .filter((v): v is string => Boolean(v));
+
+      let rows = existing.map((r) => ({ ...r }));
+      for (const f of facturas) {
+        const enriched = await enrichFacturaRowsStageFromDocument(
+          f.buffer,
+          f.mimeType,
+          knownVins
+        );
+        warnings.push(
+          `${f.file.name}: etapa datos — ${enriched.vehiculos.length} filas enriquecidas`
+        );
+        const byVin = new Map<string, PuertoLibreRegistroScanFields>();
+        for (const v of enriched.vehiculos) {
+          const serial = normalizarSerialCarroceria(
+            v.serialCarroceria ?? v.vin ?? ""
+          );
+          if (serial) byVin.set(serial, mergeScanFields(enriched.shared, v));
+        }
+        // Aplicar cabecera shared a todas
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i]!;
+          const serial = normalizarSerialCarroceria(
+            row.serialCarroceria || row.vin || ""
+          );
+          const patch = serial
+            ? byVin.get(serial) ?? enriched.shared
+            : enriched.shared;
+          if (Object.keys(patch).length === 0) continue;
+          rows[i] = mergeRowByVin(row, patch, "datos");
+        }
+        // VIN nuevos detectados en datos
+        for (const [serial, fields] of byVin) {
+          if (rows.some((r) => normalizarSerialCarroceria(r.serialCarroceria) === serial)) {
+            continue;
+          }
+          rows.push(scanFieldsToRow(fields, `Datos · ${f.file.name}`));
+        }
+      }
+      rows = dedupeCargaMasivaRowsBySerial(rows);
+      const validated = validateCargaMasivaRows(
+        rows.map((r) => applyImportadorDefaults(r, defaults))
+      );
+      return {
+        success: true,
+        etapa,
+        nextEtapa: nextCargaMasivaEtapa(etapa, hasCertOrBl),
+        rows: validated,
+        warnings,
+        certMatches: [],
+        progress: buildEtapaProgress(etapa, validated, 100),
+      };
+    }
+
+    // etapa === "certs"
+    const existing = parseRowsJson(formData.get("rowsJson"));
+    if (!existing || existing.length === 0) {
+      return {
+        success: false,
+        error: "No hay filas para aplicar certificados/BL",
+      };
+    }
+    if (!hasCertOrBl) {
+      const validated = validateCargaMasivaRows(existing);
+      return {
+        success: true,
+        etapa,
+        nextEtapa: null,
+        rows: validated,
+        warnings: ["Sin certificados ni BL en esta carga"],
+        certMatches: [],
+        progress: buildEtapaProgress(etapa, validated, 100),
+      };
+    }
+
+    let rows = existing.map((r) => ({ ...r }));
+    let sharedFromBl: PuertoLibreRegistroScanFields = {};
+    let sharedFromCert: PuertoLibreRegistroScanFields = {};
+    const certMatches: CertMatch[] = [];
+    const certBySerial = new Map<string, PuertoLibreRegistroScanFields>();
+
+    for (const f of certs) {
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        f.buffer,
+        f.mimeType
+      );
+      sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
+      if (extracted.vehiculos.length > 0) {
+        warnings.push(
+          `${f.file.name}: cert — ${extracted.vehiculos.length} unidad(es)`
+        );
+        for (const v of extracted.vehiculos) {
+          const fields = mergeScanFields(extracted.shared, v);
+          const serial = normalizarSerialCarroceria(
+            fields.serialCarroceria ?? fields.vin ?? ""
+          );
+          if (serial) {
+            certBySerial.set(serial, fields);
+            certMatches.push({ serial, fileName: f.file.name });
+          }
+        }
+      } else if (Object.keys(extracted.shared).length > 0) {
+        warnings.push(`${f.file.name}: certificado (datos compartidos)`);
+      } else {
+        warnings.push(`${f.file.name}: certificado sin datos legibles`);
+      }
+    }
+
+    for (const f of bls) {
+      const extracted = await extractBlMultiFromDocument(f.buffer, f.mimeType);
+      sharedFromBl = mergeScanFields(sharedFromBl, extracted.shared);
+      warnings.push(
+        extracted.vehiculos.length > 0
+          ? `${f.file.name}: BL — ${extracted.vehiculos.length} VIN`
+          : `${f.file.name}: BL leído (embarque)`
+      );
+      for (const v of extracted.vehiculos) {
+        const fields = mergeScanFields(
+          mergeScanFields(extracted.shared, sharedFromBl),
+          v
+        );
+        const serial = normalizarSerialCarroceria(
+          fields.serialCarroceria ?? fields.vin ?? ""
+        );
+        if (!serial) continue;
+        const idx = rows.findIndex(
+          (r) =>
+            normalizarSerialCarroceria(r.serialCarroceria || r.vin) === serial
+        );
+        if (idx >= 0) {
+          rows[idx] = mergeRowByVin(rows[idx]!, fields, "BL");
+        } else {
+          rows.push(scanFieldsToRow(fields, `BL · ${f.file.name}`));
+        }
+      }
+    }
+
+    let matched = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const serial = normalizarSerialCarroceria(row.serialCarroceria || row.vin);
+      const fromCert = serial ? certBySerial.get(serial) : undefined;
+      const patch = fromCert
+        ? mergeScanFields(sharedFromCert, fromCert)
+        : mergeScanFields(sharedFromCert, sharedFromBl);
+      if (Object.keys(patch).length === 0) continue;
+      if (fromCert) matched += 1;
+      rows[i] = mergeRowByVin(
+        row,
+        mergeScanFields(patch, sharedFromBl),
+        fromCert ? "cert" : "embarque"
+      );
+    }
+    if (certs.length > 0) {
+      warnings.push(
+        `Certificados emparejados por VIN: ${matched}/${rows.length}`
+      );
+    }
+
+    rows = dedupeCargaMasivaRowsBySerial(rows);
+    const validated = validateCargaMasivaRows(
+      rows.map((r) => applyImportadorDefaults(r, defaults))
+    );
+    return {
+      success: true,
+      etapa,
+      nextEtapa: null,
+      rows: validated,
+      warnings,
+      certMatches,
+      progress: buildEtapaProgress(etapa, validated, 100),
     };
   } catch (err) {
     return { success: false, error: formatLlmAuthError(err) };

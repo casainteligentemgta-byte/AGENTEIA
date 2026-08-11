@@ -1094,6 +1094,181 @@ export async function extractFacturaMultiFromDocument(
   return pickBestFacturaMulti(candidates);
 }
 
+/**
+ * Etapa 1 — solo cosecha de VIN (rápida, máxima cobertura de filas).
+ * Ideal antes de enriquecer modelo/color/precio.
+ */
+export async function extractFacturaVinsStageFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  const candidates: DocMultiExtracted[] = [];
+
+  if (isPdf) {
+    try {
+      const plain = await getPdfPlainText(buffer);
+      if (countValidVinsInText(plain) >= 2) {
+        const deterministic = parseMavHojaAnexaFromText(plain);
+        if (deterministic?.vehiculos.length) {
+          candidates.push(sanitizeFacturaMulti(deterministic));
+        }
+      }
+    } catch {
+      // visión
+    }
+  }
+
+  try {
+    const pages = isPdf
+      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.4 })
+      : [buffer];
+    const page1 = pages[0];
+    if (page1) {
+      candidates.push(
+        await extractFacturaMultiFromImage(
+          page1,
+          isPdf ? "image/png" : mimeType,
+          FACTURA_MULTI_VIN_HARVEST_PROMPT
+        )
+      );
+      if (pickBestFacturaMulti(candidates).vehiculos.length < 6) {
+        for (const band of TABLE_BANDS) {
+          try {
+            const cropped = await cropImageBuffer(page1, band);
+            candidates.push(
+              await extractFacturaMultiFromImage(
+                cropped.buffer,
+                cropped.mimeType,
+                FACTURA_MULTI_VIN_HARVEST_PROMPT
+              )
+            );
+          } catch {
+            // ignore
+          }
+          if (pickBestFacturaMulti(candidates).vehiculos.length >= 12) break;
+        }
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  if (candidates.length === 0 && isPdf) {
+    try {
+      candidates.push(
+        await extractFacturaMultiOnce(
+          buffer,
+          mimeType,
+          FACTURA_MULTI_VIN_HARVEST_PROMPT
+        )
+      );
+    } catch {
+      // empty
+    }
+  }
+
+  if (candidates.length === 0) return { shared: {}, vehiculos: [] };
+  return pickBestFacturaMulti(candidates);
+}
+
+function buildEnrichPrompt(knownVins: string[]): string {
+  const list =
+    knownVins.length > 0
+      ? `\nVIN YA DETECTADOS (completa cada uno; no omitas ninguno):\n${knownVins
+          .map((v, i) => `${i + 1}. ${v}`)
+          .join("\n")}\nSi ves VIN adicionales, añádelos.`
+      : "";
+  return `${FACTURA_MULTI_PROMPT}
+${list}
+Prioriza rellenar modelo, color, valor_cif y datos de cabecera (importador, factura, aduana).`;
+}
+
+/**
+ * Etapa 2 — enriquecer filas (modelo, color, CIF, cabecera) a partir de VIN conocidos.
+ */
+export async function enrichFacturaRowsStageFromDocument(
+  buffer: Buffer,
+  mimeType: string,
+  knownVins: string[]
+): Promise<DocMultiExtracted> {
+  const prompt = buildEnrichPrompt(knownVins.slice(0, 40));
+  const candidates: DocMultiExtracted[] = [];
+
+  try {
+    const isPdf = mimeType.toLowerCase().includes("pdf");
+    if (isPdf) {
+      const pages = await renderPdfPagesAsPng(buffer, {
+        maxPages: 1,
+        scale: 2.4,
+      });
+      const page1 = pages[0];
+      if (page1) {
+        candidates.push(
+          await extractFacturaMultiFromImage(page1, "image/png", prompt)
+        );
+      }
+    }
+  } catch {
+    // fallback full doc
+  }
+
+  try {
+    candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
+  } catch {
+    // ignore
+  }
+
+  if (candidates.length === 0) {
+    // Devolver esqueletos por VIN conocidos
+    return {
+      shared: {},
+      vehiculos: knownVins.map((vin) =>
+        sanitizeVehiculoRowLocal({
+          serialCarroceria: vin,
+          vin,
+          serialMotor: "POR-COMPLETAR",
+          condicion: "nuevo",
+          kilometraje: "0",
+          anio: anioFromVin(vin)?.toString(),
+        })
+      ),
+    };
+  }
+
+  const enriched = pickBestFacturaMulti(candidates);
+  // Asegurar que no se pierdan VIN de la etapa 1
+  const byVin = new Map(
+    enriched.vehiculos
+      .map((v) => {
+        const vin = compactSerial(v.serialCarroceria ?? v.vin ?? null);
+        return vin ? ([vin, v] as const) : null;
+      })
+      .filter((x): x is readonly [string, PuertoLibreRegistroScanFields] =>
+        Boolean(x)
+      )
+  );
+  for (const vin of knownVins) {
+    const key = compactSerial(vin);
+    if (!key || byVin.has(key)) continue;
+    byVin.set(
+      key,
+      sanitizeVehiculoRowLocal({
+        serialCarroceria: key,
+        vin: key,
+        serialMotor: "POR-COMPLETAR",
+        condicion: "nuevo",
+        kilometraje: "0",
+        anio: anioFromVin(key)?.toString(),
+      })
+    );
+  }
+  return sanitizeFacturaMulti({
+    shared: enriched.shared,
+    vehiculos: [...byVin.values()],
+  });
+}
+
 export async function extractBlMultiFromDocument(
   buffer: Buffer,
   mimeType: string
