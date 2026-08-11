@@ -50,10 +50,15 @@ export default async function NuevaImportacionPage() {
 
         <Link
           href="/importacion/carga-masiva"
-          className="mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+          className="mb-5 inline-flex w-full flex-col items-center justify-center gap-1 rounded-2xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-3 text-center transition hover:border-cyan-500/50"
         >
-          <FileSpreadsheet className="h-4 w-4 text-cyan-400" />
-          Carga masiva (Excel / PDFs)
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-cyan-100">
+            <FileSpreadsheet className="h-4 w-4 text-cyan-400" />
+            Carga masiva — hoja anexa / varios VIN
+          </span>
+          <span className="text-xs text-cyan-200/70">
+            MAV TRADE u otras facturas con N vehículos → N expedientes
+          </span>
         </Link>
 
         {!listed.success ? (
