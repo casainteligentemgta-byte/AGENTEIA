@@ -3,7 +3,7 @@ import {
   getVisionModelId,
 } from "@/lib/ai/openai-config";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
-import { extractVinStringsFromText } from "@/lib/importacion/factura-row-fidelity";
+import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
 function isProviderVisionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);

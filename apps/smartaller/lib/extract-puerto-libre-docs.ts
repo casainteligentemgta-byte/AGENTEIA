@@ -10,6 +10,7 @@ import {
   rotateImageBuffer,
 } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
+import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 import {
   countValidVinsInText,
   mergeFacturaMultiByVin,
@@ -17,6 +18,8 @@ import {
   sanitizeFacturaMulti,
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
+
+export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
 export type FacturaComercialExtraida = {
   marca: string | null;
@@ -372,46 +375,6 @@ export async function extractBlFromDocument(
   });
   return mapBl(parsed);
 }
-
-/** Campos de formulario de registro PL que se pueden rellenar desde OCR. */
-export type PuertoLibreRegistroScanFields = {
-  marca?: string;
-  modelo?: string;
-  color?: string;
-  anio?: string;
-  serialMotor?: string;
-  vin?: string;
-  serialCarroceria?: string;
-  kilometraje?: string;
-  condicion?: "nuevo" | "usado";
-  esSubasta?: "true" | "false";
-  partidaArancelaria?: string;
-  cilindradaCc?: string;
-  tipoCombustible?:
-    | "gasolina"
-    | "diesel"
-    | "electrico"
-    | "hibrido"
-    | "gnv"
-    | "otro";
-  fechaLlegadaBuque?: string;
-  importadorNombre?: string;
-  importadorDocumento?: string;
-  importadorTelefono?: string;
-  importadorEmail?: string;
-  importadorDireccion?: string;
-  aduana?: string;
-  numeroBl?: string;
-  paisOrigen?: string;
-  valorCif?: string;
-  tasaCambioBcv?: string;
-  numeroExpedienteSeniat?: string;
-  numeroDav?: string;
-  numeroCertificadoOrigen?: string;
-  numeroListaEmpaque?: string;
-  numeroPolizaTransporte?: string;
-  observaciones?: string;
-};
 
 export function facturaToFormFields(
   data: FacturaComercialExtraida

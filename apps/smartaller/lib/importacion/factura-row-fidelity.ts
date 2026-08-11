@@ -3,20 +3,16 @@
  * (hoja anexa MAV, carátulas Chery, etc.).
  */
 
-import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
+import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 import { anioFromVin } from "@/lib/ai/image-orient";
+import {
+  compactAlnumVin,
+  normalizeVinLoose,
+} from "@/lib/importacion/vin-text";
+
+export { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
 const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/gi;
-
-/** Extrae VIN de 17 chars desde texto libre (JSON truncado, OCR, etc.). */
-export function extractVinStringsFromText(text: string): string[] {
-  const found = new Set<string>();
-  for (const m of text.toUpperCase().matchAll(VIN_RE)) {
-    const vin = normalizeVin(m[1]);
-    if (vin) found.add(vin);
-  }
-  return [...found];
-}
 
 export type FacturaMultiLike = {
   shared: PuertoLibreRegistroScanFields;
@@ -24,18 +20,12 @@ export type FacturaMultiLike = {
 };
 
 export function compactAlnum(raw: string | null | undefined): string {
-  return (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return compactAlnumVin(raw);
 }
 
 /** VIN: 17 chars, sin I/O/Q. */
 export function normalizeVin(raw: string | null | undefined): string | null {
-  let v = compactAlnum(raw);
-  if (!v) return null;
-  // Correcciones OCR frecuentes en VIN
-  v = v.replace(/[IOQ]/g, (ch) => (ch === "O" ? "0" : ch === "I" ? "1" : "0"));
-  if (v.length !== 17) return v.length >= 11 ? v : null;
-  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(v)) return null;
-  return v;
+  return normalizeVinLoose(raw);
 }
 
 export function normalizeMotor(raw: string | null | undefined): string | null {

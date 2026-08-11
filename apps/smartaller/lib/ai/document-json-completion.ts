@@ -7,7 +7,7 @@ import {
 import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
-import { extractVinStringsFromText } from "@/lib/importacion/factura-row-fidelity";
+import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
 function isPdfMime(mimeType: string): boolean {
   return mimeType.toLowerCase().includes("pdf");
