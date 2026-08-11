@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Camera,
   CheckCircle2,
   ClipboardList,
+  FileSpreadsheet,
   FileText,
   Loader2,
 } from "lucide-react";
@@ -236,16 +238,18 @@ export function PuertoLibreDocScan({
 }: Props) {
   return (
     <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
           <ClipboardList className="h-4 w-4 text-cyan-400" />
           Autorellenar con documentos
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Factura de compra y certificado de origen. Si la factura es una{" "}
-          <span className="text-slate-300">hoja anexa con varios VIN</span>, te
-          llevamos a carga masiva (un expediente por vehículo).
-        </p>
+        <Link
+          href="/importacion/carga-masiva"
+          className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Carga masiva
+        </Link>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
