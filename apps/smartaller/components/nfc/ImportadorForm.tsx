@@ -19,6 +19,7 @@ import {
 import {
   CEDULA_FORMAT_HINT,
   CEDULA_PLACEHOLDER,
+  normalizeCedula,
 } from "@/lib/validations/cedula";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 
@@ -169,14 +170,16 @@ export function ImportadorForm({
     if (fields.tipo) setTipo(fields.tipo);
     applyIfPresent(fields.nombresApellidos, setNombresApellidos);
     applyIfPresent(fields.rif, setRif);
-    applyIfPresent(fields.cedula, setCedula);
+    if (fields.cedula?.trim()) setCedula(normalizeCedula(fields.cedula));
     applyIfPresent(fields.email, setEmail);
     applyIfPresent(fields.telefono, setTelefono);
     applyIfPresent(fields.direccion, setDireccion);
     applyIfPresent(fields.denominacionComercial, setDenominacionComercial);
     applyIfPresent(fields.razonSocial, setRazonSocial);
     applyIfPresent(fields.repLegalNombre, setRepLegalNombre);
-    applyIfPresent(fields.repLegalCedula, setRepLegalCedula);
+    if (fields.repLegalCedula?.trim()) {
+      setRepLegalCedula(normalizeCedula(fields.repLegalCedula));
+    }
     applyIfPresent(fields.repLegalEmail, setRepLegalEmail);
     applyIfPresent(fields.repLegalTelefono, setRepLegalTelefono);
     applyIfPresent(fields.empresaTelefono, setEmpresaTelefono);
@@ -321,6 +324,9 @@ export function ImportadorForm({
               <input
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value.toUpperCase())}
+                onBlur={() =>
+                  setCedula((v) => (v.trim() ? normalizeCedula(v) : v))
+                }
                 required
                 placeholder={CEDULA_PLACEHOLDER}
                 className={monoClass}
@@ -403,7 +409,12 @@ export function ImportadorForm({
             <Field label="Cédula *" hint={CEDULA_FORMAT_HINT}>
               <input
                 value={repLegalCedula}
-                onChange={(e) => setRepLegalCedula(e.target.value.toUpperCase())}
+                onChange={(e) =>
+                  setRepLegalCedula(e.target.value.toUpperCase())
+                }
+                onBlur={() =>
+                  setRepLegalCedula((v) => (v.trim() ? normalizeCedula(v) : v))
+                }
                 required
                 placeholder={CEDULA_PLACEHOLDER}
                 className={monoClass}

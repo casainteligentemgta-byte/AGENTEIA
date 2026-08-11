@@ -1,5 +1,9 @@
 import { createDocumentJsonCompletion } from "@/lib/ai/document-json-completion";
-import { isValidCedula, normalizeCedula } from "@/lib/validations/cedula";
+import {
+  cedulaFromRifNatural,
+  isValidCedula,
+  normalizeCedula,
+} from "@/lib/validations/cedula";
 import { isValidRif, normalizeRif } from "@/lib/validations/rif";
 import type { ImportadorTipo } from "@/lib/schemas/importador";
 
@@ -191,6 +195,11 @@ export function rifToImportadorFields(
     if (data.domicilio) fields.direccion = data.domicilio;
     if (data.telefono) fields.telefono = data.telefono;
     if (data.email) fields.email = data.email;
+    // Persona natural: el cuerpo del RIF coincide con la cédula.
+    if (data.rif) {
+      const derived = cedulaFromRifNatural(data.rif);
+      if (derived) fields.cedula = derived;
+    }
   }
 
   return fields;
