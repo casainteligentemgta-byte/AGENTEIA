@@ -19,10 +19,16 @@ import {
 import {
   CEDULA_FORMAT_HINT,
   CEDULA_PLACEHOLDER,
+  cedulaFromRifNatural,
   normalizeCedula,
   RIF_CEDULA_COINCIDEN_HINT,
 } from "@/lib/validations/cedula";
-import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
+import {
+  isValidRif,
+  normalizeRif,
+  RIF_FORMAT_HINT,
+  RIF_PLACEHOLDER,
+} from "@/lib/validations/rif";
 
 export type ImportadorFormValues = {
   id?: string;
@@ -216,14 +222,20 @@ export function ImportadorForm({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
+      const rifNorm = rif.trim() ? normalizeRif(rif) : rif;
+      const cedulaNorm =
+        cedula.trim()
+          ? normalizeCedula(cedula)
+          : cedulaFromRifNatural(rifNorm) ?? "";
+
       const payload =
         tipo === "natural"
           ? {
               id: initial?.id,
               tipo: "natural" as const,
               nombresApellidos,
-              rif,
-              cedula,
+              rif: rifNorm,
+              cedula: cedulaNorm,
               email,
               telefono,
               direccion,
@@ -234,9 +246,11 @@ export function ImportadorForm({
               tipo: "juridica" as const,
               denominacionComercial,
               razonSocial,
-              rif,
+              rif: rifNorm,
               repLegalNombre,
-              repLegalCedula,
+              repLegalCedula: repLegalCedula.trim()
+                ? normalizeCedula(repLegalCedula)
+                : repLegalCedula,
               repLegalEmail,
               repLegalTelefono,
               empresaTelefono,
@@ -312,10 +326,29 @@ export function ImportadorForm({
             />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="RIF *" hint={RIF_FORMAT_HINT}>
+            <Field
+              label="RIF *"
+              hint={`${RIF_FORMAT_HINT}. La cédula son esos números sin el dígito final.`}
+            >
               <input
                 value={rif}
                 onChange={(e) => setRif(e.target.value.toUpperCase())}
+                onBlur={() => {
+                  const next = rif.trim() ? normalizeRif(rif) : rif;
+                  setRif(next);
+                  if (!isValidRif(next)) return;
+                  const derived = cedulaFromRifNatural(next);
+                  if (!derived) return;
+                  setCedula((prev) => {
+                    if (!prev.trim()) return derived;
+                    // Si ya coincide (aunque tenga puntos), unifica al formato limpio.
+                    const normalizedPrev = normalizeCedula(prev);
+                    return normalizedPrev === derived ||
+                      normalizeCedula(prev.replace(/\./g, "")) === derived
+                      ? derived
+                      : prev;
+                  });
+                }}
                 required
                 placeholder={RIF_PLACEHOLDER}
                 className={monoClass}
@@ -323,7 +356,7 @@ export function ImportadorForm({
             </Field>
             <Field
               label="Cédula *"
-              hint={`${CEDULA_FORMAT_HINT}. ${RIF_CEDULA_COINCIDEN_HINT}`}
+              hint={`Se toma del RIF sin el último dígito (V-13848186-3 → V-13848186). Acepta puntos. ${RIF_CEDULA_COINCIDEN_HINT}`}
             >
               <input
                 value={cedula}

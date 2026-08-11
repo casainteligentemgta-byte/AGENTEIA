@@ -4,7 +4,7 @@ export const CEDULA_PLACEHOLDER = "V-12345678";
 export const CEDULA_FORMAT_HINT = "Formato: V-######## o E-########";
 
 export const RIF_CEDULA_COINCIDEN_HINT =
-  "El RIF debe ser la cédula más el dígito verificador (mismos números)";
+  "Deben coincidir letra y números (el RIF solo agrega el dígito final)";
 
 /**
  * Normaliza cédula. Acepta puntos (V-13.848.186). Si viene un RIF natural
@@ -50,7 +50,9 @@ export function isValidCedula(raw: string): boolean {
   return /^[VE]-\d{6,9}$/.test(normalizeCedula(raw));
 }
 
-/** Deriva cédula desde un RIF V/E (cuerpo sin dígito verificador). */
+/** Deriva cédula desde un RIF V/E (cuerpo sin dígito verificador).
+ * Ejemplo: V-13848186-3 → V-13848186.
+ */
 export function cedulaFromRifNatural(rif: string): string | null {
   const cleaned = rif.trim().toUpperCase().replace(/\s+/g, "");
   const m = cleaned.match(/^([VE])-(\d{8})-\d$/);
