@@ -516,27 +516,20 @@ export default async function PuertoLibrePage() {
   return (
     <PuertoLibreShell>
       <header className="mb-5 space-y-4">
-        <div>
+        <div className="flex items-center gap-2">
           <Link
             href="/portales"
-            className="mb-2 inline-flex rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            className="inline-flex shrink-0 rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
             aria-label="Volver"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="whitespace-nowrap text-lg font-semibold tracking-tight text-zinc-50 sm:text-2xl">
-            Expediente Importación Vehicular
+          <h1 className="min-w-0 text-lg font-semibold tracking-tight text-zinc-50 sm:text-2xl">
+            Expediente de Importación Vehicular
           </h1>
         </div>
         {puedeMutar ? (
         <div className="flex w-full max-w-md flex-col gap-2">
-          <Link
-            href="/importacion/importaciones/nueva"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2.5} />
-            Registrar importación
-          </Link>
           <Link
             href="/importacion/clientes"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
@@ -545,25 +538,41 @@ export default async function PuertoLibrePage() {
             Clientes
           </Link>
           <Link
+            href="/importacion/importaciones/nueva"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
+            Registrar importación
+          </Link>
+          <Link
             href="/importacion/carga-masiva"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
           >
             <FileText className="h-4 w-4 text-cyan-400" />
             Carga masiva (Excel / PDFs)
           </Link>
+          <Link
+            href="/importacion/biblioteca-legal"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+          >
+            <Scale className="h-4 w-4 text-cyan-400" />
+            Biblioteca legal
+          </Link>
         </div>
         ) : (
-          <p className="text-sm text-zinc-500">
-            Vista de solo lectura: vehículos de tu propiedad o compartidos contigo.
-          </p>
+          <>
+            <p className="text-sm text-zinc-500">
+              Vista de solo lectura: vehículos de tu propiedad o compartidos contigo.
+            </p>
+            <Link
+              href="/importacion/biblioteca-legal"
+              className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+            >
+              <Scale className="h-4 w-4 text-cyan-400" />
+              Biblioteca legal
+            </Link>
+          </>
         )}
-        <Link
-          href="/importacion/biblioteca-legal"
-          className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-        >
-          <Scale className="h-4 w-4 text-cyan-400" />
-          Biblioteca legal
-        </Link>
       </header>
 
       {vehiculos.length === 0 ? (
@@ -586,6 +595,19 @@ export default async function PuertoLibrePage() {
         </div>
       ) : (
         <div className="space-y-7">
+          <PuertoLibreDashboardBucket
+            title="Pendiente a completar"
+            emptyMessage="No hay expedientes pendientes."
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+            ]}
+            rows={rowsPendientes}
+            dateFilterLabel="Modificado"
+            actionColumnKey="modificado"
+          />
+
           {porRegistro.length > 0 ? (
             <PuertoLibreDashboardBucket
               title="Por completar registro"
@@ -631,16 +653,18 @@ export default async function PuertoLibrePage() {
           />
 
           <PuertoLibreDashboardBucket
-            title="Pendiente a completar"
-            emptyMessage="No hay expedientes pendientes."
+            title="Por presentación SENIAT"
+            icon="building"
+            emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
             columns={[
               { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
               { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+              { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
             ]}
-            rows={rowsPendientes}
-            dateFilterLabel="Modificado"
-            actionColumnKey="modificado"
+            rows={rowsPorSeniat}
+            dateFilterLabel="Presentación"
+            borderClassName="border-sky-900/30"
+            actionColumnKey="presentacion"
           />
 
           <PuertoLibreDashboardBucket
@@ -656,21 +680,6 @@ export default async function PuertoLibrePage() {
             dateFilterLabel="Rechazo"
             borderClassName="border-red-900/30"
             actionColumnKey="rechazo"
-          />
-
-          <PuertoLibreDashboardBucket
-            title="Por presentación SENIAT"
-            icon="building"
-            emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
-            ]}
-            rows={rowsPorSeniat}
-            dateFilterLabel="Presentación"
-            borderClassName="border-sky-900/30"
-            actionColumnKey="presentacion"
           />
 
           <PuertoLibreDashboardBucket
