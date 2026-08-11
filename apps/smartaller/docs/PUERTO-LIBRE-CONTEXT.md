@@ -216,7 +216,9 @@ Grupos:
 | `/importacion/vehiculos/nuevo` o `/importacion/nuevo` | Alta |
 | `/importacion/carga-masiva` | Excel/CSV + OCR multi |
 | `/importacion/carga-masiva/[formato]` | Plantilla csv/xlsx |
+| `/importacion/biblioteca-legal` | Biblioteca legal + reglas de cumplimiento |
 | `/importacion/[vehiculoId]` | Ficha / expediente |
+| `/importacion/[vehiculoId]/desaduanamiento.pdf` | PDF carpeta desaduanamiento |
 | `/importacion/[vehiculoId]/planilla?fase=` | Planilla por fases |
 | `/importacion/[vehiculoId]/nacionalizar` | Wizard M2/M3 |
 | `/importacion/[vehiculoId]/propietario` | Plantilla comprador |
@@ -236,7 +238,7 @@ Grupos:
 
 **UI:** `PuertoLibreFase1Form.tsx`, `PuertoLibreDocScan.tsx`, `PlanillaRegistroImportacion.tsx`, `PlanillaAltaPuertoLibre.tsx`, `PuertoLibreRegistroWizard.tsx`, `PuertoLibreCargaMasiva.tsx`, `PuertoLibreNacionalizarWizard.tsx`, `PuertoLibreExpedienteView.tsx`, `PuertoLibreFichaClient.tsx`, `PuertoLibreExpedienteNfc.tsx`, `ImportDocumentoUpload.tsx`
 
-**Lib:** `lib/importacion/expediente.ts`, `nacionalizacion.ts`, `access.ts`, `paths.ts`, `carga-masiva-template.ts`, `expediente-pdf.ts`, `llegada-catalog.ts`, `lib/extract-puerto-libre-docs.ts`, `lib/extract-impronta.ts`, `lib/taller-preferencias.ts`
+**Lib:** `lib/importacion/expediente.ts`, `nacionalizacion.ts`, `normas-legales.ts`, `cumplimiento-importador.ts`, `access.ts`, `paths.ts`, `carga-masiva-template.ts`, `expediente-pdf.ts`, `llegada-catalog.ts`, `lib/extract-puerto-libre-docs.ts`, `lib/extract-impronta.ts`, `lib/taller-preferencias.ts`
 
 **Dashboard:** `app/importacion/(modulo)/page.tsx`
 
@@ -262,9 +264,10 @@ Preferencias taller: último importador prellenado (`talleres.preferencias.ultim
 1. **DocScan (Fase 1):** OCR (OpenAI) solo en `factura_comercial` y `bl_guia`. Certificado origen, lista empaque, DAV, póliza transporte = adjunto sin OCR.
 2. **Carga masiva:** CSV/XLSX (máx 80) o OCR multi-doc; dedupe por serial carrocería; crea fase 1 + códigos PL secuenciales.
 3. **Impronta:** OCR vs `serial_carroceria`; bloquea fase 2 si no coincide.
-4. **PDF:** `buildExpedientePdf`.
+4. **PDF:** `buildExpedientePdf` + `buildDesaduanamientoPdf`.
 5. **NFC:** `nfc_stickers`, PIN en `pin_hash`, `/v/{token}`.
 6. **Inspección transportista:** `inspeccion_transportista`; puede sync docs/placa/km.
+7. **Cumplimiento (MVP):** `evaluarCupoPersonaNatural` en alta, fase 1 y carga masiva. RIF V/E = persona natural → máx. 1 vehículo en &lt; 3 años (mismo taller). Catálogo: `lib/importacion/normas-legales.ts` + UI `/importacion/biblioteca-legal`.
 
 ---
 
