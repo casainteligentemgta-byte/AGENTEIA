@@ -2,6 +2,8 @@
 
 Documento de referencia para agentes/IA. Toda respuesta sobre importación, SENIAT, aduana, planilla o expedientes PL debe basarse aquí. Stack: Next.js 14 App Router, Server Actions, Supabase (JSONB), Zod, Tailwind. Base path: `/importacion`. No inventar rutas, columnas ni campos que no estén aquí.
 
+**Instructivo operativo (humano):** `docs/INSTRUCTIVO-IMPORTACION.md` · UI: `/importacion/instructivo`.
+
 ---
 
 ## 1. Concepto de negocio
@@ -40,7 +42,7 @@ Alta → fase 1 (Registro: datos + factura de compra + certificado de origen)
 
 Formulario: vehículo + importador + datos importación. Docs obligatorios: factura de compra, certificado de origen.
 
-Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria, kilometraje, condicion (`nuevo`|`usado`), esSubasta (si usado), partidaArancelaria, cilindradaCc, tipoCombustible, fechaLlegadaBuque, importador (nombre, RIF, tel, email, **dirección fiscal**), aduana, numeroBl, paisOrigen, valorCif, **tasaCambioBcv**, **numeroExpedienteSeniat**, numeroDav, numeroCertificadoOrigen, numeroListaEmpaque, numeroPolizaTransporte, observaciones.
+Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria, kilometraje, condicion (`nuevo`|`usado`), esSubasta (si usado), partidaArancelaria, cilindradaCc, tipoCombustible, régimen, aduana, país origen, **puerto**, **modalidadTransito** (`ninguno|transito|uso24`), **aduanaTransito**, numeroBl, fechaLlegadaBuque, importador (nombre, RIF, tel, email, **dirección fiscal**), valorCif, **tasaCambioBcv**, **numeroExpedienteSeniat**, numeroDav, numeroCertificadoOrigen, numeroListaEmpaque, numeroPolizaTransporte, observaciones.
 
 Reglas: usado → esSubasta obligatorio y km > 0; nuevo → km puede ser 0; RIF formato `J|V|E|G|P|C-########-#` si se llena.
 
@@ -58,7 +60,7 @@ Action: `completePuertoLibreFase2EmbarqueAction` → fase 3.
 
 ### Fase 3 — Llegada
 
-`fechaIngreso`, memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
+`fechaIngreso`, documentos de llegada (`acta_recepcion_mercancia` AR + `constancia_edi_reconocimiento`), memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
 
 Estados impronta: `coincide | no_coincide | no_leido`. Sin `coincide` no avanza, salvo **forzar** si OCR quedó en `no_leido`.
 
@@ -68,16 +70,22 @@ Action: `savePuertoLibreFase2LlegadaAction` → fase 4.
 
 ### Fase 4 — Desaduanamiento SENIAT
 
-Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUANAMIENTO_DOCUMENTO_TIPOS`):
+Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUANAMIENTO_DOCUMENTO_TIPOS`) — Expediente PDF SENIAT:
 
-1. `bl_guia` — B/L original  
-2. `factura_comercial` — factura / contrato de venta  
-3. `certificado_origen`  
-4. `nacionalizacion` — DUA + `dav` — Declaración Andina de Valor  
-5. `declaracion_jurada_origen_fondos`  
-6. `planilla_liquidacion_aduanera` — impuestos y tasas (exenciones PL)
+1. `cedula_importador`  
+2. `rif_importador` (dirección Nueva Esparta, Venezuela)  
+3. `lista_empaque`  
+4. `nacionalizacion` (DUA)  
+5. `dav`  
+6. `sencamer`  
+7. `registro_puerto_libre`  
+8. `agente_aduanal_doc`  
+9. `constancia_edi_reconocimiento` (desde Llegada)  
+10. `pase_salida_levante`  
+11. `cancelacion_gastos_portuarios`  
+12. `nota_levante_seniat` — emisión de la nota del levante por el SENIAT
 
-PDF carpeta física: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`).  
+PDF: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`).  
 `completePuertoLibreFase3Action({ vehiculoId, agenteAduanal })` → fase 5.
 
 ### Fase 5 — Propietario
@@ -175,7 +183,7 @@ Notas:
 
 ### JSONB `importacion` (TS camelCase ↔ snake en serialize)
 
-`regimen`, `aduana`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+`regimen`, `aduana`, `puerto`, `modalidadTransito`, `aduanaTransito`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
 
 ### Tabla `importadores` (clientes)
 
@@ -195,7 +203,8 @@ Grupos:
 
 - Registro: `factura_comercial`, `certificado_origen`
 - Embarque: `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`
-- Desaduanamiento: carpeta completa + nuevos `nacionalizacion` (DUA), `declaracion_jurada_origen_fondos`, `planilla_liquidacion_aduanera`
+- Llegada: `acta_recepcion_mercancia`, `constancia_edi_reconocimiento`
+- Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre`, `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`, `cancelacion_gastos_portuarios`, `nota_levante_seniat`
 - Fotos: `foto_frontal`, `foto_trasera`, `foto_lateral_izq`, `foto_lateral_der`, `foto_motor`, `foto_impronta`, `foto_odometro` (+ `foto_vin`, `foto_danos`, `foto_placa`, `foto_comprador`)
 - Seguro: `poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`
 - Matriculación extras: `experticia_verificacion_legal`, `planilla_sumica_put`, `pago_tasas`

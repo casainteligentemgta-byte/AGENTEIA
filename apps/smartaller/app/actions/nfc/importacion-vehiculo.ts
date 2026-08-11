@@ -12,6 +12,7 @@ import {
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
+  PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   VIAS_NACIONALIZACION,
@@ -342,6 +343,9 @@ export async function createPuertoLibreVehiculoAction(
     importadorEmail: snapEmail,
     importadorDireccion: snapDireccion,
     aduana: data.aduana || null,
+    puerto: data.puerto || null,
+    modalidadTransito: data.modalidadTransito || null,
+    aduanaTransito: data.aduanaTransito || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
@@ -505,6 +509,9 @@ export async function savePuertoLibreFase1RegistroAction(
     importadorEmail: data.importadorEmail || null,
     importadorDireccion: data.importadorDireccion || null,
     aduana: data.aduana || null,
+    puerto: data.puerto || null,
+    modalidadTransito: data.modalidadTransito || null,
+    aduanaTransito: data.aduanaTransito || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
@@ -846,6 +853,15 @@ export async function savePuertoLibreFase2LlegadaAction(
     return {
       success: false,
       error: "Falta la foto de la impronta para verificar el serial.",
+    };
+  }
+
+  const faltantesLlegada = PL_LLEGADA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantesLlegada.length > 0) {
+    return {
+      success: false,
+      error:
+        "Carga el Acta de recepción de mercancía (AR) y la Constancia EDI de la carga (Reconocimiento).",
     };
   }
 
