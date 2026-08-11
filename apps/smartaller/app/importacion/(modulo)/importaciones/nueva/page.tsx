@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet } from "lucide-react";
 import { listImportadoresAction } from "@/app/actions/nfc/importadores";
 import { RegistrarImportacionWizard } from "@/components/nfc/RegistrarImportacionWizard";
 import { getUser } from "@/lib/supabase/server";
@@ -37,7 +37,7 @@ export default async function NuevaImportacionPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Nueva importación
             </h1>
@@ -47,6 +47,14 @@ export default async function NuevaImportacionPage() {
             </p>
           </div>
         </div>
+
+        <Link
+          href="/importacion/carga-masiva"
+          className="mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+        >
+          <FileSpreadsheet className="h-4 w-4 text-cyan-400" />
+          Carga masiva (Excel / PDFs)
+        </Link>
 
         {!listed.success ? (
           <p className="mb-4 rounded-xl border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">

@@ -3,9 +3,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
-  Car,
   ChevronRight,
-  FileText,
   Plus,
   Scale,
   Users,
@@ -515,8 +513,8 @@ export default async function PuertoLibrePage() {
 
   return (
     <PuertoLibreShell>
-      <header className="mb-5 space-y-4">
-        <div className="flex items-center gap-2">
+      <header className="mb-3 space-y-3">
+        <div className="flex items-center gap-1.5">
           <Link
             href="/portales"
             className="inline-flex shrink-0 rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
@@ -524,220 +522,221 @@ export default async function PuertoLibrePage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="min-w-0 text-lg font-semibold tracking-tight text-zinc-50 sm:text-2xl">
+          <h1 className="min-w-0 flex-1 whitespace-nowrap text-[13px] font-semibold tracking-tight text-zinc-50 sm:text-lg">
             Expediente de Importación Vehicular
           </h1>
         </div>
         {puedeMutar ? (
-        <div className="flex w-full max-w-md flex-col gap-2">
-          <Link
-            href="/importacion/clientes"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-          >
-            <Users className="h-4 w-4 text-cyan-400" />
-            Clientes
-          </Link>
-          <Link
-            href="/importacion/importaciones/nueva"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2.5} />
-            Registrar importación
-          </Link>
-          <Link
-            href="/importacion/carga-masiva"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-          >
-            <FileText className="h-4 w-4 text-cyan-400" />
-            Carga masiva (Excel / PDFs)
-          </Link>
-          <Link
-            href="/importacion/biblioteca-legal"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-          >
-            <Scale className="h-4 w-4 text-cyan-400" />
-            Biblioteca legal
-          </Link>
-        </div>
+          <div className="grid w-full grid-cols-3 gap-1.5">
+            <Link
+              href="/importacion/clientes"
+              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
+            >
+              <Users className="h-4 w-4 shrink-0 text-cyan-400" />
+              <span className="truncate">Clientes</span>
+            </Link>
+            <Link
+              href="/importacion/importaciones/nueva"
+              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl bg-cyan-600 px-1.5 py-2.5 text-center text-[11px] font-semibold leading-tight text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500 sm:flex-row sm:gap-1.5 sm:text-xs"
+            >
+              <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+              <span className="truncate">Importación</span>
+            </Link>
+            <Link
+              href="/importacion/biblioteca-legal"
+              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
+            >
+              <Scale className="h-4 w-4 shrink-0 text-cyan-400" />
+              <span className="truncate">Biblioteca</span>
+            </Link>
+          </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-2">
             <p className="text-sm text-zinc-500">
               Vista de solo lectura: vehículos de tu propiedad o compartidos contigo.
             </p>
             <Link
               href="/importacion/biblioteca-legal"
-              className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
             >
               <Scale className="h-4 w-4 text-cyan-400" />
               Biblioteca legal
             </Link>
-          </>
+          </div>
         )}
       </header>
 
-      {vehiculos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-14 text-center">
-          <Car className="mx-auto h-8 w-8 text-zinc-600" />
-          <p className="mt-3 text-zinc-300">No hay importaciones registradas</p>
-          {puedeMutar ? (
-            <p className="mt-1 text-sm text-zinc-500">
-              Registra una importación (cliente primero) o usa{" "}
-              <Link href="/importacion/carga-masiva" className="text-cyan-400 hover:underline">
-                carga masiva
-              </Link>{" "}
-              con plantilla Excel o PDFs.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-zinc-500">
-              Cuando un administrador te asigne o comparta un vehículo, aparecerá aquí.
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-7">
+      <div className="divide-y divide-zinc-800/70 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+        <PuertoLibreDashboardBucket
+          dense
+          title="Pendiente a completar"
+          emptyMessage="No hay expedientes pendientes."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPendientes}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+        />
+
+        {porRegistro.length > 0 ? (
           <PuertoLibreDashboardBucket
-            title="Pendiente a completar"
-            emptyMessage="No hay expedientes pendientes."
+            dense
+            title="Por completar registro"
+            icon="file"
+            emptyMessage="No hay vehículos por completar registro."
             columns={[
               { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
               { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+              { key: "accion", header: "Acción", pdfWidth: 0.8 },
             ]}
-            rows={rowsPendientes}
-            dateFilterLabel="Modificado"
-            actionColumnKey="modificado"
+            rows={rowsPorRegistro}
+            actionColumnKey="accion"
           />
+        ) : null}
 
-          {porRegistro.length > 0 ? (
-            <PuertoLibreDashboardBucket
-              title="Por completar registro"
-              icon="file"
-              emptyMessage="No hay vehículos por completar registro."
-              columns={[
-                { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-                { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-                { key: "accion", header: "Acción", pdfWidth: 0.8 },
-              ]}
-              rows={rowsPorRegistro}
-              actionColumnKey="accion"
-            />
-          ) : null}
-
-          {porEmbarque.length > 0 ? (
-            <PuertoLibreDashboardBucket
-              title="Por cargar docs de embarque"
-              icon="file"
-              emptyMessage="No hay vehículos por cargar docs de embarque."
-              columns={[
-                { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-                { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-                { key: "accion", header: "Acción", pdfWidth: 0.8 },
-              ]}
-              rows={rowsPorEmbarque}
-              actionColumnKey="accion"
-            />
-          ) : null}
-
+        {porEmbarque.length > 0 ? (
           <PuertoLibreDashboardBucket
-            title="Por recibir en puerto"
-            icon="ship"
-            emptyMessage="No hay vehículos pendientes de recepción en puerto."
+            dense
+            title="Por cargar docs de embarque"
+            icon="file"
+            emptyMessage="No hay vehículos por cargar docs de embarque."
             columns={[
               { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
               { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
+              { key: "accion", header: "Acción", pdfWidth: 0.8 },
             ]}
-            rows={rowsPorRecibir}
-            dateFilterLabel="Llegada"
-            actionColumnKey="llegada"
+            rows={rowsPorEmbarque}
+            actionColumnKey="accion"
           />
+        ) : null}
 
-          <PuertoLibreDashboardBucket
-            title="Por presentación SENIAT"
-            icon="building"
-            emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
-            ]}
-            rows={rowsPorSeniat}
-            dateFilterLabel="Presentación"
-            borderClassName="border-sky-900/30"
-            actionColumnKey="presentacion"
-          />
+        <PuertoLibreDashboardBucket
+          dense
+          title="Por recibir en puerto"
+          icon="ship"
+          emptyMessage="No hay vehículos pendientes de recepción en puerto."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorRecibir}
+          dateFilterLabel="Llegada"
+          actionColumnKey="llegada"
+        />
 
-          <PuertoLibreDashboardBucket
-            title="Rechazados SENIAT"
-            icon="alert"
-            emptyMessage="No hay expedientes con rechazo SENIAT pendiente de corrección."
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2.2 },
-              { key: "rechazo", header: "Rechazo", pdfWidth: 1 },
-            ]}
-            rows={rowsRechazados}
-            dateFilterLabel="Rechazo"
-            borderClassName="border-red-900/30"
-            actionColumnKey="rechazo"
-          />
+        <PuertoLibreDashboardBucket
+          dense
+          title="Por presentación SENIAT"
+          icon="building"
+          emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
+          ]}
+          rows={rowsPorSeniat}
+          dateFilterLabel="Presentación"
+          borderClassName="border-sky-900/30"
+          actionColumnKey="presentacion"
+        />
 
-          <PuertoLibreDashboardBucket
-            title="Por nacionalizar"
-            icon="flag"
-            emptyMessage="No hay vehículos pendientes de nacionalización."
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
-              { key: "limite", header: "Límite", pdfWidth: 1.3 },
-            ]}
-            rows={rowsPorNacionalizar}
-            dateFilterLabel="Límite"
-            borderClassName="border-amber-900/30"
-            actionColumnKey="limite"
-          />
+        <PuertoLibreDashboardBucket
+          dense
+          title="Rechazados SENIAT"
+          icon="alert"
+          emptyMessage="No hay expedientes con rechazo SENIAT pendiente de corrección."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Vehículo", pdfWidth: 2.2 },
+            { key: "rechazo", header: "Rechazo", pdfWidth: 1 },
+          ]}
+          rows={rowsRechazados}
+          dateFilterLabel="Rechazo"
+          borderClassName="border-red-900/30"
+          actionColumnKey="rechazo"
+        />
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-              Todos ({vehiculos.length})
+        <PuertoLibreDashboardBucket
+          dense
+          title="Por nacionalizar"
+          icon="flag"
+          emptyMessage="No hay vehículos pendientes de nacionalización."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "limite", header: "Límite", pdfWidth: 1.3 },
+          ]}
+          rows={rowsPorNacionalizar}
+          dateFilterLabel="Límite"
+          borderClassName="border-amber-900/30"
+          actionColumnKey="limite"
+        />
+
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              Todos
             </h2>
-            <ul className="space-y-1">
-              {vehiculos.map((v) => (
-                <li key={v.id}>
-                  <div className="flex items-center gap-1 rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
-                    <Link
-                      href={`/importacion/${v.id}`}
-                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
-                    >
-                      <span className="min-w-0">
-                        <span className="inline-block whitespace-nowrap font-mono font-medium text-zinc-300">
-                          {labelExpediente(v)}
+            <span
+              className={`rounded-md px-2 py-0.5 text-xs tabular-nums ${
+                vehiculos.length > 0
+                  ? "bg-red-950/50 text-red-300"
+                  : "bg-zinc-900 text-zinc-500"
+              }`}
+            >
+              {vehiculos.length}
+            </span>
+          </summary>
+          <div className="border-t border-zinc-800/60 px-2 pb-2 pt-1">
+            {vehiculos.length === 0 ? (
+              <p className="px-1 py-3 text-center text-sm text-zinc-500">
+                {puedeMutar
+                  ? "No hay importaciones. Usa Importación o carga masiva desde el alta."
+                  : "Cuando te asignen o compartan un vehículo, aparecerá aquí."}
+              </p>
+            ) : (
+              <ul className="max-h-48 space-y-0.5 overflow-y-auto">
+                {vehiculos.map((v) => (
+                  <li key={v.id}>
+                    <div className="flex items-center gap-1 rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
+                      <Link
+                        href={`/importacion/${v.id}`}
+                        className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
+                      >
+                        <span className="min-w-0">
+                          <span className="inline-block whitespace-nowrap font-mono font-medium text-zinc-300">
+                            {labelExpediente(v)}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                            {labelVehiculo(v)}
+                          </span>
                         </span>
-                        <span className="mt-0.5 block truncate text-xs text-zinc-500">
-                          {labelVehiculo(v)}
-                        </span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
-                    </Link>
-                    <PuertoLibreDeleteExpediente
-                      vehiculoId={v.id}
-                      codigo={labelExpediente(v)}
-                      variant="icon"
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      )}
+                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+                      </Link>
+                      <PuertoLibreDeleteExpediente
+                        vehiculoId={v.id}
+                        codigo={labelExpediente(v)}
+                        variant="icon"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
+      </div>
     </PuertoLibreShell>
   );
 }
 
 function PuertoLibreShell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-3 pb-6 pt-3 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-lg sm:max-w-2xl lg:max-w-3xl">{children}</div>
     </main>
   );

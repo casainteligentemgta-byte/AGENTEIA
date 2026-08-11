@@ -53,6 +53,11 @@ type Props = {
   borderClassName?: string;
   /** Clave de la columna que lleva el enlace de acción + fecha. */
   actionColumnKey?: string;
+  /**
+   * Fila compacta (móvil): título + contador.
+   * Vacío = una línea; con filas = accordion expandible.
+   */
+  dense?: boolean;
 };
 
 const EXPEDIENTE_CODE_CLASS =
@@ -111,6 +116,7 @@ export function PuertoLibreDashboardBucket({
   dateFilterLabel,
   borderClassName = "border-zinc-800/80",
   actionColumnKey,
+  dense = false,
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -130,6 +136,29 @@ export function PuertoLibreDashboardBucket({
 
   const hasFilters = Boolean(query.trim() || dateFrom || dateTo);
   const showTable = rows.length > 0;
+
+  const countBadge = (
+    <span
+      className={`rounded-md px-2 py-0.5 text-xs tabular-nums ${
+        showTable
+          ? "bg-red-950/50 text-red-300"
+          : "bg-zinc-900 text-zinc-500"
+      }`}
+    >
+      {showTable
+        ? hasFilters
+          ? `${filtered.length}/${rows.length}`
+          : rows.length
+        : 0}
+    </span>
+  );
+
+  const titleRow = (
+    <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-zinc-200">
+      <BucketIcon name={icon} />
+      <span className="truncate">{title}</span>
+    </h2>
+  );
 
   function buildPdfBytes() {
     return buildListaDashboardPdf({
@@ -215,13 +244,210 @@ export function PuertoLibreDashboardBucket({
     });
   }
 
+  const tablePanel = showTable ? (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">Filtrar {title}</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filtrar por expediente, vehículo…"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
+          />
+        </label>
+        {dateFilterLabel ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+              {dateFilterLabel} desde
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+              hasta
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
+              />
+            </label>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={pending || filtered.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
+          >
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Descargar PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            disabled={pending || filtered.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
+          >
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Share2 className="h-3.5 w-3.5" />
+            )}
+            Compartir PDF
+          </button>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="inline-flex items-center rounded-xl px-2 py-2 text-xs text-zinc-500 transition hover:text-zinc-300"
+            >
+              Limpiar
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {error ? <p className="text-xs text-red-300">{error}</p> : null}
+      {status ? <p className="text-xs text-zinc-400">{status}</p> : null}
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-zinc-500">
+          Ningún registro coincide con los filtros.
+        </p>
+      ) : (
+        <div
+          className={`overflow-x-auto rounded-2xl border bg-zinc-950/40 ${borderClassName}`}
+        >
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-3 font-medium ${
+                      col.key === "expediente" ? "whitespace-nowrap" : ""
+                    }`}
+                  >
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/80">
+              {filtered.map((row) => {
+                const tone = row.actionTone ?? "cyan";
+                return (
+                  <tr key={row.id} className="align-top hover:bg-zinc-900/50">
+                    {columns.map((col) => {
+                      const isExpediente = col.key === "expediente";
+                      const isActionCol =
+                        actionColumnKey != null && col.key === actionColumnKey;
+                      const value = row.cells[col.key] ?? "—";
+                      const sub = row.subcells?.[col.key];
+
+                      if (isExpediente) {
+                        return (
+                          <td key={col.key} className="px-3 py-3 whitespace-nowrap">
+                            <Link href={row.href} className={EXPEDIENTE_CODE_CLASS}>
+                              {value}
+                            </Link>
+                          </td>
+                        );
+                      }
+
+                      if (isActionCol) {
+                        const showValue =
+                          Boolean(value.trim()) &&
+                          value.trim() !== row.actionLabel &&
+                          value.trim() !== "—";
+                        return (
+                          <td key={col.key} className="px-3 py-3">
+                            <div className="inline-flex flex-col items-start gap-1.5">
+                              <Link
+                                href={row.href}
+                                className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium transition ${ACTION_TONE[tone]}`}
+                              >
+                                {row.actionLabel}
+                              </Link>
+                              {showValue ? (
+                                <p
+                                  className={`text-xs whitespace-nowrap sm:text-sm ${
+                                    row.urgent ? "text-red-300" : "text-zinc-300"
+                                  }`}
+                                >
+                                  {value}
+                                </p>
+                              ) : null}
+                              {sub ? (
+                                <p className="text-[11px] text-zinc-500">{sub}</p>
+                              ) : null}
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td key={col.key} className="px-3 py-3 text-zinc-300">
+                          <p className="text-xs leading-snug sm:text-sm">{value}</p>
+                          {sub ? (
+                            <p className="mt-1 line-clamp-2 text-[11px] text-red-300/80">
+                              {sub}
+                            </p>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  if (dense) {
+    if (!showTable) {
+      return (
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          {titleRow}
+          {countBadge}
+        </div>
+      );
+    }
+
+    return (
+      <details className="group" open={rows.some((r) => r.urgent)}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
+          {titleRow}
+          {countBadge}
+        </summary>
+        <div className="border-t border-zinc-800/60 px-3 pb-3 pt-2">{tablePanel}</div>
+      </details>
+    );
+  }
+
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-          <BucketIcon name={icon} />
-          {title}
-        </h2>
+        {titleRow}
         <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
           {showTable
             ? hasFilters
@@ -234,182 +460,7 @@ export function PuertoLibreDashboardBucket({
       {!showTable ? (
         <p className="text-sm text-zinc-500">{emptyMessage}</p>
       ) : (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Filtrar {title}</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filtrar por expediente, vehículo…"
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
-              />
-            </label>
-            {dateFilterLabel ? (
-              <div className="flex flex-wrap items-end gap-2">
-                <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
-                  {dateFilterLabel} desde
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
-                  hasta
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
-                  />
-                </label>
-              </div>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleDownload}
-                disabled={pending || filtered.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
-              >
-                {pending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                Descargar PDF
-              </button>
-              <button
-                type="button"
-                onClick={handleShare}
-                disabled={pending || filtered.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
-              >
-                {pending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Share2 className="h-3.5 w-3.5" />
-                )}
-                Compartir PDF
-              </button>
-              {hasFilters ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("");
-                    setDateFrom("");
-                    setDateTo("");
-                  }}
-                  className="inline-flex items-center rounded-xl px-2 py-2 text-xs text-zinc-500 transition hover:text-zinc-300"
-                >
-                  Limpiar
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {error ? <p className="text-xs text-red-300">{error}</p> : null}
-          {status ? <p className="text-xs text-zinc-400">{status}</p> : null}
-
-          {filtered.length === 0 ? (
-            <p className="text-sm text-zinc-500">
-              Ningún registro coincide con los filtros.
-            </p>
-          ) : (
-            <div
-              className={`overflow-x-auto rounded-2xl border bg-zinc-950/40 ${borderClassName}`}
-            >
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                    {columns.map((col) => (
-                      <th
-                        key={col.key}
-                        className={`px-3 py-3 font-medium ${
-                          col.key === "expediente" ? "whitespace-nowrap" : ""
-                        }`}
-                      >
-                        {col.header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/80">
-                  {filtered.map((row) => {
-                    const tone = row.actionTone ?? "cyan";
-                    return (
-                      <tr key={row.id} className="align-top hover:bg-zinc-900/50">
-                        {columns.map((col) => {
-                          const isExpediente = col.key === "expediente";
-                          const isActionCol =
-                            actionColumnKey != null && col.key === actionColumnKey;
-                          const value = row.cells[col.key] ?? "—";
-                          const sub = row.subcells?.[col.key];
-
-                          if (isExpediente) {
-                            return (
-                              <td key={col.key} className="px-3 py-3 whitespace-nowrap">
-                                <Link href={row.href} className={EXPEDIENTE_CODE_CLASS}>
-                                  {value}
-                                </Link>
-                              </td>
-                            );
-                          }
-
-                          if (isActionCol) {
-                            const showValue =
-                              Boolean(value.trim()) &&
-                              value.trim() !== row.actionLabel &&
-                              value.trim() !== "—";
-                            return (
-                              <td key={col.key} className="px-3 py-3">
-                                <div className="inline-flex flex-col items-start gap-1.5">
-                                  <Link
-                                    href={row.href}
-                                    className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium transition ${ACTION_TONE[tone]}`}
-                                  >
-                                    {row.actionLabel}
-                                  </Link>
-                                  {showValue ? (
-                                    <p
-                                      className={`text-xs whitespace-nowrap sm:text-sm ${
-                                        row.urgent ? "text-red-300" : "text-zinc-300"
-                                      }`}
-                                    >
-                                      {value}
-                                    </p>
-                                  ) : null}
-                                  {sub ? (
-                                    <p className="text-[11px] text-zinc-500">{sub}</p>
-                                  ) : null}
-                                </div>
-                              </td>
-                            );
-                          }
-
-                          return (
-                            <td key={col.key} className="px-3 py-3 text-zinc-300">
-                              <p className="text-xs leading-snug sm:text-sm">{value}</p>
-                              {sub ? (
-                                <p className="mt-1 line-clamp-2 text-[11px] text-red-300/80">
-                                  {sub}
-                                </p>
-                              ) : null}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        tablePanel
       )}
     </section>
   );
