@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { listImportadoresAction } from "@/app/actions/nfc/importadores";
 import { RegistrarImportacionWizard } from "@/components/nfc/RegistrarImportacionWizard";
 import { getUser } from "@/lib/supabase/server";
@@ -47,19 +47,6 @@ export default async function NuevaImportacionPage() {
             </p>
           </div>
         </div>
-
-        <Link
-          href="/importacion/carga-masiva"
-          className="mb-5 inline-flex w-full flex-col items-center justify-center gap-1 rounded-2xl border border-cyan-800/50 bg-cyan-950/30 px-4 py-3 text-center transition hover:border-cyan-500/50"
-        >
-          <span className="inline-flex items-center gap-2 text-sm font-medium text-cyan-100">
-            <FileSpreadsheet className="h-4 w-4 text-cyan-400" />
-            Carga masiva — hoja anexa / varios VIN
-          </span>
-          <span className="text-xs text-cyan-200/70">
-            MAV TRADE u otras facturas con N vehículos → N expedientes
-          </span>
-        </Link>
 
         {!listed.success ? (
           <p className="mb-4 rounded-xl border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
