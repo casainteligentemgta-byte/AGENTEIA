@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { listImportadoresAction } from "@/app/actions/nfc/importadores";
 import { PuertoLibreCargaMasiva } from "@/components/nfc/PuertoLibreCargaMasiva";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
@@ -22,6 +23,9 @@ export default async function CargaMasivaPuertoLibrePage() {
     );
   }
 
+  const listed = await listImportadoresAction({ soloActivos: true });
+  const importadores = listed.success ? listed.importadores : [];
+
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl">
@@ -37,10 +41,13 @@ export default async function CargaMasivaPuertoLibrePage() {
             <h1 className="text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
               Carga masiva de vehículos
             </h1>
+            <p className="mt-0.5 text-sm text-zinc-400">
+              Vehículos + importador certificado · certificados de origen por VIN
+            </p>
           </div>
         </div>
 
-        <PuertoLibreCargaMasiva />
+        <PuertoLibreCargaMasiva initialImportadores={importadores} />
       </div>
     </main>
   );
