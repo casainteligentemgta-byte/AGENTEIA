@@ -5,6 +5,7 @@ import {
   getVisionModelId,
 } from "@/lib/ai/openai-config";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
+import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 
 function isPdfMime(mimeType: string): boolean {
   return mimeType.toLowerCase().includes("pdf");
@@ -20,6 +21,32 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   return String(result.text ?? "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Rasteriza páginas de un PDF (p. ej. CamScanner sin texto) a PNG.
+ * Requiere `@napi-rs/canvas` en el runtime Node.
+ */
+export async function renderPdfPagesAsPng(
+  buffer: Buffer,
+  options?: { maxPages?: number; scale?: number }
+): Promise<Buffer[]> {
+  const maxPages = options?.maxPages ?? 4;
+  const scale = options?.scale ?? 1.75;
+  const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const total = Math.min(pdf.numPages ?? 1, maxPages);
+  const pages: Buffer[] = [];
+
+  for (let page = 1; page <= total; page++) {
+    const ab = await renderPageAsImage(pdf, page, {
+      scale,
+      canvasImport: () => import("@napi-rs/canvas"),
+    });
+    pages.push(Buffer.from(ab));
+  }
+
+  return pages;
 }
 
 async function jsonFromTextPrompt(
@@ -46,8 +73,49 @@ async function jsonFromTextPrompt(
   return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
 }
 
+async function jsonFromPdfPageImages(
+  prompt: string,
+  pagePngs: Buffer[],
+  maxTokens: number
+): Promise<Record<string, unknown>> {
+  const openai = createOpenAIClient();
+  const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+    {
+      type: "text",
+      text:
+        pagePngs.length > 1
+          ? `${prompt}\n\nLas imágenes siguientes son páginas consecutivas del mismo documento (escaneado). Usa TODAS las páginas.`
+          : prompt,
+    },
+  ];
+
+  for (const png of pagePngs) {
+    const prepared = prepareImageForVision(png, "image/png");
+    content.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`,
+        detail: prepared.detail,
+      },
+    });
+  }
+
+  const response = await openai.chat.completions.create({
+    model: getVisionModelId(),
+    response_format: { type: "json_object" },
+    temperature: 0,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content }],
+  });
+  const raw = response.choices[0]?.message?.content;
+  if (!raw) throw new Error("La IA no devolvió una respuesta válida");
+  return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+}
+
 /**
- * Extrae JSON desde foto (visión) o PDF (texto embebido → LLM; si no hay texto, intenta input file).
+ * Extrae JSON desde foto (visión) o PDF.
+ * PDF: 1) texto embebido → LLM  2) rasterizar páginas → visión (CamScanner / escaneos)
+ * 3) último recurso: enviar PDF como file_data.
  */
 export async function createDocumentJsonCompletion(params: {
   prompt: string;
@@ -56,6 +124,8 @@ export async function createDocumentJsonCompletion(params: {
   maxTokens?: number;
   /** Caracteres de texto PDF enviados al LLM (hojas anexas largas). */
   maxTextChars?: number;
+  /** Máx. páginas a rasterizar si el PDF no tiene texto. */
+  maxPdfPages?: number;
 }): Promise<Record<string, unknown>> {
   const maxTokens = params.maxTokens ?? 800;
   const maxTextChars = params.maxTextChars ?? 12000;
@@ -76,7 +146,20 @@ export async function createDocumentJsonCompletion(params: {
       return jsonFromTextPrompt(params.prompt, text, maxTokens, maxTextChars);
     }
   } catch {
-    // Continúa con intento multimodal PDF.
+    // Continúa con rasterización / multimodal.
+  }
+
+  // PDFs escaneados (CamScanner, etc.): sin texto útil → convertir a imágenes.
+  try {
+    const pages = await renderPdfPagesAsPng(params.buffer, {
+      maxPages: params.maxPdfPages ?? 4,
+      scale: 1.75,
+    });
+    if (pages.length > 0) {
+      return jsonFromPdfPageImages(params.prompt, pages, maxTokens);
+    }
+  } catch {
+    // Último recurso: file_data (algunos providers no lo soportan).
   }
 
   const openai = createOpenAIClient();

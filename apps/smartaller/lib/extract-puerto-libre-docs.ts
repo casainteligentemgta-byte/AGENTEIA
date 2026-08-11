@@ -616,6 +616,7 @@ export async function extractFacturaMultiFromDocument(
     mimeType,
     maxTokens: 6500,
     maxTextChars: 40000,
+    maxPdfPages: 6,
   });
 
   const shared = facturaToFormFields(mapFactura(parsed));
@@ -720,6 +721,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
     mimeType,
     maxTokens: 4500,
     maxTextChars: 32000,
+    maxPdfPages: 6,
   });
 
   const shared: PuertoLibreRegistroScanFields = {};
