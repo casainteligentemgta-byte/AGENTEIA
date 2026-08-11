@@ -79,7 +79,9 @@ Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUAN
 7. `registro_puerto_libre`  
 8. `agente_aduanal_doc`  
 9. `constancia_edi_reconocimiento` (desde Llegada)  
-10. `pase_salida_levante`
+10. `pase_salida_levante`  
+11. `cancelacion_gastos_portuarios`  
+12. `nota_levante_seniat` — emisión de la nota del levante por el SENIAT
 
 PDF: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`).  
 `completePuertoLibreFase3Action({ vehiculoId, agenteAduanal })` → fase 5.
@@ -200,7 +202,7 @@ Grupos:
 - Registro: `factura_comercial`, `certificado_origen`
 - Embarque: `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`
 - Llegada: `acta_recepcion_mercancia`, `constancia_edi_reconocimiento`
-- Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre`, `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`
+- Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre`, `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`, `cancelacion_gastos_portuarios`, `nota_levante_seniat`
 - Fotos: `foto_frontal`, `foto_trasera`, `foto_lateral_izq`, `foto_lateral_der`, `foto_motor`, `foto_impronta`, `foto_odometro` (+ `foto_vin`, `foto_danos`, `foto_placa`, `foto_comprador`)
 - Seguro: `poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`
 - Matriculación extras: `experticia_verificacion_legal`, `planilla_sumica_put`, `pago_tasas`

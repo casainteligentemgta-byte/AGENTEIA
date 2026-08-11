@@ -1334,7 +1334,8 @@ function Fase3Aduana({
           Régimen: <span className="text-slate-200">{regimenLabel}</span>. Genera el
           Expediente PDF para SENIAT con cédula y RIF del importador (dirección
           Nueva Esparta), lista de embarque, DUA, DAV, SENCAMER, registro de
-          Puerto Libre, agente aduanal, reconocimiento y pase de salida/levante.
+          Puerto Libre, agente aduanal, reconocimiento, pase de salida/levante,
+          cancelación de gastos portuarios y nota del levante SENIAT.
         </p>
 
         <label className="mt-5 block space-y-1.5">

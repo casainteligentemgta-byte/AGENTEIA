@@ -44,6 +44,8 @@ export const DOCUMENTO_TIPOS = [
   "registro_puerto_libre",
   "agente_aduanal_doc",
   "pase_salida_levante",
+  "cancelacion_gastos_portuarios",
+  "nota_levante_seniat",
   "poliza_seguro",
   "certificado_seguro",
   "recibo_seguro",
@@ -106,6 +108,8 @@ export const vehiculosDocumentosSchema = z.object({
   registro_puerto_libre: vehiculoDocumentoRefSchema.optional(),
   agente_aduanal_doc: vehiculoDocumentoRefSchema.optional(),
   pase_salida_levante: vehiculoDocumentoRefSchema.optional(),
+  cancelacion_gastos_portuarios: vehiculoDocumentoRefSchema.optional(),
+  nota_levante_seniat: vehiculoDocumentoRefSchema.optional(),
   poliza_seguro: vehiculoDocumentoRefSchema.optional(),
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
@@ -174,6 +178,8 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   registro_puerto_libre: "Registro de Puerto Libre",
   agente_aduanal_doc: "Agente aduanal",
   pase_salida_levante: "Pase de salida y levante",
+  cancelacion_gastos_portuarios: "Cancelación de gastos portuarios",
+  nota_levante_seniat: "Nota del levante (SENIAT)",
   poliza_seguro: "Póliza de seguro del vehículo",
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
@@ -242,6 +248,8 @@ export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "agente_aduanal_doc",
   "constancia_edi_reconocimiento",
   "pase_salida_levante",
+  "cancelacion_gastos_portuarios",
+  "nota_levante_seniat",
 ];
 
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
@@ -256,6 +264,8 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
   "registro_puerto_libre",
   "agente_aduanal_doc",
   "pase_salida_levante",
+  "cancelacion_gastos_portuarios",
+  "nota_levante_seniat",
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
@@ -271,6 +281,8 @@ export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> =
   constancia_edi_reconocimiento:
     "Desde fase Llegada (Constancia EDI / Reconocimiento)",
   pase_salida_levante: "Pase de salida y levante aduanero",
+  cancelacion_gastos_portuarios: "Cancelación de gastos portuarios",
+  nota_levante_seniat: "Emisión de la nota del levante por el SENIAT",
   constancia_residencia_permanencia:
     "Constancia de residencia en zona de Puerto Libre",
 };
@@ -311,6 +323,8 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "registro_puerto_libre",
   "agente_aduanal_doc",
   "pase_salida_levante",
+  "cancelacion_gastos_portuarios",
+  "nota_levante_seniat",
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
