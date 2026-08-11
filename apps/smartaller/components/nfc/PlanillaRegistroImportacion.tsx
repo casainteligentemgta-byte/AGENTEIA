@@ -389,6 +389,7 @@ export function PlanillaRegistroImportacion({
               | "diplomatico"
               | "temporal"
               | undefined) ?? "puerto_libre",
+            importadorId: initialImportacion.importadorId ?? null,
             importadorNombre: initialImportacion.importadorNombre ?? "",
             importadorDocumento: initialImportacion.importadorDocumento ?? "",
             importadorTelefono: initialImportacion.importadorTelefono ?? "",
@@ -761,6 +762,7 @@ type Fase1RegistroPayload = {
   tipoCombustible: string;
   fechaLlegadaBuque: string;
   regimen: string;
+  importadorId?: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
@@ -807,6 +809,7 @@ function Fase1Registro({
     tipoCombustible: string;
     fechaLlegadaBuque: string;
     regimen: string;
+    importadorId?: string | null;
     importadorNombre: string;
     importadorDocumento: string;
     importadorTelefono: string;
@@ -914,6 +917,7 @@ function Fase1Registro({
             tipoCombustible: values.tipoCombustible,
             fechaLlegadaBuque: values.fechaLlegadaBuque,
             regimen: values.regimen || "puerto_libre",
+            importadorId: initial.importadorId ?? undefined,
             importadorNombre: values.importadorNombre,
             importadorDocumento: values.importadorDocumento,
             importadorTelefono: values.importadorTelefono,

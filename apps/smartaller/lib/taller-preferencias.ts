@@ -50,7 +50,7 @@ export function parseTallerPreferencias(raw: unknown): TallerPreferencias {
 }
 
 export function ultimoImportadorFromAlta(data: {
-  importadorNombre: string;
+  importadorNombre?: string | null;
   importadorDocumento?: string | null;
   importadorTelefono?: string | null;
   importadorEmail?: string | null;

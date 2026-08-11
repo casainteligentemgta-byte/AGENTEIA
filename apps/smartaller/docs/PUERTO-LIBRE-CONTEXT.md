@@ -175,7 +175,11 @@ Notas:
 
 ### JSONB `importacion` (TS camelCase ↔ snake en serialize)
 
-`regimen`, `aduana`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion`, `planillaFase` (1–7), `matriculacionPaso` (1–2), `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+`regimen`, `aduana`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+
+### Tabla `importadores` (clientes)
+
+Personas naturales o jurídicas por taller. Migración `20260811010000_importadores_clientes.sql` (RLS por `taller_id`). Campos: `tipo` (`natural`|`juridica`), `nombre`, `documento` (RIF único por taller), contacto, `activo`. El alta de importación exige elegir/crear cliente primero; el JSONB guarda `importadorId` + snapshot denormalizado.
 
 **No usar / no reintroducir:** `numeroExpediente` (correlativo N denormalizado; se deriva de `codigoExpediente`).
 
@@ -215,7 +219,10 @@ Grupos:
 |------|-----|
 | `/importacion/login` | Login del módulo |
 | `/importacion` | Dashboard (buckets de la sección 4) |
-| `/importacion/vehiculos/nuevo` o `/importacion/nuevo` | Alta |
+| `/importacion/importaciones/nueva` | Alta de importación (cliente → vehículo) |
+| `/importacion/vehiculos/nuevo` | Redirect a `/importacion/importaciones/nueva` |
+| `/importacion/clientes` | Tabla de clientes importadores |
+| `/importacion/nuevo` | Nuevo sticker NFC (no es el alta PL) |
 | `/importacion/carga-masiva` | Excel/CSV + OCR multi |
 | `/importacion/carga-masiva/[formato]` | Plantilla csv/xlsx |
 | `/importacion/biblioteca-legal` | Biblioteca legal + reglas de cumplimiento |
@@ -234,11 +241,11 @@ Grupos:
 
 ## 7. Archivos clave
 
-**Schemas:** `lib/schemas/vehiculo-documentos.ts`, `lib/schemas/importacion-alta.ts`, `lib/validations/rif.ts`, `lib/schemas/inspeccion-transportista.ts`
+**Schemas:** `lib/schemas/vehiculo-documentos.ts`, `lib/schemas/importacion-alta.ts`, `lib/schemas/importador.ts`, `lib/validations/rif.ts`, `lib/schemas/inspeccion-transportista.ts`
 
-**Actions:** `app/actions/nfc/importacion-vehiculo.ts`, `importacion-extract.ts`, `importacion-impronta.ts`, `importacion-carga-masiva.ts`, `inspeccion-transportista.ts`, `nfc-management.ts`, `verify-nfc.ts`
+**Actions:** `app/actions/nfc/importacion-vehiculo.ts`, `importadores.ts`, `importacion-extract.ts`, `importacion-impronta.ts`, `importacion-carga-masiva.ts`, `inspeccion-transportista.ts`, `nfc-management.ts`, `verify-nfc.ts`
 
-**UI:** `PuertoLibreFase1Form.tsx`, `PuertoLibreDocScan.tsx`, `PlanillaRegistroImportacion.tsx`, `PlanillaAltaPuertoLibre.tsx`, `PuertoLibreRegistroWizard.tsx`, `PuertoLibreCargaMasiva.tsx`, `PuertoLibreNacionalizarWizard.tsx`, `PuertoLibreExpedienteView.tsx`, `PuertoLibreFichaClient.tsx`, `PuertoLibreExpedienteNfc.tsx`, `ImportDocumentoUpload.tsx`
+**UI:** `RegistrarImportacionWizard.tsx`, `ImportadorForm.tsx`, `ImportadoresClientesPanel.tsx`, `PuertoLibreFase1Form.tsx`, `PuertoLibreDocScan.tsx`, `PlanillaRegistroImportacion.tsx`, `PlanillaAltaPuertoLibre.tsx`, `PuertoLibreRegistroWizard.tsx`, `PuertoLibreCargaMasiva.tsx`, `PuertoLibreNacionalizarWizard.tsx`, `PuertoLibreExpedienteView.tsx`, `PuertoLibreFichaClient.tsx`, `PuertoLibreExpedienteNfc.tsx`, `ImportDocumentoUpload.tsx`
 
 **Lib:** `lib/importacion/expediente.ts`, `nacionalizacion.ts`, `normas-legales.ts`, `cumplimiento-importador.ts`, `access.ts`, `paths.ts`, `carga-masiva-template.ts`, `expediente-pdf.ts`, `llegada-catalog.ts`, `lib/extract-puerto-libre-docs.ts`, `lib/extract-impronta.ts`, `lib/taller-preferencias.ts`
 

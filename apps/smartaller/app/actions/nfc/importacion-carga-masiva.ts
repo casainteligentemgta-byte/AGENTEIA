@@ -28,6 +28,7 @@ import {
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
 import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
+import { ensureImportadorForTaller } from "@/app/actions/nfc/importadores";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -532,6 +533,23 @@ async function insertOneVehiculo(params: {
   const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
   const serialMotor = normalizarSerialCarroceria(data.serialMotor);
 
+  if (!data.importadorNombre?.trim() || !data.importadorDocumento?.trim()) {
+    return {
+      ok: false,
+      error: "Carga masiva requiere nombre y RIF del cliente importador",
+    };
+  }
+
+  const ensured = await ensureImportadorForTaller({
+    tallerId,
+    nombre: data.importadorNombre,
+    documento: data.importadorDocumento,
+    telefono: data.importadorTelefono,
+    email: data.importadorEmail,
+    direccion: data.importadorDireccion,
+  });
+  if (!ensured.ok) return { ok: false, error: ensured.error };
+
   const existingSerial = await findDuplicateSerialCarroceria(
     admin,
     tallerId,
@@ -556,6 +574,7 @@ async function insertOneVehiculo(params: {
   const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
+    importadorId: ensured.importadorId,
     regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
