@@ -330,7 +330,9 @@ export async function extractCargaMasivaDocumentosAction(
       if (tipoRaw === "factura_comercial") {
         const extracted = await extractFacturaMultiFromDocument(buffer, mimeType);
         if (extracted.vehiculos.length === 0) {
-          warnings.push(`${file.name}: no se detectaron vehículos`);
+          warnings.push(
+            `${file.name}: no se detectaron VIN — revisa nitidez o usa Excel`
+          );
           continue;
         }
         const sinSerial = extracted.vehiculos.filter(
@@ -620,12 +622,40 @@ export async function extractCargaMasivaEtapaAction(
       }
       const vehicleRows: CargaMasivaRow[] = [];
       for (const f of facturas) {
-        const extracted = await extractFacturaVinsStageFromDocument(
-          f.buffer,
-          f.mimeType
-        );
+        let extracted: Awaited<
+          ReturnType<typeof extractFacturaVinsStageFromDocument>
+        > = { shared: {}, vehiculos: [] };
+        try {
+          extracted = await extractFacturaVinsStageFromDocument(
+            f.buffer,
+            f.mimeType
+          );
+        } catch (err) {
+          warnings.push(
+            `${f.file.name}: error en cosecha VIN — ${formatLlmAuthError(err)}`
+          );
+        }
         if (extracted.vehiculos.length === 0) {
-          warnings.push(`${f.file.name}: no se detectaron VIN`);
+          try {
+            extracted = await extractFacturaMultiFromDocument(
+              f.buffer,
+              f.mimeType
+            );
+            if (extracted.vehiculos.length > 0) {
+              warnings.push(
+                `${f.file.name}: recuperado con pipeline completo (${extracted.vehiculos.length} VIN)`
+              );
+            }
+          } catch (err) {
+            warnings.push(
+              `${f.file.name}: error OCR — ${formatLlmAuthError(err)}`
+            );
+          }
+        }
+        if (extracted.vehiculos.length === 0) {
+          warnings.push(
+            `${f.file.name}: no se detectaron VIN — prueba foto más nítida de la tabla o Excel`
+          );
           continue;
         }
         warnings.push(
@@ -644,7 +674,7 @@ export async function extractCargaMasivaEtapaAction(
           success: false,
           error:
             warnings[0] ??
-            "No se detectaron VIN. Prueba una foto más nítida de la tabla.",
+            "No se detectaron VIN. Prueba una foto nítida de la tabla de la factura o usa la plantilla Excel.",
         };
       }
       const rows = validateCargaMasivaRows(

@@ -1105,13 +1105,39 @@ export async function extractFacturaVinsStageFromDocument(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const candidates: DocMultiExtracted[] = [];
 
+  const pushCandidate = (c: DocMultiExtracted | null | undefined) => {
+    if (c && c.vehiculos.length > 0) candidates.push(c);
+  };
+
+  const bestCount = () =>
+    candidates.length ? pickBestFacturaMulti(candidates).vehiculos.length : 0;
+
   if (isPdf) {
     try {
       const plain = await getPdfPlainText(buffer);
-      if (countValidVinsInText(plain) >= 2) {
-        const deterministic = parseMavHojaAnexaFromText(plain);
-        if (deterministic?.vehiculos.length) {
-          candidates.push(sanitizeFacturaMulti(deterministic));
+      if (countValidVinsInText(plain) >= 1) {
+        const fromText = parseMavHojaAnexaFromText(plain);
+        pushCandidate(
+          fromText ? sanitizeFacturaMulti(fromText) : null
+        );
+        // También volcar VIN sueltos del texto
+        const vins = plain
+          .toUpperCase()
+          .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
+        if (vins?.length) {
+          const unique = [...new Set(vins)];
+          pushCandidate(
+            sanitizeFacturaMulti({
+              shared: {},
+              vehiculos: unique.map((vin) => ({
+                serialCarroceria: vin,
+                vin,
+                serialMotor: "POR-COMPLETAR",
+                condicion: "nuevo" as const,
+                kilometraje: "0",
+              })),
+            })
+          );
         }
       }
     } catch {
@@ -1125,18 +1151,26 @@ export async function extractFacturaVinsStageFromDocument(
       : [buffer];
     const page1 = pages[0];
     if (page1) {
-      candidates.push(
-        await extractFacturaMultiFromImage(
-          page1,
-          isPdf ? "image/png" : mimeType,
-          FACTURA_MULTI_VIN_HARVEST_PROMPT
-        )
-      );
-      if (pickBestFacturaMulti(candidates).vehiculos.length < 6) {
+      const pageMime = isPdf ? "image/png" : mimeType;
+      for (const prompt of [
+        FACTURA_MULTI_VIN_HARVEST_PROMPT,
+        FACTURA_MULTI_TABLA_PROMPT,
+      ]) {
+        try {
+          pushCandidate(
+            await extractFacturaMultiFromImage(page1, pageMime, prompt)
+          );
+        } catch {
+          // continue
+        }
+        if (bestCount() >= 10) break;
+      }
+
+      if (bestCount() < 6) {
         for (const band of TABLE_BANDS) {
           try {
             const cropped = await cropImageBuffer(page1, band);
-            candidates.push(
+            pushCandidate(
               await extractFacturaMultiFromImage(
                 cropped.buffer,
                 cropped.mimeType,
@@ -1146,17 +1180,18 @@ export async function extractFacturaVinsStageFromDocument(
           } catch {
             // ignore
           }
-          if (pickBestFacturaMulti(candidates).vehiculos.length >= 12) break;
+          if (bestCount() >= 12) break;
         }
       }
     }
   } catch {
-    // fallback
+    // fallback abajo
   }
 
-  if (candidates.length === 0 && isPdf) {
+  // Si aún no hay filas: pasada completa del documento (no solo harvest).
+  if (bestCount() < 2) {
     try {
-      candidates.push(
+      pushCandidate(
         await extractFacturaMultiOnce(
           buffer,
           mimeType,
@@ -1164,7 +1199,29 @@ export async function extractFacturaVinsStageFromDocument(
         )
       );
     } catch {
-      // empty
+      // ignore
+    }
+  }
+  if (bestCount() < 2) {
+    try {
+      pushCandidate(
+        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
+      );
+    } catch {
+      // ignore
+    }
+  }
+  if (bestCount() < 2) {
+    try {
+      pushCandidate(
+        await extractFacturaMultiOnce(
+          buffer,
+          mimeType,
+          FACTURA_MULTI_TABLA_PROMPT
+        )
+      );
+    } catch {
+      // ignore
     }
   }
 
