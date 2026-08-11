@@ -54,13 +54,16 @@ export function getOpenRouterHeaders(): Record<string, string> | undefined {
   };
 }
 
-export function createOpenAIClient(): OpenAI {
+export function createOpenAIClient(options?: {
+  /** Timeout por request (default 25s). Documentos/OCR pueden necesitar más. */
+  timeoutMs?: number;
+}): OpenAI {
   return new OpenAI({
     apiKey: requireLlmApiKey(),
     baseURL: getOpenAIBaseURL(),
     defaultHeaders: getOpenRouterHeaders(),
     /** Evita que OCR/visión deje la UI colgada en “Guardando…”. */
-    timeout: 25_000,
+    timeout: options?.timeoutMs ?? 25_000,
     maxRetries: 1,
   });
 }

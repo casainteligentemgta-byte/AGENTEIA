@@ -27,7 +27,15 @@ function resolveSelectValue(
 ): { select: string; custom: string } {
   const trimmed = value.trim();
   if (!trimmed) return { select: "", custom: "" };
-  if (options.includes(trimmed)) return { select: trimmed, custom: "" };
+  const exact = options.find((o) => o === trimmed);
+  if (exact) return { select: exact, custom: "" };
+  const ci = options.find(
+    (o) => o.localeCompare(trimmed, "es", { sensitivity: "accent" }) === 0
+  );
+  if (ci) return { select: ci, custom: "" };
+  const folded = trimmed.toLocaleLowerCase("es");
+  const loose = options.find((o) => o.toLocaleLowerCase("es") === folded);
+  if (loose) return { select: loose, custom: "" };
   return { select: VEHICULO_CATALOGO_OTRA, custom: trimmed };
 }
 
@@ -52,15 +60,9 @@ export function VehiculoCatalogoFields({
   const modeloInit = resolveSelectValue(initialModelo, modelos);
   const [modeloSelect, setModeloSelect] = useState(() => {
     if (!initialModelo.trim()) return "";
-    if (modelos.includes(initialModelo.trim())) return initialModelo.trim();
-    if (modelos.length === 0 && initialModelo.trim()) return VEHICULO_CATALOGO_OTRA;
     return modeloInit.select || (initialModelo.trim() ? VEHICULO_CATALOGO_OTRA : "");
   });
-  const [modeloOtra, setModeloOtra] = useState(() => {
-    if (!initialModelo.trim()) return "";
-    if (modelos.includes(initialModelo.trim())) return "";
-    return initialModelo.trim();
-  });
+  const [modeloOtra, setModeloOtra] = useState(() => modeloInit.custom);
 
   const colorInit = resolveSelectValue(initialColor, VEHICULO_COLORES);
   const [colorSelect, setColorSelect] = useState(colorInit.select);
