@@ -113,3 +113,45 @@ export async function createVisionJsonCompletion(params: {
     }
   }
 }
+
+/**
+ * Cosecha de VIN por visión sin exigir JSON (más fiable en tablas densas Chery).
+ * Devuelve lista de VIN 17 chars; lanza si el proveedor falla.
+ */
+export async function createVisionVinListCompletion(params: {
+  imageBuffer: Buffer;
+  mimeType: string;
+  preferHighDetail?: boolean;
+  maxTokens?: number;
+}): Promise<string[]> {
+  const prepared = prepareImageForVision(params.imageBuffer, params.mimeType, {
+    preferHighDetail: params.preferHighDetail ?? true,
+  });
+  const dataUrl = `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`;
+  const maxTokens = params.maxTokens ?? 4000;
+  const prompt = `Lee esta imagen de factura de vehículos (Chery / commercial invoice / hoja anexa).
+Lista TODOS los números VIN / chasis de exactamente 17 caracteres visibles (columna Code o No. de Chasis).
+Uno por línea. Solo letras y dígitos. No inventes. No omitas filas del medio.
+Si no hay ninguno, responde NINGUNO.`;
+
+  try {
+    const raw = await requestVisionCompletion({
+      prompt,
+      dataUrl,
+      detail: prepared.detail,
+      maxTokens,
+      jsonMode: false,
+    });
+    return extractVinStringsFromText(raw);
+  } catch (firstError) {
+    if (!isProviderVisionError(firstError)) throw firstError;
+    const raw = await requestVisionCompletion({
+      prompt,
+      dataUrl,
+      detail: "high",
+      maxTokens,
+      jsonMode: false,
+    });
+    return extractVinStringsFromText(raw);
+  }
+}

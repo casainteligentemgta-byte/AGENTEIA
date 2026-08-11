@@ -9,7 +9,7 @@ import {
   cropImageBuffer,
   rotateImageBuffer,
 } from "@/lib/ai/image-orient";
-import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
+import { createVisionJsonCompletion, createVisionVinListCompletion } from "@/lib/ai/vision-completion";
 import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 import {
   countValidVinsInText,
@@ -1058,138 +1058,165 @@ export async function extractFacturaMultiFromDocument(
 }
 
 /**
- * Etapa 1 — solo cosecha de VIN (rápida, máxima cobertura de filas).
- * Ideal antes de enriquecer modelo/color/precio.
+ * Etapa 1 — cosecha de VIN (prioriza listado en texto plano + recortes Chery).
+ * Si no hay VIN, lanza Error con el diagnóstico de OCR (no lo oculta).
  */
 export async function extractFacturaVinsStageFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
-  const candidates: DocMultiExtracted[] = [];
+  const diagnostics: string[] = [];
+  const vinSet = new Set<string>();
 
-  const pushCandidate = (c: DocMultiExtracted | null | undefined) => {
-    if (c && c.vehiculos.length > 0) candidates.push(c);
+  const addVins = (vins: string[], source: string) => {
+    let added = 0;
+    for (const v of vins) {
+      const n = v.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
+      if (n.length === 17 && !vinSet.has(n)) {
+        vinSet.add(n);
+        added += 1;
+      }
+    }
+    diagnostics.push(`${source}: +${added} (total ${vinSet.size})`);
   };
 
-  const bestCount = () =>
-    candidates.length ? pickBestFacturaMulti(candidates).vehiculos.length : 0;
+  const fromImageList = async (
+    img: Buffer,
+    imgMime: string,
+    label: string
+  ) => {
+    try {
+      const sized = await compressImageForVision(img);
+      const vins = await createVisionVinListCompletion({
+        imageBuffer: sized.buffer,
+        mimeType: sized.mimeType,
+        preferHighDetail: true,
+        maxTokens: 4000,
+      });
+      addVins(vins, label);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      diagnostics.push(`${label}: ERROR ${msg.slice(0, 160)}`);
+    }
+  };
 
+  // Texto embebido (PDF digital)
   if (isPdf) {
     try {
       const plain = await getPdfPlainText(buffer);
-      if (countValidVinsInText(plain) >= 1) {
-        const fromText = parseMavHojaAnexaFromText(plain);
-        pushCandidate(
-          fromText ? sanitizeFacturaMulti(fromText) : null
+      const fromPlain = plain
+        .toUpperCase()
+        .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
+      if (fromPlain?.length) addVins(fromPlain, "texto-pdf");
+      const det = parseMavHojaAnexaFromText(plain);
+      if (det?.vehiculos.length) {
+        addVins(
+          det.vehiculos
+            .map((v) => v.serialCarroceria ?? v.vin ?? "")
+            .filter(Boolean),
+          "parser-mav"
         );
-        // También volcar VIN sueltos del texto
-        const vins = plain
-          .toUpperCase()
-          .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
-        if (vins?.length) {
-          const unique = [...new Set(vins)];
-          pushCandidate(
-            sanitizeFacturaMulti({
-              shared: {},
-              vehiculos: unique.map((vin) => ({
-                serialCarroceria: vin,
-                vin,
-                serialMotor: "POR-COMPLETAR",
-                condicion: "nuevo" as const,
-                kilometraje: "0",
-              })),
-            })
-          );
-        }
       }
-    } catch {
-      // visión
+    } catch (err) {
+      diagnostics.push(
+        `texto-pdf: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
+      );
     }
   }
 
+  // Raster página 1 + recortes Chery (columna Code / tabla)
   try {
     const pages = isPdf
       ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.4 })
       : [buffer];
     const page1 = pages[0];
-    if (page1) {
+    if (!page1) {
+      diagnostics.push("raster: no se pudo renderizar la página 1");
+    } else {
+      diagnostics.push(`raster: ok ${page1.length} bytes`);
       const pageMime = isPdf ? "image/png" : mimeType;
-      for (const prompt of [
-        FACTURA_MULTI_VIN_HARVEST_PROMPT,
-        FACTURA_MULTI_TABLA_PROMPT,
-      ]) {
+      await fromImageList(page1, pageMime, "pagina-1");
+
+      // Recortes tipicos factura Chery: tabla y columna Code
+      const cheryCrops = [
+        { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
+        { label: "col-code", region: { x: 0.2, y: 0.28, w: 0.35, h: 0.55 } },
+        { label: "banda-sup", region: { x: 0.05, y: 0.28, w: 0.9, h: 0.35 } },
+        { label: "banda-inf", region: { x: 0.05, y: 0.48, w: 0.9, h: 0.35 } },
+      ] as const;
+
+      for (const crop of cheryCrops) {
+        if (vinSet.size >= 15) break;
         try {
-          pushCandidate(
-            await extractFacturaMultiFromImage(page1, pageMime, prompt)
+          const cropped = await cropImageBuffer(page1, crop.region);
+          await fromImageList(cropped.buffer, cropped.mimeType, crop.label);
+        } catch (err) {
+          diagnostics.push(
+            `${crop.label}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
           );
-        } catch {
-          // continue
-        }
-        if (bestCount() >= 10) break;
-      }
-
-      if (bestCount() < 6) {
-        for (const band of TABLE_BANDS) {
-          try {
-            const cropped = await cropImageBuffer(page1, band);
-            pushCandidate(
-              await extractFacturaMultiFromImage(
-                cropped.buffer,
-                cropped.mimeType,
-                FACTURA_MULTI_VIN_HARVEST_PROMPT
-              )
-            );
-          } catch {
-            // ignore
-          }
-          if (bestCount() >= 12) break;
         }
       }
     }
-  } catch {
-    // fallback abajo
+  } catch (err) {
+    diagnostics.push(
+      `raster: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+    );
   }
 
-  // Si aún no hay filas: pasada completa del documento (no solo harvest).
-  if (bestCount() < 2) {
+  // Fallback JSON harvest / tabla si aún faltan
+  if (vinSet.size < 2) {
     try {
-      pushCandidate(
-        await extractFacturaMultiOnce(
-          buffer,
-          mimeType,
-          FACTURA_MULTI_VIN_HARVEST_PROMPT
-        )
+      const sized = await compressImageForVision(
+        isPdf
+          ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]!
+          : buffer
       );
-    } catch {
-      // ignore
-    }
-  }
-  if (bestCount() < 2) {
-    try {
-      pushCandidate(
-        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
+      const parsed = await createVisionJsonCompletion({
+        prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
+        imageBuffer: sized.buffer,
+        mimeType: sized.mimeType,
+        maxTokens: 8000,
+        preferHighDetail: true,
+      });
+      const extracted = enrichWithSalvagedVins(
+        sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
+        parsed
       );
-    } catch {
-      // ignore
-    }
-  }
-  if (bestCount() < 2) {
-    try {
-      pushCandidate(
-        await extractFacturaMultiOnce(
-          buffer,
-          mimeType,
-          FACTURA_MULTI_TABLA_PROMPT
-        )
+      addVins(
+        extracted.vehiculos.map((v) => v.serialCarroceria ?? v.vin ?? ""),
+        "json-harvest"
       );
-    } catch {
-      // ignore
+    } catch (err) {
+      diagnostics.push(
+        `json-harvest: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+      );
     }
   }
 
-  if (candidates.length === 0) return { shared: {}, vehiculos: [] };
-  return pickBestFacturaMulti(candidates);
+  if (vinSet.size === 0) {
+    throw new Error(
+      `Sin VIN legibles. ${diagnostics.slice(0, 4).join(" · ") || "Revisa OPENAI_API_KEY / modelo de visión en Vercel."}`
+    );
+  }
+
+  const looksChery = [...vinSet].some((v) => v.startsWith("LVV") || v.startsWith("LVT") || v.startsWith("LVD"));
+  const vehiculos = [...vinSet].map((vin) =>
+    sanitizeVehiculoRowLocal({
+      serialCarroceria: vin,
+      vin,
+      serialMotor: "POR-COMPLETAR",
+      condicion: "nuevo",
+      kilometraje: "0",
+      anio: anioFromVin(vin)?.toString(),
+      ...(looksChery ? { marca: "Chery" } : {}),
+    })
+  );
+
+  return {
+    shared: looksChery ? { marca: "Chery" } : {},
+    vehiculos,
+  };
 }
 
 function buildEnrichPrompt(knownVins: string[]): string {

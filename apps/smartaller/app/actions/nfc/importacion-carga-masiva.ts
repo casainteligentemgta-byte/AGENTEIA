@@ -631,9 +631,12 @@ export async function extractCargaMasivaEtapaAction(
             f.mimeType
           );
         } catch (err) {
-          warnings.push(
-            `${f.file.name}: error en cosecha VIN — ${formatLlmAuthError(err)}`
-          );
+          const detail = formatLlmAuthError(err);
+          warnings.push(`${f.file.name}: error en cosecha VIN — ${detail}`);
+          // Si el error ya trae diagnóstico OCR, úsalo como fallo principal al final
+          if (/Sin VIN legibles|OPENAI|API|visión|vision|clave/i.test(detail)) {
+            return { success: false, error: `${f.file.name}: ${detail}` };
+          }
         }
         if (extracted.vehiculos.length === 0) {
           try {

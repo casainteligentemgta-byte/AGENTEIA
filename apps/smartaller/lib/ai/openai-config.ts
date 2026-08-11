@@ -81,7 +81,11 @@ export function formatLlmAuthError(err: unknown): string {
     return "Clave OpenAI inválida. Usa sk-proj-... de OpenAI o sk-or-v1-... de OpenRouter en OPENAI_API_KEY.";
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
-    return "No se pudo analizar la imagen con la IA. La foto se puede guardar igual; completa placa o kilometraje manualmente si hace falta.";
+    // Conservar diagnósticos de carga masiva / VIN
+    if (/Sin VIN|raster:|pagina-1|col-code|json-harvest/i.test(msg)) {
+      return msg;
+    }
+    return "No se pudo analizar la imagen con la IA. Prueba otra foto más nítida o un PDF más liviano.";
   }
   if (/timeout|timed out|aborted|ETIMEDOUT|AbortError/i.test(msg)) {
     return "La IA tardó demasiado. La foto puede guardarse igual; reintenta o completa los datos a mano.";
