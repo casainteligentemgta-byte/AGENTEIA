@@ -82,7 +82,7 @@ export function formatLlmAuthError(err: unknown): string {
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN
-    if (/Sin VIN|raster:|pagina-1|col-code|json-harvest/i.test(msg)) {
+    if (/Sin VIN|raster:|pagina-1|col-code|json-harvest|tesseract/i.test(msg)) {
       return msg;
     }
     return "No se pudo analizar la imagen con la IA. Prueba otra foto más nítida o un PDF más liviano.";

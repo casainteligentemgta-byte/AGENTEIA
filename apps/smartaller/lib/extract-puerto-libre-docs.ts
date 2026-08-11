@@ -18,6 +18,7 @@ import {
   sanitizeFacturaMulti,
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
+import { extractVinsWithTesseract } from "@/lib/importacion/ocr-vin-tesseract";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -1125,37 +1126,72 @@ export async function extractFacturaVinsStageFromDocument(
     }
   }
 
-  // Raster página 1 + recortes Chery (columna Code / tabla)
+  // Raster página 1 + Tesseract (local) + visión en recortes Chery
   try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.4 })
+      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.8 })
       : [buffer];
     const page1 = pages[0];
     if (!page1) {
       diagnostics.push("raster: no se pudo renderizar la página 1");
     } else {
       diagnostics.push(`raster: ok ${page1.length} bytes`);
-      const pageMime = isPdf ? "image/png" : mimeType;
-      await fromImageList(page1, pageMime, "pagina-1");
 
       // Recortes tipicos factura Chery: tabla y columna Code
       const cheryCrops = [
         { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
-        { label: "col-code", region: { x: 0.2, y: 0.28, w: 0.35, h: 0.55 } },
+        { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
+        { label: "col-code-2", region: { x: 0.2, y: 0.36, w: 0.15, h: 0.5 } },
         { label: "banda-sup", region: { x: 0.05, y: 0.28, w: 0.9, h: 0.35 } },
         { label: "banda-inf", region: { x: 0.05, y: 0.48, w: 0.9, h: 0.35 } },
       ] as const;
 
+      const croppedBuffers: { label: string; buffer: Buffer; mimeType: string }[] =
+        [];
       for (const crop of cheryCrops) {
-        if (vinSet.size >= 15) break;
         try {
           const cropped = await cropImageBuffer(page1, crop.region);
-          await fromImageList(cropped.buffer, cropped.mimeType, crop.label);
+          croppedBuffers.push({
+            label: crop.label,
+            buffer: cropped.buffer,
+            mimeType: cropped.mimeType,
+          });
         } catch (err) {
           diagnostics.push(
             `${crop.label}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
           );
         }
+      }
+
+      // 1) Tesseract primero (no depende de OPENAI_API_KEY)
+      try {
+        const tessImages = croppedBuffers
+          .filter((c) => c.label.startsWith("col-code"))
+          .map((c) => c.buffer);
+        const tess = await extractVinsWithTesseract(
+          tessImages.length > 0 ? tessImages : [page1]
+        );
+        addVins(tess.vins, "tesseract");
+        if (tess.textSample) {
+          diagnostics.push(`tesseract-sample: ${tess.textSample.slice(0, 80)}`);
+        }
+      } catch (err) {
+        diagnostics.push(
+          `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+        );
+      }
+
+      // 2) Visión LLM solo si faltan VIN (ahorra timeout / coste)
+      if (vinSet.size < 12) {
+        const pageMime = isPdf ? "image/png" : mimeType;
+        await fromImageList(page1, pageMime, "pagina-1");
+        for (const crop of croppedBuffers) {
+          if (vinSet.size >= 15) break;
+          if (crop.label.startsWith("banda") && vinSet.size >= 8) continue;
+          await fromImageList(crop.buffer, crop.mimeType, crop.label);
+        }
+      } else {
+        diagnostics.push("vision: omitida (tesseract suficiente)");
       }
     }
   } catch (err) {
