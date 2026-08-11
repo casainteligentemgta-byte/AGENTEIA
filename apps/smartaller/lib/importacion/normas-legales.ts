@@ -76,6 +76,19 @@ export const NORMAS_LEGALES: NormaLegal[] = [
     reglaCodigo: null,
     etiquetas: ["ley", "referencia", "Puerto Libre"],
   },
+  {
+    id: "ve-regimenes-importacion",
+    codigo: "VE-REG-01",
+    titulo: "Cinco regímenes de importación vehicular",
+    organismo: "SENIAT / INTT",
+    resumen:
+      "Ordinario, Equipaje, Puerto Libre, Diplomático y Admisión temporal. La planilla es única; cada régimen añade recaudos y reglas (cupo, nacionalización PL, etc.).",
+    obliga:
+      "Seleccionar régimen al alta. Desaduanamiento exige carpeta base + documentos del régimen.",
+    estado: "vigente",
+    reglaCodigo: "regimenes_importacion_variantes",
+    etiquetas: ["régimen", "ordinario", "equipaje", "diplomático", "temporal"],
+  },
 ];
 
 export function getNormaByRegla(reglaCodigo: string): NormaLegal | undefined {

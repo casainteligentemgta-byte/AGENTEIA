@@ -48,6 +48,7 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
+import { docsDesaduanamientoPorRegimen } from "@/lib/importacion/regimenes";
 import { canForzarImprontaSinVerificar, canMutateImportacionData } from "@/lib/importacion/access";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import {
@@ -279,6 +280,7 @@ export async function createPuertoLibreVehiculoAction(
     tallerId: auth.taller.id,
     importadorDocumento: data.importadorDocumento || null,
     fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+    regimen: data.regimen,
   });
   if (!cupo.ok) {
     return { success: false, error: cupo.error };
@@ -291,7 +293,7 @@ export async function createPuertoLibreVehiculoAction(
   const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
-    regimen: "Puerto Libre",
+    regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
@@ -316,7 +318,8 @@ export async function createPuertoLibreVehiculoAction(
     numeroListaEmpaque: data.numeroListaEmpaque || null,
     numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
-    estadoNacionalizacion: "pendiente",
+    estadoNacionalizacion:
+      data.regimen === "puerto_libre" ? "pendiente" : "no_aplica",
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,
@@ -414,6 +417,7 @@ export async function savePuertoLibreFase1RegistroAction(
     importadorDocumento: data.importadorDocumento || null,
     excludeVehiculoId: data.vehiculoId,
     fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+    regimen: data.regimen,
   });
   if (!cupo.ok) {
     return { success: false, error: cupo.error };
@@ -433,8 +437,19 @@ export async function savePuertoLibreFase1RegistroAction(
 
   const existing = parseImportacion(row.importacion);
   const faseActual = existing.planillaFase ?? 1;
+  const estadoNac =
+    data.regimen === "puerto_libre"
+      ? existing.estadoNacionalizacion &&
+        existing.estadoNacionalizacion !== "no_aplica"
+        ? existing.estadoNacionalizacion
+        : "pendiente"
+      : existing.estadoNacionalizacion === "nacionalizado" ||
+          existing.estadoNacionalizacion === "en_proceso"
+        ? existing.estadoNacionalizacion
+        : "no_aplica";
   const importacion = serializeImportacion({
     ...existing,
+    regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
@@ -459,6 +474,7 @@ export async function savePuertoLibreFase1RegistroAction(
     numeroListaEmpaque: data.numeroListaEmpaque || null,
     numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
+    estadoNacionalizacion: estadoNac,
     planillaFase: Math.max(faseActual, 2),
   });
 
@@ -888,19 +904,21 @@ export async function completePuertoLibreFase3Action(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
+  const existing = parseImportacion(row.importacion);
   const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.filter(
-    (t) => !docs[t]?.url
+  const carpeta = docsDesaduanamientoPorRegimen(
+    existing.regimen,
+    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
   );
+  const faltantes = carpeta.filter((t) => !docs[t]?.url);
   if (faltantes.length > 0) {
     return {
       success: false,
       error:
-        "Completa la carpeta de desaduanamiento (B/L, factura, origen, DUA, DAV, declaración jurada y planilla de liquidación)",
+        "Completa la carpeta de desaduanamiento (documentos base + recaudos del régimen elegido)",
     };
   }
 
-  const existing = parseImportacion(row.importacion);
   const importacion = serializeImportacion({
     ...existing,
     agenteAduanal: parsed.data.agenteAduanal,

@@ -20,6 +20,11 @@ import {
   type TipoCombustible,
 } from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import {
+  REGIMEN_SELECT_OPTIONS,
+  getRegimenConfig,
+  type RegimenImportacion,
+} from "@/lib/importacion/regimenes";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
@@ -39,6 +44,7 @@ export type PuertoLibreFase1FormValues = {
   cilindradaCc: string;
   tipoCombustible: TipoCombustible | "";
   fechaLlegadaBuque: string;
+  regimen: RegimenImportacion | "";
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
@@ -72,6 +78,7 @@ export const emptyPuertoLibreFase1Values = (): PuertoLibreFase1FormValues => ({
   cilindradaCc: "",
   tipoCombustible: "",
   fechaLlegadaBuque: "",
+  regimen: "puerto_libre",
   importadorNombre: "",
   importadorDocumento: "",
   importadorTelefono: "",
@@ -509,6 +516,22 @@ export function PuertoLibreFase1Form({
       >
         <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
         <div className={gridClass}>
+          <div className="min-w-0 sm:col-span-2">
+            <ControlledSelect
+              label="Régimen de importación *"
+              name="regimen"
+              placeholder="Selecciona régimen"
+              value={values.regimen}
+              options={REGIMEN_SELECT_OPTIONS}
+              onChange={(v) => setField("regimen", v as RegimenImportacion | "")}
+              required
+            />
+            {values.regimen ? (
+              <p className="mt-1.5 text-xs text-slate-500">
+                {getRegimenConfig(values.regimen).descripcion}
+              </p>
+            ) : null}
+          </div>
           <div className="min-w-0 sm:col-span-2">
             <PlanillaFechaField
               label="Fecha llegada del buque *"

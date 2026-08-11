@@ -117,7 +117,9 @@ export function PuertoLibreFichaClient({
       {/* 2. Datos de importación */}
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
-        <p className="mt-1 text-sm text-slate-500">Régimen Puerto Libre y referencias aduaneras.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Régimen de importación y referencias aduaneras.
+        </p>
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
@@ -125,7 +127,7 @@ export function PuertoLibreFichaClient({
               const valorRaw = String(fd.get("valorCif") ?? "").trim();
               const result = await updatePuertoLibreImportacionAction({
                 vehiculoId: ficha.id,
-                regimen: String(fd.get("regimen") ?? "") || "Puerto Libre",
+                regimen: String(fd.get("regimen") ?? "") || "puerto_libre",
                 aduana: String(fd.get("aduana") ?? "") || null,
                 fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? "") || null,
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
@@ -150,11 +152,20 @@ export function PuertoLibreFichaClient({
             });
           }}
         >
-          <Field
-            label="Régimen"
-            name="regimen"
-            defaultValue={ficha.importacion.regimen ?? "Puerto Libre"}
-          />
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Régimen</span>
+            <select
+              name="regimen"
+              defaultValue={ficha.importacion.regimen ?? "puerto_libre"}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            >
+              <option value="ordinario">Régimen ordinario</option>
+              <option value="equipaje">Régimen de equipaje</option>
+              <option value="puerto_libre">Puerto Libre</option>
+              <option value="diplomatico">Régimen diplomático</option>
+              <option value="temporal">Admisión temporal</option>
+            </select>
+          </label>
           <SelectField
             label="Aduana"
             name="aduana"

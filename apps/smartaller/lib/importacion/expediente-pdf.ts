@@ -1,6 +1,10 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { placaRealVisible } from "@/lib/importacion/expediente";
 import {
+  docsDesaduanamientoPorRegimen,
+  labelRegimenImportacion,
+} from "@/lib/importacion/regimenes";
+import {
   DOCUMENTO_LABELS,
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
@@ -488,7 +492,7 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
   }
   y = drawSectionTitle(page, bold, "Importación", y);
   ({ page, y } = drawPairs(pdf, page, font, bold, [
-    { label: "Régimen", value: txt(imp.regimen) },
+    { label: "Régimen", value: txt(labelRegimenImportacion(imp.regimen)) },
     { label: "Aduana", value: txt(imp.aduana) },
     { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
     { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
@@ -608,6 +612,7 @@ export async function buildDesaduanamientoPdf(
       { label: "Color / anio", value: `${txt(ficha.color)} / ${txt(imp.anio)}` },
       { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
       { label: "Placa", value: txt(placa) },
+      { label: "Regimen", value: txt(labelRegimenImportacion(imp.regimen)) },
       { label: "Aduana / circunscripcion", value: txt(imp.aduana) },
       { label: "Agente de aduanas", value: txt(imp.agenteAduanal) },
       { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
@@ -631,12 +636,14 @@ export async function buildDesaduanamientoPdf(
   );
   y = drawSectionTitle(page, bold, "Documentos a consignar", y);
 
-  const indexPairs: LinePair[] = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.map(
-    (tipo, i) => ({
-      label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
-      value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
-    })
+  const carpetaTipos = docsDesaduanamientoPorRegimen(
+    imp.regimen,
+    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
   );
+  const indexPairs: LinePair[] = carpetaTipos.map((tipo, i) => ({
+    label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
+    value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
+  }));
   ({ page, y } = drawPairs(pdf, page, font, bold, indexPairs, y));
 
   page.drawText(
@@ -653,7 +660,7 @@ export async function buildDesaduanamientoPdf(
   );
 
   const pagesUsed = { count: 0 };
-  for (const tipo of PL_DESADUANAMIENTO_DOCUMENTO_TIPOS) {
+  for (const tipo of carpetaTipos) {
     const url = ficha.documentos[tipo]?.url;
     if (!url) {
       separatorPage(

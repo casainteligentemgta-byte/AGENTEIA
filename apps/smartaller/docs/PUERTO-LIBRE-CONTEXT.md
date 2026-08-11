@@ -44,7 +44,9 @@ Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria
 
 Reglas: usado → esSubasta obligatorio y km > 0; nuevo → km puede ser 0; RIF formato `J|V|E|G|P|C-########-#` si se llena.
 
-Al crear: `planillaFase=1`, `estadoNacionalizacion=pendiente`, `estadoSeniat=pendiente`, `regimen="Puerto Libre"`.
+Al crear: `planillaFase=1`, `estadoSeniat=pendiente`, `regimen` = uno de `ordinario|equipaje|puerto_libre|diplomatico|temporal` (default `puerto_libre`). `estadoNacionalizacion=pendiente` solo si Puerto Libre; otros → `no_aplica`.
+
+Catálogo: `lib/importacion/regimenes.ts`. Misma planilla; desaduanamiento = carpeta base + docs extra del régimen. Nacionalización M2/M3 solo `puerto_libre`. Cupo persona natural: `equipaje` y `puerto_libre`.
 
 Al continuar registro (docs OK): `planillaFase=2`.
 

@@ -20,6 +20,10 @@ import {
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { placaRealVisible } from "@/lib/importacion/expediente";
+import {
+  getRegimenConfig,
+  labelRegimenImportacion,
+} from "@/lib/importacion/regimenes";
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 
 type Props = {
@@ -221,7 +225,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           ) : null}
         </div>
         <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
-          <Dato label="Régimen" value={imp.regimen} />
+          <Dato label="Régimen" value={labelRegimenImportacion(imp.regimen)} />
           <Dato label="Aduana" value={imp.aduana} />
           <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
@@ -330,6 +334,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       </Link>
 
       {(imp.planillaFase ?? 0) >= 8 &&
+      getRegimenConfig(imp.regimen).nacionalizacionPuertoLibre &&
       imp.estadoNacionalizacion !== "nacionalizado" &&
       imp.estadoNacionalizacion !== "no_aplica" ? (
         <Link

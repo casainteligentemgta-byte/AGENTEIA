@@ -41,6 +41,11 @@ import {
 } from "@/lib/importacion/llegada-catalog";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
 import {
+  docsDesaduanamientoPorRegimen,
+  getRegimenConfig,
+  origenDocDesaduanamiento,
+} from "@/lib/importacion/regimenes";
+import {
   DOCUMENTO_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
@@ -186,10 +191,19 @@ export function PlanillaRegistroImportacion({
     initialImportacion.matriculacionPaso ?? 1
   );
 
+  const regimenCfg = getRegimenConfig(initialImportacion.regimen);
+  const desaduanamientoTipos = useMemo(
+    () =>
+      docsDesaduanamientoPorRegimen(
+        initialImportacion.regimen,
+        PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
+      ),
+    [initialImportacion.regimen]
+  );
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
-  const aduanaCount = countDocs(docs, PL_DESADUANAMIENTO_DOCUMENTO_TIPOS);
+  const aduanaCount = countDocs(docs, desaduanamientoTipos);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
     [checklist]
@@ -221,8 +235,7 @@ export function PlanillaRegistroImportacion({
     fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
     checklistMarked === LLEGADA_CHECKLIST_ITEMS.length;
 
-  const aduanaCompleta =
-    aduanaCount === PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.length;
+  const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
   const propietarioCompleto = Boolean(compradorNombre?.trim());
   const seguroCompleto = Boolean(
     initialSeguro.aseguradora?.trim() ||
@@ -369,6 +382,13 @@ export function PlanillaRegistroImportacion({
                 : "",
             tipoCombustible: initialImportacion.tipoCombustible ?? "",
             fechaLlegadaBuque: initialImportacion.fechaLlegadaBuque ?? "",
+            regimen: (initialImportacion.regimen as
+              | "ordinario"
+              | "equipaje"
+              | "puerto_libre"
+              | "diplomatico"
+              | "temporal"
+              | undefined) ?? "puerto_libre",
             importadorNombre: initialImportacion.importadorNombre ?? "",
             importadorDocumento: initialImportacion.importadorDocumento ?? "",
             importadorTelefono: initialImportacion.importadorTelefono ?? "",
@@ -491,6 +511,9 @@ export function PlanillaRegistroImportacion({
           docs={docs}
           setDocs={setDocs}
           docsCount={aduanaCount}
+          docTipos={desaduanamientoTipos}
+          regimenLabel={regimenCfg.label}
+          regimen={initialImportacion.regimen}
           pending={pending}
           canComplete={aduanaCompleta}
           agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
@@ -737,6 +760,7 @@ type Fase1RegistroPayload = {
   cilindradaCc: string;
   tipoCombustible: string;
   fechaLlegadaBuque: string;
+  regimen: string;
   importadorNombre: string;
   importadorDocumento: string;
   importadorTelefono: string;
@@ -782,6 +806,7 @@ function Fase1Registro({
     cilindradaCc: string;
     tipoCombustible: string;
     fechaLlegadaBuque: string;
+    regimen: string;
     importadorNombre: string;
     importadorDocumento: string;
     importadorTelefono: string;
@@ -831,6 +856,12 @@ function Fase1Registro({
         ? initial.tipoCombustible
         : "",
     fechaLlegadaBuque: initial.fechaLlegadaBuque,
+    regimen: (initial.regimen as
+      | "ordinario"
+      | "equipaje"
+      | "puerto_libre"
+      | "diplomatico"
+      | "temporal") || "puerto_libre",
     importadorNombre: initial.importadorNombre,
     importadorDocumento: initial.importadorDocumento,
     importadorTelefono: initial.importadorTelefono,
@@ -882,6 +913,7 @@ function Fase1Registro({
             cilindradaCc: values.cilindradaCc,
             tipoCombustible: values.tipoCombustible,
             fechaLlegadaBuque: values.fechaLlegadaBuque,
+            regimen: values.regimen || "puerto_libre",
             importadorNombre: values.importadorNombre,
             importadorDocumento: values.importadorDocumento,
             importadorTelefono: values.importadorTelefono,
@@ -1207,6 +1239,9 @@ function Fase3Aduana({
   docs,
   setDocs,
   docsCount,
+  docTipos,
+  regimenLabel,
+  regimen,
   pending,
   canComplete,
   agenteAduanalInicial,
@@ -1217,6 +1252,9 @@ function Fase3Aduana({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
+  docTipos: DocumentoTipo[];
+  regimenLabel: string;
+  regimen: string | null | undefined;
   pending: boolean;
   canComplete: boolean;
   agenteAduanalInicial: string;
@@ -1233,13 +1271,13 @@ function Fase3Aduana({
           <FileUp className="h-5 w-5 text-cyan-400" />
           Desaduanamiento SENIAT
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {docsCount}/{PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.length}
+            {docsCount}/{docTipos.length}
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Canalizar mediante un Agente de Aduanas autorizado en la circunscripción
-          (ej. El Guamache). Carga o verifica los recaudos para imprimir la carpeta
-          física.
+          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Canalizar
+          mediante Agente de Aduanas autorizado. La carpeta incluye recaudos base +
+          variantes del régimen.
         </p>
 
         <label className="mt-5 block space-y-1.5">
@@ -1253,8 +1291,12 @@ function Fase3Aduana({
         </label>
 
         <ul className="mt-5 space-y-3">
-          {PL_DESADUANAMIENTO_DOCUMENTO_TIPOS.map((tipo, index) => {
-            const origen = PL_DESADUANAMIENTO_ORIGEN[tipo];
+          {docTipos.map((tipo, index) => {
+            const origen = origenDocDesaduanamiento(
+              regimen,
+              tipo,
+              PL_DESADUANAMIENTO_ORIGEN
+            );
             const loaded = Boolean(docs[tipo]?.url);
             return (
               <li
