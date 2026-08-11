@@ -16,7 +16,7 @@ async function requestVisionCompletion(params: {
   maxTokens: number;
   jsonMode: boolean;
 }): Promise<string> {
-  const openai = createOpenAIClient();
+  const openai = createOpenAIClient({ timeoutMs: 45_000 });
   const response = await openai.chat.completions.create({
     model: getVisionModelId(),
     ...(params.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
@@ -50,8 +50,12 @@ export async function createVisionJsonCompletion(params: {
   maxTokens?: number;
   /** Si true, devuelve {} cuando el proveedor rechaza la imagen (p. ej. tablero). */
   softFail?: boolean;
+  /** Mejor lectura de texto en facturas / documentos. */
+  preferHighDetail?: boolean;
 }): Promise<Record<string, unknown>> {
-  const prepared = prepareImageForVision(params.imageBuffer, params.mimeType);
+  const prepared = prepareImageForVision(params.imageBuffer, params.mimeType, {
+    preferHighDetail: params.preferHighDetail,
+  });
   const dataUrl = `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`;
   const maxTokens = params.maxTokens ?? 300;
 

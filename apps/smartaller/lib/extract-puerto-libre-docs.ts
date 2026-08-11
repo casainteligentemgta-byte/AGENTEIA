@@ -37,26 +37,34 @@ export type BlExtraido = {
   observaciones: string | null;
 };
 
-const FACTURA_PROMPT = `Analiza esta factura comercial de un vehículo importado (commercial invoice / factura de venta / proforma).
+const FACTURA_PROMPT = `Eres un extractor de datos de FACTURAS COMERCIALES de vehículos (commercial invoice / factura de venta / proforma / factura de compra).
+Lee SOLO lo que aparece escrito en el documento (texto o imagen). NO inventes ni completes de memoria.
+
 Extrae en JSON con estas claves exactas:
-- marca (string)
-- modelo (string)
-- color (string)
-- anio (number, año del vehículo)
-- serial_motor (string)
-- serial_carroceria (string: VIN, chasis o serial de carrocería)
-- kilometraje (number, odómetro / millas o km si aparece; si es nuevo y no aparece usa 0)
+- marca (string: fabricante, ej. Nissan, Chery, Toyota)
+- modelo (string: línea/modelo comercial)
+- color (string: color tal como aparece)
+- anio (number: año del vehículo o del modelo si aparece; null si no está)
+- serial_motor (string: Nº motor / engine no.)
+- serial_carroceria (string: VIN de 17 caracteres, chasis o serial de carrocería; prioriza VIN)
+- kilometraje (number: odómetro en km o millas si aparece; si el vehículo es nuevo y no aparece usa 0)
 - condicion ("nuevo" o "usado" según el documento; null si no se deduce)
 - es_subasta (boolean si indica subasta/auction; null si no aparece)
-- valor_cif (number: valor CIF, total o precio en USD si aparece)
+- valor_cif (number: valor CIF, unit price o total en USD si aparece un solo vehículo)
 - pais_origen (string)
-- importador_nombre (string: buyer/consignee/importador si aparece)
-- importador_documento (string: RIF/NIT/tax id del importador)
+- importador_nombre (string: buyer / consignee / importador / comprador)
+- importador_documento (string: RIF/NIT/tax id / cédula del importador si aparece)
 - importador_telefono (string)
 - importador_email (string)
-Si no encuentras un dato, usa null. Responde solo JSON.`;
 
-const BL_PROMPT = `Analiza este conocimiento de embarque / Bill of Lading / BL / guía de carga de un vehículo.
+Reglas:
+- Si un dato no se ve con claridad, usa null (no adivines).
+- Conserva mayúsculas de VIN/seriales.
+- Responde SOLO JSON válido.`;
+
+const BL_PROMPT = `Eres un extractor de conocimientos de embarque / Bill of Lading / BL / guía de carga de un vehículo.
+Lee SOLO lo escrito en el documento. NO inventes.
+
 Extrae en JSON con estas claves exactas:
 - numero_bl (string: B/L No., BL number, guía)
 - fecha_llegada_buque (string YYYY-MM-DD: ETA, arrival, llegada del buque o fecha del BL si es la única)
@@ -270,9 +278,31 @@ export async function extractFacturaComercialFromDocument(
     prompt: FACTURA_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 900,
+    maxTokens: 1200,
+    maxPdfPages: 4,
+    preferHighDetail: true,
   });
-  return mapFactura(parsed);
+  let mapped = mapFactura(parsed);
+
+  // Si casi no hay datos críticos, forzar visión (PDF con texto basura / OCR pobre).
+  const hasCritical =
+    Boolean(mapped.marca?.trim()) ||
+    Boolean(mapped.serial_carroceria?.trim()) ||
+    Boolean(mapped.modelo?.trim());
+  if (!hasCritical && mimeType.toLowerCase().includes("pdf")) {
+    const retry = await createDocumentJsonCompletion({
+      prompt: FACTURA_PROMPT,
+      buffer,
+      mimeType,
+      maxTokens: 1200,
+      maxPdfPages: 4,
+      preferHighDetail: true,
+      forceRasterVision: true,
+    });
+    mapped = mapFactura(retry);
+  }
+
+  return mapped;
 }
 
 export async function extractBlFromDocument(
@@ -283,7 +313,9 @@ export async function extractBlFromDocument(
     prompt: BL_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 900,
+    maxTokens: 1200,
+    maxPdfPages: 4,
+    preferHighDetail: true,
   });
   return mapBl(parsed);
 }
@@ -617,6 +649,7 @@ export async function extractFacturaMultiFromDocument(
     maxTokens: 6500,
     maxTextChars: 40000,
     maxPdfPages: 6,
+    preferHighDetail: true,
   });
 
   const shared = facturaToFormFields(mapFactura(parsed));
@@ -690,6 +723,8 @@ export async function extractBlMultiFromDocument(
     mimeType,
     maxTokens: 3500,
     maxTextChars: 24000,
+    maxPdfPages: 4,
+    preferHighDetail: true,
   });
 
   const shared = blToFormFields(mapBl(parsed));
@@ -722,6 +757,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
     maxTokens: 4500,
     maxTextChars: 32000,
     maxPdfPages: 6,
+    preferHighDetail: true,
   });
 
   const shared: PuertoLibreRegistroScanFields = {};
