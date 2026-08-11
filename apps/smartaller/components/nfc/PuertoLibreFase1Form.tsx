@@ -163,6 +163,11 @@ type Props = {
   ) => void;
   /** Estilo de sección: alta (sin card) o planilla (con card). */
   variant?: "alta" | "planilla";
+  /**
+   * Si true, oculta la sección editable del importador
+   * (el cliente ya se eligió en el wizard o se muestra fuera).
+   */
+  lockImportador?: boolean;
   /** Si existe, Autorellenar guarda factura/BL en vehiculos.documentos al escanear. */
   vehiculoId?: string;
   /** Documentos ya persistidos (mismo JSONB que Embarque). */
@@ -179,6 +184,7 @@ export function PuertoLibreFase1Form({
   actions,
   onSubmit,
   variant = "alta",
+  lockImportador = false,
   vehiculoId,
   existingDocumentos,
   onDocumentosChange,
@@ -445,67 +451,89 @@ export function PuertoLibreFase1Form({
         </div>
       </section>
 
-      <section
-        className={
-          variant === "planilla"
-            ? sectionClass
-            : "space-y-4 border-t border-slate-800 pt-8"
-        }
-      >
-        <h2 className={sectionTitleClass}>
-          <Ship className="h-5 w-5 text-cyan-400" />
-          Datos del importador
-        </h2>
-        {importadorPrellenado ? (
-          <p className="mt-1 text-xs text-slate-500">
-            Prellenado con el último importador usado. Puedes editarlo si cambia.
-          </p>
-        ) : null}
-        <div className={gridClass}>
-          <ControlledField
-            label="Nombre *"
-            name="importadorNombre"
-            required
-            wide
-            value={values.importadorNombre}
-            onChange={(v) => setField("importadorNombre", v)}
-          />
-          <ControlledField
-            label="RIF"
+      {lockImportador ? (
+        <>
+          <input type="hidden" name="importadorNombre" value={values.importadorNombre} />
+          <input
+            type="hidden"
             name="importadorDocumento"
-            placeholder={RIF_PLACEHOLDER}
-            hint={`${RIF_FORMAT_HINT}. Persona natural (V/E): máx. 1 vehículo en menos de 3 años.`}
-            upper
-            mono
             value={values.importadorDocumento}
-            onChange={(v) => setField("importadorDocumento", v)}
           />
-          <ControlledField
-            label="Teléfono"
+          <input
+            type="hidden"
             name="importadorTelefono"
             value={values.importadorTelefono}
-            onChange={(v) => setField("importadorTelefono", v)}
           />
-          <ControlledField
-            label="Email"
-            name="importadorEmail"
-            type="email"
-            value={values.importadorEmail}
-            onChange={(v) => setField("importadorEmail", v)}
+          <input type="hidden" name="importadorEmail" value={values.importadorEmail} />
+          <input
+            type="hidden"
+            name="importadorDireccion"
+            value={values.importadorDireccion}
           />
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Dirección fiscal</span>
-            <textarea
-              name="importadorDireccion"
-              rows={2}
-              value={values.importadorDireccion}
-              onChange={(e) => setField("importadorDireccion", e.target.value)}
-              placeholder="Dirección fiscal del importador (SENIAT)"
-              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+        </>
+      ) : (
+        <section
+          className={
+            variant === "planilla"
+              ? sectionClass
+              : "space-y-4 border-t border-slate-800 pt-8"
+          }
+        >
+          <h2 className={sectionTitleClass}>
+            <Ship className="h-5 w-5 text-cyan-400" />
+            Datos del importador
+          </h2>
+          {importadorPrellenado ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Datos del cliente vinculado a esta importación. Edítalos si cambian.
+            </p>
+          ) : null}
+          <div className={gridClass}>
+            <ControlledField
+              label="Nombre *"
+              name="importadorNombre"
+              required
+              wide
+              value={values.importadorNombre}
+              onChange={(v) => setField("importadorNombre", v)}
             />
-          </label>
-        </div>
-      </section>
+            <ControlledField
+              label="RIF"
+              name="importadorDocumento"
+              placeholder={RIF_PLACEHOLDER}
+              hint={`${RIF_FORMAT_HINT}. Persona natural (V/E): máx. 1 vehículo en menos de 3 años.`}
+              upper
+              mono
+              value={values.importadorDocumento}
+              onChange={(v) => setField("importadorDocumento", v)}
+            />
+            <ControlledField
+              label="Teléfono"
+              name="importadorTelefono"
+              value={values.importadorTelefono}
+              onChange={(v) => setField("importadorTelefono", v)}
+            />
+            <ControlledField
+              label="Email"
+              name="importadorEmail"
+              type="email"
+              value={values.importadorEmail}
+              onChange={(v) => setField("importadorEmail", v)}
+            />
+            <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+              <span className="text-sm text-slate-400">Dirección fiscal</span>
+              <textarea
+                name="importadorDireccion"
+                rows={2}
+                value={values.importadorDireccion}
+                onChange={(e) => setField("importadorDireccion", e.target.value)}
+                placeholder="Dirección fiscal del importador (SENIAT)"
+                className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+              />
+            </label>
+          </div>
+        </section>
+      )}
 
       <section
         className={

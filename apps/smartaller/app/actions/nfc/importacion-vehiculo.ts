@@ -262,7 +262,26 @@ export async function createPuertoLibreVehiculoAction(
   }
 
   const data = parsed.data;
+  if (!data.importadorId) {
+    return {
+      success: false,
+      error: "Selecciona o crea el cliente importador antes de registrar la importación",
+    };
+  }
+
   const admin = createAdminClient();
+  const { data: cliente, error: clienteError } = await admin
+    .from("importadores")
+    .select("id, tipo, nombre, documento, telefono, email, direccion, activo")
+    .eq("id", data.importadorId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  if (clienteError) return { success: false, error: clienteError.message };
+  if (!cliente || cliente.activo === false) {
+    return { success: false, error: "Cliente importador no encontrado o inactivo" };
+  }
+
   const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
   const serialMotor = normalizarSerialCarroceria(data.serialMotor);
 
@@ -275,10 +294,24 @@ export async function createPuertoLibreVehiculoAction(
     return { success: false, error: SERIAL_CARROCERIA_DUPLICADO };
   }
 
+  const snapNombre = data.importadorNombre?.trim() || String(cliente.nombre);
+  const snapDocumento =
+    data.importadorDocumento?.trim() || String(cliente.documento);
+  const snapTelefono =
+    data.importadorTelefono?.trim() ||
+    (cliente.telefono as string | null) ||
+    null;
+  const snapEmail =
+    data.importadorEmail?.trim() || (cliente.email as string | null) || null;
+  const snapDireccion =
+    data.importadorDireccion?.trim() ||
+    (cliente.direccion as string | null) ||
+    null;
+
   const cupo = await evaluarCupoPersonaNatural({
     admin,
     tallerId: auth.taller.id,
-    importadorDocumento: data.importadorDocumento || null,
+    importadorDocumento: snapDocumento,
     fechaReferenciaNueva: data.fechaLlegadaBuque || null,
     regimen: data.regimen,
   });
@@ -293,6 +326,7 @@ export async function createPuertoLibreVehiculoAction(
   const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
+    importadorId: data.importadorId,
     regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
@@ -302,11 +336,11 @@ export async function createPuertoLibreVehiculoAction(
     cilindradaCc: data.cilindradaCc,
     tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
-    importadorNombre: data.importadorNombre,
-    importadorDocumento: data.importadorDocumento || null,
-    importadorTelefono: data.importadorTelefono || null,
-    importadorEmail: data.importadorEmail || null,
-    importadorDireccion: data.importadorDireccion || null,
+    importadorNombre: snapNombre,
+    importadorDocumento: snapDocumento,
+    importadorTelefono: snapTelefono,
+    importadorEmail: snapEmail,
+    importadorDireccion: snapDireccion,
     aduana: data.aduana || null,
     numeroBl: data.numeroBl || null,
     paisOrigen: data.paisOrigen || null,
@@ -361,7 +395,13 @@ export async function createPuertoLibreVehiculoAction(
   revalidatePath("/importacion");
   revalidatePath(`/importacion/${created.id}/planilla`);
 
-  const importadorGuardar = ultimoImportadorFromAlta(data);
+  const importadorGuardar = ultimoImportadorFromAlta({
+    importadorNombre: snapNombre,
+    importadorDocumento: snapDocumento,
+    importadorTelefono: snapTelefono,
+    importadorEmail: snapEmail,
+    importadorDireccion: snapDireccion,
+  });
   if (importadorGuardar) {
     await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
   }
@@ -449,6 +489,7 @@ export async function savePuertoLibreFase1RegistroAction(
         : "no_aplica";
   const importacion = serializeImportacion({
     ...existing,
+    importadorId: data.importadorId ?? existing.importadorId ?? null,
     regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,

@@ -1,17 +1,15 @@
 "use client";
 
-import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
-import type { UltimoImportador } from "@/lib/taller-preferencias";
+import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
+import { RegistrarImportacionWizard } from "@/components/nfc/RegistrarImportacionWizard";
 
 type Props = {
-  initialImportador?: UltimoImportador | null;
+  initialImportadores?: ImportadorListItem[];
 };
 
-/** Alta directa de Planilla Puerto Libre (fase 1). */
-export function PuertoLibreRegistroWizard({ initialImportador }: Props) {
-  return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-      <PlanillaAltaPuertoLibre initialImportador={initialImportador} />
-    </div>
-  );
+/** Wizard de alta: cliente importador → datos de la importación. */
+export function PuertoLibreRegistroWizard({
+  initialImportadores = [],
+}: Props) {
+  return <RegistrarImportacionWizard initialImportadores={initialImportadores} />;
 }

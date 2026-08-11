@@ -399,6 +399,8 @@ export type RechazoSeniatHistorialItem = z.infer<
 >;
 
 export const importacionSchema = z.object({
+  /** FK lógica a public.importadores (cliente del taller). */
+  importadorId: z.string().uuid().optional().nullable(),
   regimen: z.string().trim().max(80).optional().nullable(),
   aduana: z.string().trim().max(120).optional().nullable(),
   /** Fecha de ingreso al régimen PL / aduana (distinta de la llegada del buque). */
@@ -526,6 +528,7 @@ export function parseImportacion(raw: unknown): ImportacionData {
   if (!raw || typeof raw !== "object") return {};
   const row = raw as Record<string, unknown>;
   const parsed = importacionSchema.safeParse({
+    importadorId: row.importadorId ?? row.importador_id,
     regimen: row.regimen ?? row.regimen_importacion,
     aduana: row.aduana,
     fechaIngreso: row.fechaIngreso ?? row.fecha_ingreso,
@@ -664,6 +667,7 @@ export function parseImportacion(raw: unknown): ImportacionData {
 
 export function serializeImportacion(data: ImportacionData): Record<string, unknown> {
   return {
+    importador_id: data.importadorId?.trim() || null,
     regimen: resolveRegimenImportacion(data.regimen),
     aduana: data.aduana?.trim() || null,
     fecha_ingreso: data.fechaIngreso?.trim() || null,

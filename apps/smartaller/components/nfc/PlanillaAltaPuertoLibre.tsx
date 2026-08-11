@@ -14,8 +14,12 @@ import {
 import type { UltimoImportador } from "@/lib/taller-preferencias";
 
 type Props = {
-  /** Importador guardado del taller (último registro). */
+  /** Cliente importador seleccionado (obligatorio en alta). */
+  importadorId?: string;
+  /** Importador guardado del taller (último registro) o snapshot del cliente. */
   initialImportador?: UltimoImportador | null;
+  /** Si true, no se editan datos del importador (vienen del paso cliente). */
+  lockImportador?: boolean;
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
@@ -35,7 +39,10 @@ async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFil
   return null;
 }
 
-function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
+function valuesToAltaPayload(
+  values: PuertoLibreFase1FormValues,
+  importadorId?: string
+) {
   return {
     marca: values.marca,
     modelo: values.modelo,
@@ -59,6 +66,7 @@ function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
     tipoCombustible: values.tipoCombustible || null,
     fechaLlegadaBuque: values.fechaLlegadaBuque,
     regimen: values.regimen || "puerto_libre",
+    importadorId,
     importadorNombre: values.importadorNombre,
     importadorDocumento: values.importadorDocumento,
     importadorTelefono: values.importadorTelefono,
@@ -78,8 +86,12 @@ function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
   };
 }
 
-/** Fase 1: datos del vehículo + importador (con OCR de factura de compra). */
-export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
+/** Alta de importación: datos del vehículo (cliente ya seleccionado). */
+export function PlanillaAltaPuertoLibre({
+  importadorId,
+  initialImportador,
+  lockImportador = false,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -90,8 +102,14 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
     scanFiles: PuertoLibreScanFiles
   ) {
     setError(null);
+    if (!importadorId) {
+      setError("Selecciona o crea el cliente importador antes de continuar");
+      return;
+    }
     startTransition(async () => {
-      const result = await createPuertoLibreVehiculoAction(valuesToAltaPayload(values));
+      const result = await createPuertoLibreVehiculoAction(
+        valuesToAltaPayload(values, importadorId)
+      );
       if (!result.success) {
         setError(result.error);
         return;
@@ -100,7 +118,7 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
       const attachError = await attachScanFiles(result.vehiculoId, scanFiles);
       if (attachError) {
         setError(
-          `Vehículo registrado, pero no se pudo guardar un documento: ${attachError}`
+          `Importación registrada, pero no se pudo guardar un documento: ${attachError}`
         );
         router.push(`/importacion/${result.vehiculoId}/planilla?fase=1`);
         router.refresh();
@@ -115,6 +133,7 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
   return (
     <PuertoLibreFase1Form
       variant="alta"
+      lockImportador={lockImportador}
       initial={{
         importadorNombre: initialImportador?.importadorNombre ?? "",
         importadorDocumento: initialImportador?.importadorDocumento ?? "",
@@ -132,10 +151,10 @@ export function PlanillaAltaPuertoLibre({ initialImportador }: Props) {
           ) : null}
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !importadorId}
             className="w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60 sm:w-auto"
           >
-            {pending ? "Registrando…" : "Registrar vehículo"}
+            {pending ? "Registrando…" : "Registrar importación"}
           </button>
         </>
       }

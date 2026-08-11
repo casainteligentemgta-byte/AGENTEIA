@@ -105,11 +105,19 @@ export const puertoLibreAltaSchema = z
       errorMap: () => ({ message: "Selecciona el régimen de importación" }),
     }),
 
+    /**
+     * Cliente importador (tabla importadores).
+     * Obligatorio en alta individual; en carga masiva se resuelve por documento.
+     */
+    importadorId: z.string().uuid().optional(),
+
+    /** Snapshot denormalizado (se rellena desde el cliente si viene vacío). */
     importadorNombre: z
       .string()
       .trim()
-      .min(1, "Ingresa el nombre del importador")
-      .max(120),
+      .max(120)
+      .optional()
+      .or(z.literal("")),
     importadorDocumento: z
       .string()
       .trim()
