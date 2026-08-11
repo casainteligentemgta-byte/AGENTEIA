@@ -23,6 +23,11 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     .trim();
 }
 
+/** Texto plano de un PDF (para parsers deterministas de tablas). */
+export async function getPdfPlainText(buffer: Buffer): Promise<string> {
+  return extractTextFromPdf(buffer);
+}
+
 /** Marcas de escáner / basura típica que no es el contenido del documento. */
 const SCANNER_JUNK_RE =
   /cam\s*scanner|scanned\s+by|scan\s*snap|adobe\s+scan|genius\s+scan|microsoft\s+lens|page\s+\d+\s+of\s+\d+/gi;
@@ -105,7 +110,7 @@ async function jsonFromPdfPageImages(
   maxTokens: number,
   preferHighDetail: boolean
 ): Promise<Record<string, unknown>> {
-  const openai = createOpenAIClient({ timeoutMs: 60_000 });
+  const openai = createOpenAIClient({ timeoutMs: 90_000 });
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
       type: "text",
@@ -177,12 +182,13 @@ async function rasterVisionFromPdf(
   buffer: Buffer,
   maxTokens: number,
   maxPdfPages: number,
-  preferHighDetail: boolean
+  preferHighDetail: boolean,
+  renderScale: number
 ): Promise<Record<string, unknown> | null> {
   try {
     const pages = await renderPdfPagesAsPng(buffer, {
       maxPages: maxPdfPages,
-      scale: 2,
+      scale: renderScale,
     });
     if (pages.length === 0) return null;
     return jsonFromPdfPageImages(prompt, pages, maxTokens, preferHighDetail);
@@ -224,11 +230,14 @@ export async function createDocumentJsonCompletion(params: {
   forceRasterVision?: boolean;
   /** Preferir detail high en páginas rasterizadas (mejor lectura de factura). */
   preferHighDetail?: boolean;
+  /** Escala de rasterización PDF (default 2; multi-factura 2.5–3). */
+  renderScale?: number;
 }): Promise<Record<string, unknown>> {
   const maxTokens = params.maxTokens ?? 800;
   const maxTextChars = params.maxTextChars ?? 12000;
   const maxPdfPages = params.maxPdfPages ?? 4;
   const preferHighDetail = params.preferHighDetail ?? true;
+  const renderScale = params.renderScale ?? 2;
   const mime = params.mimeType || "application/octet-stream";
 
   if (!isPdfMime(mime)) {
@@ -268,7 +277,8 @@ export async function createDocumentJsonCompletion(params: {
     params.buffer,
     maxTokens,
     maxPdfPages,
-    preferHighDetail
+    preferHighDetail,
+    renderScale
   );
   if (fromRaster) return fromRaster;
 
