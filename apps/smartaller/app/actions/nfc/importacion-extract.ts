@@ -8,8 +8,10 @@ import {
   blToFormFields,
   countFilledFields,
   extractBlFromDocument,
+  extractCertificadoOrigenMultiFromDocument,
   extractFacturaComercialFromDocument,
   facturaToFormFields,
+  mergeScanFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
 import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
@@ -17,7 +19,7 @@ import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento"
 export type ExtractPuertoLibreDocResult =
   | {
       success: true;
-      tipo: "factura_comercial" | "bl_guia";
+      tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
       fields: PuertoLibreRegistroScanFields;
       filledCount: number;
     }
@@ -55,7 +57,11 @@ export async function extractPuertoLibreDocumentoAction(
   }
 
   const tipoRaw = String(formData.get("tipo") ?? "").trim();
-  if (tipoRaw !== "factura_comercial" && tipoRaw !== "bl_guia") {
+  if (
+    tipoRaw !== "factura_comercial" &&
+    tipoRaw !== "bl_guia" &&
+    tipoRaw !== "certificado_origen"
+  ) {
     return { success: false, error: "Tipo de documento inválido" };
   }
 
@@ -89,6 +95,24 @@ export async function extractPuertoLibreDocumentoAction(
         };
       }
       return { success: true, tipo: "factura_comercial", fields, filledCount };
+    }
+
+    if (tipoRaw === "certificado_origen") {
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        buffer,
+        mimeType
+      );
+      const first = extracted.vehiculos[0] ?? {};
+      const fields = mergeScanFields(extracted.shared, first);
+      const filledCount = countFilledFields(fields);
+      if (filledCount === 0) {
+        return {
+          success: false,
+          error:
+            "No se pudieron leer datos del certificado de origen. Prueba con una foto más nítida o completa los campos a mano.",
+        };
+      }
+      return { success: true, tipo: "certificado_origen", fields, filledCount };
     }
 
     const extracted = await extractBlFromDocument(buffer, mimeType);

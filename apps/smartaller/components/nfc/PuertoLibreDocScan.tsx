@@ -17,12 +17,15 @@ import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
 
-/** Documentos de Registro (fase 1): OCR solo en factura de compra. */
+/** Documentos de Registro (fase 1): OCR en factura y certificado de origen. */
 export type PuertoLibreScanTipo =
   | "factura_comercial"
   | "certificado_origen";
 
-const OCR_TIPOS = new Set<PuertoLibreScanTipo>(["factura_comercial"]);
+const OCR_TIPOS = new Set<PuertoLibreScanTipo>([
+  "factura_comercial",
+  "certificado_origen",
+]);
 
 type Props = {
   /** Si hay vehículo, el archivo se guarda en vehiculos.documentos. */
@@ -234,7 +237,7 @@ export function PuertoLibreDocScan({
           existingUrl={existingUrls?.certificado_origen}
           onExtracted={onExtracted}
           onDocumentUploaded={onDocumentUploaded}
-          ocr={false}
+          ocr={OCR_TIPOS.has("certificado_origen")}
         />
       </div>
     </section>

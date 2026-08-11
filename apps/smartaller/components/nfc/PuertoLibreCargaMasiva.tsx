@@ -17,6 +17,7 @@ import {
   extractCargaMasivaDocumentosAction,
   parseCargaMasivaSpreadsheetAction,
 } from "@/app/actions/nfc/importacion-carga-masiva";
+import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import {
   CARGA_MASIVA_MAX_ROWS,
   type CargaMasivaRow,
@@ -27,7 +28,31 @@ type Mode = "plantilla" | "documentos";
 type DocItem = {
   id: string;
   file: File;
-  tipo: "factura_comercial" | "bl_guia";
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+};
+
+type SharedFields = {
+  importadorNombre: string;
+  importadorDocumento: string;
+  importadorDireccion: string;
+  fechaLlegadaBuque: string;
+  aduana: string;
+  numeroBl: string;
+  paisOrigen: string;
+  anio: string;
+  marca: string;
+};
+
+const EMPTY_SHARED: SharedFields = {
+  importadorNombre: "",
+  importadorDocumento: "",
+  importadorDireccion: "",
+  fechaLlegadaBuque: "",
+  aduana: "",
+  numeroBl: "",
+  paisOrigen: "",
+  anio: "",
+  marca: "",
 };
 
 const FIELD_COLS: {
@@ -62,11 +87,28 @@ const FIELD_COLS: {
   { key: "observaciones", label: "Obs. (unidad/llave)", wide: true },
 ];
 
+function sharedFromRows(rows: CargaMasivaRow[]): SharedFields {
+  const first = rows[0];
+  if (!first) return { ...EMPTY_SHARED };
+  return {
+    importadorNombre: first.importadorNombre ?? "",
+    importadorDocumento: first.importadorDocumento ?? "",
+    importadorDireccion: first.importadorDireccion ?? "",
+    fechaLlegadaBuque: first.fechaLlegadaBuque ?? "",
+    aduana: first.aduana ?? "",
+    numeroBl: first.numeroBl ?? "",
+    paisOrigen: first.paisOrigen ?? "",
+    anio: first.anio ?? "",
+    marca: first.marca ?? "",
+  };
+}
+
 export function PuertoLibreCargaMasiva() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("plantilla");
+  const [mode, setMode] = useState<Mode>("documentos");
   const [rows, setRows] = useState<CargaMasivaRow[]>([]);
   const [docs, setDocs] = useState<DocItem[]>([]);
+  const [shared, setShared] = useState<SharedFields>({ ...EMPTY_SHARED });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -90,6 +132,27 @@ export function PuertoLibreCargaMasiva() {
     setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
+  function applySharedToAll() {
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        importadorNombre: shared.importadorNombre.trim() || r.importadorNombre,
+        importadorDocumento:
+          shared.importadorDocumento.trim() || r.importadorDocumento,
+        importadorDireccion:
+          shared.importadorDireccion.trim() || r.importadorDireccion,
+        fechaLlegadaBuque:
+          shared.fechaLlegadaBuque.trim() || r.fechaLlegadaBuque,
+        aduana: shared.aduana.trim() || r.aduana,
+        numeroBl: shared.numeroBl.trim() || r.numeroBl,
+        paisOrigen: shared.paisOrigen.trim() || r.paisOrigen,
+        anio: shared.anio.trim() || r.anio,
+        marca: shared.marca.trim() || r.marca,
+        error: null,
+      }))
+    );
+  }
+
   function handleSheetFile(file: File | null) {
     if (!file) return;
     setError(null);
@@ -104,6 +167,7 @@ export function PuertoLibreCargaMasiva() {
         return;
       }
       setRows(result.rows);
+      setShared(sharedFromRows(result.rows));
     });
   }
 
@@ -137,6 +201,7 @@ export function PuertoLibreCargaMasiva() {
         return;
       }
       setRows(result.rows);
+      setShared(sharedFromRows(result.rows));
       setWarnings(result.warnings);
     });
   }
@@ -144,22 +209,68 @@ export function PuertoLibreCargaMasiva() {
   function importRows() {
     setError(null);
     setResultMsg(null);
+    const rowsToImport = rows.map((r) => ({
+      ...r,
+      importadorNombre: shared.importadorNombre.trim() || r.importadorNombre,
+      importadorDocumento:
+        shared.importadorDocumento.trim() || r.importadorDocumento,
+      importadorDireccion:
+        shared.importadorDireccion.trim() || r.importadorDireccion,
+      fechaLlegadaBuque: shared.fechaLlegadaBuque.trim() || r.fechaLlegadaBuque,
+      aduana: shared.aduana.trim() || r.aduana,
+      numeroBl: shared.numeroBl.trim() || r.numeroBl,
+      paisOrigen: shared.paisOrigen.trim() || r.paisOrigen,
+      anio: shared.anio.trim() || r.anio,
+      marca: shared.marca.trim() || r.marca,
+      error: null,
+    }));
+    setRows(rowsToImport);
+
     startTransition(async () => {
-      const result = await createPuertoLibreCargaMasivaAction(rows);
+      const result = await createPuertoLibreCargaMasivaAction(rowsToImport);
       if (!result.success) {
         setError(result.error);
         return;
       }
       const ok = result.created.length;
       const fail = result.failed.length;
+
+      let attachNote = "";
+      if (ok > 0 && docs.length > 0) {
+        let attached = 0;
+        let attachFail = 0;
+        const factura = docs.find((d) => d.tipo === "factura_comercial");
+        const certificado = docs.find((d) => d.tipo === "certificado_origen");
+        const bl = docs.find((d) => d.tipo === "bl_guia");
+        const toAttach = [factura, certificado, bl].filter(Boolean) as DocItem[];
+        for (const c of result.created) {
+          for (const d of toAttach) {
+            const fd = new FormData();
+            fd.set("vehiculoId", c.vehiculoId);
+            fd.set("tipo", d.tipo);
+            fd.set("file", d.file);
+            const up = await uploadPuertoLibreDocumentoAction(fd);
+            if (up.success) attached += 1;
+            else attachFail += 1;
+          }
+        }
+        if (attached > 0) {
+          attachNote = ` Documentos adjuntos: ${attached}.`;
+        }
+        if (attachFail > 0) {
+          attachNote += ` No se pudieron adjuntar ${attachFail} archivo(s).`;
+        }
+      }
+
       setResultMsg(
         fail === 0
-          ? `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.`
-          : `Registrados: ${ok}. Fallidos: ${fail}.`
+          ? `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${attachNote}`
+          : `Registrados: ${ok}. Fallidos: ${fail}.${attachNote}`
       );
       if (ok > 0) {
         setRows([]);
         setDocs([]);
+        setShared({ ...EMPTY_SHARED });
         router.refresh();
       }
       if (fail > 0) {
@@ -177,12 +288,13 @@ export function PuertoLibreCargaMasiva() {
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
         <h2 className="text-base font-semibold text-slate-100">
-          1. Envía la plantilla al equipo
+          Factura con varios vehículos
         </h2>
         <p className="mt-1 text-justify text-sm text-slate-400">
-          Descarga el Excel o CSV, rellénalo con un vehículo por fila (hasta{" "}
-          {CARGA_MASIVA_MAX_ROWS}) y súbelo aquí. También puedes cargar varias
-          facturas y BL en PDF/foto.
+          Sube la factura (carátula o hoja anexa) y, si tienes, el BL. La IA
+          detecta todas las unidades, revisas la tabla y registras N
+          expedientes de una vez. También puedes usar Excel/CSV (hasta{" "}
+          {CARGA_MASIVA_MAX_ROWS} filas).
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a
@@ -205,8 +317,8 @@ export function PuertoLibreCargaMasiva() {
       <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
         {(
           [
-            { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
             { id: "documentos" as const, label: "PDFs / fotos", icon: FileUp },
+            { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
           ] as const
         ).map((tab) => {
           const active = mode === tab.id;
@@ -266,6 +378,11 @@ export function PuertoLibreCargaMasiva() {
           <h2 className="text-base font-semibold text-slate-100">
             2. Sube facturas y BL
           </h2>
+          <p className="text-sm text-slate-400">
+            Sube factura (carátula o anexa), certificado de origen y BL. El
+            certificado rellena lo que falte (motor, origen, etc.) emparejando
+            por VIN.
+          </p>
           <button
             type="button"
             disabled={pending}
@@ -314,6 +431,7 @@ export function PuertoLibreCargaMasiva() {
                     className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
                   >
                     <option value="factura_comercial">Factura</option>
+                    <option value="certificado_origen">Certificado origen</option>
                     <option value="bl_guia">BL / Guía</option>
                   </select>
                   <button
@@ -379,8 +497,8 @@ export function PuertoLibreCargaMasiva() {
                 3. Revisa y registra ({rows.length})
               </h2>
               <p className="text-xs text-slate-500">
-                Corrige celdas en rojo antes de registrar. Cada fila = un
-                expediente.
+                Completa los datos compartidos (fecha buque, importador…) y
+                corrige celdas en rojo. Cada fila = un expediente.
               </p>
             </div>
             <button
@@ -398,6 +516,48 @@ export function PuertoLibreCargaMasiva() {
                 ? "Registrando…"
                 : `Registrar ${rows.length} expediente${rows.length === 1 ? "" : "s"}`}
             </button>
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-slate-100">
+                Datos compartidos (aplican a todas las filas)
+              </h3>
+              <button
+                type="button"
+                onClick={applySharedToAll}
+                className="rounded-lg border border-cyan-700/50 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-950/50"
+              >
+                Aplicar a todas
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ["importadorNombre", "Importador", "text"],
+                  ["importadorDocumento", "RIF", "text"],
+                  ["importadorDireccion", "Dirección fiscal", "text"],
+                  ["marca", "Marca", "text"],
+                  ["anio", "Año", "text"],
+                  ["fechaLlegadaBuque", "Fecha llegada buque", "date"],
+                  ["aduana", "Aduana / destino", "text"],
+                  ["numeroBl", "Nº BL", "text"],
+                  ["paisOrigen", "País / origen", "text"],
+                ] as const
+              ).map(([key, label, type]) => (
+                <label key={key} className="block space-y-1">
+                  <span className="text-[11px] text-zinc-500">{label}</span>
+                  <input
+                    type={type}
+                    value={shared[key]}
+                    onChange={(e) =>
+                      setShared((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500/50"
+                  />
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
@@ -473,5 +633,6 @@ export function PuertoLibreCargaMasiva() {
 function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
   if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
+  if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
 }
