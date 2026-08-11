@@ -63,6 +63,13 @@ import {
   saveUltimoImportadorTaller,
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
+import { isLlmConfigured } from "@/lib/ai/openai-config";
+import { extractBlMultiFromDocument } from "@/lib/extract-puerto-libre-docs";
+import { resolveImageMimeType } from "@/lib/mime-image";
+import {
+  resolveAduanaVenezuela,
+} from "@/lib/importacion/aduanas-venezuela";
+import { resolvePais } from "@/lib/importacion/paises";
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -1657,6 +1664,49 @@ export async function uploadPuertoLibreDocumentoAction(
         success: false,
         error: `Archivo subido pero no se guardó en documentos: ${error.message}`,
       };
+    }
+
+    // BL: extraer aduana / nº BL / país / fecha y guardar en importación.
+    if (tipoParsed.data === "bl_guia" && isLlmConfigured()) {
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const mimeType =
+          file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+            ? "application/pdf"
+            : resolveImageMimeType({
+                declaredMime: file.type,
+                fileName: file.name,
+                buffer,
+              }) ?? "image/jpeg";
+        const extracted = await extractBlMultiFromDocument(buffer, mimeType);
+        const fields = extracted.shared;
+        const existingImp = parseImportacion(row.importacion);
+        const patch: Partial<ImportacionData> = {};
+        if (fields.numeroBl?.trim()) patch.numeroBl = fields.numeroBl.trim();
+        if (fields.fechaLlegadaBuque?.trim()) {
+          patch.fechaLlegadaBuque = fields.fechaLlegadaBuque.trim();
+        }
+        const aduana = resolveAduanaVenezuela(fields.aduana);
+        if (aduana) patch.aduana = aduana;
+        const pais = resolvePais(fields.paisOrigen);
+        if (pais) patch.paisOrigen = pais;
+        if (fields.importadorNombre?.trim() && !existingImp.importadorNombre) {
+          patch.importadorNombre = fields.importadorNombre.trim();
+        }
+        if (fields.importadorDocumento?.trim() && !existingImp.importadorDocumento) {
+          patch.importadorDocumento = fields.importadorDocumento.trim();
+        }
+        if (Object.keys(patch).length > 0) {
+          const merged = serializeImportacion({ ...existingImp, ...patch });
+          await admin
+            .from("vehiculos")
+            .update({ importacion: merged, updated_at: new Date().toISOString() })
+            .eq("id", vehiculoId)
+            .eq("taller_id", auth.taller.id);
+        }
+      } catch {
+        // El documento ya quedó guardado; la extracción es best-effort.
+      }
     }
 
     revalidateFicha(vehiculoId);

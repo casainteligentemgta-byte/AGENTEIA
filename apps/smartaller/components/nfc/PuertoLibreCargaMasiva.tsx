@@ -575,8 +575,8 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
           <p className="text-sm text-slate-400">
             Sube la factura (carátula o anexa) y los certificados de origen. El
             certificado rellena motor, color y nº cert. por VIN. Aduana, nº BL,
-            país y fecha de llegada se extraen cuando cargues el BL (ahora o
-            después en el expediente).
+            país y fecha de llegada se completan al cargar el BL en Embarque del
+            expediente (no en esta pantalla).
           </p>
           <button
             type="button"
@@ -627,7 +627,6 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
                   >
                     <option value="factura_comercial">Factura</option>
                     <option value="certificado_origen">Certificado origen</option>
-                    <option value="bl_guia">BL / guía</option>
                   </select>
                   <button
                     type="button"
@@ -693,7 +692,7 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
               </h2>
               <p className="text-xs text-slate-500">
                 Solo datos por unidad. Embarque (aduana, BL, fecha) se completa al
-                cargar el BL.
+                cargar el BL en el expediente.
                 {incompleteCount > 0
                   ? ` · ${incompleteCount} fila(s) incompletas — súbelos certificados de origen.`
                   : " · Todas las filas tienen motor y nº cert."}
@@ -720,27 +719,6 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
             <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
               Selecciona el cliente importador (paso 1) para habilitar el registro.
             </p>
-          ) : null}
-
-          {shared.numeroBl ||
-          shared.aduana ||
-          shared.fechaLlegadaBuque ||
-          shared.paisOrigen ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
-              <p className="font-medium text-slate-300">
-                Embarque detectado (BL / documentos)
-              </p>
-              <p className="mt-1 font-mono text-[11px]">
-                {[
-                  shared.numeroBl && `BL ${shared.numeroBl}`,
-                  shared.aduana,
-                  shared.paisOrigen,
-                  shared.fechaLlegadaBuque,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </div>
           ) : null}
 
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-4">
@@ -874,7 +852,6 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
 
 function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
-  if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
 }

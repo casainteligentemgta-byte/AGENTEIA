@@ -227,7 +227,6 @@ export function PlanillaRegistroImportacion({
         initialImportacion.condicionVehiculo &&
         (initialImportacion.condicionVehiculo === "nuevo" ||
           typeof initialImportacion.esSubasta === "boolean") &&
-        initialImportacion.fechaLlegadaBuque?.trim() &&
         initialImportacion.importadorNombre?.trim()
     ) && registroDocsCount === PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.length;
 
@@ -1006,6 +1005,10 @@ function Fase2Embarque({
             {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Al cargar el BL / guía se extraen aduana, nº BL, país y fecha de llegada
+          del buque.
+        </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -1020,7 +1023,7 @@ function Fase2Embarque({
                 setDocs(next);
                 onUploadedMessage(
                   tipo === "bl_guia"
-                    ? "BL guardado en el expediente"
+                    ? "BL guardado · datos de embarque extraídos si la IA pudo leerlos"
                     : "Documento guardado"
                 );
               }}
