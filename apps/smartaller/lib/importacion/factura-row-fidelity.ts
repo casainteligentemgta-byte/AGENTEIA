@@ -190,12 +190,25 @@ export function mergeFacturaMultiByVin(
  */
 export function parseMavHojaAnexaFromText(text: string): FacturaMultiLike | null {
   const cleaned = text.replace(/\s+/g, " ").toUpperCase();
-  if (!/HOJA\s*ANEXA|ATTACHED\s*SHEET|NO\.\s*DE\s*CHASIS|VIN\s*NUMBER/i.test(text)) {
-    // Aún así intentar si hay varios VIN tipo MF3…
-  }
 
-  const vins = [...cleaned.matchAll(VIN_RE)].map((m) => m[1]!);
-  const uniqueVins = [...new Set(vins.map((v) => normalizeVin(v)).filter(Boolean))] as string[];
+  // VIN con o sin espacios (OCR pega "00001MF3PB…")
+  const vinsFromBoundary = [...cleaned.matchAll(VIN_RE)].map((m) => m[1]!);
+  const compact = cleaned.replace(/[^A-Z0-9]/g, "");
+  const vinsEmbedded: string[] = [];
+  let searchFrom = 0;
+  while (searchFrom < compact.length) {
+    const idx = compact.indexOf("MF3", searchFrom);
+    if (idx < 0) break;
+    vinsEmbedded.push(compact.slice(idx, idx + 17));
+    searchFrom = idx + 1;
+  }
+  const uniqueVins = [
+    ...new Set(
+      [...vinsFromBoundary, ...vinsEmbedded]
+        .map((v) => normalizeVin(v))
+        .filter((v): v is string => !!v && v.length === 17 && v.startsWith("MF3"))
+    ),
+  ];
   if (uniqueVins.length < 2) return null;
 
   const vehiculos: PuertoLibreRegistroScanFields[] = [];
