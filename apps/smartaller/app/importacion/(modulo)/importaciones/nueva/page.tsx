@@ -29,7 +29,7 @@ export default async function NuevaImportacionPage() {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-2xl">
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-6 flex items-center gap-2">
           <Link
             href="/importacion"
             className="inline-flex shrink-0 rounded-full p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
@@ -37,15 +37,9 @@ export default async function NuevaImportacionPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Nueva importación
-            </h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Primero el cliente importador, luego los datos del vehículo y el
-              régimen.
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
+            Nueva importación
+          </h1>
         </div>
 
         {!listed.success ? (
