@@ -1,3 +1,5 @@
+"use server";
+
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured, formatLlmAuthError } from "@/lib/ai/openai-config";
