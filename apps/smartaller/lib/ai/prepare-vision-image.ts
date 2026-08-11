@@ -4,7 +4,7 @@ import { resolveImageMimeType } from "@/lib/mime-image";
 /** Tamaño a partir del cual usar detail "low" en visión (evita 400 en OpenRouter). */
 const LOW_DETAIL_THRESHOLD_BYTES = 200 * 1024;
 /** Con preferHighDetail, solo forzar low si la imagen es muy grande. */
-const HIGH_DETAIL_MAX_BYTES = 900 * 1024;
+const HIGH_DETAIL_MAX_BYTES = 2_500_000;
 
 export type PreparedVisionImage = {
   buffer: Buffer;

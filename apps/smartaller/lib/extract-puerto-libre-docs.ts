@@ -1,5 +1,12 @@
-import { createDocumentJsonCompletion } from "@/lib/ai/document-json-completion";
+import { createDocumentJsonCompletion, getPdfPlainText } from "@/lib/ai/document-json-completion";
 import { anioFromVin, rotateImageBuffer } from "@/lib/ai/image-orient";
+import {
+  countValidVinsInText,
+  mergeFacturaMultiByVin,
+  parseMavHojaAnexaFromText,
+  sanitizeFacturaMulti,
+  scoreFacturaMulti,
+} from "@/lib/importacion/factura-row-fidelity";
 
 export type FacturaComercialExtraida = {
   marca: string | null;
@@ -418,44 +425,33 @@ export function countFilledFields(fields: PuertoLibreRegistroScanFields): number
   return Object.values(fields).filter((v) => v != null && String(v).trim() !== "").length;
 }
 
-const FACTURA_MULTI_PROMPT = `Analiza esta FACTURA COMERCIAL / COMMERCIAL INVOICE de importación de vehículos.
+const FACTURA_MULTI_PROMPT = `Eres un transcriptor fiel de FACTURAS COMERCIALES de vehículos (commercial invoice / hoja anexa / attached sheet).
+REGLA DE ORO: copia SOLO lo escrito en el documento. NO inventes, NO completes de memoria, NO “arregles” seriales.
+
 Puede ser:
-A) Carátula multipágina (ej. Chery / Intercontinental): tabla Marks and numbers | VIN/código | Description (color) | Qty | Unit Price | Amount.
-B) HOJA ANEXA / Attached Sheet (ej. MAV Trade): tabla No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
+A) Carátula multipágina (Chery / Intercontinental): Marks and numbers | VIN | Description (color) | Qty | Unit Price | Amount.
+B) HOJA ANEXA / Attached Sheet (MAV TRADE): No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
 
-FORMATO A — carátula tipo Chery:
-- Marks and numbers / modelo comercial (ARRIZO 5 PRO, TIGGO 7…) → modelo
-- Columna de 17 caracteres alfanuméricos (VIN) → serial_carroceria
-- Description of goods (NASDAQ SILVER, KHAKI WHITE…) → color (nombre completo)
-- Unit Price / AMOUNT por fila → valor_cif (CIF unitario de ESA unidad; NO uses el total de la factura)
-- "For Account & Risk of Messrs" / consignee → importador_nombre, importador_documento (RIF), importador_direccion
-- Port of loading → pais_origen (o ciudad/puerto de carga)
-- Final destination → aduana
-- CIF / TOTAL al pie → valor_cif_total (solo total; NO lo copies a cada vehículo)
-- Marca del fabricante del encabezado (Chery, etc.) → marca (compartida)
-- Fecha de factura → anio (año del documento si no hay año por unidad)
-
-FORMATO B — hoja anexa tipo MAV TRADE (Attached Sheet / HOJA ANEXA):
-Columnas: No. | No. de Chasis / VIN Number | No. de Motor / Engine Number | No. Llave / Key Number | Color | Codigo / Code.
-Ejemplo de fila real:
+FORMATO B — ejemplo de fila EXACTA a transcribir:
   00001 | MF3PB8121TJ219731 | G4FLTQ622505 | M0433 | WC2 NNB | SB29AI7W5D661VDD41I
-- No. → numero_unidad
-- No. de Chasis (17 chars, ej. MF3PB…) → serial_carroceria
-- No. de Motor (ej. G4FLTQ…) → serial_motor
-- No. Llave (ej. M0433) → numero_llave
-- Color (ej. "WC2 NNB" o "SK5 MRS") → color completo de esa celda
-- Codigo (ej. SB29AI7W5D661VDD41I) → codigo_modelo (NUNCA como VIN ni color)
-- "MAV TRADE HOLDINGS CORP" es la emisora, NO la marca del vehículo (marca=null si no hay fabricante)
-- Nº factura del título (ej. E2512B29AB-1_01-A) → numero_factura
+- numero_unidad = "00001"
+- serial_carroceria = VIN de 17 caracteres EXACTO (sin espacios)
+- serial_motor = motor EXACTO (ej. G4FLTQ622505)
+- numero_llave = EXACTO (ej. M0433)
+- color = celda Color completa (ej. "WC2 NNB")
+- codigo_modelo = celda Codigo completa (ej. SB29AI7W5D661VDD41I) — NUNCA como VIN
+- "MAV TRADE HOLDINGS CORP" es la emisora → marca = null
+- Nº factura del título → numero_factura
 
-IMPORTANTE:
-- Incluye TODAS las filas visibles (6, 10, 20…). No resumas ni omitas ninguna.
-- Si la foto/PDF está rotada 90°, lee igual la tabla.
-- Si no hay motor, serial_motor = null (no inventes).
-- Si es nuevo / new / 0 km → condicion = "nuevo", kilometraje = 0.
-- valor_cif por vehículo SOLO si hay precio unitario; el total va en valor_cif_total.
+FIDELIDAD:
+- Incluye TODAS las filas (1..N). Si ves 6 unidades, vehiculos.length debe ser 6.
+- Cada VIN distinto = un objeto en vehiculos. No fusiones filas.
+- Si un dígito no se lee con claridad → null en ese campo (no adivines).
+- Documento rotado 90°: lee igual la tabla.
+- Nuevo / 0 km → condicion="nuevo", kilometraje=0.
+- valor_cif unitario solo si hay precio por fila; total → valor_cif_total.
 
-Responde SOLO JSON con:
+Responde SOLO JSON:
 {
   "numero_factura": string|null,
   "importador_nombre": string|null,
@@ -484,6 +480,27 @@ Responde SOLO JSON con:
       "es_subasta": boolean|null,
       "valor_cif": number|null,
       "pais_origen": string|null
+    }
+  ]
+}`;
+
+/** Segunda pasada: solo tabla, máxima fidelidad de celdas. */
+const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa.
+Para cada fila copia carácter a carácter: No., Chasis/VIN (17), Motor, Llave, Color, Codigo.
+No inventes. No omitas filas. Si está rotada, lee igual.
+Responde SOLO JSON:
+{
+  "numero_factura": string|null,
+  "vehiculos": [
+    {
+      "numero_unidad": string|null,
+      "serial_carroceria": string|null,
+      "serial_motor": string|null,
+      "numero_llave": string|null,
+      "color": string|null,
+      "codigo_modelo": string|null,
+      "condicion": "nuevo",
+      "kilometraje": 0
     }
   ]
 }`;
@@ -651,11 +668,6 @@ export function dedupeVehiculosBySerial(
   return [...bySerial.values(), ...withoutSerial];
 }
 
-function countVehiculosConVin(vehiculos: PuertoLibreRegistroScanFields[]): number {
-  return vehiculos.filter((v) => (v.serialCarroceria ?? v.vin ?? "").trim().length >= 11)
-    .length;
-}
-
 function parseFacturaMultiResult(
   parsed: Record<string, unknown>
 ): DocMultiExtracted {
@@ -723,50 +735,126 @@ function parseFacturaMultiResult(
 
 async function extractFacturaMultiOnce(
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  prompt: string = FACTURA_MULTI_PROMPT
 ): Promise<DocMultiExtracted> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   const parsed = await createDocumentJsonCompletion({
-    prompt: FACTURA_MULTI_PROMPT,
+    prompt,
     buffer,
     mimeType,
-    maxTokens: 6500,
-    maxTextChars: 40000,
-    maxPdfPages: 6,
+    maxTokens: 8000,
+    maxTextChars: 50000,
+    maxPdfPages: 8,
     preferHighDetail: true,
+    // Multi-vehículo: priorizar visión fiel (evitar texto basura de escáner).
+    forceRasterVision: isPdf,
+    renderScale: 2.75,
   });
-  return parseFacturaMultiResult(parsed);
+  return sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+}
+
+function pickBestFacturaMulti(
+  candidates: DocMultiExtracted[]
+): DocMultiExtracted {
+  let best = candidates[0] ?? { shared: {}, vehiculos: [] };
+  let bestScore = scoreFacturaMulti(best);
+  for (let i = 1; i < candidates.length; i++) {
+    const c = candidates[i]!;
+    const s = scoreFacturaMulti(c);
+    if (s > bestScore) {
+      best = c;
+      bestScore = s;
+    }
+  }
+  // Fusionar todos por VIN para recuperar celdas faltantes.
+  let merged = best;
+  for (const c of candidates) {
+    if (c === best) continue;
+    merged = mergeFacturaMultiByVin(merged, c);
+  }
+  return sanitizeFacturaMulti(merged);
 }
 
 export async function extractFacturaMultiFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
-  let best = await extractFacturaMultiOnce(buffer, mimeType);
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  const candidates: DocMultiExtracted[] = [];
 
-  // Foto rotada (hoja anexa en horizontal): probar 90° / 270° / 180°.
-  if (!isPdf && countVehiculosConVin(best.vehiculos) < 2) {
+  // 1) Parser determinista si hay texto con varios VIN (PDF digital o OCR embebido).
+  if (isPdf) {
+    try {
+      const plain = await getPdfPlainText(buffer);
+      if (countValidVinsInText(plain) >= 2) {
+        const deterministic = parseMavHojaAnexaFromText(plain);
+        if (deterministic && deterministic.vehiculos.length >= 2) {
+          candidates.push(sanitizeFacturaMulti(deterministic));
+        }
+      }
+    } catch {
+      // seguir con visión
+    }
+  }
+
+  // 2) Pasada principal (visión / LLM).
+  try {
+    candidates.push(await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT));
+  } catch {
+    // Continuar con otras estrategias.
+  }
+
+  // 3) Segunda pasada solo-tabla si faltan filas o motores.
+  const currentBest = candidates[0]
+    ? pickBestFacturaMulti(candidates)
+    : { shared: {}, vehiculos: [] };
+  const needsRetry =
+    scoreFacturaMulti(currentBest) < 20 ||
+    currentBest.vehiculos.filter((v) => v.serialMotor && v.serialMotor !== "POR-COMPLETAR")
+      .length < Math.max(2, Math.floor(currentBest.vehiculos.length * 0.5));
+
+  if (needsRetry || currentBest.vehiculos.length < 2) {
+    try {
+      candidates.push(
+        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_TABLA_PROMPT)
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  // 4) Rotaciones en fotos (hoja anexa horizontal).
+  if (!isPdf) {
+    let bestSoFar = pickBestFacturaMulti(
+      candidates.length ? candidates : [{ shared: {}, vehiculos: [] }]
+    );
     for (const deg of [90, 270, 180] as const) {
+      if (scoreFacturaMulti(bestSoFar) >= 40 && bestSoFar.vehiculos.length >= 4) {
+        break;
+      }
       try {
         const rotated = await rotateImageBuffer(buffer, deg);
         const attempt = await extractFacturaMultiOnce(
           rotated.buffer,
-          rotated.mimeType
+          rotated.mimeType,
+          FACTURA_MULTI_TABLA_PROMPT
         );
-        if (
-          countVehiculosConVin(attempt.vehiculos) >
-          countVehiculosConVin(best.vehiculos)
-        ) {
-          best = attempt;
+        candidates.push(attempt);
+        if (scoreFacturaMulti(attempt) > scoreFacturaMulti(bestSoFar)) {
+          bestSoFar = attempt;
         }
-        if (countVehiculosConVin(best.vehiculos) >= 2) break;
       } catch {
-        // Continuar con otras rotaciones.
+        // Continuar.
       }
     }
   }
 
-  return best;
+  if (candidates.length === 0) {
+    return { shared: {}, vehiculos: [] };
+  }
+
+  return pickBestFacturaMulti(candidates);
 }
 
 export async function extractBlMultiFromDocument(
