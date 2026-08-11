@@ -94,11 +94,13 @@ export const puertoLibreAltaSchema = z
         return v;
       }),
 
-    /** Fecha de llegada del buque al puerto (YYYY-MM-DD). */
+    /** Fecha de llegada del buque (YYYY-MM-DD). Opcional en carga masiva; se completa al cargar el BL. */
     fechaLlegadaBuque: z
       .string()
       .trim()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Ingresa la fecha de llegada del buque"),
+      .refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+        message: "Ingresa la fecha de llegada del buque (AAAA-MM-DD)",
+      }),
 
     /** Régimen de importación (SENIAT / INTT). */
     regimen: z.enum(REGIMENES_IMPORTACION, {

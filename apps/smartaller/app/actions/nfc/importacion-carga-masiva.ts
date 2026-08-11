@@ -29,7 +29,10 @@ import {
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
 import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
-import { ensureImportadorForTaller } from "@/app/actions/nfc/importadores";
+import {
+  ensureImportadorForTaller,
+  getImportadorAction,
+} from "@/app/actions/nfc/importadores";
 import {
   findDuplicateSerialCarroceria,
   normalizarSerialCarroceria,
@@ -44,6 +47,9 @@ import {
   saveUltimoImportadorTaller,
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
+import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
+import { rifCoincideConSeleccionado } from "@/lib/importacion/carga-masiva-ui";
+import { normalizeRif } from "@/lib/validations/rif";
 
 async function requireTallerAuth() {
   const user = await getUser();
@@ -89,11 +95,13 @@ async function nextNumeroExpedienteMes(
 
 function scanFieldsToRow(
   fields: PuertoLibreRegistroScanFields,
-  fuente: string
+  fuente: string,
+  preserveId?: string
 ): CargaMasivaRow {
   const serial = fields.serialCarroceria ?? "";
   const vin = fields.vin ?? serial;
   return emptyCargaMasivaRow({
+    id: preserveId,
     marca: fields.marca ?? "",
     modelo: fields.modelo ?? "",
     color: fields.color ?? "",
@@ -238,7 +246,12 @@ export async function parseCargaMasivaSpreadsheetAction(
 }
 
 export type ExtractCargaMasivaDocsResult =
-  | { success: true; rows: CargaMasivaRow[]; warnings: string[] }
+  | {
+      success: true;
+      rows: CargaMasivaRow[];
+      warnings: string[];
+      certMatches: CertMatch[];
+    }
   | { success: false; error: string };
 
 /**
@@ -276,7 +289,9 @@ export async function extractCargaMasivaDocumentosAction(
   let sharedFromBl: PuertoLibreRegistroScanFields = {};
   let sharedFromCert: PuertoLibreRegistroScanFields = {};
   const vehicleRows: CargaMasivaRow[] = [];
-  const certVehicles: PuertoLibreRegistroScanFields[] = [];
+  const certVehicles: { fields: PuertoLibreRegistroScanFields; fileName: string }[] =
+    [];
+  const certMatches: CertMatch[] = [];
 
   try {
     for (let i = 0; i < files.length; i++) {
@@ -335,12 +350,12 @@ export async function extractCargaMasivaDocumentosAction(
         ).length;
         if (sinMotor > 0) {
           warnings.push(
-            `${file.name}: ${sinMotor} unidad(es) sin motor — se completarán con el certificado de origen si lo subes`
+            `${file.name}: ${sinMotor} unidad(es) sin motor — súbelos certificados de origen para completar`
           );
         }
         if (!extracted.shared.importadorDocumento && !extracted.shared.importadorNombre) {
           warnings.push(
-            `${file.name}: no se leyó importador/RIF — completa los datos compartidos antes de registrar`
+            `${file.name}: no se leyó importador/RIF — selecciona el cliente y certifica que coincida`
           );
         }
       } else if (tipoRaw === "certificado_origen") {
@@ -354,7 +369,14 @@ export async function extractCargaMasivaDocumentosAction(
             `${file.name}: certificado — ${extracted.vehiculos.length} unidad(es); se usará para rellenar datos faltantes`
           );
           for (const v of extracted.vehiculos) {
-            certVehicles.push(mergeScanFields(extracted.shared, v));
+            const fields = mergeScanFields(extracted.shared, v);
+            certVehicles.push({ fields, fileName: file.name });
+            const serial = normalizarSerialCarroceria(
+              fields.serialCarroceria ?? fields.vin ?? ""
+            );
+            if (serial) {
+              certMatches.push({ serial, fileName: file.name });
+            }
           }
         } else if (Object.keys(extracted.shared).length > 0) {
           warnings.push(
@@ -387,17 +409,22 @@ export async function extractCargaMasivaDocumentosAction(
     // Certificado: rellenar filas existentes por VIN; si no hay filas, crearlas.
     if (certVehicles.length > 0) {
       if (vehicleRows.length === 0) {
-        for (const v of certVehicles) {
+        for (const { fields } of certVehicles) {
           vehicleRows.push(
-            scanFieldsToRow(mergeScanFields(sharedFromCert, v), "Certificado origen")
+            scanFieldsToRow(
+              mergeScanFields(sharedFromCert, fields),
+              "Certificado origen"
+            )
           );
         }
       } else {
         let matched = 0;
         const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
-        for (const v of certVehicles) {
-          const serial = normalizarSerialCarroceria(v.serialCarroceria ?? v.vin ?? "");
-          if (serial) bySerial.set(serial, v);
+        for (const { fields } of certVehicles) {
+          const serial = normalizarSerialCarroceria(
+            fields.serialCarroceria ?? fields.vin ?? ""
+          );
+          if (serial) bySerial.set(serial, fields);
         }
         for (let i = 0; i < vehicleRows.length; i++) {
           const row = vehicleRows[i]!;
@@ -413,7 +440,8 @@ export async function extractCargaMasivaDocumentosAction(
           if (fromCert) matched += 1;
           vehicleRows[i] = scanFieldsToRow(
             merged,
-            row.fuente ? `${row.fuente} + cert.` : "Certificado origen"
+            row.fuente ? `${row.fuente} + cert.` : "Certificado origen",
+            row.id
           );
         }
         warnings.push(
@@ -426,7 +454,7 @@ export async function extractCargaMasivaDocumentosAction(
       for (let i = 0; i < vehicleRows.length; i++) {
         const row = vehicleRows[i]!;
         const merged = mergeScanFields(rowToScanFields(row), sharedFromCert);
-        vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento");
+        vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento", row.id);
       }
     }
 
@@ -435,7 +463,7 @@ export async function extractCargaMasivaDocumentosAction(
       for (let i = 0; i < vehicleRows.length; i++) {
         const row = vehicleRows[i]!;
         const merged = mergeScanFields(rowToScanFields(row), sharedFromBl);
-        vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento");
+        vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento", row.id);
       }
     }
 
@@ -472,6 +500,136 @@ export async function extractCargaMasivaDocumentosAction(
       success: true,
       rows: validateCargaMasivaRows(withDefaults),
       warnings,
+      certMatches,
+    };
+  } catch (err) {
+    return { success: false, error: formatLlmAuthError(err) };
+  }
+}
+
+/**
+ * Solo certificados de origen: completa filas ya extraídas emparejando por VIN.
+ * FormData: files[] (certs) + rowsJson (CargaMasivaRow[]).
+ */
+export async function completarCargaMasivaConCertificadosAction(
+  formData: FormData
+): Promise<ExtractCargaMasivaDocsResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  if (!isLlmConfigured()) {
+    return {
+      success: false,
+      error: "Falta configurar OPENAI_API_KEY para leer documentos con IA.",
+    };
+  }
+
+  let existingRows: CargaMasivaRow[] = [];
+  try {
+    const raw = String(formData.get("rowsJson") ?? "");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return { success: false, error: "No hay filas para completar" };
+    }
+    existingRows = parsed as CargaMasivaRow[];
+  } catch {
+    return { success: false, error: "Filas inválidas" };
+  }
+
+  const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+  if (files.length === 0) {
+    return { success: false, error: "Selecciona al menos un certificado de origen" };
+  }
+  if (files.length > 20) {
+    return { success: false, error: "Máximo 20 certificados por carga" };
+  }
+
+  const warnings: string[] = [];
+  let sharedFromCert: PuertoLibreRegistroScanFields = {};
+  const certVehicles: { fields: PuertoLibreRegistroScanFields; fileName: string }[] =
+    [];
+  const certMatches: CertMatch[] = [];
+
+  try {
+    for (const file of files) {
+      const validationError = validateVehiculoDocumentoFile(file);
+      if (validationError) {
+        warnings.push(`${file.name}: ${validationError}`);
+        continue;
+      }
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const mimeType = resolveDocMime(file, buffer);
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        buffer,
+        mimeType
+      );
+      sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
+      if (extracted.vehiculos.length > 0) {
+        warnings.push(
+          `${file.name}: certificado — ${extracted.vehiculos.length} unidad(es)`
+        );
+        for (const v of extracted.vehiculos) {
+          const fields = mergeScanFields(extracted.shared, v);
+          certVehicles.push({ fields, fileName: file.name });
+          const serial = normalizarSerialCarroceria(
+            fields.serialCarroceria ?? fields.vin ?? ""
+          );
+          if (serial) certMatches.push({ serial, fileName: file.name });
+        }
+      } else if (Object.keys(extracted.shared).length > 0) {
+        warnings.push(`${file.name}: certificado leído (datos compartidos)`);
+      } else {
+        warnings.push(`${file.name}: no se pudieron leer datos del certificado`);
+      }
+    }
+
+    if (certVehicles.length === 0 && Object.keys(sharedFromCert).length === 0) {
+      return {
+        success: false,
+        error: warnings[0] ?? "No se leyeron datos de los certificados",
+      };
+    }
+
+    const vehicleRows = existingRows.map((r) => ({ ...r }));
+    let matched = 0;
+    const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
+    for (const { fields } of certVehicles) {
+      const serial = normalizarSerialCarroceria(
+        fields.serialCarroceria ?? fields.vin ?? ""
+      );
+      if (serial) bySerial.set(serial, fields);
+    }
+
+    for (let i = 0; i < vehicleRows.length; i++) {
+      const row = vehicleRows[i]!;
+      const serial = normalizarSerialCarroceria(row.serialCarroceria || row.vin || "");
+      const fromCert = serial ? bySerial.get(serial) : undefined;
+      const patch = fromCert
+        ? mergeScanFields(sharedFromCert, fromCert)
+        : sharedFromCert;
+      if (Object.keys(patch).length === 0) continue;
+      const merged = mergeScanFields(rowToScanFields(row), patch);
+      if (fromCert) matched += 1;
+      vehicleRows[i] = scanFieldsToRow(
+        merged,
+        row.fuente ? `${row.fuente} + cert.` : "Certificado origen",
+        row.id
+      );
+    }
+
+    warnings.push(
+      matched > 0
+        ? `Se completaron ${matched} fila(s) con certificado emparejado por VIN`
+        : "No hubo match por VIN; se aplicaron solo datos compartidos del certificado (origen/nº)"
+    );
+
+    return {
+      success: true,
+      rows: validateCargaMasivaRows(vehicleRows),
+      warnings,
+      certMatches,
     };
   } catch (err) {
     return { success: false, error: formatLlmAuthError(err) };
@@ -528,15 +686,33 @@ export type CargaMasivaCreateResult =
   | { success: false; error: string };
 
 /** Crea expedientes en lote a partir de filas ya revisadas. */
-export async function createPuertoLibreCargaMasivaAction(
-  rows: CargaMasivaRow[]
-): Promise<CargaMasivaCreateResult> {
+export async function createPuertoLibreCargaMasivaAction(input: {
+  importadorId: string;
+  rows: CargaMasivaRow[];
+  /** RIF leído en factura/BL (si hay) para certificar vs. cliente elegido. */
+  detectedImportadorDocumento?: string;
+}): Promise<CargaMasivaCreateResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  if (!Array.isArray(rows) || rows.length === 0) {
+  const importadorId = String(input.importadorId ?? "").trim();
+  if (!importadorId) {
+    return {
+      success: false,
+      error: "Selecciona el cliente importador antes de registrar",
+    };
+  }
+
+  const importadorRes = await getImportadorAction(importadorId);
+  if (!importadorRes.success) {
+    return { success: false, error: importadorRes.error };
+  }
+  const importador = importadorRes.importador;
+
+  const rows = Array.isArray(input.rows) ? input.rows : [];
+  if (rows.length === 0) {
     return { success: false, error: "No hay filas para registrar" };
   }
   if (rows.length > CARGA_MASIVA_MAX_ROWS) {
@@ -546,7 +722,31 @@ export async function createPuertoLibreCargaMasivaAction(
     };
   }
 
-  const validated = validateCargaMasivaRows(rows);
+  const detectedDoc =
+    String(input.detectedImportadorDocumento ?? "").trim() ||
+    rows.map((r) => r.importadorDocumento?.trim() ?? "").find(Boolean) ||
+    "";
+
+  if (
+    detectedDoc &&
+    !rifCoincideConSeleccionado(detectedDoc, importador.documento)
+  ) {
+    return {
+      success: false,
+      error: `El RIF de los documentos (${normalizeRif(detectedDoc)}) no coincide con el cliente seleccionado (${importador.documento}). Elige el importador correcto.`,
+    };
+  }
+
+  const withImportador = rows.map((r) => ({
+    ...r,
+    importadorNombre: importador.nombre,
+    importadorDocumento: importador.documento,
+    importadorTelefono: importador.telefono ?? r.importadorTelefono,
+    importadorEmail: importador.email ?? r.importadorEmail,
+    importadorDireccion: importador.direccion ?? r.importadorDireccion,
+  }));
+
+  const validated = validateCargaMasivaRows(withImportador);
   const invalid = validated.filter((r) => r.error);
   if (invalid.length > 0) {
     return {
@@ -578,10 +778,11 @@ export async function createPuertoLibreCargaMasivaAction(
     const result = await insertOneVehiculo({
       admin,
       tallerId,
-      data: parsed.data,
+      data: { ...parsed.data, importadorId: importador.id },
       year,
       month,
       numero: nextNumero,
+      importadorIdLocked: importador.id,
     });
 
     if (!result.ok) {
@@ -604,21 +805,13 @@ export async function createPuertoLibreCargaMasivaAction(
   revalidatePath("/importacion");
 
   if (created.length > 0) {
-    const lastCreated = created[created.length - 1]!;
-    const lastRow = validated.find(
-      (r) =>
-        normalizarSerialCarroceria(r.serialCarroceria) ===
-        normalizarSerialCarroceria(lastCreated.serial)
-    );
-    const fromRow = lastRow
-      ? ultimoImportadorFromAlta({
-          importadorNombre: lastRow.importadorNombre,
-          importadorDocumento: lastRow.importadorDocumento,
-          importadorTelefono: lastRow.importadorTelefono,
-          importadorEmail: lastRow.importadorEmail,
-          importadorDireccion: lastRow.importadorDireccion,
-        })
-      : null;
+    const fromRow = ultimoImportadorFromAlta({
+      importadorNombre: importador.nombre,
+      importadorDocumento: importador.documento,
+      importadorTelefono: importador.telefono,
+      importadorEmail: importador.email,
+      importadorDireccion: importador.direccion,
+    });
     if (fromRow) {
       await saveUltimoImportadorTaller(tallerId, fromRow);
     }
@@ -634,11 +827,14 @@ async function insertOneVehiculo(params: {
   year: number;
   month: number;
   numero: number;
+  /** Si viene, se usa ese importador (ya verificado) sin ensure por RIF. */
+  importadorIdLocked?: string;
 }): Promise<
   | { ok: true; vehiculoId: string; codigoExpediente: string }
   | { ok: false; error: string }
 > {
-  const { admin, tallerId, data, year, month, numero } = params;
+  const { admin, tallerId, data, year, month, numero, importadorIdLocked } =
+    params;
   const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
   const serialMotor = normalizarSerialCarroceria(data.serialMotor);
 
@@ -649,15 +845,19 @@ async function insertOneVehiculo(params: {
     };
   }
 
-  const ensured = await ensureImportadorForTaller({
-    tallerId,
-    nombre: data.importadorNombre,
-    documento: data.importadorDocumento,
-    telefono: data.importadorTelefono,
-    email: data.importadorEmail,
-    direccion: data.importadorDireccion,
-  });
-  if (!ensured.ok) return { ok: false, error: ensured.error };
+  let importadorId = importadorIdLocked?.trim() || data.importadorId?.trim() || "";
+  if (!importadorId) {
+    const ensured = await ensureImportadorForTaller({
+      tallerId,
+      nombre: data.importadorNombre,
+      documento: data.importadorDocumento,
+      telefono: data.importadorTelefono,
+      email: data.importadorEmail,
+      direccion: data.importadorDireccion,
+    });
+    if (!ensured.ok) return { ok: false, error: ensured.error };
+    importadorId = ensured.importadorId;
+  }
 
   const existingSerial = await findDuplicateSerialCarroceria(
     admin,
@@ -683,7 +883,7 @@ async function insertOneVehiculo(params: {
   const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
-    importadorId: ensured.importadorId,
+    importadorId,
     regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
