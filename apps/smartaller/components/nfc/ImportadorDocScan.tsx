@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Camera, CheckCircle2, IdCard, Loader2 } from "lucide-react";
+import {
+  Camera,
+  CheckCircle2,
+  FileUp,
+  IdCard,
+  Images,
+  Loader2,
+} from "lucide-react";
 import { extractImportadorDocumentoAction } from "@/app/actions/nfc/importador-extract";
 import type { ImportadorScanFields } from "@/lib/extract-identidad-ve";
 import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import type { ImportadorTipo } from "@/lib/schemas/importador";
 
-const ACCEPT =
+const ACCEPT_IMAGE =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic";
+const ACCEPT_FILE =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
 
 export type ImportadorDocKind = "rif" | "cedula";
@@ -45,7 +54,9 @@ function ScanChip({
   existingUrl?: string | null;
   onExtracted: Props["onExtracted"];
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
@@ -74,7 +85,7 @@ function ScanChip({
         }
         onExtracted(result.fields, tipoDoc, prepared);
         setDoneMsg(
-          `${result.filledCount} campo${result.filledCount === 1 ? "" : "s"} rellenado${result.filledCount === 1 ? "" : "s"} · se guardará al guardar el cliente`
+          `${result.filledCount} campo${result.filledCount === 1 ? "" : "s"} rellenado${result.filledCount === 1 ? "" : "s"}`
         );
         setUrl(URL.createObjectURL(prepared));
       } catch (err) {
@@ -86,6 +97,8 @@ function ScanChip({
   }
 
   const loaded = Boolean(url);
+  const btnClass =
+    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/30 px-2 py-2 text-[11px] font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50";
 
   return (
     <div
@@ -129,26 +142,72 @@ function ScanChip({
         </p>
       ) : null}
       {error ? <p className="mt-1.5 text-xs text-red-300">{error}</p> : null}
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => inputRef.current?.click()}
-        className="mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50"
-      >
-        {pending ? (
+
+      {pending ? (
+        <p className="mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-xs font-medium text-cyan-100">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : doneMsg || loaded ? (
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-        ) : (
-          <Camera className="h-3.5 w-3.5" />
-        )}
-        {pending ? "Leyendo…" : doneMsg || loaded ? "Sustituir" : "Foto o PDF"}
-      </button>
+          Leyendo…
+        </p>
+      ) : (
+        <div className="mt-2.5 flex gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => cameraRef.current?.click()}
+            className={btnClass}
+          >
+            <Camera className="h-3.5 w-3.5 shrink-0" />
+            Cámara
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => galleryRef.current?.click()}
+            className={btnClass}
+          >
+            <Images className="h-3.5 w-3.5 shrink-0" />
+            Galería
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => fileRef.current?.click()}
+            className={btnClass}
+          >
+            <FileUp className="h-3.5 w-3.5 shrink-0" />
+            Archivo
+          </button>
+        </div>
+      )}
+
+      {/* Cámara: captura directa */}
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
-        accept={ACCEPT}
+        accept={ACCEPT_IMAGE}
         capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          handleFile(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+      {/* Galería / carrete: sin capture */}
+      <input
+        ref={galleryRef}
+        type="file"
+        accept={ACCEPT_IMAGE}
+        className="hidden"
+        onChange={(e) => {
+          handleFile(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+      {/* Archivos: PDF o foto desde el gestor */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept={ACCEPT_FILE}
         className="hidden"
         onChange={(e) => {
           handleFile(e.target.files?.[0] ?? null);
@@ -167,15 +226,9 @@ export function ImportadorDocScan({
 }: Props) {
   return (
     <section className="space-y-2.5 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-3.5 sm:p-4">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-100">
-          Autocompletar con documento
-        </h2>
-        <p className="mt-0.5 text-[11px] text-zinc-500">
-          Foto o PDF del RIF y la cédula: se leen los datos y el archivo queda
-          guardado en el cliente. El resto se completa a mano.
-        </p>
-      </div>
+      <h2 className="text-sm font-semibold text-slate-100">
+        Autocompletar con documento
+      </h2>
       <div className="grid gap-2.5 sm:grid-cols-2">
         <ScanChip
           tipoDoc="rif"
