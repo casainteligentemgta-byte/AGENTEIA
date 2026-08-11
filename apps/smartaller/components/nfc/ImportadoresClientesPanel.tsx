@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Search, UserRound } from "lucide-react";
+import { Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
-  setImportadorActivoAction,
+  deleteImportadorAction,
   type ImportadorListItem,
 } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
@@ -53,6 +53,7 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
   const [mode, setMode] = useState<"lista" | "nuevo" | "editar">("lista");
   const [editing, setEditing] = useState<ImportadorListItem | null>(null);
   const [pending, startTransition] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
@@ -81,18 +82,23 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
     });
   }
 
-  function toggleActivo(cliente: ImportadorListItem) {
+  function borrarCliente(cliente: ImportadorListItem) {
     setError(null);
+    setDeletingId(cliente.id);
     startTransition(async () => {
-      const result = await setImportadorActivoAction({
+      const result = await deleteImportadorAction({
         importadorId: cliente.id,
-        activo: !cliente.activo,
       });
+      setDeletingId(null);
       if (!result.success) {
         setError(result.error);
         return;
       }
-      upsertLocal(result.importador);
+      setClientes((prev) => prev.filter((c) => c.id !== cliente.id));
+      if (editing?.id === cliente.id) {
+        setEditing(null);
+        setMode("lista");
+      }
     });
   }
 
@@ -133,7 +139,8 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
             setMode("lista");
             setEditing(null);
           }}
-        />      </div>
+        />
+      </div>
     );
   }
 
@@ -180,50 +187,57 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
         </div>
       ) : (
         <ul className="space-y-2">
-          {filtrados.map((c) => (
-            <li
-              key={c.id}
-              className="rounded-2xl border border-zinc-800 bg-zinc-950/40 px-4 py-3"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-zinc-50">{c.nombre}</p>
-                  <p className="mt-0.5 font-mono text-xs text-zinc-400">
-                    RIF {c.documento}
-                    {c.cedula ? ` · CI ${c.cedula}` : ""}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-zinc-500">
-                    {c.tipoLabel}
-                    {c.tipo === "juridica" && c.registroPuertoLibre
-                      ? ` · PL ${c.registroPuertoLibre}`
-                      : ""}
-                    {c.telefono ? ` · ${c.telefono}` : ""}
-                    {!c.activo ? " · Inactivo" : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(c);
-                      setMode("editar");
-                    }}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
-                  >
-                    Editar
-                  </button>
+          {filtrados.map((c) => {
+            const isDeleting = pending && deletingId === c.id;
+            return (
+              <li
+                key={c.id}
+                className="rounded-2xl border border-zinc-800 bg-zinc-950/40 px-4 py-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-zinc-50">
+                      {c.nombre}
+                    </p>
+                    <p className="mt-0.5 font-mono text-xs text-zinc-400">
+                      RIF {c.documento}
+                      {c.cedula ? ` · CI ${c.cedula}` : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-zinc-500">
+                      {c.tipoLabel}
+                      {c.tipo === "juridica" && c.registroPuertoLibre
+                        ? ` · PL ${c.registroPuertoLibre}`
+                        : ""}
+                      {c.telefono ? ` · ${c.telefono}` : ""}
+                      {!c.activo ? " · Inactivo" : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(c);
+                        setMode("editar");
+                      }}
+                      className="mt-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
+                    >
+                      Editar
+                    </button>
+                  </div>
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => toggleActivo(c)}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
+                    onClick={() => borrarCliente(c)}
+                    aria-label={`Borrar ${c.nombre}`}
+                    title="Borrar cliente"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 transition hover:border-rose-400/50 hover:bg-rose-500/20 hover:text-rose-100 disabled:opacity-50"
                   >
-                    {c.activo ? "Desactivar" : "Activar"}
+                    <Trash2
+                      className={`h-4 w-4 ${isDeleting ? "animate-pulse" : ""}`}
+                    />
                   </button>
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

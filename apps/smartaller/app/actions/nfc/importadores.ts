@@ -377,6 +377,42 @@ export async function setImportadorActivoAction(raw: unknown): Promise<
   return { success: true, importador: mapRow(data as ImportadorRow) };
 }
 
+/** Elimina un cliente importador del taller. */
+export async function deleteImportadorAction(raw: unknown): Promise<
+  ActionOk<{ importadorId: string }> | ActionErr
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z
+    .object({
+      importadorId: z.string().uuid(),
+    })
+    .safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Cliente inválido" };
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("importadores")
+    .delete()
+    .eq("id", parsed.data.importadorId)
+    .eq("taller_id", auth.taller.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: "Cliente no encontrado" };
+
+  revalidatePath("/importacion/clientes");
+  revalidatePath("/importacion/importaciones/nueva");
+  revalidatePath("/importacion/carga-masiva");
+  return { success: true, importadorId: data.id as string };
+}
+
 /** Sube RIF o cédula al cliente y lo guarda en importadores.documentos. */
 export async function attachImportadorDocumentoAction(
   formData: FormData
