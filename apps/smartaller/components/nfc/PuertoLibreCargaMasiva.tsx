@@ -97,7 +97,7 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     );
     setWarnings([
       "Revisa VIN, motor y color de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor / nº cert.",
-      "Vuelve a adjuntar la misma hoja anexa abajo si quieres asociarla a todos los expedientes al registrar.",
+      "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
     router.replace("/importacion/carga-masiva", { scroll: false });
   }, [router]);
@@ -133,8 +133,7 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     errorCount === 0 &&
     !pending &&
     Boolean(selected) &&
-    rifOk &&
-    Boolean(shared.fechaLlegadaBuque.trim());
+    rifOk;
 
   function updateRow(id: string, key: keyof CargaMasivaRow, value: string) {
     setRows((prev) =>
@@ -144,10 +143,6 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
 
   function removeRow(id: string) {
     setRows((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  function applySharedToAll() {
-    setRows((prev) => applySharedShipmentToRows(prev, shared));
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
@@ -575,12 +570,13 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
       ) : (
         <section className="space-y-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
           <h2 className="text-base font-semibold text-slate-100">
-            2. Sube facturas, certificados y BL
+            2. Sube facturas y certificados
           </h2>
           <p className="text-sm text-slate-400">
-            Sube la factura (carátula o anexa) y, si ya los tienes, los
-            certificados de origen (uno o varios) y el BL. El certificado rellena
-            motor, color, origen y nº cert. emparejando por VIN.
+            Sube la factura (carátula o anexa) y los certificados de origen. El
+            certificado rellena motor, color y nº cert. por VIN. Aduana, nº BL,
+            país y fecha de llegada se extraen cuando cargues el BL (ahora o
+            después en el expediente).
           </p>
           <button
             type="button"
@@ -696,7 +692,8 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
                 3. Revisa vehículos ({rows.length})
               </h2>
               <p className="text-xs text-slate-500">
-                Solo datos por unidad. Aduana, BL y llegada van abajo (compartidos).
+                Solo datos por unidad. Embarque (aduana, BL, fecha) se completa al
+                cargar el BL.
                 {incompleteCount > 0
                   ? ` · ${incompleteCount} fila(s) incompletas — súbelos certificados de origen.`
                   : " · Todas las filas tienen motor y nº cert."}
@@ -725,43 +722,26 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
             </p>
           ) : null}
 
-          <div className="space-y-3 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-100">
-                Datos compartidos del embarque
-              </h3>
-              <button
-                type="button"
-                onClick={applySharedToAll}
-                className="rounded-lg border border-cyan-700/50 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-950/50"
-              >
-                Aplicar a todas
-              </button>
+          {shared.numeroBl ||
+          shared.aduana ||
+          shared.fechaLlegadaBuque ||
+          shared.paisOrigen ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+              <p className="font-medium text-slate-300">
+                Embarque detectado (BL / documentos)
+              </p>
+              <p className="mt-1 font-mono text-[11px]">
+                {[
+                  shared.numeroBl && `BL ${shared.numeroBl}`,
+                  shared.aduana,
+                  shared.paisOrigen,
+                  shared.fechaLlegadaBuque,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(
-                [
-                  ["fechaLlegadaBuque", "Fecha llegada buque", "date"],
-                  ["aduana", "Aduana / destino", "text"],
-                  ["numeroBl", "Nº BL", "text"],
-                  ["paisOrigen", "País / origen", "text"],
-                  ["tasaCambioBcv", "Tasa BCV", "text"],
-                ] as const
-              ).map(([key, label, type]) => (
-                <label key={key} className="block space-y-1">
-                  <span className="text-[11px] text-zinc-500">{label}</span>
-                  <input
-                    type={type}
-                    value={shared[key]}
-                    onChange={(e) =>
-                      setShared((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500/50"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
+          ) : null}
 
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-4">
             <h3 className="text-sm font-semibold text-slate-100">
