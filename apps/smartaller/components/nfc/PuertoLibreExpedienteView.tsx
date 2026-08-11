@@ -227,10 +227,24 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         <dl className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3">
           <Dato label="Régimen" value={labelRegimenImportacion(imp.regimen)} />
           <Dato label="Aduana" value={imp.aduana} />
+          <Dato label="País origen" value={imp.paisOrigen} />
+          <Dato label="Puerto" value={imp.puerto} />
+          <Dato
+            label="Tránsito / USO24"
+            value={
+              imp.modalidadTransito === "transito"
+                ? "Tránsito"
+                : imp.modalidadTransito === "uso24"
+                  ? "USO24"
+                  : imp.modalidadTransito === "ninguno"
+                    ? "No"
+                    : null
+            }
+          />
+          <Dato label="Aduana tránsito" value={imp.aduanaTransito} />
+          <Dato label="Nº BL / Guía" value={imp.numeroBl} />
           <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
-          <Dato label="Nº BL / Guía" value={imp.numeroBl} />
-          <Dato label="País origen" value={imp.paisOrigen} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
           <Dato label="Nº expediente SENIAT" value={imp.numeroExpedienteSeniat} mono />

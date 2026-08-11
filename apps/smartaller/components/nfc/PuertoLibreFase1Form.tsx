@@ -20,12 +20,22 @@ import {
   type TipoCombustible,
 } from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { MODALIDAD_TRANSITO_LABELS } from "@/lib/schemas/vehiculo-documentos";
 import {
   REGIMEN_SELECT_OPTIONS,
   getRegimenConfig,
   type RegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
+
+const MODALIDAD_TRANSITO_OPTIONS = (
+  Object.keys(MODALIDAD_TRANSITO_LABELS) as Array<
+    keyof typeof MODALIDAD_TRANSITO_LABELS
+  >
+).map((value) => ({
+  value,
+  label: MODALIDAD_TRANSITO_LABELS[value],
+}));
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
 
@@ -51,6 +61,9 @@ export type PuertoLibreFase1FormValues = {
   importadorEmail: string;
   importadorDireccion: string;
   aduana: string;
+  puerto: string;
+  modalidadTransito: "ninguno" | "transito" | "uso24" | "";
+  aduanaTransito: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
@@ -85,6 +98,9 @@ export const emptyPuertoLibreFase1Values = (): PuertoLibreFase1FormValues => ({
   importadorEmail: "",
   importadorDireccion: "",
   aduana: "",
+  puerto: "",
+  modalidadTransito: "ninguno",
+  aduanaTransito: "",
   numeroBl: "",
   paisOrigen: "",
   valorCif: "",
@@ -560,15 +576,6 @@ export function PuertoLibreFase1Form({
               </p>
             ) : null}
           </div>
-          <div className="min-w-0 sm:col-span-2">
-            <PlanillaFechaField
-              label="Fecha llegada del buque *"
-              name="fechaLlegadaBuque"
-              value={values.fechaLlegadaBuque}
-              onChange={(v) => setField("fechaLlegadaBuque", v)}
-              required
-            />
-          </div>
           <ControlledSelect
             label="Aduana"
             name="aduana"
@@ -576,15 +583,6 @@ export function PuertoLibreFase1Form({
             value={values.aduana}
             options={ADUANAS_VENEZUELA}
             onChange={(v) => setField("aduana", v)}
-          />
-          <ControlledField
-            label="Nº BL / Guía"
-            name="numeroBl"
-            placeholder="Número de conocimiento de embarque"
-            mono
-            upper
-            value={values.numeroBl}
-            onChange={(v) => setField("numeroBl", v)}
           />
           <ControlledSelect
             label="País de origen"
@@ -594,6 +592,58 @@ export function PuertoLibreFase1Form({
             options={PAISES}
             onChange={(v) => setField("paisOrigen", v)}
           />
+          <ControlledField
+            label="Puerto"
+            name="puerto"
+            placeholder="Puerto de llegada / descarga"
+            value={values.puerto}
+            onChange={(v) => setField("puerto", v)}
+          />
+          <ControlledSelect
+            label="Tránsito o USO24"
+            name="modalidadTransito"
+            placeholder="Selecciona"
+            value={values.modalidadTransito}
+            options={MODALIDAD_TRANSITO_OPTIONS}
+            onChange={(v) => {
+              setField(
+                "modalidadTransito",
+                v as "ninguno" | "transito" | "uso24" | ""
+              );
+              if (v !== "transito" && v !== "uso24") {
+                setField("aduanaTransito", "");
+              }
+            }}
+          />
+          {values.modalidadTransito === "transito" ||
+          values.modalidadTransito === "uso24" ? (
+            <ControlledSelect
+              label="Aduana (tránsito / USO24)"
+              name="aduanaTransito"
+              placeholder="Selecciona aduana de tránsito"
+              value={values.aduanaTransito}
+              options={ADUANAS_VENEZUELA}
+              onChange={(v) => setField("aduanaTransito", v)}
+            />
+          ) : null}
+          <ControlledField
+            label="Nº BL / Guía"
+            name="numeroBl"
+            placeholder="Número de conocimiento de embarque"
+            mono
+            upper
+            value={values.numeroBl}
+            onChange={(v) => setField("numeroBl", v)}
+          />
+          <div className="min-w-0 sm:col-span-2">
+            <PlanillaFechaField
+              label="Fecha llegada del buque *"
+              name="fechaLlegadaBuque"
+              value={values.fechaLlegadaBuque}
+              onChange={(v) => setField("fechaLlegadaBuque", v)}
+              required
+            />
+          </div>
           <ControlledField
             label="Valor CIF (USD)"
             name="valorCif"

@@ -129,6 +129,14 @@ export function PuertoLibreFichaClient({
                 vehiculoId: ficha.id,
                 regimen: String(fd.get("regimen") ?? "") || "puerto_libre",
                 aduana: String(fd.get("aduana") ?? "") || null,
+                puerto: String(fd.get("puerto") ?? "") || null,
+                modalidadTransito:
+                  (String(fd.get("modalidadTransito") ?? "") as
+                    | "ninguno"
+                    | "transito"
+                    | "uso24"
+                    | "") || null,
+                aduanaTransito: String(fd.get("aduanaTransito") ?? "") || null,
                 fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? "") || null,
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
                 numeroBl: String(fd.get("numeroBl") ?? "") || null,
@@ -173,6 +181,44 @@ export function PuertoLibreFichaClient({
             options={ADUANAS_VENEZUELA}
             placeholder="Selecciona aduana"
           />
+          <SelectField
+            label="País de origen"
+            name="paisOrigen"
+            defaultValue={resolvePais(ficha.importacion.paisOrigen)}
+            options={PAISES}
+            placeholder="Selecciona país"
+          />
+          <Field
+            label="Puerto"
+            name="puerto"
+            defaultValue={ficha.importacion.puerto ?? ""}
+          />
+          <label className="block space-y-1.5">
+            <span className="text-sm text-slate-400">Tránsito o USO24</span>
+            <select
+              name="modalidadTransito"
+              defaultValue={ficha.importacion.modalidadTransito ?? "ninguno"}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+            >
+              <option value="ninguno">Sin tránsito / USO24</option>
+              <option value="transito">Tránsito</option>
+              <option value="uso24">USO24</option>
+            </select>
+          </label>
+          <SelectField
+            label="Aduana (tránsito / USO24)"
+            name="aduanaTransito"
+            defaultValue={resolveAduanaVenezuela(
+              ficha.importacion.aduanaTransito
+            )}
+            options={ADUANAS_VENEZUELA}
+            placeholder="Si aplica"
+          />
+          <Field
+            label="Nº BL / Guía"
+            name="numeroBl"
+            defaultValue={ficha.importacion.numeroBl ?? ""}
+          />
           <Field
             label="Fecha llegada del buque"
             name="fechaLlegadaBuque"
@@ -184,18 +230,6 @@ export function PuertoLibreFichaClient({
             name="fechaIngreso"
             type="date"
             defaultValue={ficha.importacion.fechaIngreso ?? ""}
-          />
-          <Field
-            label="Nº BL / Guía"
-            name="numeroBl"
-            defaultValue={ficha.importacion.numeroBl ?? ""}
-          />
-          <SelectField
-            label="País de origen"
-            name="paisOrigen"
-            defaultValue={resolvePais(ficha.importacion.paisOrigen)}
-            options={PAISES}
-            placeholder="Selecciona país"
           />
           <Field
             label="Valor CIF (USD)"

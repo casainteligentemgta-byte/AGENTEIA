@@ -14,6 +14,8 @@ export const vehiculoDocumentoRefSchema = z.object({
 /** Documentos base + expediente Puerto Libre / importación / seguro / memoria fotográfica. */
 export const DOCUMENTO_TIPOS = [
   "cedula",
+  "cedula_importador",
+  "rif_importador",
   "titulo",
   "factura_comercial",
   "bl_guia",
@@ -36,6 +38,12 @@ export const DOCUMENTO_TIPOS = [
   "documento_importacion",
   "manual_vehiculo",
   "otro_importacion",
+  "acta_recepcion_mercancia",
+  "constancia_edi_reconocimiento",
+  "sencamer",
+  "registro_puerto_libre",
+  "agente_aduanal_doc",
+  "pase_salida_levante",
   "poliza_seguro",
   "certificado_seguro",
   "recibo_seguro",
@@ -68,6 +76,8 @@ export const documentoTipoSchema = z.enum(DOCUMENTO_TIPOS);
 
 export const vehiculosDocumentosSchema = z.object({
   cedula: vehiculoDocumentoRefSchema.optional(),
+  cedula_importador: vehiculoDocumentoRefSchema.optional(),
+  rif_importador: vehiculoDocumentoRefSchema.optional(),
   titulo: vehiculoDocumentoRefSchema.optional(),
   factura_comercial: vehiculoDocumentoRefSchema.optional(),
   bl_guia: vehiculoDocumentoRefSchema.optional(),
@@ -90,6 +100,12 @@ export const vehiculosDocumentosSchema = z.object({
   documento_importacion: vehiculoDocumentoRefSchema.optional(),
   manual_vehiculo: vehiculoDocumentoRefSchema.optional(),
   otro_importacion: vehiculoDocumentoRefSchema.optional(),
+  acta_recepcion_mercancia: vehiculoDocumentoRefSchema.optional(),
+  constancia_edi_reconocimiento: vehiculoDocumentoRefSchema.optional(),
+  sencamer: vehiculoDocumentoRefSchema.optional(),
+  registro_puerto_libre: vehiculoDocumentoRefSchema.optional(),
+  agente_aduanal_doc: vehiculoDocumentoRefSchema.optional(),
+  pase_salida_levante: vehiculoDocumentoRefSchema.optional(),
   poliza_seguro: vehiculoDocumentoRefSchema.optional(),
   certificado_seguro: vehiculoDocumentoRefSchema.optional(),
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
@@ -126,11 +142,13 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   cedula: "Cédula del comprador",
+  cedula_importador: "Cédula del importador",
+  rif_importador: "RIF del importador (dir. Nueva Esparta, Venezuela)",
   titulo: "Título de propiedad",
   factura_comercial: "Factura de compra",
   bl_guia: "BL / Guía",
   certificado_origen: "Certificado de origen",
-  lista_empaque: "Lista de embarque",
+  lista_empaque: "Lista de embarque / empaque",
   dav: "Declaración Andina de Valor (DAV)",
   poliza_transporte: "Póliza de transporte",
   permiso_importacion: "Permiso de importación",
@@ -149,6 +167,13 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
+  acta_recepcion_mercancia: "Acta de recepción de mercancía (AR)",
+  constancia_edi_reconocimiento:
+    "Constancia EDI de la carga (Reconocimiento)",
+  sencamer: "SENCAMER",
+  registro_puerto_libre: "Registro de Puerto Libre",
+  agente_aduanal_doc: "Agente aduanal",
+  pase_salida_levante: "Pase de salida y levante",
   poliza_seguro: "Póliza de seguro del vehículo",
   certificado_seguro: "Certificado de cobertura",
   recibo_seguro: "Recibo / pago de prima",
@@ -194,17 +219,29 @@ export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Carpeta de desaduanamiento SENIAT (fase 4 UI), vía Agente de Aduanas.
- * Incluye docs de fases previas + DUA, declaración jurada y planilla de liquidación.
+ * Documentos de llegada (fase 3 UI): AR y constancia EDI / reconocimiento.
+ */
+export const PL_LLEGADA_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  "acta_recepcion_mercancia",
+  "constancia_edi_reconocimiento",
+];
+
+/**
+ * Expediente PDF SENIAT (fase 4 UI / desaduanamiento).
+ * Orden: cédula, RIF, lista, DUA, DAV, SENCAMER, registro PL,
+ * agente, reconocimiento, pase de salida y levante.
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
-  "bl_guia",
-  "factura_comercial",
-  "certificado_origen",
+  "cedula_importador",
+  "rif_importador",
+  "lista_empaque",
   "nacionalizacion",
   "dav",
-  "declaracion_jurada_origen_fondos",
-  "planilla_liquidacion_aduanera",
+  "sencamer",
+  "registro_puerto_libre",
+  "agente_aduanal_doc",
+  "constancia_edi_reconocimiento",
+  "pase_salida_levante",
 ];
 
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
@@ -212,20 +249,30 @@ export const PL_ADUANA_DOCUMENTO_TIPOS = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS;
 
 /** Solo los que suelen cargarse por primera vez en desaduanamiento. */
 export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
+  "cedula_importador",
+  "rif_importador",
   "nacionalizacion",
-  "declaracion_jurada_origen_fondos",
-  "planilla_liquidacion_aduanera",
+  "sencamer",
+  "registro_puerto_libre",
+  "agente_aduanal_doc",
+  "pase_salida_levante",
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
-  bl_guia: "Desde fase Embarque (B/L original)",
-  factura_comercial: "Desde fase Registro (factura / contrato de venta)",
-  certificado_origen: "Desde fase Registro (país de procedencia)",
-  dav: "Desde fase Embarque (Declaración Andina de Valor)",
+  cedula_importador: "Cédula del importador",
+  rif_importador:
+    "RIF con dirección en Nueva Esparta, Venezuela (ambos del importador)",
+  lista_empaque: "Desde fase Embarque (lista de embarque / empaque)",
   nacionalizacion: "Declaración Única de Aduanas (DUA) ante SENIAT",
-  declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
-  planilla_liquidacion_aduanera:
-    "Liquidación de impuestos y tasas (exenciones PL aplicables)",
+  dav: "Desde fase Embarque (Declaración Andina de Valor)",
+  sencamer: "Certificado / documento SENCAMER",
+  registro_puerto_libre: "Registro de Puerto Libre",
+  agente_aduanal_doc: "Documento del Agente de Aduanas autorizado",
+  constancia_edi_reconocimiento:
+    "Desde fase Llegada (Constancia EDI / Reconocimiento)",
+  pase_salida_levante: "Pase de salida y levante aduanero",
+  constancia_residencia_permanencia:
+    "Constancia de residencia en zona de Puerto Libre",
 };
 
 /** Docs de registro + embarque + desaduanamiento (conteo faltantes en listados). */
@@ -256,6 +303,14 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "franquicia_diplomatica",
   "facilidad_diplomatica",
   "autorizacion_admision_temporal",
+  "acta_recepcion_mercancia",
+  "constancia_edi_reconocimiento",
+  "cedula_importador",
+  "rif_importador",
+  "sencamer",
+  "registro_puerto_libre",
+  "agente_aduanal_doc",
+  "pase_salida_levante",
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
@@ -373,6 +428,16 @@ export const ESTADOS_SENIAT = [
 export type EstadoNacionalizacion = (typeof ESTADOS_NACIONALIZACION)[number];
 export type EstadoSeniat = (typeof ESTADOS_SENIAT)[number];
 
+/** Tránsito aduanero / USO24 en datos de importación. */
+export const MODALIDADES_TRANSITO = ["ninguno", "transito", "uso24"] as const;
+export type ModalidadTransito = (typeof MODALIDADES_TRANSITO)[number];
+
+export const MODALIDAD_TRANSITO_LABELS: Record<ModalidadTransito, string> = {
+  ninguno: "Sin tránsito / USO24",
+  transito: "Tránsito",
+  uso24: "USO24",
+};
+
 export const ESTADO_NACIONALIZACION_LABELS: Record<EstadoNacionalizacion, string> = {
   pendiente: "Pendiente de nacionalizar",
   en_proceso: "En proceso de nacionalización",
@@ -403,6 +468,12 @@ export const importacionSchema = z.object({
   importadorId: z.string().uuid().optional().nullable(),
   regimen: z.string().trim().max(80).optional().nullable(),
   aduana: z.string().trim().max(120).optional().nullable(),
+  /** Puerto de llegada / descarga. */
+  puerto: z.string().trim().max(120).optional().nullable(),
+  /** Tránsito aduanero o USO24. */
+  modalidadTransito: z.enum(MODALIDADES_TRANSITO).optional().nullable(),
+  /** Aduana de tránsito / destino cuando aplica tránsito o USO24. */
+  aduanaTransito: z.string().trim().max(120).optional().nullable(),
   /** Fecha de ingreso al régimen PL / aduana (distinta de la llegada del buque). */
   fechaIngreso: z.string().trim().max(32).optional().nullable(),
   /** Fecha estimada/real de llegada del buque al puerto. */
@@ -531,6 +602,12 @@ export function parseImportacion(raw: unknown): ImportacionData {
     importadorId: row.importadorId ?? row.importador_id,
     regimen: row.regimen ?? row.regimen_importacion,
     aduana: row.aduana,
+    puerto: row.puerto,
+    modalidadTransito: asOptionalEnum(
+      row.modalidadTransito ?? row.modalidad_transito,
+      MODALIDADES_TRANSITO
+    ),
+    aduanaTransito: row.aduanaTransito ?? row.aduana_transito,
     fechaIngreso: row.fechaIngreso ?? row.fecha_ingreso,
     fechaLlegadaBuque: row.fechaLlegadaBuque ?? row.fecha_llegada_buque,
     numeroBl: row.numeroBl ?? row.numero_bl,
@@ -670,6 +747,12 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     importador_id: data.importadorId?.trim() || null,
     regimen: resolveRegimenImportacion(data.regimen),
     aduana: data.aduana?.trim() || null,
+    puerto: data.puerto?.trim() || null,
+    modalidad_transito: data.modalidadTransito || null,
+    aduana_transito:
+      data.modalidadTransito === "transito" || data.modalidadTransito === "uso24"
+        ? data.aduanaTransito?.trim() || null
+        : null,
     fecha_ingreso: data.fechaIngreso?.trim() || null,
     fecha_llegada_buque: data.fechaLlegadaBuque?.trim() || null,
     numero_bl: data.numeroBl?.trim() || null,

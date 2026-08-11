@@ -494,10 +494,24 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
   ({ page, y } = drawPairs(pdf, page, font, bold, [
     { label: "Régimen", value: txt(labelRegimenImportacion(imp.regimen)) },
     { label: "Aduana", value: txt(imp.aduana) },
+    { label: "País origen", value: txt(imp.paisOrigen) },
+    { label: "Puerto", value: txt(imp.puerto) },
+    {
+      label: "Tránsito / USO24",
+      value: txt(
+        imp.modalidadTransito === "transito"
+          ? "Tránsito"
+          : imp.modalidadTransito === "uso24"
+            ? "USO24"
+            : imp.modalidadTransito === "ninguno"
+              ? "No"
+              : null
+      ),
+    },
+    { label: "Aduana tránsito", value: txt(imp.aduanaTransito) },
+    { label: "Nº BL / Guía", value: txt(imp.numeroBl) },
     { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
     { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
-    { label: "Nº BL / Guía", value: txt(imp.numeroBl) },
-    { label: "País origen", value: txt(imp.paisOrigen) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
     { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
@@ -596,7 +610,7 @@ export async function buildDesaduanamientoPdf(
     page,
     font,
     bold,
-    "Carpeta de desaduanamiento SENIAT",
+    "Expediente PDF SENIAT",
     `${codigo} · SmartTaller`
   );
 
@@ -613,7 +627,21 @@ export async function buildDesaduanamientoPdf(
       { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
       { label: "Placa", value: txt(placa) },
       { label: "Regimen", value: txt(labelRegimenImportacion(imp.regimen)) },
-      { label: "Aduana / circunscripcion", value: txt(imp.aduana) },
+      { label: "Aduana", value: txt(imp.aduana) },
+      { label: "Puerto", value: txt(imp.puerto) },
+      {
+        label: "Transito / USO24",
+        value: txt(
+          imp.modalidadTransito === "transito"
+            ? "Transito"
+            : imp.modalidadTransito === "uso24"
+              ? "USO24"
+              : imp.modalidadTransito === "ninguno"
+                ? "No"
+                : null
+        ),
+      },
+      { label: "Aduana transito", value: txt(imp.aduanaTransito) },
       { label: "Agente de aduanas", value: txt(imp.agenteAduanal) },
       { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
       { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
@@ -621,7 +649,11 @@ export async function buildDesaduanamientoPdf(
       { label: "Nº DAV", value: txt(imp.numeroDav) },
       { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
       { label: "Importador", value: txt(imp.importadorNombre) },
-      { label: "RIF importador", value: txt(imp.importadorDocumento) },
+      { label: "RIF / cedula importador", value: txt(imp.importadorDocumento) },
+      {
+        label: "Direccion importador",
+        value: txt(imp.importadorDireccion) || "Nueva Esparta, Venezuela",
+      },
     ],
     y
   ));
@@ -631,7 +663,7 @@ export async function buildDesaduanamientoPdf(
     page,
     font,
     bold,
-    "Indice — recaudos para desaduanamiento",
+    "Indice — Expediente SENIAT",
     codigo
   );
   y = drawSectionTitle(page, bold, "Documentos a consignar", y);
@@ -648,7 +680,7 @@ export async function buildDesaduanamientoPdf(
 
   page.drawText(
     winAnsi(
-      "Canalizar mediante Agente de Aduanas autorizado. Imprimir esta carpeta para el expediente fisico."
+      "Expediente PDF SENIAT. Canalizar mediante Agente de Aduanas autorizado. Imprimir para el expediente fisico."
     ),
     {
       x: MARGIN,
@@ -691,5 +723,5 @@ export function desaduanamientoPdfFileName(
   placa: string
 ): string {
   const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
-  return `Desaduanamiento-${raw}.pdf`;
+  return `Expediente-SENIAT-${raw}.pdf`;
 }

@@ -52,6 +52,7 @@ import {
   PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
+  PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARPETA_TIPOS,
   PL_MATRICULACION_ORIGEN,
   SEGURO_DOCUMENTO_TIPOS,
@@ -396,6 +397,9 @@ export function PlanillaRegistroImportacion({
             importadorEmail: initialImportacion.importadorEmail ?? "",
             importadorDireccion: initialImportacion.importadorDireccion ?? "",
             aduana: initialImportacion.aduana ?? "",
+            puerto: initialImportacion.puerto ?? "",
+            modalidadTransito: initialImportacion.modalidadTransito ?? "ninguno",
+            aduanaTransito: initialImportacion.aduanaTransito ?? "",
             numeroBl: initialImportacion.numeroBl ?? "",
             paisOrigen: initialImportacion.paisOrigen ?? "",
             valorCif:
@@ -769,6 +773,9 @@ type Fase1RegistroPayload = {
   importadorEmail: string;
   importadorDireccion: string;
   aduana: string;
+  puerto: string;
+  modalidadTransito: "ninguno" | "transito" | "uso24" | "" | null;
+  aduanaTransito: string;
   numeroBl: string;
   paisOrigen: string;
   valorCif: string;
@@ -816,6 +823,9 @@ function Fase1Registro({
     importadorEmail: string;
     importadorDireccion: string;
     aduana: string;
+    puerto: string;
+    modalidadTransito: "ninguno" | "transito" | "uso24" | "";
+    aduanaTransito: string;
     numeroBl: string;
     paisOrigen: string;
     valorCif: string;
@@ -871,6 +881,9 @@ function Fase1Registro({
     importadorEmail: initial.importadorEmail,
     importadorDireccion: initial.importadorDireccion,
     aduana: initial.aduana,
+    puerto: initial.puerto,
+    modalidadTransito: initial.modalidadTransito || "ninguno",
+    aduanaTransito: initial.aduanaTransito,
     numeroBl: initial.numeroBl,
     paisOrigen: initial.paisOrigen,
     valorCif: initial.valorCif,
@@ -924,6 +937,9 @@ function Fase1Registro({
             importadorEmail: values.importadorEmail,
             importadorDireccion: values.importadorDireccion,
             aduana: values.aduana,
+            puerto: values.puerto,
+            modalidadTransito: values.modalidadTransito || null,
+            aduanaTransito: values.aduanaTransito,
             numeroBl: values.numeroBl,
             paisOrigen: values.paisOrigen,
             valorCif: values.valorCif,
@@ -1068,8 +1084,13 @@ function Fase2Llegada({
     canForzarImpronta &&
     Boolean(docs.foto_impronta?.url) &&
     (improntaEstado === "no_leido" || improntaEstado == null);
+  const llegadaDocsCount = PL_LLEGADA_DOCUMENTO_TIPOS.filter(
+    (t) => Boolean(docs[t]?.url)
+  ).length;
+  const llegadaDocsOk = llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length;
   const canContinue =
     Boolean(fecha) &&
+    llegadaDocsOk &&
     improntaEstado !== "no_coincide" &&
     (improntaOk || (canForce && forzarImpronta));
 
@@ -1088,6 +1109,37 @@ function Fase2Llegada({
             name="fechaIngreso"
             className="min-w-0 w-full"
           />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
+        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
+          <FileUp className="h-5 w-5 shrink-0 text-cyan-400" />
+          Documentos de llegada
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {llegadaDocsCount}/{PL_LLEGADA_DOCUMENTO_TIPOS.length}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Carga el Acta de recepción de mercancía (AR) y la Constancia EDI de la
+          carga (Reconocimiento).
+        </p>
+        <div className="mt-5 grid gap-3">
+          {PL_LLEGADA_DOCUMENTO_TIPOS.map((tipo) => (
+            <ImportDocumentoUpload
+              key={tipo}
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={docs[tipo]?.url}
+              acceptMode="both"
+              hint="PDF o foto · máx. 10 MB"
+              actionLabel={docs[tipo]?.url ? "Reemplazar" : "Cargar"}
+              onUploaded={(next) => {
+                setDocs(next);
+                onUploadedMessage("Documento de llegada guardado");
+              }}
+            />
+          ))}
         </div>
       </section>
 
@@ -1273,15 +1325,16 @@ function Fase3Aduana({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Desaduanamiento SENIAT
+          Desaduanamiento — Expediente SENIAT
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {docsCount}/{docTipos.length}
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Canalizar
-          mediante Agente de Aduanas autorizado. La carpeta incluye recaudos base +
-          variantes del régimen.
+          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Genera el
+          Expediente PDF para SENIAT con cédula y RIF del importador (dirección
+          Nueva Esparta), lista de embarque, DUA, DAV, SENCAMER, registro de
+          Puerto Libre, agente aduanal, reconocimiento y pase de salida/levante.
         </p>
 
         <label className="mt-5 block space-y-1.5">
@@ -1363,8 +1416,8 @@ function Fase3Aduana({
             variant="compact"
           />
           <p className="text-xs text-slate-500">
-            El PDF incluye portada, índice y los documentos cargados para armar la
-            carpeta física.
+            El PDF del Expediente SENIAT incluye portada, índice y los documentos
+            cargados para consignar ante el SENIAT.
           </p>
         </div>
       </section>

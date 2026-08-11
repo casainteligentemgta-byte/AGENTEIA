@@ -142,6 +142,13 @@ export const puertoLibreAltaSchema = z
 
     /** Datos aduaneros opcionales; se pueden completar después en Editar. */
     aduana: optionalTrimmed(120),
+    puerto: optionalTrimmed(120),
+    modalidadTransito: z
+      .enum(["ninguno", "transito", "uso24"])
+      .optional()
+      .or(z.literal(""))
+      .transform((v) => (v === "" || v == null ? null : v)),
+    aduanaTransito: optionalTrimmed(120),
     numeroBl: optionalTrimmed(80),
     paisOrigen: optionalTrimmed(80),
     valorCif: optionalNonNegNumber,
