@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
+  IMPORTADOR_SELECT,
   IMPORTADOR_TIPO_LABELS,
+  displayNombreImportador,
+  importadorEnsureSchema,
   importadorUpsertSchema,
+  importadorUpsertToDbPayload,
   type ImportadorRow,
   type ImportadorTipo,
 } from "@/lib/schemas/importador";
@@ -18,9 +22,22 @@ export type ImportadorListItem = {
   tipoLabel: string;
   nombre: string;
   documento: string;
+  cedula: string | null;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
+  instagram: string | null;
+  denominacionComercial: string | null;
+  razonSocial: string | null;
+  repLegalNombre: string | null;
+  repLegalCedula: string | null;
+  repLegalEmail: string | null;
+  repLegalTelefono: string | null;
+  empresaTelefono: string | null;
+  empresaEmail: string | null;
+  empresaDomicilio: string | null;
+  registroPuertoLibre: string | null;
+  registroPlVence: string | null;
   activo: boolean;
   createdAt: string;
 };
@@ -41,11 +58,24 @@ function mapRow(row: ImportadorRow): ImportadorListItem {
     id: row.id,
     tipo: row.tipo,
     tipoLabel: IMPORTADOR_TIPO_LABELS[row.tipo],
-    nombre: row.nombre,
+    nombre: displayNombreImportador(row),
     documento: row.documento,
+    cedula: row.cedula,
     telefono: row.telefono,
     email: row.email,
     direccion: row.direccion,
+    instagram: row.instagram,
+    denominacionComercial: row.denominacion_comercial,
+    razonSocial: row.razon_social,
+    repLegalNombre: row.rep_legal_nombre,
+    repLegalCedula: row.rep_legal_cedula,
+    repLegalEmail: row.rep_legal_email,
+    repLegalTelefono: row.rep_legal_telefono,
+    empresaTelefono: row.empresa_telefono,
+    empresaEmail: row.empresa_email,
+    empresaDomicilio: row.empresa_domicilio,
+    registroPuertoLibre: row.registro_puerto_libre,
+    registroPlVence: row.registro_pl_vence,
     activo: row.activo,
     createdAt: row.created_at,
   };
@@ -63,9 +93,7 @@ export async function listImportadoresAction(params?: {
   const admin = createAdminClient();
   let query = admin
     .from("importadores")
-    .select(
-      "id, taller_id, tipo, nombre, documento, telefono, email, direccion, activo, created_at, updated_at"
-    )
+    .select(IMPORTADOR_SELECT)
     .eq("taller_id", auth.taller.id)
     .order("nombre", { ascending: true })
     .limit(300);
@@ -77,7 +105,16 @@ export async function listImportadoresAction(params?: {
   const q = params?.q?.trim();
   if (q) {
     query = query.or(
-      `nombre.ilike.%${q}%,documento.ilike.%${q}%,telefono.ilike.%${q}%`
+      [
+        `nombre.ilike.%${q}%`,
+        `documento.ilike.%${q}%`,
+        `cedula.ilike.%${q}%`,
+        `telefono.ilike.%${q}%`,
+        `denominacion_comercial.ilike.%${q}%`,
+        `razon_social.ilike.%${q}%`,
+        `rep_legal_nombre.ilike.%${q}%`,
+        `registro_puerto_libre.ilike.%${q}%`,
+      ].join(",")
     );
   }
 
@@ -104,9 +141,7 @@ export async function getImportadorAction(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("importadores")
-    .select(
-      "id, taller_id, tipo, nombre, documento, telefono, email, direccion, activo, created_at, updated_at"
-    )
+    .select(IMPORTADOR_SELECT)
     .eq("id", idParsed.data)
     .eq("taller_id", auth.taller.id)
     .maybeSingle();
@@ -135,17 +170,7 @@ export async function upsertImportadorAction(
 
   const data = parsed.data;
   const admin = createAdminClient();
-  const payload = {
-    taller_id: auth.taller.id,
-    tipo: data.tipo,
-    nombre: data.nombre.trim(),
-    documento: data.documento,
-    telefono: data.telefono?.trim() || null,
-    email: data.email?.trim() || null,
-    direccion: data.direccion?.trim() || null,
-    activo: data.activo ?? true,
-    updated_at: new Date().toISOString(),
-  };
+  const payload = importadorUpsertToDbPayload(data, auth.taller.id);
 
   if (data.id) {
     const { data: updated, error } = await admin
@@ -153,16 +178,14 @@ export async function upsertImportadorAction(
       .update(payload)
       .eq("id", data.id)
       .eq("taller_id", auth.taller.id)
-      .select(
-        "id, taller_id, tipo, nombre, documento, telefono, email, direccion, activo, created_at, updated_at"
-      )
+      .select(IMPORTADOR_SELECT)
       .maybeSingle();
 
     if (error) {
       if (error.code === "23505") {
         return {
           success: false,
-          error: "Ya existe un cliente con ese documento en tu taller",
+          error: "Ya existe un cliente con ese RIF en tu taller",
         };
       }
       return { success: false, error: error.message };
@@ -177,16 +200,14 @@ export async function upsertImportadorAction(
   const { data: created, error } = await admin
     .from("importadores")
     .insert(payload)
-    .select(
-      "id, taller_id, tipo, nombre, documento, telefono, email, direccion, activo, created_at, updated_at"
-    )
+    .select(IMPORTADOR_SELECT)
     .single();
 
   if (error || !created) {
     if (error?.code === "23505") {
       return {
         success: false,
-        error: "Ya existe un cliente con ese documento en tu taller",
+        error: "Ya existe un cliente con ese RIF en tu taller",
       };
     }
     return { success: false, error: error?.message ?? "No se pudo guardar" };
@@ -198,7 +219,7 @@ export async function upsertImportadorAction(
 }
 
 /**
- * Busca por documento o crea importador (carga masiva / migraciones).
+ * Busca por documento o crea importador (carga masiva).
  * Auth de taller obligatoria; `tallerId` debe coincidir con el taller de la sesión.
  */
 export async function ensureImportadorForTaller(params: {
@@ -209,6 +230,7 @@ export async function ensureImportadorForTaller(params: {
   email?: string | null;
   direccion?: string | null;
   tipo?: ImportadorTipo;
+  cedula?: string | null;
 }): Promise<
   | { ok: true; importadorId: string }
   | { ok: false; error: string }
@@ -221,20 +243,14 @@ export async function ensureImportadorForTaller(params: {
     return { ok: false, error: "Taller no autorizado" };
   }
 
-  const parsed = importadorUpsertSchema.safeParse({
-    tipo:
-      params.tipo ??
-      (params.documento.trim().toUpperCase().startsWith("J") ||
-      params.documento.trim().toUpperCase().startsWith("G") ||
-      params.documento.trim().toUpperCase().startsWith("C") ||
-      params.documento.trim().toUpperCase().startsWith("P")
-        ? "juridica"
-        : "natural"),
+  const parsed = importadorEnsureSchema.safeParse({
+    tipo: params.tipo,
     nombre: params.nombre,
     documento: params.documento,
     telefono: params.telefono ?? "",
     email: params.email ?? "",
     direccion: params.direccion ?? "",
+    cedula: params.cedula ?? "",
   });
   if (!parsed.success) {
     return {
@@ -256,19 +272,46 @@ export async function ensureImportadorForTaller(params: {
     return { ok: true, importadorId: existing.id as string };
   }
 
+  const insertPayload: Record<string, unknown> =
+    parsed.data.tipo === "natural"
+      ? {
+          taller_id: tallerId,
+          tipo: "natural",
+          nombre: parsed.data.nombre,
+          documento: parsed.data.documento,
+          cedula: parsed.data.cedula || null,
+          telefono: parsed.data.telefono?.trim() || null,
+          email: parsed.data.email?.trim() || null,
+          direccion: parsed.data.direccion?.trim() || null,
+          activo: true,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          taller_id: tallerId,
+          tipo: "juridica",
+          nombre: parsed.data.nombre,
+          documento: parsed.data.documento,
+          razon_social: parsed.data.nombre,
+          denominacion_comercial: parsed.data.nombre,
+          telefono: parsed.data.telefono?.trim() || null,
+          email: parsed.data.email?.trim() || null,
+          direccion: parsed.data.direccion?.trim() || null,
+          empresa_telefono: parsed.data.telefono?.trim() || null,
+          empresa_email: parsed.data.email?.trim() || null,
+          empresa_domicilio: parsed.data.direccion?.trim() || null,
+          // Placeholder: completar en ficha de clientes (obligatorio en UI).
+          registro_puerto_libre: "PENDIENTE",
+          registro_pl_vence: "2099-12-31",
+          rep_legal_nombre: "Por completar",
+          rep_legal_cedula: parsed.data.cedula || "V-00000000",
+          cedula: parsed.data.cedula || "V-00000000",
+          activo: true,
+          updated_at: new Date().toISOString(),
+        };
+
   const { data: created, error } = await admin
     .from("importadores")
-    .insert({
-      taller_id: tallerId,
-      tipo: parsed.data.tipo,
-      nombre: parsed.data.nombre,
-      documento: parsed.data.documento,
-      telefono: parsed.data.telefono?.trim() || null,
-      email: parsed.data.email?.trim() || null,
-      direccion: parsed.data.direccion?.trim() || null,
-      activo: true,
-      updated_at: new Date().toISOString(),
-    })
+    .insert(insertPayload)
     .select("id")
     .single();
 
@@ -315,9 +358,7 @@ export async function setImportadorActivoAction(raw: unknown): Promise<
     })
     .eq("id", parsed.data.importadorId)
     .eq("taller_id", auth.taller.id)
-    .select(
-      "id, taller_id, tipo, nombre, documento, telefono, email, direccion, activo, created_at, updated_at"
-    )
+    .select(IMPORTADOR_SELECT)
     .maybeSingle();
 
   if (error) return { success: false, error: error.message };

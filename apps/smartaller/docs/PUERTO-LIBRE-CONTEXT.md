@@ -179,7 +179,11 @@ Notas:
 
 ### Tabla `importadores` (clientes)
 
-Personas naturales o jurídicas por taller. Migración `20260811010000_importadores_clientes.sql` (RLS por `taller_id`). Campos: `tipo` (`natural`|`juridica`), `nombre`, `documento` (RIF único por taller), contacto, `activo`. El alta de importación exige elegir/crear cliente primero; el JSONB guarda `importadorId` + snapshot denormalizado.
+Personas naturales o jurídicas por taller. Migraciones `20260811010000_importadores_clientes.sql` + `20260811020000_importadores_campos_natural_juridica.sql` (RLS por `taller_id`).
+
+- **Natural:** nombres/apellidos, RIF, cédula, email, teléfono, dirección, Instagram.
+- **Jurídica:** denominación comercial, razón social, RIF, representante legal (nombre, cédula, email, teléfono), teléfono/email/domicilio empresa, **nº registro Puerto Libre** + **fecha vencimiento**.
+- Display: `nombre` / `documento` (RIF). El alta de importación exige elegir/crear cliente primero; el JSONB guarda `importadorId` + snapshot denormalizado.
 
 **No usar / no reintroducir:** `numeroExpediente` (correlativo N denormalizado; se deriva de `codigoExpediente`).
 

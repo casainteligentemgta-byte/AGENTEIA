@@ -7,11 +7,28 @@ create table if not exists public.importadores (
   updated_at timestamptz not null default now(),
   taller_id uuid not null references public.talleres (id) on delete cascade,
   tipo text not null check (tipo in ('natural', 'juridica')),
+  -- Display / búsqueda (natural: nombres; jurídica: razón social)
   nombre text not null,
+  -- RIF (único por taller)
   documento text not null,
+  -- Natural: cédula propia. Jurídica: cédula del representante (denormalizada).
+  cedula text,
   telefono text,
   email text,
   direccion text,
+  instagram text,
+  -- Jurídica
+  denominacion_comercial text,
+  razon_social text,
+  rep_legal_nombre text,
+  rep_legal_cedula text,
+  rep_legal_email text,
+  rep_legal_telefono text,
+  empresa_telefono text,
+  empresa_email text,
+  empresa_domicilio text,
+  registro_puerto_libre text,
+  registro_pl_vence date,
   activo boolean not null default true,
   constraint importadores_taller_documento_unique unique (taller_id, documento)
 );

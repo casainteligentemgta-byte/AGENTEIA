@@ -30,7 +30,9 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
       (c) =>
         c.nombre.toLowerCase().includes(q) ||
         c.documento.toLowerCase().includes(q) ||
-        (c.telefono ?? "").toLowerCase().includes(q)
+        (c.cedula ?? "").toLowerCase().includes(q) ||
+        (c.telefono ?? "").toLowerCase().includes(q) ||
+        (c.registroPuertoLibre ?? "").toLowerCase().includes(q)
     );
   }, [clientes, query]);
 
@@ -43,8 +45,19 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
           </p>
           <p className="mt-1 text-sm font-semibold text-zinc-50">{selected.nombre}</p>
           <p className="mt-0.5 font-mono text-xs text-zinc-400">
-            {selected.documento} · {IMPORTADOR_TIPO_LABELS[selected.tipo]}
+            RIF {selected.documento}
+            {selected.cedula ? ` · CI ${selected.cedula}` : ""}
+            {" · "}
+            {IMPORTADOR_TIPO_LABELS[selected.tipo]}
           </p>
+          {selected.tipo === "juridica" && selected.registroPuertoLibre ? (
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              Registro PL {selected.registroPuertoLibre}
+              {selected.registroPlVence
+                ? ` · vence ${selected.registroPlVence}`
+                : ""}
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={() => setStep("cliente")}
@@ -110,14 +123,8 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
             submitLabel="Guardar y continuar"
             onSaved={(imp) => {
               const item: ImportadorListItem = {
-                id: imp.id,
-                tipo: imp.tipo,
+                ...imp,
                 tipoLabel: IMPORTADOR_TIPO_LABELS[imp.tipo],
-                nombre: imp.nombre,
-                documento: imp.documento,
-                telefono: imp.telefono,
-                email: imp.email,
-                direccion: imp.direccion,
                 activo: true,
                 createdAt: new Date().toISOString(),
               };

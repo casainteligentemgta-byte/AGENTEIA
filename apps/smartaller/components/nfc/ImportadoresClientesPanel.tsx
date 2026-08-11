@@ -7,11 +7,42 @@ import {
   type ImportadorListItem,
 } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
-import { IMPORTADOR_TIPO_LABELS } from "@/lib/schemas/importador";
 
 type Props = {
   initialImportadores: ImportadorListItem[];
 };
+
+function toFormInitial(c: ImportadorListItem) {
+  if (c.tipo === "natural") {
+    return {
+      id: c.id,
+      tipo: "natural" as const,
+      nombresApellidos: c.nombre,
+      rif: c.documento,
+      cedula: c.cedula ?? "",
+      email: c.email ?? "",
+      telefono: c.telefono ?? "",
+      direccion: c.direccion ?? "",
+      instagram: c.instagram ?? "",
+    };
+  }
+  return {
+    id: c.id,
+    tipo: "juridica" as const,
+    denominacionComercial: c.denominacionComercial ?? "",
+    razonSocial: c.razonSocial ?? c.nombre,
+    rif: c.documento,
+    repLegalNombre: c.repLegalNombre ?? "",
+    repLegalCedula: c.repLegalCedula ?? c.cedula ?? "",
+    repLegalEmail: c.repLegalEmail ?? "",
+    repLegalTelefono: c.repLegalTelefono ?? "",
+    empresaTelefono: c.empresaTelefono ?? c.telefono ?? "",
+    empresaEmail: c.empresaEmail ?? c.email ?? "",
+    empresaDomicilio: c.empresaDomicilio ?? c.direccion ?? "",
+    registroPuertoLibre: c.registroPuertoLibre ?? "",
+    registroPlVence: c.registroPlVence ?? "",
+  };
+}
 
 /**
  * Listado + alta/edición de clientes importadores del taller.
@@ -31,8 +62,12 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
       (c) =>
         c.nombre.toLowerCase().includes(q) ||
         c.documento.toLowerCase().includes(q) ||
+        (c.cedula ?? "").toLowerCase().includes(q) ||
         (c.telefono ?? "").toLowerCase().includes(q) ||
-        (c.email ?? "").toLowerCase().includes(q)
+        (c.email ?? "").toLowerCase().includes(q) ||
+        (c.denominacionComercial ?? "").toLowerCase().includes(q) ||
+        (c.razonSocial ?? "").toLowerCase().includes(q) ||
+        (c.registroPuertoLibre ?? "").toLowerCase().includes(q)
     );
   }, [clientes, query]);
 
@@ -83,30 +118,13 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
         </div>
         <ImportadorForm
           key={editing?.id ?? "nuevo"}
-          initial={
-            editing
-              ? {
-                  id: editing.id,
-                  tipo: editing.tipo,
-                  nombre: editing.nombre,
-                  documento: editing.documento,
-                  telefono: editing.telefono ?? "",
-                  email: editing.email ?? "",
-                  direccion: editing.direccion ?? "",
-                }
-              : undefined
-          }
+          initial={editing ? toFormInitial(editing) : undefined}
           submitLabel={mode === "nuevo" ? "Guardar cliente" : "Guardar cambios"}
           onSaved={(imp) => {
             upsertLocal({
-              id: imp.id,
-              tipo: imp.tipo,
-              tipoLabel: IMPORTADOR_TIPO_LABELS[imp.tipo],
-              nombre: imp.nombre,
-              documento: imp.documento,
-              telefono: imp.telefono,
-              email: imp.email,
-              direccion: imp.direccion,
+              ...imp,
+              tipoLabel:
+                imp.tipo === "natural" ? "Persona natural" : "Persona jurídica",
               activo: editing?.activo ?? true,
               createdAt: editing?.createdAt ?? new Date().toISOString(),
             });
@@ -133,7 +151,7 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nombre, RIF, teléfono…"
+            placeholder="Buscar por nombre, RIF, cédula, registro PL…"
             className="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-2.5 pl-10 pr-3 text-sm text-zinc-100 outline-none focus:border-cyan-500/60"
           />
         </label>
@@ -170,10 +188,14 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-zinc-50">{c.nombre}</p>
                   <p className="mt-0.5 font-mono text-xs text-zinc-400">
-                    {c.documento}
+                    RIF {c.documento}
+                    {c.cedula ? ` · CI ${c.cedula}` : ""}
                   </p>
                   <p className="mt-0.5 text-[11px] text-zinc-500">
                     {c.tipoLabel}
+                    {c.tipo === "juridica" && c.registroPuertoLibre
+                      ? ` · PL ${c.registroPuertoLibre}`
+                      : ""}
                     {c.telefono ? ` · ${c.telefono}` : ""}
                     {!c.activo ? " · Inactivo" : ""}
                   </p>
