@@ -119,20 +119,21 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
         <ImportadorForm
           key={editing?.id ?? "nuevo"}
           initial={editing ? toFormInitial(editing) : undefined}
+          initialDocumentos={editing?.documentos}
           submitLabel={mode === "nuevo" ? "Guardar cliente" : "Guardar cambios"}
           onSaved={(imp) => {
             upsertLocal({
               ...imp,
               tipoLabel:
                 imp.tipo === "natural" ? "Persona natural" : "Persona jurídica",
+              documentos: imp.documentos ?? editing?.documentos ?? {},
               activo: editing?.activo ?? true,
               createdAt: editing?.createdAt ?? new Date().toISOString(),
             });
             setMode("lista");
             setEditing(null);
           }}
-        />
-      </div>
+        />      </div>
     );
   }
 

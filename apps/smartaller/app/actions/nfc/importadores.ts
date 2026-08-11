@@ -12,6 +12,13 @@ import {
   type ImportadorRow,
   type ImportadorTipo,
 } from "@/lib/schemas/importador";
+import {
+  parseImportadorDocumentos,
+  uploadImportadorDocumento,
+  validateImportadorDocumentoFile,
+  type ImportadorDocumentos,
+  type ImportadorDocTipo,
+} from "@/lib/importadores/upload-documento";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
@@ -38,6 +45,7 @@ export type ImportadorListItem = {
   empresaDomicilio: string | null;
   registroPuertoLibre: string | null;
   registroPlVence: string | null;
+  documentos: ImportadorDocumentos;
   activo: boolean;
   createdAt: string;
 };
@@ -76,6 +84,7 @@ function mapRow(row: ImportadorRow): ImportadorListItem {
     empresaDomicilio: row.empresa_domicilio,
     registroPuertoLibre: row.registro_puerto_libre,
     registroPlVence: row.registro_pl_vence,
+    documentos: parseImportadorDocumentos(row.documentos),
     activo: row.activo,
     createdAt: row.created_at,
   };
@@ -366,4 +375,87 @@ export async function setImportadorActivoAction(raw: unknown): Promise<
 
   revalidatePath("/importacion/clientes");
   return { success: true, importador: mapRow(data as ImportadorRow) };
+}
+
+/** Sube RIF o cédula al cliente y lo guarda en importadores.documentos. */
+export async function attachImportadorDocumentoAction(
+  formData: FormData
+): Promise<
+  | ActionOk<{ documentos: ImportadorDocumentos; tipoDoc: ImportadorDocTipo }>
+  | ActionErr
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const importadorId = String(formData.get("importadorId") ?? "").trim();
+  const tipoDoc = String(formData.get("tipoDoc") ?? "").trim();
+  const file = formData.get("file");
+
+  if (!z.string().uuid().safeParse(importadorId).success) {
+    return { success: false, error: "Cliente inválido" };
+  }
+  if (tipoDoc !== "rif" && tipoDoc !== "cedula") {
+    return { success: false, error: "Tipo de documento inválido" };
+  }
+  if (!(file instanceof File)) {
+    return { success: false, error: "Selecciona una foto o un PDF" };
+  }
+
+  const validationError = validateImportadorDocumentoFile(file);
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
+
+  const admin = createAdminClient();
+  const { data: row, error: fetchError } = await admin
+    .from("importadores")
+    .select("id, documentos")
+    .eq("id", importadorId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  if (fetchError) return { success: false, error: fetchError.message };
+  if (!row) return { success: false, error: "Cliente no encontrado" };
+
+  try {
+    const documento = await uploadImportadorDocumento(admin, {
+      tallerId: auth.taller.id,
+      importadorId,
+      tipo: tipoDoc,
+      file,
+    });
+
+    const current = parseImportadorDocumentos(row.documentos);
+    const next: ImportadorDocumentos = {
+      ...current,
+      [tipoDoc]: documento,
+    };
+
+    const { error: updateError } = await admin
+      .from("importadores")
+      .update({
+        documentos: next,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", importadorId)
+      .eq("taller_id", auth.taller.id);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: `Archivo subido pero no se guardó en el cliente: ${updateError.message}`,
+      };
+    }
+
+    revalidatePath("/importacion/clientes");
+    revalidatePath("/importacion/importaciones/nueva");
+    return { success: true, documentos: next, tipoDoc };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo subir el documento",
+    };
+  }
 }
