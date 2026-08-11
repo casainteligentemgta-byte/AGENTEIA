@@ -258,6 +258,11 @@ export function PuertoLibreFase1Form({
           fechaLlegadaBuque:
             values.fechaLlegadaBuque ||
             String(fd.get("fechaLlegadaBuque") ?? ""),
+          kilometraje:
+            String(fd.get("condicion") ?? values.condicion) === "nuevo"
+              ? "0"
+              : String(fd.get("kilometraje") ?? values.kilometraje),
+          partidaArancelaria: "",
         };
         onSubmit(synced, fd, scanFiles);
       }}
@@ -316,55 +321,6 @@ export function PuertoLibreFase1Form({
             value={values.serialCarroceria}
             onChange={(v) => setField("serialCarroceria", v)}
           />
-          <ControlledField
-            label={
-              values.condicion === "usado"
-                ? "Kilometraje * (obligatorio > 0)"
-                : "Kilometraje *"
-            }
-            name="kilometraje"
-            type="number"
-            required
-            min={kmMin}
-            placeholder={kmPlaceholder}
-            hint={
-              values.condicion === "usado"
-                ? "En usados no puede ser 0."
-                : "En nuevos suele ser 0."
-            }
-            value={values.kilometraje}
-            onChange={(v) => setField("kilometraje", v)}
-          />
-          <ControlledField
-            label="Partida arancelaria"
-            name="partidaArancelaria"
-            placeholder="Ej. 8703.23.91"
-            mono
-            value={values.partidaArancelaria}
-            onChange={(v) => setField("partidaArancelaria", v)}
-          />
-          <ControlledField
-            label="Cilindrada (cc)"
-            name="cilindradaCc"
-            type="number"
-            min={0}
-            placeholder="Ej. 2000"
-            value={values.cilindradaCc}
-            onChange={(v) => setField("cilindradaCc", v)}
-          />
-          <ControlledSelect
-            label="Tipo de combustible"
-            name="tipoCombustible"
-            placeholder="Selecciona combustible"
-            value={values.tipoCombustible}
-            options={TIPOS_COMBUSTIBLE.map((t) => ({
-              value: t,
-              label: TIPO_COMBUSTIBLE_LABELS[t],
-            }))}
-            onChange={(v) =>
-              setField("tipoCombustible", v as TipoCombustible | "")
-            }
-          />
 
           <fieldset className="min-w-0 space-y-2 sm:col-span-2">
             <legend className="text-sm text-slate-400">Condición *</legend>
@@ -395,7 +351,7 @@ export function PuertoLibreFase1Form({
                         setField("condicion", op.value);
                         if (op.value === "nuevo") {
                           setField("esSubasta", "");
-                          if (!values.kilometraje.trim()) setField("kilometraje", "0");
+                          setField("kilometraje", "0");
                         } else if (
                           values.kilometraje.trim() === "" ||
                           values.kilometraje.trim() === "0"
@@ -411,6 +367,53 @@ export function PuertoLibreFase1Form({
               })}
             </div>
           </fieldset>
+
+          <ControlledField
+            label={
+              values.condicion === "usado"
+                ? "Kilometraje * (obligatorio > 0)"
+                : "Kilometraje *"
+            }
+            name="kilometraje"
+            type="number"
+            required
+            min={kmMin}
+            placeholder={kmPlaceholder}
+            hint={
+              values.condicion === "usado"
+                ? "En usados debes indicar el kilometraje real."
+                : "Vehículo nuevo: queda en 0 km."
+            }
+            value={
+              values.condicion === "nuevo" ? "0" : values.kilometraje
+            }
+            readOnly={values.condicion !== "usado"}
+            onChange={(v) => {
+              if (values.condicion === "usado") setField("kilometraje", v);
+            }}
+          />
+          <ControlledField
+            label="Cilindrada (cc)"
+            name="cilindradaCc"
+            type="number"
+            min={0}
+            placeholder="Ej. 2000"
+            value={values.cilindradaCc}
+            onChange={(v) => setField("cilindradaCc", v)}
+          />
+          <ControlledSelect
+            label="Tipo de combustible"
+            name="tipoCombustible"
+            placeholder="Selecciona combustible"
+            value={values.tipoCombustible}
+            options={TIPOS_COMBUSTIBLE.map((t) => ({
+              value: t,
+              label: TIPO_COMBUSTIBLE_LABELS[t],
+            }))}
+            onChange={(v) =>
+              setField("tipoCombustible", v as TipoCombustible | "")
+            }
+          />
 
           {values.condicion === "usado" ? (
             <fieldset className="min-w-0 space-y-2 sm:col-span-2">
@@ -689,6 +692,7 @@ function ControlledField({
   wide,
   min,
   max,
+  readOnly,
 }: {
   label: string;
   name: string;
@@ -703,6 +707,7 @@ function ControlledField({
   wide?: boolean;
   min?: number;
   max?: number;
+  readOnly?: boolean;
 }) {
   return (
     <label className={`block min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
@@ -715,13 +720,15 @@ function ControlledField({
         placeholder={placeholder}
         min={min}
         max={max}
+        readOnly={readOnly}
         onChange={(e) => {
+          if (readOnly) return;
           const next = upper ? e.target.value.toUpperCase() : e.target.value;
           onChange(next);
         }}
         className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
           mono ? "font-mono uppercase" : ""
-        }`}
+        } ${readOnly ? "cursor-not-allowed opacity-70" : ""}`}
       />
       {hint ? <span className="block text-xs text-slate-500">{hint}</span> : null}
     </label>
