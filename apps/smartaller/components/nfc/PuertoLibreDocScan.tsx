@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Camera,
   CheckCircle2,
@@ -13,6 +14,7 @@ import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { PL_CARGA_MASIVA_SEED_KEY } from "@/lib/importacion/carga-masiva-seed";
 
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
@@ -67,6 +69,7 @@ function ScanButton({
   onDocumentUploaded?: Props["onDocumentUploaded"];
   ocr: boolean;
 }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,33 @@ function ScanButton({
             setError(result.error);
             return;
           }
+
+          if (
+            result.tipo === "factura_comercial" &&
+            result.multi === true &&
+            result.rows.length > 1
+          ) {
+            try {
+              sessionStorage.setItem(
+                PL_CARGA_MASIVA_SEED_KEY,
+                JSON.stringify({
+                  rows: result.rows,
+                  message: `Se detectaron ${result.vehicleCount} vehículos en la hoja anexa / factura. Revisa la tabla y registra un expediente por unidad.`,
+                })
+              );
+            } catch {
+              setError(
+                `Se detectaron ${result.vehicleCount} vehículos. Abre Carga masiva y sube de nuevo la hoja anexa.`
+              );
+              return;
+            }
+            setDoneMsg(
+              `${result.vehicleCount} vehículos detectados → carga masiva`
+            );
+            router.push("/importacion/carga-masiva?seed=1");
+            return;
+          }
+
           filledCount = result.filledCount;
           onExtracted(result.fields, tipo, prepared);
         } else {
@@ -148,63 +178,56 @@ function ScanButton({
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-slate-100">
             <Icon className="h-4 w-4 shrink-0 text-cyan-400" />
-            {label}
-            {loaded ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-900/40 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-emerald-300">
-                <CheckCircle2 className="h-3 w-3" />
-                Cargado
-              </span>
-            ) : null}
+            <span className="truncate">{label}</span>
           </p>
-          {url && url !== "pending" ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 inline-block text-xs text-cyan-400 hover:text-cyan-300"
-            >
-              Ver archivo cargado
-            </a>
-          ) : null}
-          {doneMsg ? (
-            <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400">
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              {doneMsg}
+          {loaded ? (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Cargado
             </p>
-          ) : null}
-          {error ? <p className="mt-1 text-xs text-red-300">{error}</p> : null}
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              {ocr ? "Foto o PDF · la IA rellena campos" : "Foto o PDF"}
+            </p>
+          )}
         </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            e.target.value = "";
+            handleFile(f);
+          }}
+        />
         <button
           type="button"
           disabled={pending}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-800 px-3 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:opacity-60"
         >
           {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Leyendo…
+            </>
           ) : loaded ? (
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            "Sustituir"
           ) : (
-            <Camera className="h-4 w-4" />
+            "Foto o PDF"
           )}
-          {pending ? "Procesando…" : loaded ? "Sustituir" : "Foto o PDF"}
         </button>
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        className="hidden"
-        onChange={(e) => {
-          handleFile(e.target.files?.[0] ?? null);
-          e.target.value = "";
-        }}
-      />
+      {doneMsg ? (
+        <p className="mt-2 text-xs text-emerald-300/90">{doneMsg}</p>
+      ) : null}
+      {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </div>
   );
 }
 
-/** Escaneo OCR de factura de compra + certificado de origen; persiste cuando hay vehiculoId. */
 export function PuertoLibreDocScan({
   vehiculoId,
   existingUrls,
@@ -212,11 +235,17 @@ export function PuertoLibreDocScan({
   onDocumentUploaded,
 }: Props) {
   return (
-    <section className="space-y-3 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-4 sm:p-5">
+    <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5">
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-100">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
+          <ClipboardList className="h-4 w-4 text-cyan-400" />
           Autorellenar con documentos
         </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Factura de compra y certificado de origen. Si la factura es una{" "}
+          <span className="text-slate-300">hoja anexa con varios VIN</span>, te
+          llevamos a carga masiva (un expediente por vehículo).
+        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
@@ -232,7 +261,7 @@ export function PuertoLibreDocScan({
         <ScanButton
           tipo="certificado_origen"
           label="Certificado de origen"
-          icon={ClipboardList}
+          icon={Camera}
           vehiculoId={vehiculoId}
           existingUrl={existingUrls?.certificado_origen}
           onExtracted={onExtracted}

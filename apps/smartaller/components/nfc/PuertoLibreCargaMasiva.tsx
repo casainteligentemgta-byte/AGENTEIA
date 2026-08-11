@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -22,6 +22,7 @@ import {
   CARGA_MASIVA_MAX_ROWS,
   type CargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
+import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
 
 type Mode = "plantilla" | "documentos";
 
@@ -115,6 +116,26 @@ export function PuertoLibreCargaMasiva() {
   const [resultMsg, setResultMsg] = useState<string | null>(null);
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
+  const seedApplied = useRef(false);
+
+  useEffect(() => {
+    if (seedApplied.current) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("seed") !== "1") return;
+    const seed = readCargaMasivaSeed();
+    if (!seed) return;
+    seedApplied.current = true;
+    setMode("documentos");
+    setRows(seed.rows);
+    setShared(sharedFromRows(seed.rows));
+    setResultMsg(seed.message ?? `Se cargaron ${seed.rows.length} vehículos desde la factura.`);
+    setWarnings([
+      "Revisa VIN, motor y color de cada fila. Completa importador / llegada del buque en datos compartidos antes de registrar.",
+      "Vuelve a adjuntar la misma hoja anexa abajo si quieres asociarla a todos los expedientes al registrar.",
+    ]);
+    router.replace("/importacion/carga-masiva", { scroll: false });
+  }, [router]);
 
   const errorCount = useMemo(
     () => rows.filter((r) => r.error).length,
@@ -291,10 +312,12 @@ export function PuertoLibreCargaMasiva() {
           Factura con varios vehículos
         </h2>
         <p className="mt-1 text-justify text-sm text-slate-400">
-          Sube la factura (carátula o hoja anexa) y, si tienes, el BL. La IA
-          detecta todas las unidades, revisas la tabla y registras N
-          expedientes de una vez. También puedes usar Excel/CSV (hasta{" "}
-          {CARGA_MASIVA_MAX_ROWS} filas).
+          Ideal para{" "}
+          <span className="text-slate-200">hoja anexa MAV</span> (No. de Chasis /
+          Motor / Llave / Color / Código) o carátula multipágina. La IA lista
+          todas las unidades y registras{" "}
+          <span className="text-slate-200">un expediente por vehículo</span>.
+          También Excel/CSV (hasta {CARGA_MASIVA_MAX_ROWS} filas).
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a

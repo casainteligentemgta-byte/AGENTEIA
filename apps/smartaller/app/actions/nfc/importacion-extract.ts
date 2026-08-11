@@ -1,5 +1,3 @@
-"use server";
-
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured, formatLlmAuthError } from "@/lib/ai/openai-config";
@@ -9,11 +7,14 @@ import {
   countFilledFields,
   extractBlFromDocument,
   extractCertificadoOrigenMultiFromDocument,
-  extractFacturaComercialFromDocument,
-  facturaToFormFields,
+  extractFacturaMultiFromDocument,
   mergeScanFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
+import {
+  emptyCargaMasivaRow,
+  type CargaMasivaRow,
+} from "@/lib/importacion/carga-masiva-template";
 import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 
 export type ExtractPuertoLibreDocResult =
@@ -22,6 +23,17 @@ export type ExtractPuertoLibreDocResult =
       tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
       fields: PuertoLibreRegistroScanFields;
       filledCount: number;
+      /** Factura con varias unidades (hoja anexa / carátula multi). */
+      multi?: false;
+    }
+  | {
+      success: true;
+      tipo: "factura_comercial";
+      fields: PuertoLibreRegistroScanFields;
+      filledCount: number;
+      multi: true;
+      rows: CargaMasivaRow[];
+      vehicleCount: number;
     }
   | { success: false; error: string };
 
@@ -38,6 +50,48 @@ function resolveDocMime(file: File, buffer: Buffer): string {
       buffer,
     }) ?? "image/jpeg"
   );
+}
+
+function scanFieldsToRow(
+  fields: PuertoLibreRegistroScanFields,
+  fuente: string
+): CargaMasivaRow {
+  const serial = fields.serialCarroceria ?? fields.vin ?? "";
+  const vin = fields.vin ?? serial;
+  return emptyCargaMasivaRow({
+    marca: fields.marca ?? "",
+    modelo: fields.modelo ?? "",
+    color: fields.color ?? "",
+    anio: fields.anio ?? "",
+    serialMotor: fields.serialMotor ?? "",
+    vin,
+    serialCarroceria: serial || vin,
+    kilometraje: fields.kilometraje ?? "0",
+    condicion: fields.condicion ?? "nuevo",
+    esSubasta:
+      fields.esSubasta === "true" ? "si" : fields.esSubasta === "false" ? "no" : "",
+    partidaArancelaria: fields.partidaArancelaria ?? "",
+    cilindradaCc: fields.cilindradaCc ?? "",
+    tipoCombustible: fields.tipoCombustible ?? "",
+    fechaLlegadaBuque: fields.fechaLlegadaBuque ?? "",
+    importadorNombre: fields.importadorNombre ?? "",
+    importadorDocumento: fields.importadorDocumento ?? "",
+    importadorTelefono: fields.importadorTelefono ?? "",
+    importadorEmail: fields.importadorEmail ?? "",
+    importadorDireccion: fields.importadorDireccion ?? "",
+    aduana: fields.aduana ?? "",
+    numeroBl: fields.numeroBl ?? "",
+    paisOrigen: fields.paisOrigen ?? "",
+    valorCif: fields.valorCif ?? "",
+    tasaCambioBcv: fields.tasaCambioBcv ?? "",
+    numeroExpedienteSeniat: fields.numeroExpedienteSeniat ?? "",
+    numeroDav: fields.numeroDav ?? "",
+    numeroCertificadoOrigen: fields.numeroCertificadoOrigen ?? "",
+    numeroListaEmpaque: fields.numeroListaEmpaque ?? "",
+    numeroPolizaTransporte: fields.numeroPolizaTransporte ?? "",
+    observaciones: fields.observaciones ?? "",
+    fuente,
+  });
 }
 
 export async function extractPuertoLibreDocumentoAction(
@@ -84,17 +138,51 @@ export async function extractPuertoLibreDocumentoAction(
     const mimeType = resolveDocMime(file, buffer);
 
     if (tipoRaw === "factura_comercial") {
-      const extracted = await extractFacturaComercialFromDocument(buffer, mimeType);
-      const fields = facturaToFormFields(extracted);
+      const extracted = await extractFacturaMultiFromDocument(buffer, mimeType);
+      if (extracted.vehiculos.length > 1) {
+        const rows = extracted.vehiculos.map((v, i) => {
+          const merged = mergeScanFields(extracted.shared, v);
+          if (v.valorCif) merged.valorCif = v.valorCif;
+          else delete merged.valorCif;
+          return scanFieldsToRow(
+            merged,
+            `Hoja anexa · unidad ${i + 1} · ${file.name}`
+          );
+        });
+        const first = mergeScanFields(
+          extracted.shared,
+          extracted.vehiculos[0] ?? {}
+        );
+        return {
+          success: true,
+          tipo: "factura_comercial",
+          multi: true,
+          rows,
+          vehicleCount: rows.length,
+          fields: first,
+          filledCount: rows.length,
+        };
+      }
+
+      const only = extracted.vehiculos[0];
+      const fields = only
+        ? mergeScanFields(extracted.shared, only)
+        : extracted.shared;
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
           success: false,
           error:
-            "No se pudieron leer datos de la factura. Prueba con una foto más nítida o completa los campos a mano.",
+            "No se pudieron leer datos de la factura. Si es una hoja anexa con varios VIN, usa Carga masiva o prueba una foto más nítida (sin rotar).",
         };
       }
-      return { success: true, tipo: "factura_comercial", fields, filledCount };
+      return {
+        success: true,
+        tipo: "factura_comercial",
+        fields,
+        filledCount,
+        multi: false,
+      };
     }
 
     if (tipoRaw === "certificado_origen") {

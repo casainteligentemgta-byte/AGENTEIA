@@ -1,4 +1,5 @@
 import { createDocumentJsonCompletion } from "@/lib/ai/document-json-completion";
+import { anioFromVin, rotateImageBuffer } from "@/lib/ai/image-orient";
 
 export type FacturaComercialExtraida = {
   marca: string | null;
@@ -217,7 +218,11 @@ function resolveModeloFromHojaAnexa(v: Record<string, unknown>): string | null {
   );
   if (modelo) return modelo;
   const codigo = parseString(v.codigo_modelo ?? v.codigo ?? v.code);
-  return codigo;
+  // Códigos largos tipo MAV (SB29AI7W5…) no son modelo comercial.
+  if (codigo && codigo.length <= 20 && !/^[A-Z]{2}\d{2}[A-Z0-9]{8,}$/i.test(codigo)) {
+    return codigo;
+  }
+  return null;
 }
 
 /**
@@ -430,21 +435,25 @@ FORMATO A — carátula tipo Chery:
 - Marca del fabricante del encabezado (Chery, etc.) → marca (compartida)
 - Fecha de factura → anio (año del documento si no hay año por unidad)
 
-FORMATO B — hoja anexa tipo MAV:
-- No. / Unit → numero_unidad
-- No. de Chasis / VIN Number → serial_carroceria (17 caracteres, sin espacios)
-- No. de Motor / Engine Number → serial_motor
-- No. Llave / Key Number → numero_llave
-- Color (código corto WC2, SK5…) → color
-- Codigo / Code → codigo_modelo (NO lo pongas como serial ni como color)
-- Si Color y Código vienen en una sola celda ("WC2 NNB SB29…"), separa: color=WC2, codigo_modelo=el resto
+FORMATO B — hoja anexa tipo MAV TRADE (Attached Sheet / HOJA ANEXA):
+Columnas: No. | No. de Chasis / VIN Number | No. de Motor / Engine Number | No. Llave / Key Number | Color | Codigo / Code.
+Ejemplo de fila real:
+  00001 | MF3PB8121TJ219731 | G4FLTQ622505 | M0433 | WC2 NNB | SB29AI7W5D661VDD41I
+- No. → numero_unidad
+- No. de Chasis (17 chars, ej. MF3PB…) → serial_carroceria
+- No. de Motor (ej. G4FLTQ…) → serial_motor
+- No. Llave (ej. M0433) → numero_llave
+- Color (ej. "WC2 NNB" o "SK5 MRS") → color completo de esa celda
+- Codigo (ej. SB29AI7W5D661VDD41I) → codigo_modelo (NUNCA como VIN ni color)
+- "MAV TRADE HOLDINGS CORP" es la emisora, NO la marca del vehículo (marca=null si no hay fabricante)
+- Nº factura del título (ej. E2512B29AB-1_01-A) → numero_factura
 
 IMPORTANTE:
-- Incluye TODAS las filas/unidades visibles en TODAS las páginas. No resumas ni omitas.
-- Si el documento está rotado, lee igual la tabla.
-- Si no hay motor en la factura, serial_motor = null (no inventes).
-- Si la mercancía es nueva / new / 0 km, condicion = "nuevo", kilometraje = 0.
-- valor_cif por vehículo SOLO si hay precio unitario; el CIF total va en valor_cif_total.
+- Incluye TODAS las filas visibles (6, 10, 20…). No resumas ni omitas ninguna.
+- Si la foto/PDF está rotada 90°, lee igual la tabla.
+- Si no hay motor, serial_motor = null (no inventes).
+- Si es nuevo / new / 0 km → condicion = "nuevo", kilometraje = 0.
+- valor_cif por vehículo SOLO si hay precio unitario; el total va en valor_cif_total.
 
 Responde SOLO JSON con:
 {
@@ -598,6 +607,10 @@ function mapFacturaMultiVehiculo(
     const anioShared = parseIntSafe(sharedParsed.anio);
     if (anioShared != null) fields.anio = String(anioShared);
   }
+  if (!fields.anio && fields.serialCarroceria) {
+    const y = anioFromVin(fields.serialCarroceria);
+    if (y != null) fields.anio = String(y);
+  }
   const obs = buildHojaAnexaObservaciones({
     ...v,
     codigo_modelo: codigo ?? v.codigo_modelo,
@@ -638,22 +651,15 @@ export function dedupeVehiculosBySerial(
   return [...bySerial.values(), ...withoutSerial];
 }
 
-export async function extractFacturaMultiFromDocument(
-  buffer: Buffer,
-  mimeType: string
-): Promise<DocMultiExtracted> {
-  const parsed = await createDocumentJsonCompletion({
-    prompt: FACTURA_MULTI_PROMPT,
-    buffer,
-    mimeType,
-    maxTokens: 6500,
-    maxTextChars: 40000,
-    maxPdfPages: 6,
-    preferHighDetail: true,
-  });
+function countVehiculosConVin(vehiculos: PuertoLibreRegistroScanFields[]): number {
+  return vehiculos.filter((v) => (v.serialCarroceria ?? v.vin ?? "").trim().length >= 11)
+    .length;
+}
 
+function parseFacturaMultiResult(
+  parsed: Record<string, unknown>
+): DocMultiExtracted {
   const shared = facturaToFormFields(mapFactura(parsed));
-  // CIF total NO se copia a shared.valorCif (evitar que cada unidad herede el total).
   const dir = parseString(
     parsed.importador_direccion ?? parsed.direccion ?? parsed.address
   );
@@ -671,24 +677,27 @@ export async function extractFacturaMultiFromDocument(
     );
     if (origen) shared.paisOrigen = origen;
   }
-  // Quitar CIF de shared si solo venía del total.
   delete shared.valorCif;
+
+  // Emisora MAV TRADE ≠ marca del vehículo.
+  if (shared.marca && /mav\s*trade|holdings\s*corp/i.test(shared.marca)) {
+    delete shared.marca;
+  }
 
   const numeroFactura = parseString(parsed.numero_factura ?? parsed.invoice_no);
   const facturaLabel = numeroFactura ? `Factura ${numeroFactura}` : null;
   const cifTotal = parseNumber(parsed.valor_cif_total);
-  if (cifTotal != null && facturaLabel) {
-    // Referencia en observaciones de cabecera vía label por vehículo.
-  }
 
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
     const fields = mapFacturaMultiVehiculo(parsed, v);
+    if (fields.marca && /mav\s*trade|holdings\s*corp/i.test(fields.marca)) {
+      delete fields.marca;
+    }
     const extras = [
       facturaLabel,
       cifTotal != null ? `CIF total factura ${cifTotal}` : null,
       fields.observaciones,
     ].filter((x): x is string => Boolean(x && String(x).trim()));
-    // Solo anotar CIF total una vez en obs si la unidad no tiene CIF propio.
     fields.observaciones = extras
       .filter((x, idx) => {
         if (x.startsWith("CIF total") && fields.valorCif) return false;
@@ -709,8 +718,55 @@ export async function extractFacturaMultiFromDocument(
   }
 
   vehiculos = dedupeVehiculosBySerial(vehiculos);
-
   return { shared, vehiculos };
+}
+
+async function extractFacturaMultiOnce(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const parsed = await createDocumentJsonCompletion({
+    prompt: FACTURA_MULTI_PROMPT,
+    buffer,
+    mimeType,
+    maxTokens: 6500,
+    maxTextChars: 40000,
+    maxPdfPages: 6,
+    preferHighDetail: true,
+  });
+  return parseFacturaMultiResult(parsed);
+}
+
+export async function extractFacturaMultiFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  let best = await extractFacturaMultiOnce(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+
+  // Foto rotada (hoja anexa en horizontal): probar 90° / 270° / 180°.
+  if (!isPdf && countVehiculosConVin(best.vehiculos) < 2) {
+    for (const deg of [90, 270, 180] as const) {
+      try {
+        const rotated = await rotateImageBuffer(buffer, deg);
+        const attempt = await extractFacturaMultiOnce(
+          rotated.buffer,
+          rotated.mimeType
+        );
+        if (
+          countVehiculosConVin(attempt.vehiculos) >
+          countVehiculosConVin(best.vehiculos)
+        ) {
+          best = attempt;
+        }
+        if (countVehiculosConVin(best.vehiculos) >= 2) break;
+      } catch {
+        // Continuar con otras rotaciones.
+      }
+    }
+  }
+
+  return best;
 }
 
 export async function extractBlMultiFromDocument(
