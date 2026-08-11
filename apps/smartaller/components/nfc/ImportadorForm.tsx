@@ -20,6 +20,7 @@ import {
   CEDULA_FORMAT_HINT,
   CEDULA_PLACEHOLDER,
   normalizeCedula,
+  RIF_CEDULA_COINCIDEN_HINT,
 } from "@/lib/validations/cedula";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 
@@ -320,7 +321,10 @@ export function ImportadorForm({
                 className={monoClass}
               />
             </Field>
-            <Field label="Cédula *" hint={CEDULA_FORMAT_HINT}>
+            <Field
+              label="Cédula *"
+              hint={`${CEDULA_FORMAT_HINT}. ${RIF_CEDULA_COINCIDEN_HINT}`}
+            >
               <input
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value.toUpperCase())}

@@ -1,14 +1,21 @@
-/** Cédula venezolana: V|E + 6–9 dígitos (con o sin guion). */
+/** Cédula venezolana: V|E + 6–9 dígitos (con o sin guion / puntos). */
 export const CEDULA_PLACEHOLDER = "V-12345678";
 
 export const CEDULA_FORMAT_HINT = "Formato: V-######## o E-########";
 
+export const RIF_CEDULA_COINCIDEN_HINT =
+  "El RIF debe ser la cédula más el dígito verificador (mismos números)";
+
 /**
- * Normaliza cédula. Si viene un RIF de persona natural (V/E-########-#),
- * se descarta el dígito verificador (caso frecuente tras OCR del carnet RIF).
+ * Normaliza cédula. Acepta puntos (V-13.848.186). Si viene un RIF natural
+ * (V/E-########-#), descarta el dígito verificador.
  */
 export function normalizeCedula(raw: string): string {
-  const cleaned = raw.trim().toUpperCase().replace(/\s+/g, "");
+  const cleaned = raw
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/\./g, "");
   if (!cleaned) return "";
 
   // RIF natural con dígito verificador: V-13848186-3 → V-13848186
@@ -50,4 +57,27 @@ export function cedulaFromRifNatural(rif: string): string | null {
   if (!m) return null;
   const normalized = normalizeCedula(`${m[1]}-${m[2]}`);
   return isValidCedula(normalized) ? normalized : null;
+}
+
+/**
+ * Persona natural: el RIF es la cédula + dígito verificador.
+ * Compara letra y números (sin ceros a la izquierda).
+ */
+export function rifNaturalCoincideConCedula(
+  rif: string,
+  cedula: string
+): boolean {
+  const rifNorm = rif.trim().toUpperCase().replace(/\s+/g, "");
+  const rifMatch = rifNorm.match(/^([VE])-(\d{8})-(\d)$/);
+  if (!rifMatch) return false;
+
+  const cedNorm = normalizeCedula(cedula);
+  const cedMatch = cedNorm.match(/^([VE])-(\d{6,9})$/);
+  if (!cedMatch) return false;
+
+  if (rifMatch[1] !== cedMatch[1]) return false;
+
+  const rifDigits = stripLeadingZeros(rifMatch[2]);
+  const cedDigits = stripLeadingZeros(cedMatch[2]);
+  return rifDigits === cedDigits;
 }

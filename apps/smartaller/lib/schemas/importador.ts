@@ -3,6 +3,8 @@ import {
   CEDULA_FORMAT_HINT,
   isValidCedula,
   normalizeCedula,
+  rifNaturalCoincideConCedula,
+  RIF_CEDULA_COINCIDEN_HINT,
 } from "@/lib/validations/cedula";
 import { isValidRif, normalizeRif, RIF_FORMAT_HINT } from "@/lib/validations/rif";
 
@@ -75,6 +77,14 @@ const importadorNaturalSchema = z
         code: z.ZodIssueCode.custom,
         message: "Persona natural: el RIF debe iniciar con V o E",
         path: ["rif"],
+      });
+      return;
+    }
+    if (!rifNaturalCoincideConCedula(data.rif, data.cedula)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: RIF_CEDULA_COINCIDEN_HINT,
+        path: ["cedula"],
       });
     }
   });
