@@ -99,22 +99,11 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
   if (mode === "nuevo" || mode === "editar") {
     return (
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-50">
             <UserRound className="h-5 w-5 text-cyan-400" />
             {mode === "nuevo" ? "Nuevo cliente" : "Editar cliente"}
           </h2>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("lista");
-              setEditing(null);
-              setError(null);
-            }}
-            className="text-sm text-zinc-400 hover:text-zinc-200"
-          >
-            Volver al listado
-          </button>
         </div>
         <ImportadorForm
           key={editing?.id ?? "nuevo"}
