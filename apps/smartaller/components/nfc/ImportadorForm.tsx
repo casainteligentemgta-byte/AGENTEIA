@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { upsertImportadorAction } from "@/app/actions/nfc/importadores";
+import {
+  attachImportadorDocumentoAction,
+  upsertImportadorAction,
+} from "@/app/actions/nfc/importadores";
+import {
+  ImportadorDocScan,
+  type ImportadorDocKind,
+} from "@/components/nfc/ImportadorDocScan";
+import type { ImportadorScanFields } from "@/lib/extract-identidad-ve";
+import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import {
   IMPORTADOR_TIPO_LABELS,
   IMPORTADOR_TIPOS,
@@ -57,10 +66,12 @@ type SavedImportador = {
   empresaDomicilio: string | null;
   registroPuertoLibre: string | null;
   registroPlVence: string | null;
+  documentos?: ImportadorDocumentos;
 };
 
 type Props = {
   initial?: Partial<ImportadorFormValues>;
+  initialDocumentos?: ImportadorDocumentos;
   submitLabel?: string;
   onSaved: (importador: SavedImportador) => void;
 };
@@ -87,16 +98,29 @@ function Field({
   );
 }
 
+function applyIfPresent(
+  value: string | undefined,
+  setter: (v: string) => void
+) {
+  if (value != null && value.trim()) setter(value.trim());
+}
+
 export function ImportadorForm({
   initial,
+  initialDocumentos,
   submitLabel = "Guardar cliente",
   onSaved,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [tipo, setTipo] = useState<ImportadorTipo>(initial?.tipo ?? "natural");
+  const [documentos, setDocumentos] = useState<ImportadorDocumentos>(
+    initialDocumentos ?? {}
+  );
+  const [pendingFiles, setPendingFiles] = useState<
+    Partial<Record<ImportadorDocKind, File>>
+  >({});
 
-  // Natural
   const [nombresApellidos, setNombresApellidos] = useState(
     initial?.nombresApellidos ?? ""
   );
@@ -107,7 +131,6 @@ export function ImportadorForm({
   const [direccion, setDireccion] = useState(initial?.direccion ?? "");
   const [instagram, setInstagram] = useState(initial?.instagram ?? "");
 
-  // Jurídica
   const [denominacionComercial, setDenominacionComercial] = useState(
     initial?.denominacionComercial ?? ""
   );
@@ -137,6 +160,53 @@ export function ImportadorForm({
   const [registroPlVence, setRegistroPlVence] = useState(
     initial?.registroPlVence ?? ""
   );
+
+  function patchFromScan(
+    fields: ImportadorScanFields,
+    tipoDoc: ImportadorDocKind,
+    file: File
+  ) {
+    if (fields.tipo) setTipo(fields.tipo);
+    applyIfPresent(fields.nombresApellidos, setNombresApellidos);
+    applyIfPresent(fields.rif, setRif);
+    applyIfPresent(fields.cedula, setCedula);
+    applyIfPresent(fields.email, setEmail);
+    applyIfPresent(fields.telefono, setTelefono);
+    applyIfPresent(fields.direccion, setDireccion);
+    applyIfPresent(fields.denominacionComercial, setDenominacionComercial);
+    applyIfPresent(fields.razonSocial, setRazonSocial);
+    applyIfPresent(fields.repLegalNombre, setRepLegalNombre);
+    applyIfPresent(fields.repLegalCedula, setRepLegalCedula);
+    applyIfPresent(fields.repLegalEmail, setRepLegalEmail);
+    applyIfPresent(fields.repLegalTelefono, setRepLegalTelefono);
+    applyIfPresent(fields.empresaTelefono, setEmpresaTelefono);
+    applyIfPresent(fields.empresaEmail, setEmpresaEmail);
+    applyIfPresent(fields.empresaDomicilio, setEmpresaDomicilio);
+    setPendingFiles((prev) => ({ ...prev, [tipoDoc]: file }));
+  }
+
+  async function uploadPendingDocs(importadorId: string): Promise<{
+    documentos: ImportadorDocumentos;
+    attachError: string | null;
+  }> {
+    let nextDocs = { ...documentos };
+    let attachError: string | null = null;
+    for (const tipoDoc of ["rif", "cedula"] as const) {
+      const file = pendingFiles[tipoDoc];
+      if (!file) continue;
+      const fd = new FormData();
+      fd.set("importadorId", importadorId);
+      fd.set("tipoDoc", tipoDoc);
+      fd.set("file", file);
+      const up = await attachImportadorDocumentoAction(fd);
+      if (!up.success) {
+        attachError = up.error;
+        continue;
+      }
+      nextDocs = up.documentos;
+    }
+    return { documentos: nextDocs, attachError };
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -177,7 +247,25 @@ export function ImportadorForm({
         setError(result.error);
         return;
       }
-      onSaved(result.importador);
+
+      let saved: SavedImportador = result.importador;
+      if (Object.keys(pendingFiles).length > 0) {
+        const { documentos: nextDocs, attachError } = await uploadPendingDocs(
+          saved.id
+        );
+        setDocumentos(nextDocs);
+        setPendingFiles({});
+        saved = { ...saved, documentos: nextDocs };
+        if (attachError) {
+          setError(
+            `Cliente guardado, pero no se pudo adjuntar un documento: ${attachError}`
+          );
+          onSaved(saved);
+          return;
+        }
+      }
+
+      onSaved(saved);
     });
   }
 
@@ -202,6 +290,12 @@ export function ImportadorForm({
           ))}
         </select>
       </Field>
+
+      <ImportadorDocScan
+        tipoCliente={tipo}
+        existingDocumentos={documentos}
+        onExtracted={patchFromScan}
+      />
 
       {tipo === "natural" ? (
         <>

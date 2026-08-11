@@ -175,13 +175,14 @@ export type ImportadorRow = {
   empresa_domicilio: string | null;
   registro_puerto_libre: string | null;
   registro_pl_vence: string | null;
+  documentos: unknown;
   activo: boolean;
   created_at: string;
   updated_at: string | null;
 };
 
 export const IMPORTADOR_SELECT =
-  "id, taller_id, tipo, nombre, documento, cedula, telefono, email, direccion, instagram, denominacion_comercial, razon_social, rep_legal_nombre, rep_legal_cedula, rep_legal_email, rep_legal_telefono, empresa_telefono, empresa_email, empresa_domicilio, registro_puerto_libre, registro_pl_vence, activo, created_at, updated_at";
+  "id, taller_id, tipo, nombre, documento, cedula, telefono, email, direccion, instagram, denominacion_comercial, razon_social, rep_legal_nombre, rep_legal_cedula, rep_legal_email, rep_legal_telefono, empresa_telefono, empresa_email, empresa_domicilio, registro_puerto_libre, registro_pl_vence, documentos, activo, created_at, updated_at";
 
 /** Nombre visible en listados. */
 export function displayNombreImportador(row: {

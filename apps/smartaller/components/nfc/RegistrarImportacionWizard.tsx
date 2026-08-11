@@ -125,6 +125,7 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
               const item: ImportadorListItem = {
                 ...imp,
                 tipoLabel: IMPORTADOR_TIPO_LABELS[imp.tipo],
+                documentos: imp.documentos ?? {},
                 activo: true,
                 createdAt: new Date().toISOString(),
               };
