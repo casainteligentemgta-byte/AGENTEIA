@@ -204,10 +204,32 @@ export function buildHojaAnexaObservaciones(
 }
 
 function resolveModeloFromHojaAnexa(v: Record<string, unknown>): string | null {
-  const modelo = parseString(v.modelo ?? v.model);
+  const modelo = parseString(
+    v.modelo ?? v.model ?? v.marks_and_numbers ?? v.marks ?? v.description_model
+  );
   if (modelo) return modelo;
   const codigo = parseString(v.codigo_modelo ?? v.codigo ?? v.code);
   return codigo;
+}
+
+/**
+ * En hojas anexas a veces Color y Código vienen pegados ("WC2 NNB SB29…").
+ * En facturas Chery el color es nombre ("NASDAQ SILVER") — no partir.
+ */
+export function splitColorAndCodigo(
+  colorRaw: string | null,
+  codigoRaw: string | null
+): { color: string | null; codigo: string | null } {
+  if (codigoRaw?.trim()) {
+    return { color: colorRaw, codigo: codigoRaw.trim() };
+  }
+  if (!colorRaw?.trim()) return { color: null, codigo: null };
+  const raw = colorRaw.trim();
+  const m = raw.match(/^([A-Z0-9]{2,4})\s+([A-Z0-9]{3,}\s+[A-Z0-9]{8,})$/i);
+  if (m) {
+    return { color: m[1]!.toUpperCase(), codigo: m[2]!.trim().toUpperCase() };
+  }
+  return { color: raw, codigo: null };
 }
 
 function mapBl(parsed: Record<string, unknown>): BlExtraido {
@@ -359,23 +381,38 @@ export function countFilledFields(fields: PuertoLibreRegistroScanFields): number
   return Object.values(fields).filter((v) => v != null && String(v).trim() !== "").length;
 }
 
-const FACTURA_MULTI_PROMPT = `Analiza esta factura comercial / commercial invoice / HOJA ANEXA (Attached Sheet) de importación de vehículos.
-Puede ser la carátula de la factura O una tabla anexa con VARIAS unidades (una fila = un vehículo).
+const FACTURA_MULTI_PROMPT = `Analiza esta FACTURA COMERCIAL / COMMERCIAL INVOICE de importación de vehículos.
+Puede ser:
+A) Carátula multipágina (ej. Chery / Intercontinental): tabla Marks and numbers | VIN/código | Description (color) | Qty | Unit Price | Amount.
+B) HOJA ANEXA / Attached Sheet (ej. MAV Trade): tabla No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
 
-Columnas típicas de hoja anexa (español/inglés):
-- No. / No. Unidad / Unit → numero_unidad
-- No. de Chasis / VIN Number / VIN → serial_carroceria (17 caracteres aprox., sin espacios)
+FORMATO A — carátula tipo Chery:
+- Marks and numbers / modelo comercial (ARRIZO 5 PRO, TIGGO 7…) → modelo
+- Columna de 17 caracteres alfanuméricos (VIN) → serial_carroceria
+- Description of goods (NASDAQ SILVER, KHAKI WHITE…) → color (nombre completo)
+- Unit Price / AMOUNT por fila → valor_cif (CIF unitario de ESA unidad; NO uses el total de la factura)
+- "For Account & Risk of Messrs" / consignee → importador_nombre, importador_documento (RIF), importador_direccion
+- Port of loading → pais_origen (o ciudad/puerto de carga)
+- Final destination → aduana
+- CIF / TOTAL al pie → valor_cif_total (solo total; NO lo copies a cada vehículo)
+- Marca del fabricante del encabezado (Chery, etc.) → marca (compartida)
+- Fecha de factura → anio (año del documento si no hay año por unidad)
+
+FORMATO B — hoja anexa tipo MAV:
+- No. / Unit → numero_unidad
+- No. de Chasis / VIN Number → serial_carroceria (17 caracteres, sin espacios)
 - No. de Motor / Engine Number → serial_motor
 - No. Llave / Key Number → numero_llave
-- Color (puede ser código corto: WC2, SK5, M42, R4P) → color (deja el código tal cual)
-- Código / Codigo / Code / model code → codigo_modelo (NO lo pongas como serial)
+- Color (código corto WC2, SK5…) → color
+- Codigo / Code → codigo_modelo (NO lo pongas como serial ni como color)
+- Si Color y Código vienen en una sola celda ("WC2 NNB SB29…"), separa: color=WC2, codigo_modelo=el resto
 
 IMPORTANTE:
-- Incluye TODAS las filas de vehículos visibles. No resumas ni omitas unidades.
+- Incluye TODAS las filas/unidades visibles en TODAS las páginas. No resumas ni omitas.
 - Si el documento está rotado, lee igual la tabla.
-- Si solo hay carátula con 1 vehículo, "vehiculos" tendrá 1 elemento.
-- marca/año/importador suelen estar en la carátula; en hoja anexa pueden ser null (está bien).
-- Si la mercancía es nueva / new / 0 km, condicion = "nuevo".
+- Si no hay motor en la factura, serial_motor = null (no inventes).
+- Si la mercancía es nueva / new / 0 km, condicion = "nuevo", kilometraje = 0.
+- valor_cif por vehículo SOLO si hay precio unitario; el CIF total va en valor_cif_total.
 
 Responde SOLO JSON con:
 {
@@ -384,7 +421,9 @@ Responde SOLO JSON con:
   "importador_documento": string|null,
   "importador_telefono": string|null,
   "importador_email": string|null,
+  "importador_direccion": string|null,
   "pais_origen": string|null,
+  "aduana": string|null,
   "marca": string|null,
   "anio": number|null,
   "valor_cif_total": number|null,
@@ -456,9 +495,14 @@ function mapFacturaMultiVehiculo(
   const merged = { ...sharedParsed, ...v };
   const modelo =
     resolveModeloFromHojaAnexa(v) ?? resolveModeloFromHojaAnexa(sharedParsed);
+  const { color, codigo } = splitColorAndCodigo(
+    parseString(v.color ?? merged.color),
+    parseString(v.codigo_modelo ?? v.codigo ?? v.code)
+  );
   const data = mapFactura({
     ...merged,
     modelo,
+    color,
     serial_carroceria:
       v.serial_carroceria ??
       v.vin ??
@@ -471,12 +515,29 @@ function mapFacturaMultiVehiculo(
       v.engine_number ??
       v.no_de_motor ??
       sharedParsed.serial_motor,
+    // CIF unitario de la fila; no heredar total de cabecera.
+    valor_cif: v.valor_cif ?? v.unit_price ?? v.amount ?? null,
   });
   const fields = facturaToFormFields(data);
-  const obs = buildHojaAnexaObservaciones(v);
+  if (!fields.marca) {
+    const marcaShared = parseString(sharedParsed.marca);
+    if (marcaShared) fields.marca = marcaShared;
+  }
+  if (!fields.anio) {
+    const anioShared = parseIntSafe(sharedParsed.anio);
+    if (anioShared != null) fields.anio = String(anioShared);
+  }
+  const obs = buildHojaAnexaObservaciones({
+    ...v,
+    codigo_modelo: codigo ?? v.codigo_modelo,
+  });
   if (obs) fields.observaciones = obs;
   if (!fields.condicion) fields.condicion = "nuevo";
   if (fields.kilometraje == null) fields.kilometraje = "0";
+  // Facturas tipo Chery no traen motor: placeholder para poder registrar y completar luego.
+  if (!fields.serialMotor?.trim() && fields.serialCarroceria?.trim()) {
+    fields.serialMotor = "POR-COMPLETAR";
+  }
   return fields;
 }
 
@@ -514,25 +575,52 @@ export async function extractFacturaMultiFromDocument(
     prompt: FACTURA_MULTI_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 4500,
-    maxTextChars: 28000,
+    maxTokens: 6500,
+    maxTextChars: 40000,
   });
 
   const shared = facturaToFormFields(mapFactura(parsed));
-  if (parsed.valor_cif_total != null && shared.valorCif == null) {
-    const n = typeof parsed.valor_cif_total === "number"
-      ? parsed.valor_cif_total
-      : Number(parsed.valor_cif_total);
-    if (Number.isFinite(n)) shared.valorCif = String(n);
+  // CIF total NO se copia a shared.valorCif (evitar que cada unidad herede el total).
+  const dir = parseString(
+    parsed.importador_direccion ?? parsed.direccion ?? parsed.address
+  );
+  if (dir) shared.importadorDireccion = dir;
+  const aduana = parseString(
+    parsed.aduana ??
+      parsed.final_destination ??
+      parsed.puerto_destino ??
+      parsed.port_of_discharge
+  );
+  if (aduana) shared.aduana = aduana;
+  if (!shared.paisOrigen) {
+    const origen = parseString(
+      parsed.pais_origen ?? parsed.port_of_loading ?? parsed.puerto_origen
+    );
+    if (origen) shared.paisOrigen = origen;
   }
-  // No poner nº factura en shared.observaciones: se concatena por vehículo abajo.
+  // Quitar CIF de shared si solo venía del total.
+  delete shared.valorCif;
+
   const numeroFactura = parseString(parsed.numero_factura ?? parsed.invoice_no);
   const facturaLabel = numeroFactura ? `Factura ${numeroFactura}` : null;
+  const cifTotal = parseNumber(parsed.valor_cif_total);
+  if (cifTotal != null && facturaLabel) {
+    // Referencia en observaciones de cabecera vía label por vehículo.
+  }
 
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
     const fields = mapFacturaMultiVehiculo(parsed, v);
-    fields.observaciones = [facturaLabel, fields.observaciones]
-      .filter((x): x is string => Boolean(x && String(x).trim()))
+    const extras = [
+      facturaLabel,
+      cifTotal != null ? `CIF total factura ${cifTotal}` : null,
+      fields.observaciones,
+    ].filter((x): x is string => Boolean(x && String(x).trim()));
+    // Solo anotar CIF total una vez en obs si la unidad no tiene CIF propio.
+    fields.observaciones = extras
+      .filter((x, idx) => {
+        if (x.startsWith("CIF total") && fields.valorCif) return false;
+        return extras.indexOf(x) === idx;
+      })
       .join(" · ");
     return fields;
   });

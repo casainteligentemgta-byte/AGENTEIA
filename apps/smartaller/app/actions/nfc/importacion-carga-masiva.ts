@@ -315,7 +315,25 @@ export async function extractCargaMasivaDocumentosAction(
         }
         for (const v of extracted.vehiculos) {
           const merged = mergeScanFields(extracted.shared, v);
+          // No heredar CIF de shared (puede ser basura); priorizar unitario del vehículo.
+          if (v.valorCif) merged.valorCif = v.valorCif;
+          else delete merged.valorCif;
           vehicleRows.push(scanFieldsToRow(merged, `Factura · ${file.name}`));
+        }
+        const sinMotor = extracted.vehiculos.filter(
+          (v) =>
+            !v.serialMotor?.trim() ||
+            v.serialMotor.trim().toUpperCase() === "POR-COMPLETAR"
+        ).length;
+        if (sinMotor > 0) {
+          warnings.push(
+            `${file.name}: ${sinMotor} unidad(es) sin motor en la factura (se marcó POR-COMPLETAR; complétalo después)`
+          );
+        }
+        if (!extracted.shared.importadorDocumento && !extracted.shared.importadorNombre) {
+          warnings.push(
+            `${file.name}: no se leyó importador/RIF — completa los datos compartidos antes de registrar`
+          );
         }
       } else {
         const extracted = await extractBlMultiFromDocument(buffer, mimeType);
