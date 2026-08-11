@@ -317,7 +317,7 @@ export function PuertoLibreFase1Form({
             mono
             upper
             placeholder="VIN internacional (17 caracteres)"
-            hint="Puede diferir del serial de carrocería en SENIAT."
+            hint="VIN internacional. Puede diferir del serial de carrocería (SENIAT)."
             value={values.vin}
             onChange={(v) => setField("vin", v)}
           />
@@ -328,7 +328,7 @@ export function PuertoLibreFase1Form({
             mono
             upper
             placeholder="Serial de carrocería / chasis"
-            hint="Dato SENIAT; a veces distinto del VIN."
+            hint="Dato SENIAT; a veces distinto del VIN. Se verifica en la impronta al llegar."
             value={values.serialCarroceria}
             onChange={(v) => setField("serialCarroceria", v)}
           />

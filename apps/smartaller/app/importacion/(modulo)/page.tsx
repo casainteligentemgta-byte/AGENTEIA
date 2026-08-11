@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
+  BookOpen,
   ChevronRight,
   Plus,
   Scale,
@@ -527,27 +528,36 @@ export default async function PuertoLibrePage() {
           </h1>
         </div>
         {puedeMutar ? (
-          <div className="grid w-full grid-cols-3 gap-1.5">
+          <div className="space-y-2">
+            <div className="grid w-full grid-cols-3 gap-1.5">
+              <Link
+                href="/importacion/clientes"
+                className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
+              >
+                <Users className="h-4 w-4 shrink-0 text-cyan-400" />
+                <span className="truncate">Clientes</span>
+              </Link>
+              <Link
+                href="/importacion/importaciones/nueva"
+                className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl bg-cyan-600 px-1.5 py-2.5 text-center text-[11px] font-semibold leading-tight text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500 sm:flex-row sm:gap-1.5 sm:text-xs"
+              >
+                <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+                <span className="truncate">Importación</span>
+              </Link>
+              <Link
+                href="/importacion/biblioteca-legal"
+                className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
+              >
+                <Scale className="h-4 w-4 shrink-0 text-cyan-400" />
+                <span className="truncate">Biblioteca</span>
+              </Link>
+            </div>
             <Link
-              href="/importacion/clientes"
-              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
+              href="/importacion/instructivo"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
             >
-              <Users className="h-4 w-4 shrink-0 text-cyan-400" />
-              <span className="truncate">Clientes</span>
-            </Link>
-            <Link
-              href="/importacion/importaciones/nueva"
-              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl bg-cyan-600 px-1.5 py-2.5 text-center text-[11px] font-semibold leading-tight text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500 sm:flex-row sm:gap-1.5 sm:text-xs"
-            >
-              <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-              <span className="truncate">Importación</span>
-            </Link>
-            <Link
-              href="/importacion/biblioteca-legal"
-              className="inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-950/50 px-1.5 py-2.5 text-center text-[11px] font-medium leading-tight text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100 sm:flex-row sm:gap-1.5 sm:text-xs"
-            >
-              <Scale className="h-4 w-4 shrink-0 text-cyan-400" />
-              <span className="truncate">Biblioteca</span>
+              <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
+              Cómo llenar una importación
             </Link>
           </div>
         ) : (
@@ -555,13 +565,22 @@ export default async function PuertoLibrePage() {
             <p className="text-sm text-zinc-500">
               Vista de solo lectura: vehículos de tu propiedad o compartidos contigo.
             </p>
-            <Link
-              href="/importacion/biblioteca-legal"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-            >
-              <Scale className="h-4 w-4 text-cyan-400" />
-              Biblioteca legal
-            </Link>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/importacion/instructivo"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+              >
+                <BookOpen className="h-4 w-4 text-cyan-400" />
+                Instructivo
+              </Link>
+              <Link
+                href="/importacion/biblioteca-legal"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
+              >
+                <Scale className="h-4 w-4 text-cyan-400" />
+                Biblioteca
+              </Link>
+            </div>
           </div>
         )}
       </header>

@@ -10,12 +10,14 @@ import {
 } from "react";
 import {
   AlertCircle,
+  BookOpen,
   Camera,
   CheckCircle2,
   FileUp,
   Shield,
   User,
 } from "lucide-react";
+import Link from "next/link";
 import {
   completePuertoLibreFase2EmbarqueAction,
   completePuertoLibreFase3Action,
@@ -289,6 +291,16 @@ export function PlanillaRegistroImportacion({
   return (
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
+
+      <div className="flex justify-end">
+        <Link
+          href="/importacion/instructivo"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-cyan-300"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Cómo llenar la planilla
+        </Link>
+      </div>
 
       <div className="grid w-full grid-cols-4 gap-1 sm:grid-cols-7 sm:gap-1.5">
         <FaseChip

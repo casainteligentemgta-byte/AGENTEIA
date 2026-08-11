@@ -2,6 +2,8 @@
 
 Documento de referencia para agentes/IA. Toda respuesta sobre importación, SENIAT, aduana, planilla o expedientes PL debe basarse aquí. Stack: Next.js 14 App Router, Server Actions, Supabase (JSONB), Zod, Tailwind. Base path: `/importacion`. No inventar rutas, columnas ni campos que no estén aquí.
 
+**Instructivo operativo (humano):** `docs/INSTRUCTIVO-IMPORTACION.md` · UI: `/importacion/instructivo`.
+
 ---
 
 ## 1. Concepto de negocio
