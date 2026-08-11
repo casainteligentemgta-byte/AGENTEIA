@@ -478,6 +478,7 @@ export function cargaMasivaRowToAltaInput(
     cilindradaCc: row.cilindradaCc,
     tipoCombustible: row.tipoCombustible || null,
     fechaLlegadaBuque: row.fechaLlegadaBuque,
+    regimen: "puerto_libre",
     importadorNombre: row.importadorNombre,
     importadorDocumento: row.importadorDocumento,
     importadorTelefono: row.importadorTelefono,

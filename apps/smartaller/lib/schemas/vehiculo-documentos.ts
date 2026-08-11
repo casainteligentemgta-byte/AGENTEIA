@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  getRegimenConfig,
+  resolveRegimenImportacion,
+} from "@/lib/importacion/regimenes";
 
 export const vehiculoDocumentoRefSchema = z.object({
   url: z.string().url(),
@@ -21,6 +25,14 @@ export const DOCUMENTO_TIPOS = [
   "nacionalizacion",
   "declaracion_jurada_origen_fondos",
   "planilla_liquidacion_aduanera",
+  "licencia_importacion_automotriz",
+  "certificado_uso_consular",
+  "oficio_exoneracion_seniat",
+  "pasaporte_propietario",
+  "declaracion_jurada_propietario",
+  "franquicia_diplomatica",
+  "facilidad_diplomatica",
+  "autorizacion_admision_temporal",
   "documento_importacion",
   "manual_vehiculo",
   "otro_importacion",
@@ -67,6 +79,14 @@ export const vehiculosDocumentosSchema = z.object({
   nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   declaracion_jurada_origen_fondos: vehiculoDocumentoRefSchema.optional(),
   planilla_liquidacion_aduanera: vehiculoDocumentoRefSchema.optional(),
+  licencia_importacion_automotriz: vehiculoDocumentoRefSchema.optional(),
+  certificado_uso_consular: vehiculoDocumentoRefSchema.optional(),
+  oficio_exoneracion_seniat: vehiculoDocumentoRefSchema.optional(),
+  pasaporte_propietario: vehiculoDocumentoRefSchema.optional(),
+  declaracion_jurada_propietario: vehiculoDocumentoRefSchema.optional(),
+  franquicia_diplomatica: vehiculoDocumentoRefSchema.optional(),
+  facilidad_diplomatica: vehiculoDocumentoRefSchema.optional(),
+  autorizacion_admision_temporal: vehiculoDocumentoRefSchema.optional(),
   documento_importacion: vehiculoDocumentoRefSchema.optional(),
   manual_vehiculo: vehiculoDocumentoRefSchema.optional(),
   otro_importacion: vehiculoDocumentoRefSchema.optional(),
@@ -118,6 +138,14 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
   planilla_liquidacion_aduanera:
     "Planilla de liquidación de impuestos y tasas aduaneras",
+  licencia_importacion_automotriz: "Licencia de importación automotriz",
+  certificado_uso_consular: "Certificado de uso (consular)",
+  oficio_exoneracion_seniat: "Oficio de exoneración SENIAT",
+  pasaporte_propietario: "Pasaporte del propietario",
+  declaracion_jurada_propietario: "Declaración jurada del propietario",
+  franquicia_diplomatica: "Franquicia diplomática (MPPRE)",
+  facilidad_diplomatica: "Facilidad diplomática (MPPRE)",
+  autorizacion_admision_temporal: "Autorización de admisión temporal",
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
@@ -220,6 +248,14 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "nacionalizacion",
   "declaracion_jurada_origen_fondos",
   "planilla_liquidacion_aduanera",
+  "licencia_importacion_automotriz",
+  "certificado_uso_consular",
+  "oficio_exoneracion_seniat",
+  "pasaporte_propietario",
+  "declaracion_jurada_propietario",
+  "franquicia_diplomatica",
+  "facilidad_diplomatica",
+  "autorizacion_admision_temporal",
   "experticia_verificacion_legal",
   "planilla_sumica_put",
   "pago_tasas",
@@ -619,12 +655,16 @@ export function parseImportacion(raw: unknown): ImportacionData {
       row.serialImprontaVerificadoAt ?? row.serial_impronta_verificado_at,
     compradorDireccion: row.compradorDireccion ?? row.comprador_direccion,
   });
-  return parsed.success ? parsed.data : {};
+  if (!parsed.success) return {};
+  return {
+    ...parsed.data,
+    regimen: resolveRegimenImportacion(parsed.data.regimen),
+  };
 }
 
 export function serializeImportacion(data: ImportacionData): Record<string, unknown> {
   return {
-    regimen: data.regimen?.trim() || null,
+    regimen: resolveRegimenImportacion(data.regimen),
     aduana: data.aduana?.trim() || null,
     fecha_ingreso: data.fechaIngreso?.trim() || null,
     fecha_llegada_buque: data.fechaLlegadaBuque?.trim() || null,
@@ -722,6 +762,7 @@ export function diasHasta(fecha: string | null | undefined): number | null {
  * Listo para (o en) nacionalización: planilla PL completa y aún no nacionalizado.
  */
 export function esProximoNacionalizar(data: ImportacionData): boolean {
+  if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const estado = data.estadoNacionalizacion ?? "pendiente";
   if (estado !== "pendiente" && estado !== "en_proceso") return false;
   const fase = data.planillaFase ?? 0;

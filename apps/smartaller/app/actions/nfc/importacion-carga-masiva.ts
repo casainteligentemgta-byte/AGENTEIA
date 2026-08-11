@@ -546,6 +546,7 @@ async function insertOneVehiculo(params: {
     tallerId,
     importadorDocumento: data.importadorDocumento || null,
     fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+    regimen: data.regimen,
   });
   if (!cupo.ok) {
     return { ok: false, error: cupo.error };
@@ -555,7 +556,7 @@ async function insertOneVehiculo(params: {
   const placa = placaPendienteDesdeCodigo(codigoExpediente);
 
   const importacion = serializeImportacion({
-    regimen: "Puerto Libre",
+    regimen: data.regimen,
     anio: data.anio,
     condicionVehiculo: data.condicion,
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
@@ -580,7 +581,8 @@ async function insertOneVehiculo(params: {
     numeroListaEmpaque: data.numeroListaEmpaque || null,
     numeroPolizaTransporte: data.numeroPolizaTransporte || null,
     observaciones: data.observaciones || null,
-    estadoNacionalizacion: "pendiente",
+    estadoNacionalizacion:
+      data.regimen === "puerto_libre" ? "pendiente" : "no_aplica",
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,

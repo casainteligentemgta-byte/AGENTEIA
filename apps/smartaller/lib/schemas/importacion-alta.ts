@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REGIMENES_IMPORTACION } from "@/lib/importacion/regimenes";
 import { isValidRif, normalizeRif, RIF_FORMAT_HINT } from "@/lib/validations/rif";
 
 const currentYear = new Date().getFullYear();
@@ -98,6 +99,11 @@ export const puertoLibreAltaSchema = z
       .string()
       .trim()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Ingresa la fecha de llegada del buque"),
+
+    /** Régimen de importación (SENIAT / INTT). */
+    regimen: z.enum(REGIMENES_IMPORTACION, {
+      errorMap: () => ({ message: "Selecciona el régimen de importación" }),
+    }),
 
     importadorNombre: z
       .string()

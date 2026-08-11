@@ -3,6 +3,7 @@ import {
   REGLA_PERSONA_NATURAL_MAX_1_VEHICULO_3_ANIOS,
   getNormaByRegla,
 } from "@/lib/importacion/normas-legales";
+import { getRegimenConfig } from "@/lib/importacion/regimenes";
 import { parseImportacion } from "@/lib/schemas/vehiculo-documentos";
 import { isValidRif, normalizeRif } from "@/lib/validations/rif";
 import { resolveCodigoExpediente } from "@/lib/importacion/expediente";
@@ -95,7 +96,17 @@ export async function evaluarCupoPersonaNatural(params: {
   excludeVehiculoId?: string | null;
   /** Fecha de referencia del alta en curso (llegada buque si ya se conoce). */
   fechaReferenciaNueva?: string | null;
+  /** Régimen del alta/edición en curso. */
+  regimen?: string | null;
 }): Promise<CumplimientoResultado> {
+  if (!getRegimenConfig(params.regimen).aplicaCupoPersonaNatural) {
+    return {
+      ok: true,
+      aplicable: false,
+      tipo: clasificarTipoImportadorPorRif(params.importadorDocumento),
+    };
+  }
+
   const tipo = clasificarTipoImportadorPorRif(params.importadorDocumento);
   if (tipo !== "natural") {
     return { ok: true, aplicable: false, tipo };
@@ -134,6 +145,7 @@ export async function evaluarCupoPersonaNatural(params: {
       continue;
     }
     const imp = parseImportacion(row.importacion);
+    if (!getRegimenConfig(imp.regimen).aplicaCupoPersonaNatural) continue;
     const doc = imp.importadorDocumento
       ? normalizeRif(imp.importadorDocumento)
       : "";

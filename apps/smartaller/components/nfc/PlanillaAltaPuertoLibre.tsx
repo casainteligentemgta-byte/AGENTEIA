@@ -58,6 +58,7 @@ function valuesToAltaPayload(values: PuertoLibreFase1FormValues) {
     cilindradaCc: values.cilindradaCc,
     tipoCombustible: values.tipoCombustible || null,
     fechaLlegadaBuque: values.fechaLlegadaBuque,
+    regimen: values.regimen || "puerto_libre",
     importadorNombre: values.importadorNombre,
     importadorDocumento: values.importadorDocumento,
     importadorTelefono: values.importadorTelefono,
