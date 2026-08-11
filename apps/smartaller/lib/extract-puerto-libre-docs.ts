@@ -1,5 +1,15 @@
-import { createDocumentJsonCompletion, getPdfPlainText } from "@/lib/ai/document-json-completion";
-import { anioFromVin, rotateImageBuffer } from "@/lib/ai/image-orient";
+import {
+  createDocumentJsonCompletion,
+  getPdfPlainText,
+  renderPdfPagesAsPng,
+} from "@/lib/ai/document-json-completion";
+import {
+  anioFromVin,
+  compressImageForVision,
+  cropImageBuffer,
+  rotateImageBuffer,
+} from "@/lib/ai/image-orient";
+import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import {
   countValidVinsInText,
   mergeFacturaMultiByVin,
@@ -429,7 +439,11 @@ const FACTURA_MULTI_PROMPT = `Eres un transcriptor fiel de FACTURAS COMERCIALES 
 REGLA DE ORO: copia SOLO lo escrito en el documento. NO inventes, NO completes de memoria, NO “arregles” seriales.
 
 Puede ser:
-A) Carátula multipágina (Chery / Intercontinental): Marks and numbers | VIN | Description (color) | Qty | Unit Price | Amount.
+A) Carátula multipágina Chery / Intercontinental: Marks and numbers | Code | Description | Qty | Unit Price | Amount.
+   - "Marks and numbers" = MODELO (ej. ARRIZO 5 PRO, TIGGO 7).
+   - "Code" = VIN de 17 caracteres (ej. LVVDC21B5VD713650). NO es un código de fábrica corto.
+   - "Description of goods" = COLOR (ej. NASDAQ SILVER).
+   - Cada fila con Qty=1 es UN vehículo. Si hay 15–20 filas, vehiculos.length debe ser 15–20.
 B) HOJA ANEXA / Attached Sheet (MAV TRADE): No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
 
 FORMATO B — ejemplo de fila EXACTA a transcribir:
@@ -444,12 +458,14 @@ FORMATO B — ejemplo de fila EXACTA a transcribir:
 - Nº factura del título → numero_factura
 
 FIDELIDAD:
-- Incluye TODAS las filas (1..N). Si ves 6 unidades, vehiculos.length debe ser 6.
+- Incluye TODAS las filas con mercancía (Qty≥1). NO te detengas en las primeras 2.
 - Cada VIN distinto = un objeto en vehiculos. No fusiones filas.
+- Ignora filas vacías de la plantilla.
 - Si un dígito no se lee con claridad → null en ese campo (no adivines).
 - Documento rotado 90°: lee igual la tabla.
 - Nuevo / 0 km → condicion="nuevo", kilometraje=0.
 - valor_cif unitario solo si hay precio por fila; total → valor_cif_total.
+- marca tipica Chery → "Chery" si el membrete lo indica; no uses el consignatario como marca.
 
 Responde SOLO JSON:
 {
@@ -485,20 +501,41 @@ Responde SOLO JSON:
 }`;
 
 /** Segunda pasada: solo tabla, máxima fidelidad de celdas. */
-const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa.
-Para cada fila copia carácter a carácter: No., Chasis/VIN (17), Motor, Llave, Color, Codigo.
-No inventes. No omitas filas. Si está rotada, lee igual.
+const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa / commercial invoice.
+Chery / Intercontinental: Marks and numbers = modelo, Code = VIN (17), Description = color, Unit Price = valor.
+MAV hoja anexa: No., Chasis/VIN (17), Motor, Llave, Color, Codigo.
+Incluye TODAS las filas con Qty=1 o con VIN. No te detengas en 2 filas. No inventes. Si está rotada, lee igual.
 Responde SOLO JSON:
 {
   "numero_factura": string|null,
   "vehiculos": [
     {
       "numero_unidad": string|null,
+      "modelo": string|null,
       "serial_carroceria": string|null,
       "serial_motor": string|null,
       "numero_llave": string|null,
       "color": string|null,
       "codigo_modelo": string|null,
+      "valor_cif": number|null,
+      "condicion": "nuevo",
+      "kilometraje": 0
+    }
+  ]
+}`;
+
+/** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
+const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
+También anota modelo y color de la misma fila si se ven.
+NO omitas filas del medio ni del final. Si hay 18 VIN, vehiculos.length debe ser 18.
+Responde SOLO JSON:
+{
+  "vehiculos": [
+    {
+      "modelo": string|null,
+      "color": string|null,
+      "serial_carroceria": string|null,
+      "valor_cif": number|null,
       "condicion": "nuevo",
       "kilometraje": 0
     }
@@ -743,15 +780,102 @@ async function extractFacturaMultiOnce(
     prompt,
     buffer,
     mimeType,
-    maxTokens: 8000,
+    maxTokens: 12000,
     maxTextChars: 50000,
     maxPdfPages: 8,
     preferHighDetail: true,
     // Multi-vehículo: priorizar visión fiel (evitar texto basura de escáner).
     forceRasterVision: isPdf,
-    renderScale: 2.75,
+    // 2.5 ≈ nítido sin disparar detail low por payload enorme.
+    renderScale: 2.5,
   });
   return sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+}
+
+async function extractFacturaMultiFromImage(
+  imageBuffer: Buffer,
+  mimeType: string,
+  prompt: string
+): Promise<DocMultiExtracted> {
+  const sized = await compressImageForVision(imageBuffer);
+  const parsed = await createVisionJsonCompletion({
+    prompt,
+    imageBuffer: sized.buffer,
+    mimeType: sized.mimeType,
+    maxTokens: 12000,
+    preferHighDetail: true,
+  });
+  return sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+}
+
+/** Bandas verticales solapadas para tablas densas (Chery 15–20 filas). */
+const TABLE_BANDS: { x: number; y: number; w: number; h: number }[] = [
+  { x: 0, y: 0.18, w: 1, h: 0.45 },
+  { x: 0, y: 0.38, w: 1, h: 0.42 },
+  { x: 0, y: 0.55, w: 1, h: 0.4 },
+];
+
+async function extractFacturaMultiFromPdfByPages(
+  buffer: Buffer
+): Promise<DocMultiExtracted[]> {
+  const pages = await renderPdfPagesAsPng(buffer, {
+    maxPages: 8,
+    scale: 2.5,
+  });
+  const out: DocMultiExtracted[] = [];
+  for (const page of pages) {
+    try {
+      out.push(
+        await extractFacturaMultiFromImage(page, "image/png", FACTURA_MULTI_PROMPT)
+      );
+    } catch {
+      // página vacía / fallo
+    }
+    try {
+      out.push(
+        await extractFacturaMultiFromImage(
+          page,
+          "image/png",
+          FACTURA_MULTI_TABLA_PROMPT
+        )
+      );
+    } catch {
+      // ignore
+    }
+  }
+  return out;
+}
+
+async function extractFacturaMultiFromTableBands(
+  pagePng: Buffer
+): Promise<DocMultiExtracted[]> {
+  const out: DocMultiExtracted[] = [];
+  for (const band of TABLE_BANDS) {
+    try {
+      const cropped = await cropImageBuffer(pagePng, band);
+      out.push(
+        await extractFacturaMultiFromImage(
+          cropped.buffer,
+          cropped.mimeType,
+          FACTURA_MULTI_VIN_HARVEST_PROMPT
+        )
+      );
+    } catch {
+      // ignore band
+    }
+  }
+  try {
+    out.push(
+      await extractFacturaMultiFromImage(
+        pagePng,
+        "image/png",
+        FACTURA_MULTI_VIN_HARVEST_PROMPT
+      )
+    );
+  } catch {
+    // ignore
+  }
+  return out;
 }
 
 function pickBestFacturaMulti(
@@ -762,7 +886,11 @@ function pickBestFacturaMulti(
   for (let i = 1; i < candidates.length; i++) {
     const c = candidates[i]!;
     const s = scoreFacturaMulti(c);
-    if (s > bestScore) {
+    // Preferir más vehículos si el score es similar (evita quedarse en 2 filas).
+    if (
+      s > bestScore ||
+      (s >= bestScore - 5 && c.vehiculos.length > best.vehiculos.length)
+    ) {
       best = c;
       bestScore = s;
     }
@@ -798,23 +926,35 @@ export async function extractFacturaMultiFromDocument(
     }
   }
 
-  // 2) Pasada principal (visión / LLM).
+  // 2) PDF escaneado: una página a la vez (evita que la pág. vacía diluya la atención).
+  if (isPdf) {
+    try {
+      const perPage = await extractFacturaMultiFromPdfByPages(buffer);
+      candidates.push(...perPage);
+    } catch {
+      // fallback a pasada única
+    }
+  }
+
+  // 3) Pasada completa del documento (visión / LLM).
   try {
     candidates.push(await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT));
   } catch {
     // Continuar con otras estrategias.
   }
 
-  // 3) Segunda pasada solo-tabla si faltan filas o motores.
-  const currentBest = candidates[0]
+  let currentBest = candidates.length
     ? pickBestFacturaMulti(candidates)
     : { shared: {}, vehiculos: [] };
-  const needsRetry =
-    scoreFacturaMulti(currentBest) < 20 ||
-    currentBest.vehiculos.filter((v) => v.serialMotor && v.serialMotor !== "POR-COMPLETAR")
-      .length < Math.max(2, Math.floor(currentBest.vehiculos.length * 0.5));
 
-  if (needsRetry || currentBest.vehiculos.length < 2) {
+  const needsRetry =
+    currentBest.vehiculos.length < 4 ||
+    scoreFacturaMulti(currentBest) < 30 ||
+    currentBest.vehiculos.filter(
+      (v) => v.serialMotor && v.serialMotor !== "POR-COMPLETAR"
+    ).length < Math.max(2, Math.floor(currentBest.vehiculos.length * 0.5));
+
+  if (needsRetry) {
     try {
       candidates.push(
         await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_TABLA_PROMPT)
@@ -824,13 +964,41 @@ export async function extractFacturaMultiFromDocument(
     }
   }
 
-  // 4) Rotaciones en fotos (hoja anexa horizontal).
+  // 4) Si aún faltan filas (p. ej. Chery 18 VIN → solo 2), cosechar por bandas.
+  currentBest = candidates.length
+    ? pickBestFacturaMulti(candidates)
+    : currentBest;
+  if (isPdf && currentBest.vehiculos.length < 8) {
+    try {
+      const pages = await renderPdfPagesAsPng(buffer, {
+        maxPages: 2,
+        scale: 2.5,
+      });
+      for (const page of pages) {
+        const bandResults = await extractFacturaMultiFromTableBands(page);
+        candidates.push(...bandResults);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5) Rotaciones en fotos (hoja anexa horizontal).
   if (!isPdf) {
     let bestSoFar = pickBestFacturaMulti(
       candidates.length ? candidates : [{ shared: {}, vehiculos: [] }]
     );
+    if (bestSoFar.vehiculos.length < 6) {
+      try {
+        const bandResults = await extractFacturaMultiFromTableBands(buffer);
+        candidates.push(...bandResults);
+        bestSoFar = pickBestFacturaMulti(candidates);
+      } catch {
+        // ignore
+      }
+    }
     for (const deg of [90, 270, 180] as const) {
-      if (scoreFacturaMulti(bestSoFar) >= 40 && bestSoFar.vehiculos.length >= 4) {
+      if (scoreFacturaMulti(bestSoFar) >= 40 && bestSoFar.vehiculos.length >= 8) {
         break;
       }
       try {

@@ -3,8 +3,12 @@ import { resolveImageMimeType } from "@/lib/mime-image";
 
 /** Tamaño a partir del cual usar detail "low" en visión (evita 400 en OpenRouter). */
 const LOW_DETAIL_THRESHOLD_BYTES = 200 * 1024;
-/** Con preferHighDetail, solo forzar low si la imagen es muy grande. */
-const HIGH_DETAIL_MAX_BYTES = 2_500_000;
+/**
+ * Con preferHighDetail, solo forzar low si la imagen es enorme.
+ * Facturas multi-VIN rasterizadas a ~2.5–3 MB necesitan high detail;
+ * el umbral anterior (2.5 MB) hacía caer a low y solo se leían 1–2 filas.
+ */
+const HIGH_DETAIL_MAX_BYTES = 5_500_000;
 
 export type PreparedVisionImage = {
   buffer: Buffer;

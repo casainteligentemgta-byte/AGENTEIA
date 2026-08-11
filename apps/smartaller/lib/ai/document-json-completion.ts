@@ -4,6 +4,7 @@ import {
   getChatModelId,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
+import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 
@@ -122,7 +123,8 @@ async function jsonFromPdfPageImages(
   ];
 
   for (const png of pagePngs) {
-    const prepared = prepareImageForVision(png, "image/png", {
+    const sized = await compressImageForVision(png);
+    const prepared = prepareImageForVision(sized.buffer, sized.mimeType, {
       preferHighDetail,
     });
     content.push({
@@ -152,7 +154,8 @@ async function jsonFromPdfPageImages(
       content[0]!,
     ];
     for (const png of pagePngs) {
-      const prepared = prepareImageForVision(png, "image/png", {
+      const sized = await compressImageForVision(png);
+      const prepared = prepareImageForVision(sized.buffer, sized.mimeType, {
         preferHighDetail: false,
         forceDetail: "low",
       });
