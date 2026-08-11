@@ -107,6 +107,7 @@ const fase2LlegadaSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso inválida"),
+  partidaArancelaria: z.string().trim().max(32).optional().nullable(),
   checklistLlegada: z.record(z.string()).default({}),
   checklistLlegadaNotas: z.record(z.string()).default({}),
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
@@ -895,6 +896,7 @@ export async function savePuertoLibreFase2LlegadaAction(
   const importacion = serializeImportacion({
     ...existingImportacion,
     fechaIngreso: parsed.data.fechaIngreso,
+    partidaArancelaria: parsed.data.partidaArancelaria?.trim() || null,
     checklistLlegada: checklist,
     checklistLlegadaNotas: checklistNotas,
     otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,

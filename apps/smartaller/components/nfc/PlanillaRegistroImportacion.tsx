@@ -483,6 +483,9 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           fotosCount={fotosCount}
           fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
+          partidaArancelariaInicial={
+            initialImportacion.partidaArancelaria?.trim() ?? ""
+          }
           initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
           initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
           checklist={checklist}
@@ -494,13 +497,14 @@ export function PlanillaRegistroImportacion({
           setOtrosNotas={setOtrosNotas}
           pending={pending}
           canForzarImpronta={canForzarImpronta}
-          onSave={(fechaIngreso, after, forzarImprontaSinVerificar) => {
+          onSave={(fechaIngreso, partidaArancelaria, after, forzarImprontaSinVerificar) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
               const result = await savePuertoLibreFase2LlegadaAction({
                 vehiculoId,
                 fechaIngreso,
+                partidaArancelaria: partidaArancelaria || null,
                 checklistLlegada: checklist,
                 checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
@@ -1049,6 +1053,7 @@ function Fase2Llegada({
   setDocs,
   fotosCount,
   fechaIngresoInicial,
+  partidaArancelariaInicial,
   initialImprontaEstado,
   initialImprontaLeido,
   checklist,
@@ -1069,6 +1074,7 @@ function Fase2Llegada({
   setDocs: (d: VehiculosDocumentos) => void;
   fotosCount: number;
   fechaIngresoInicial: string;
+  partidaArancelariaInicial: string;
   initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
   initialImprontaLeido: string | null;
   checklist: LlegadaChecklistState;
@@ -1083,12 +1089,16 @@ function Fase2Llegada({
   canForzarImpronta: boolean;
   onSave: (
     fechaIngreso: string,
+    partidaArancelaria: string,
     after: PlanillaAfterSave,
     forzarImprontaSinVerificar: boolean
   ) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [fecha, setFecha] = useState(fechaIngresoInicial);
+  const [partidaArancelaria, setPartidaArancelaria] = useState(
+    partidaArancelariaInicial
+  );
   const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
   const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
   const [forzarImpronta, setForzarImpronta] = useState(false);
@@ -1125,6 +1135,20 @@ function Fase2Llegada({
             className="min-w-0 w-full"
           />
         </div>
+        <label className="mt-5 block min-w-0 space-y-1.5">
+          <span className="text-sm text-slate-400">Partida arancelaria</span>
+          <input
+            name="partidaArancelaria"
+            type="text"
+            value={partidaArancelaria}
+            placeholder="Ej. 8703.23.91"
+            onChange={(e) => setPartidaArancelaria(e.target.value.toUpperCase())}
+            className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+          <span className="block text-xs text-slate-500">
+            Código arancelario del vehículo (SENIAT).
+          </span>
+        </label>
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
@@ -1299,7 +1323,9 @@ function Fase2Llegada({
         pending={pending}
         disabled={!canContinue}
         continueLabel="Continuar a Desaduanamiento"
-        onAction={(after) => onSave(fecha, after, forzarImpronta && canForce)}
+        onAction={(after) =>
+          onSave(fecha, partidaArancelaria.trim(), after, forzarImpronta && canForce)
+        }
       />
     </div>
   );
