@@ -3,10 +3,29 @@ import {
   getVisionModelId,
 } from "@/lib/ai/openai-config";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
+import { extractVinStringsFromText } from "@/lib/importacion/factura-row-fidelity";
 
 function isProviderVisionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /400|provider returned error|image|too large|invalid/i.test(msg);
+}
+
+function parseJsonOrSalvageVins(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    const vins = extractVinStringsFromText(raw);
+    if (vins.length === 0) {
+      throw new Error("La IA no devolvió JSON válido");
+    }
+    return {
+      vehiculos: vins.map((vin) => ({
+        serial_carroceria: vin,
+        condicion: "nuevo",
+        kilometraje: 0,
+      })),
+    };
+  }
 }
 
 async function requestVisionCompletion(params: {
@@ -16,10 +35,13 @@ async function requestVisionCompletion(params: {
   maxTokens: number;
   jsonMode: boolean;
 }): Promise<string> {
-  const openai = createOpenAIClient({ timeoutMs: 45_000 });
+  const timeoutMs = params.maxTokens >= 4000 ? 120_000 : 45_000;
+  const openai = createOpenAIClient({ timeoutMs });
   const response = await openai.chat.completions.create({
     model: getVisionModelId(),
-    ...(params.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
+    ...(params.jsonMode
+      ? { response_format: { type: "json_object" as const } }
+      : {}),
     temperature: 0,
     messages: [
       {
@@ -67,7 +89,7 @@ export async function createVisionJsonCompletion(params: {
       maxTokens,
       jsonMode: true,
     });
-    return JSON.parse(raw) as Record<string, unknown>;
+    return parseJsonOrSalvageVins(raw);
   } catch (firstError) {
     if (!isProviderVisionError(firstError)) throw firstError;
 
@@ -80,8 +102,11 @@ export async function createVisionJsonCompletion(params: {
         jsonMode: false,
       });
 
-      const trimmed = raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
-      return JSON.parse(trimmed) as Record<string, unknown>;
+      const trimmed = raw
+        .trim()
+        .replace(/^```json\s*/i, "")
+        .replace(/```\s*$/i, "");
+      return parseJsonOrSalvageVins(trimmed);
     } catch (secondError) {
       if (params.softFail) return {};
       throw secondError;

@@ -8,6 +8,16 @@ import { anioFromVin } from "@/lib/ai/image-orient";
 
 const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/gi;
 
+/** Extrae VIN de 17 chars desde texto libre (JSON truncado, OCR, etc.). */
+export function extractVinStringsFromText(text: string): string[] {
+  const found = new Set<string>();
+  for (const m of text.toUpperCase().matchAll(VIN_RE)) {
+    const vin = normalizeVin(m[1]);
+    if (vin) found.add(vin);
+  }
+  return [...found];
+}
+
 export type FacturaMultiLike = {
   shared: PuertoLibreRegistroScanFields;
   vehiculos: PuertoLibreRegistroScanFields[];

@@ -7,6 +7,7 @@ import {
 import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
+import { extractVinStringsFromText } from "@/lib/importacion/factura-row-fidelity";
 
 function isPdfMime(mimeType: string): boolean {
   return mimeType.toLowerCase().includes("pdf");
@@ -14,6 +15,22 @@ function isPdfMime(mimeType: string): boolean {
 
 function stripJsonFence(raw: string): string {
   return raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
+}
+
+function parseJsonOrSalvageVins(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+  } catch {
+    const vins = extractVinStringsFromText(raw);
+    if (vins.length === 0) throw new Error("La IA no devolvió JSON válido");
+    return {
+      vehiculos: vins.map((vin) => ({
+        serial_carroceria: vin,
+        condicion: "nuevo",
+        kilometraje: 0,
+      })),
+    };
+  }
 }
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
@@ -102,7 +119,7 @@ async function jsonFromTextPrompt(
   });
   const raw = response.choices[0]?.message?.content;
   if (!raw) throw new Error("La IA no devolvió una respuesta válida");
-  return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+  return parseJsonOrSalvageVins(raw);
 }
 
 async function jsonFromPdfPageImages(
@@ -111,7 +128,9 @@ async function jsonFromPdfPageImages(
   maxTokens: number,
   preferHighDetail: boolean
 ): Promise<Record<string, unknown>> {
-  const openai = createOpenAIClient({ timeoutMs: 90_000 });
+  const openai = createOpenAIClient({
+    timeoutMs: maxTokens >= 4000 ? 120_000 : 90_000,
+  });
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
       type: "text",
@@ -146,7 +165,7 @@ async function jsonFromPdfPageImages(
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error("La IA no devolvió una respuesta válida");
-    return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+    return parseJsonOrSalvageVins(raw);
   } catch (firstError) {
     // Reintento con detail low si el provider rechaza high/payload.
     if (!preferHighDetail) throw firstError;
@@ -176,7 +195,7 @@ async function jsonFromPdfPageImages(
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw firstError;
-    return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+    return parseJsonOrSalvageVins(raw);
   }
 }
 
@@ -312,7 +331,7 @@ export async function createDocumentJsonCompletion(params: {
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error("La IA no devolvió una respuesta válida");
-    return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+    return parseJsonOrSalvageVins(raw);
   } catch {
     throw new Error(
       "No se pudo leer el PDF. Prueba con una foto nítida (JPG/PNG) de la factura o del BL."

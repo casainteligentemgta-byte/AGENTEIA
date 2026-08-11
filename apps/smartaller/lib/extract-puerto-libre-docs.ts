@@ -167,7 +167,32 @@ function compactSerial(value: string | null): string | null {
   return compact || null;
 }
 
+/** Chery pone el VIN en la columna Code; MAV en Chasis. */
+function resolveVinCandidate(v: Record<string, unknown>): string | null {
+  const keys = [
+    "serial_carroceria",
+    "vin",
+    "vin_number",
+    "chasis",
+    "no_de_chasis",
+    "numero_chasis",
+    "code",
+    "codigo",
+    "codigo_modelo",
+  ] as const;
+  for (const key of keys) {
+    const raw = parseString(v[key]);
+    if (!raw) continue;
+    const compact = compactSerial(raw);
+    if (compact && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) {
+      return compact;
+    }
+  }
+  return null;
+}
+
 function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
+  const vinFromCode = resolveVinCandidate(parsed);
   return {
     marca: parseString(parsed.marca),
     modelo: parseString(parsed.modelo),
@@ -181,16 +206,17 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
           parsed.numero_motor
       )
     ),
-    serial_carroceria: compactSerial(
-      parseString(
-        parsed.serial_carroceria ??
-          parsed.vin ??
-          parsed.vin_number ??
-          parsed.chasis ??
-          parsed.no_de_chasis ??
-          parsed.numero_chasis
-      )
-    ),
+    serial_carroceria:
+      compactSerial(
+        parseString(
+          parsed.serial_carroceria ??
+            parsed.vin ??
+            parsed.vin_number ??
+            parsed.chasis ??
+            parsed.no_de_chasis ??
+            parsed.numero_chasis
+        )
+      ) ?? vinFromCode,
     kilometraje: parseIntSafe(parsed.kilometraje ?? parsed.odometro ?? parsed.odometer),
     condicion: parseCondicion(parsed.condicion ?? parsed.condition),
     es_subasta: parseBool(parsed.es_subasta ?? parsed.subasta ?? parsed.auction),
@@ -218,9 +244,14 @@ export function buildHojaAnexaObservaciones(
   const llave = parseString(
     v.numero_llave ?? v.no_llave ?? v.key_number ?? v.key_no
   );
-  const codigo = parseString(
+  const codigoRaw = parseString(
     v.codigo_modelo ?? v.codigo ?? v.code ?? v.model_code
   );
+  // Chery: Code = VIN → no listarlo como «Código».
+  const codigo =
+    codigoRaw && /^[A-HJ-NPR-Z0-9]{17}$/i.test(codigoRaw.replace(/[\s\-]/g, ""))
+      ? null
+      : codigoRaw;
   if (unidad) parts.push(`Unidad ${unidad}`);
   if (llave) parts.push(`Llave ${llave}`);
   if (codigo) parts.push(`Código ${codigo}`);
@@ -629,15 +660,21 @@ function mapFacturaMultiVehiculo(
   const merged = { ...sharedParsed, ...v };
   const modelo =
     resolveModeloFromHojaAnexa(v) ?? resolveModeloFromHojaAnexa(sharedParsed);
+  const vin = resolveVinCandidate(v) ?? resolveVinCandidate(merged);
+  const codigoRaw = parseString(v.codigo_modelo ?? v.codigo ?? v.code);
+  const codigoEsVin =
+    !!codigoRaw &&
+    /^[A-HJ-NPR-Z0-9]{17}$/i.test(codigoRaw.replace(/[\s\-]/g, ""));
   const { color, codigo } = splitColorAndCodigo(
     parseString(v.color ?? merged.color),
-    parseString(v.codigo_modelo ?? v.codigo ?? v.code)
+    codigoEsVin ? null : codigoRaw
   );
   const data = mapFactura({
     ...merged,
     modelo,
     color,
     serial_carroceria:
+      vin ??
       v.serial_carroceria ??
       v.vin ??
       v.vin_number ??
@@ -667,7 +704,9 @@ function mapFacturaMultiVehiculo(
   }
   const obs = buildHojaAnexaObservaciones({
     ...v,
-    codigo_modelo: codigo ?? v.codigo_modelo,
+    codigo_modelo: codigo ?? (codigoEsVin ? null : v.codigo_modelo),
+    code: codigoEsVin ? null : v.code,
+    codigo: codigoEsVin ? null : v.codigo,
   });
   if (obs) fields.observaciones = obs;
   if (!fields.condicion) fields.condicion = "nuevo";
@@ -770,6 +809,77 @@ function parseFacturaMultiResult(
   return { shared, vehiculos };
 }
 
+function salvageVinsFromUnknown(
+  value: unknown,
+  found: Set<string> = new Set()
+): string[] {
+  if (typeof value === "string") {
+    const matches = value.toUpperCase().match(/\b[A-HJ-NPR-Z0-9]{17}\b/g) ?? [];
+    for (const m of matches) {
+      if (/^[A-HJ-NPR-Z0-9]{17}$/.test(m)) found.add(m);
+    }
+    return [...found];
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) salvageVinsFromUnknown(item, found);
+    return [...found];
+  }
+  if (value && typeof value === "object") {
+    for (const v of Object.values(value as Record<string, unknown>)) {
+      salvageVinsFromUnknown(v, found);
+    }
+  }
+  return [...found];
+}
+
+function enrichWithSalvagedVins(
+  extracted: DocMultiExtracted,
+  raw: Record<string, unknown>
+): DocMultiExtracted {
+  const existing = new Set(
+    extracted.vehiculos
+      .map((v) => compactSerial(v.serialCarroceria ?? v.vin ?? null))
+      .filter(Boolean) as string[]
+  );
+  const salvaged = salvageVinsFromUnknown(raw).filter((vin) => !existing.has(vin));
+  if (salvaged.length === 0) return extracted;
+  const extras = salvaged.map((vin) =>
+    sanitizeVehiculoRowLocal({
+      serialCarroceria: vin,
+      vin,
+      serialMotor: "POR-COMPLETAR",
+      condicion: "nuevo",
+      kilometraje: "0",
+      anio: anioFromVin(vin)?.toString(),
+      marca: extracted.shared.marca,
+    })
+  );
+  return sanitizeFacturaMulti({
+    shared: extracted.shared,
+    vehiculos: [...extracted.vehiculos, ...extras],
+  });
+}
+
+/** Evita import circular con factura-row-fidelity sanitize en este punto. */
+function sanitizeVehiculoRowLocal(
+  row: PuertoLibreRegistroScanFields
+): PuertoLibreRegistroScanFields {
+  const vin = compactSerial(row.serialCarroceria ?? row.vin ?? null);
+  const next = { ...row };
+  if (vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+    next.serialCarroceria = vin;
+    next.vin = vin;
+  }
+  if (!next.serialMotor?.trim()) next.serialMotor = "POR-COMPLETAR";
+  if (!next.condicion) next.condicion = "nuevo";
+  if (!next.kilometraje) next.kilometraje = "0";
+  if (!next.anio && vin) {
+    const y = anioFromVin(vin);
+    if (y != null) next.anio = String(y);
+  }
+  return next;
+}
+
 async function extractFacturaMultiOnce(
   buffer: Buffer,
   mimeType: string,
@@ -782,14 +892,13 @@ async function extractFacturaMultiOnce(
     mimeType,
     maxTokens: 12000,
     maxTextChars: 50000,
-    maxPdfPages: 8,
+    maxPdfPages: 2,
     preferHighDetail: true,
-    // Multi-vehículo: priorizar visión fiel (evitar texto basura de escáner).
     forceRasterVision: isPdf,
-    // 2.5 ≈ nítido sin disparar detail low por payload enorme.
-    renderScale: 2.5,
+    renderScale: 2.4,
   });
-  return sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+  const extracted = sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+  return enrichWithSalvagedVins(extracted, parsed);
 }
 
 async function extractFacturaMultiFromImage(
@@ -805,78 +914,15 @@ async function extractFacturaMultiFromImage(
     maxTokens: 12000,
     preferHighDetail: true,
   });
-  return sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+  const extracted = sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+  return enrichWithSalvagedVins(extracted, parsed);
 }
 
-/** Bandas verticales solapadas para tablas densas (Chery 15–20 filas). */
+/** Bandas de la zona de tabla (omitir membrete y pie). */
 const TABLE_BANDS: { x: number; y: number; w: number; h: number }[] = [
-  { x: 0, y: 0.18, w: 1, h: 0.45 },
-  { x: 0, y: 0.38, w: 1, h: 0.42 },
-  { x: 0, y: 0.55, w: 1, h: 0.4 },
+  { x: 0, y: 0.2, w: 1, h: 0.4 },
+  { x: 0, y: 0.45, w: 1, h: 0.4 },
 ];
-
-async function extractFacturaMultiFromPdfByPages(
-  buffer: Buffer
-): Promise<DocMultiExtracted[]> {
-  const pages = await renderPdfPagesAsPng(buffer, {
-    maxPages: 8,
-    scale: 2.5,
-  });
-  const out: DocMultiExtracted[] = [];
-  for (const page of pages) {
-    try {
-      out.push(
-        await extractFacturaMultiFromImage(page, "image/png", FACTURA_MULTI_PROMPT)
-      );
-    } catch {
-      // página vacía / fallo
-    }
-    try {
-      out.push(
-        await extractFacturaMultiFromImage(
-          page,
-          "image/png",
-          FACTURA_MULTI_TABLA_PROMPT
-        )
-      );
-    } catch {
-      // ignore
-    }
-  }
-  return out;
-}
-
-async function extractFacturaMultiFromTableBands(
-  pagePng: Buffer
-): Promise<DocMultiExtracted[]> {
-  const out: DocMultiExtracted[] = [];
-  for (const band of TABLE_BANDS) {
-    try {
-      const cropped = await cropImageBuffer(pagePng, band);
-      out.push(
-        await extractFacturaMultiFromImage(
-          cropped.buffer,
-          cropped.mimeType,
-          FACTURA_MULTI_VIN_HARVEST_PROMPT
-        )
-      );
-    } catch {
-      // ignore band
-    }
-  }
-  try {
-    out.push(
-      await extractFacturaMultiFromImage(
-        pagePng,
-        "image/png",
-        FACTURA_MULTI_VIN_HARVEST_PROMPT
-      )
-    );
-  } catch {
-    // ignore
-  }
-  return out;
-}
 
 function pickBestFacturaMulti(
   candidates: DocMultiExtracted[]
@@ -886,7 +932,6 @@ function pickBestFacturaMulti(
   for (let i = 1; i < candidates.length; i++) {
     const c = candidates[i]!;
     const s = scoreFacturaMulti(c);
-    // Preferir más vehículos si el score es similar (evita quedarse en 2 filas).
     if (
       s > bestScore ||
       (s >= bestScore - 5 && c.vehiculos.length > best.vehiculos.length)
@@ -895,7 +940,6 @@ function pickBestFacturaMulti(
       bestScore = s;
     }
   }
-  // Fusionar todos por VIN para recuperar celdas faltantes.
   let merged = best;
   for (const c of candidates) {
     if (c === best) continue;
@@ -911,7 +955,7 @@ export async function extractFacturaMultiFromDocument(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const candidates: DocMultiExtracted[] = [];
 
-  // 1) Parser determinista si hay texto con varios VIN (PDF digital o OCR embebido).
+  // 1) Texto embebido (PDF digital).
   if (isPdf) {
     try {
       const plain = await getPdfPlainText(buffer);
@@ -922,98 +966,123 @@ export async function extractFacturaMultiFromDocument(
         }
       }
     } catch {
-      // seguir con visión
+      // visión
     }
   }
 
-  // 2) PDF escaneado: una página a la vez (evita que la pág. vacía diluya la atención).
+  // 2) Página 1 sola (Chery: toda la mercancía está ahí; pág. 2 suele ser totales).
   if (isPdf) {
     try {
-      const perPage = await extractFacturaMultiFromPdfByPages(buffer);
-      candidates.push(...perPage);
+      const pages = await renderPdfPagesAsPng(buffer, {
+        maxPages: 1,
+        scale: 2.4,
+      });
+      const page1 = pages[0];
+      if (page1) {
+        try {
+          candidates.push(
+            await extractFacturaMultiFromImage(
+              page1,
+              "image/png",
+              FACTURA_MULTI_PROMPT
+            )
+          );
+        } catch {
+          // ignore
+        }
+      }
     } catch {
-      // fallback a pasada única
+      // fallback abajo
     }
   }
 
-  // 3) Pasada completa del documento (visión / LLM).
-  try {
-    candidates.push(await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT));
-  } catch {
-    // Continuar con otras estrategias.
-  }
-
+  // 3) Pasada del PDF completo solo si aún hay pocas filas.
   let currentBest = candidates.length
     ? pickBestFacturaMulti(candidates)
     : { shared: {}, vehiculos: [] };
 
-  const needsRetry =
-    currentBest.vehiculos.length < 4 ||
-    scoreFacturaMulti(currentBest) < 30 ||
-    currentBest.vehiculos.filter(
-      (v) => v.serialMotor && v.serialMotor !== "POR-COMPLETAR"
-    ).length < Math.max(2, Math.floor(currentBest.vehiculos.length * 0.5));
-
-  if (needsRetry) {
+  if (currentBest.vehiculos.length < 4) {
     try {
       candidates.push(
-        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_TABLA_PROMPT)
+        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
       );
     } catch {
       // ignore
     }
+    currentBest = candidates.length
+      ? pickBestFacturaMulti(candidates)
+      : currentBest;
   }
 
-  // 4) Si aún faltan filas (p. ej. Chery 18 VIN → solo 2), cosechar por bandas.
-  currentBest = candidates.length
-    ? pickBestFacturaMulti(candidates)
-    : currentBest;
+  // 4) Cosecha por bandas + prompt VIN si sigue corto (timeout-friendly: máx 3 llamadas).
   if (isPdf && currentBest.vehiculos.length < 8) {
     try {
       const pages = await renderPdfPagesAsPng(buffer, {
-        maxPages: 2,
-        scale: 2.5,
+        maxPages: 1,
+        scale: 2.4,
       });
-      for (const page of pages) {
-        const bandResults = await extractFacturaMultiFromTableBands(page);
-        candidates.push(...bandResults);
+      const page1 = pages[0];
+      if (page1) {
+        try {
+          candidates.push(
+            await extractFacturaMultiFromImage(
+              page1,
+              "image/png",
+              FACTURA_MULTI_VIN_HARVEST_PROMPT
+            )
+          );
+        } catch {
+          // ignore
+        }
+        for (const band of TABLE_BANDS) {
+          if (pickBestFacturaMulti(candidates).vehiculos.length >= 12) break;
+          try {
+            const cropped = await cropImageBuffer(page1, band);
+            candidates.push(
+              await extractFacturaMultiFromImage(
+                cropped.buffer,
+                cropped.mimeType,
+                FACTURA_MULTI_VIN_HARVEST_PROMPT
+              )
+            );
+          } catch {
+            // ignore band
+          }
+        }
       }
     } catch {
       // ignore
     }
   }
 
-  // 5) Rotaciones en fotos (hoja anexa horizontal).
+  // 5) Foto (no PDF): rotaciones solo si hace falta.
   if (!isPdf) {
-    let bestSoFar = pickBestFacturaMulti(
-      candidates.length ? candidates : [{ shared: {}, vehiculos: [] }]
-    );
-    if (bestSoFar.vehiculos.length < 6) {
-      try {
-        const bandResults = await extractFacturaMultiFromTableBands(buffer);
-        candidates.push(...bandResults);
-        bestSoFar = pickBestFacturaMulti(candidates);
-      } catch {
-        // ignore
-      }
+    try {
+      candidates.push(
+        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
+      );
+    } catch {
+      // ignore
     }
-    for (const deg of [90, 270, 180] as const) {
-      if (scoreFacturaMulti(bestSoFar) >= 40 && bestSoFar.vehiculos.length >= 8) {
-        break;
-      }
-      try {
-        const rotated = await rotateImageBuffer(buffer, deg);
-        const attempt = await extractFacturaMultiOnce(
-          rotated.buffer,
-          rotated.mimeType,
-          FACTURA_MULTI_TABLA_PROMPT
-        );
-        candidates.push(attempt);
-        if (scoreFacturaMulti(attempt) > scoreFacturaMulti(bestSoFar)) {
-          bestSoFar = attempt;
+    let bestSoFar = candidates.length
+      ? pickBestFacturaMulti(candidates)
+      : { shared: {}, vehiculos: [] };
+    if (bestSoFar.vehiculos.length < 4) {
+      for (const deg of [90, 270] as const) {
+        try {
+          const rotated = await rotateImageBuffer(buffer, deg);
+          candidates.push(
+            await extractFacturaMultiFromImage(
+              rotated.buffer,
+              rotated.mimeType,
+              FACTURA_MULTI_TABLA_PROMPT
+            )
+          );
+          bestSoFar = pickBestFacturaMulti(candidates);
+          if (bestSoFar.vehiculos.length >= 6) break;
+        } catch {
+          // continue
         }
-      } catch {
-        // Continuar.
       }
     }
   }

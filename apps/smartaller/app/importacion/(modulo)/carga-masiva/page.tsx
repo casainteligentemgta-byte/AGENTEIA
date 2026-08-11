@@ -7,6 +7,8 @@ import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 
 export const dynamic = "force-dynamic";
+/** OCR multi-VIN (Chery 18 filas) puede necesitar varias pasadas de visión. */
+export const maxDuration = 300;
 
 export default async function CargaMasivaPuertoLibrePage() {
   const user = await getUser();
