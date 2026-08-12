@@ -39,8 +39,8 @@ const FASES = [
     titulo: "Llegada",
     puntos: [
       "Fecha de ingreso al PL (distinta de la llegada del buque).",
-      "Acta de recepción de mercancía (AR).",
-      "Constancia EDI de la carga (Reconocimiento).",
+      "Acta de recepción (AR).",
+      "Reconocimiento / constancia del estado de la carga.",
       "Memoria fotográfica + verificación de impronta (serial debe coincidir).",
       "Checklist de revisión al llegar.",
     ],

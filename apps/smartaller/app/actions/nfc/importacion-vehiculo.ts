@@ -913,7 +913,7 @@ export async function savePuertoLibreFase2LlegadaAction(
     return {
       success: false,
       error:
-        "Carga el Acta de recepción de mercancía (AR) y la Constancia EDI de la carga (Reconocimiento).",
+        "Carga el Acta de recepción (AR) y el reconocimiento / constancia del estado de la carga.",
     };
   }
 
