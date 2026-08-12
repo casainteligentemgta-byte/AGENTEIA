@@ -41,9 +41,11 @@ import {
   EMPTY_DETECTED_IMPORTADOR,
   EMPTY_SHARED_SHIPMENT,
   normalizeSerialKey,
+  resumenSemaforo,
   rifCoincideConSeleccionado,
   sharedShipmentFromRows,
   vehicleCompleteness,
+  vehicleSemaforo,
   VEHICLE_FIELD_COLS,
   type CertMatch,
   type DetectedImportador,
@@ -135,13 +137,16 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
   }, [detectedImportador.documento, selected]);
 
   const errorCount = useMemo(() => rows.filter((r) => r.error).length, [rows]);
+  const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
   const incompleteCount = useMemo(
     () => rows.filter((r) => !vehicleCompleteness(r).complete).length,
     [rows]
   );
 
+  /** Solo se registran filas no rojas (verde + ámbar). */
   const canImport =
-    rows.length > 0 &&
+    semaforo.aptos.length > 0 &&
+    semaforo.rojo === 0 &&
     errorCount === 0 &&
     !pending &&
     Boolean(selected) &&
@@ -344,10 +349,21 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
       );
       return;
     }
+    const { aptos, bloqueados, ambar, verde } = resumenSemaforo(rows);
+    if (bloqueados.length > 0) {
+      setError(
+        `Hay ${bloqueados.length} vehículo(s) en rojo. Corrígelos o elimínalos; solo se registran verde/ámbar.`
+      );
+      return;
+    }
+    if (aptos.length === 0) {
+      setError("No hay vehículos aptos para registrar");
+      return;
+    }
     setError(null);
     setResultMsg(null);
 
-    const rowsToImport = applySharedShipmentToRows(rows, shared).map((r) => ({
+    const rowsToImport = applySharedShipmentToRows(aptos, shared).map((r) => ({
       ...r,
       importadorNombre: selected.nombre,
       importadorDocumento: selected.documento,
@@ -355,7 +371,10 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
       importadorEmail: selected.email ?? r.importadorEmail,
       importadorDireccion: selected.direccion ?? r.importadorDireccion,
     }));
-    setRows(rowsToImport);
+    setRows((prev) => {
+      const byId = new Map(rowsToImport.map((r) => [r.id, r]));
+      return prev.map((r) => byId.get(r.id) ?? r);
+    });
 
     startTransition(async () => {
       const result = await createPuertoLibreCargaMasivaAction({
@@ -406,17 +425,33 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
         }
       }
 
+      const semNote =
+        ambar > 0
+          ? ` Semáforo: ${verde} verde, ${ambar} ámbar (completar motor/cert en el expediente).`
+          : "";
+
       setResultMsg(
-        fail === 0
-          ? `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${attachNote}`
-          : `Registrados: ${ok}. Fallidos: ${fail}.${attachNote}`
+        fail > 0
+          ? `Creados ${ok}. Fallaron ${fail}.${semNote}${attachNote}`
+          : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"} automáticamente.${semNote}${attachNote}`
       );
       if (ok > 0) {
-        setRows([]);
-        setDocs([]);
-        setShared({ ...EMPTY_SHARED_SHIPMENT });
-        setDetectedImportador({ ...EMPTY_DETECTED_IMPORTADOR });
-        setCertMatches([]);
+        setRows((prev) =>
+          prev.filter(
+            (r) =>
+              !result.created.some(
+                (c) =>
+                  normalizeSerialKey(c.serial) ===
+                  normalizeSerialKey(r.serialCarroceria || r.vin)
+              )
+          )
+        );
+        if (fail === 0) {
+          setDocs([]);
+          setShared({ ...EMPTY_SHARED_SHIPMENT });
+          setDetectedImportador({ ...EMPTY_DETECTED_IMPORTADOR });
+          setCertMatches([]);
+        }
         router.refresh();
       }
       if (fail > 0) {
@@ -823,14 +858,25 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold text-slate-100">
-                3. Revisa vehículos ({rows.length})
+                3. Revisa y registra ({rows.length})
               </h2>
-              <p className="text-xs text-slate-500">
-                Solo datos por unidad. Embarque (aduana, BL, fecha) se completa al
-                cargar el BL en el expediente.
-                {incompleteCount > 0
-                  ? ` · ${incompleteCount} fila(s) incompletas — súbelos certificados de origen.`
-                  : " · Todas las filas tienen motor y nº cert."}
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
+                  ● Verde {semaforo.verde}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-950/60 px-2 py-0.5 text-amber-300">
+                  ● Ámbar {semaforo.ambar}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-red-950/60 px-2 py-0.5 text-red-300">
+                  ● Rojo {semaforo.rojo}
+                </span>
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Rojo = no se registra (falta VIN/marca/modelo). Ámbar = se crea el
+                expediente y anuncia motor/cert/color/año faltantes. Verde = listo.
+                {incompleteCount > 0 && semaforo.rojo === 0
+                  ? " Sube certificados para pasar ámbar → verde."
+                  : null}
               </p>
             </div>
             <button
@@ -846,9 +892,16 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
               )}
               {pending
                 ? "Registrando…"
-                : `Registrar ${rows.length} expediente${rows.length === 1 ? "" : "s"}`}
+                : `Registrar ${semaforo.aptos.length} apto${semaforo.aptos.length === 1 ? "" : "s"}`}
             </button>
           </div>
+
+          {semaforo.rojo > 0 ? (
+            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+              Hay {semaforo.rojo} vehículo(s) en rojo. Corrígelos o elimínalos para
+              habilitar el registro automático.
+            </p>
+          ) : null}
 
           {!selected ? (
             <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
@@ -910,16 +963,15 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
               </thead>
               <tbody>
                 {rows.map((row, idx) => {
-                  const completeness = vehicleCompleteness(row);
+                  const sem = vehicleSemaforo(row);
+                  const rowTone =
+                    sem.nivel === "rojo" || row.error
+                      ? "border-t border-red-900/40 bg-red-950/20"
+                      : sem.nivel === "ambar"
+                        ? "border-t border-amber-900/30 bg-amber-950/10"
+                        : "border-t border-slate-800/80";
                   return (
-                    <tr
-                      key={row.id}
-                      className={
-                        row.error
-                          ? "border-t border-red-900/40 bg-red-950/20"
-                          : "border-t border-slate-800/80"
-                      }
-                    >
+                    <tr key={row.id} className={rowTone}>
                       <td className="px-2 py-1.5 align-top text-slate-500">
                         {idx + 1}
                         {row.error ? (
@@ -934,19 +986,28 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
                         ) : null}
                       </td>
                       <td className="px-2 py-1.5 align-top">
-                        {completeness.complete ? (
+                        {sem.nivel === "verde" ? (
                           <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Completo
+                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                            Verde
+                          </span>
+                        ) : sem.nivel === "ambar" ? (
+                          <span
+                            className="inline-flex max-w-[9rem] items-start gap-1 text-[10px] text-amber-300"
+                            title={sem.detail}
+                          >
+                            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                            Ámbar · {sem.avisos.slice(0, 2).join(", ")}
+                            {sem.avisos.length > 2 ? "…" : ""}
                           </span>
                         ) : (
                           <span
-                            className="inline-flex max-w-[8rem] items-start gap-1 text-[10px] text-amber-300"
-                            title={`Falta: ${completeness.missing.join(", ")}`}
+                            className="inline-flex max-w-[9rem] items-start gap-1 text-[10px] text-red-300"
+                            title={sem.detail}
                           >
-                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                            Falta {completeness.missing.slice(0, 2).join(", ")}
-                            {completeness.missing.length > 2 ? "…" : ""}
+                            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-400" />
+                            Rojo · {sem.criticos.slice(0, 2).join(", ")}
+                            {sem.criticos.length > 2 ? "…" : ""}
                           </span>
                         )}
                       </td>

@@ -44,7 +44,8 @@ export default async function CargaMasivaPuertoLibrePage() {
               Carga masiva de vehículos
             </h1>
             <p className="mt-0.5 text-sm text-zinc-400">
-              Vehículos + importador certificado · certificados de origen por VIN
+              PDF multi-vehículo → extracción automática · semáforo
+              verde/ámbar/rojo · registro de aptos
             </p>
           </div>
         </div>

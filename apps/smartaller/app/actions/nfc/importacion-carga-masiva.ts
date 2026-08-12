@@ -56,7 +56,10 @@ import {
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
 import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
-import { rifCoincideConSeleccionado } from "@/lib/importacion/carga-masiva-ui";
+import {
+  rifCoincideConSeleccionado,
+  vehicleSemaforo,
+} from "@/lib/importacion/carga-masiva-ui";
 import { normalizeRif } from "@/lib/validations/rif";
 
 async function requireTallerAuth() {
@@ -1127,6 +1130,26 @@ export async function createPuertoLibreCargaMasivaAction(input: {
   }));
 
   const validated = validateCargaMasivaRows(withImportador);
+
+  // Semáforo rígido en servidor: nunca registrar filas rojas (sin VIN/marca/modelo).
+  const bloqueados = validated.filter(
+    (r) => vehicleSemaforo(r).nivel === "rojo"
+  );
+  if (bloqueados.length > 0) {
+    const ejemplos = bloqueados
+      .slice(0, 3)
+      .map((r) => {
+        const s = vehicleSemaforo(r);
+        const id = (r.vin || r.serialCarroceria || "?").slice(0, 17);
+        return `${id}: ${s.detail}`;
+      })
+      .join("; ");
+    return {
+      success: false,
+      error: `Hay ${bloqueados.length} vehículo(s) en rojo (datos críticos faltantes). Corrígelos o quítalos antes de registrar. ${ejemplos}`,
+    };
+  }
+
   const invalid = validated.filter((r) => r.error);
   if (invalid.length > 0) {
     return {
