@@ -1361,8 +1361,8 @@ function Fase2Llegada({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Carga el Acta de recepción de mercancía (AR) y la Constancia EDI de la
-          carga (Reconocimiento).
+          En llegada se cargan el AR y el reconocimiento / constancia del estado
+          de la carga.
         </p>
         <div className="mt-5 grid gap-3">
           {PL_LLEGADA_DOCUMENTO_TIPOS.map((tipo) => (

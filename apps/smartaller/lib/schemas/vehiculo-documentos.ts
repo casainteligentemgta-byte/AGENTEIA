@@ -279,7 +279,7 @@ export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> =
   registro_puerto_libre: "Registro de Puerto Libre",
   agente_aduanal_doc: "Documento del Agente de Aduanas autorizado",
   constancia_edi_reconocimiento:
-    "Desde fase Llegada (Constancia EDI / Reconocimiento)",
+    "Desde fase Llegada (Reconocimiento / constancia del estado de la carga)",
   pase_salida_levante: "Pase de salida y levante aduanero",
   cancelacion_gastos_portuarios: "Cancelación de gastos portuarios",
   nota_levante_seniat: "Emisión de la nota del levante por el SENIAT",
