@@ -184,15 +184,19 @@ export const REGIMEN_SELECT_OPTIONS: { value: RegimenImportacion; label: string 
 
 /**
  * Carpeta de desaduanamiento = base + extras del régimen (sin duplicar).
+ * `registro_puerto_libre` solo si el importador es persona jurídica.
  */
 export function docsDesaduanamientoPorRegimen(
   regimen: string | null | undefined,
-  base: DocumentoTipo[]
+  base: DocumentoTipo[],
+  options?: { esJuridica?: boolean }
 ): DocumentoTipo[] {
   const cfg = getRegimenConfig(regimen);
   const seen = new Set<DocumentoTipo>();
   const out: DocumentoTipo[] = [];
+  const esJuridica = options?.esJuridica === true;
   for (const t of [...base, ...cfg.docsExtraDesaduanamiento]) {
+    if (t === "registro_puerto_libre" && !esJuridica) continue;
     if (seen.has(t)) continue;
     seen.add(t);
     out.push(t);

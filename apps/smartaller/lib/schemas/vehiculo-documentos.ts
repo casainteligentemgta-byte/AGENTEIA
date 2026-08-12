@@ -178,7 +178,8 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   registro_puerto_libre: "Registro de Puerto Libre",
   agente_aduanal_doc: "Agente aduanal",
   pase_salida_levante: "Pase de salida y levante",
-  cancelacion_gastos_portuarios: "Cancelación de gastos portuarios",
+  cancelacion_gastos_portuarios:
+    "Cancelación de gastos portuarios, almacén y manipulación",
   nota_levante_seniat: "Nota del levante (SENIAT)",
   poliza_seguro: "Póliza de seguro del vehículo",
   certificado_seguro: "Certificado de cobertura",
@@ -234,8 +235,7 @@ export const PL_LLEGADA_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 
 /**
  * Expediente PDF SENIAT (fase 4 UI / desaduanamiento).
- * Orden: cédula, RIF, lista, DUA, DAV, SENCAMER, registro PL,
- * agente, reconocimiento, pase de salida y levante.
+ * Registro PL solo aplica a importador jurídico (se filtra en runtime).
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "cedula_importador",
@@ -249,7 +249,6 @@ export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "constancia_edi_reconocimiento",
   "pase_salida_levante",
   "cancelacion_gastos_portuarios",
-  "nota_levante_seniat",
 ];
 
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
@@ -260,28 +259,30 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
   "cedula_importador",
   "rif_importador",
   "nacionalizacion",
+  "dav",
   "sencamer",
   "registro_puerto_libre",
   "agente_aduanal_doc",
   "pase_salida_levante",
   "cancelacion_gastos_portuarios",
-  "nota_levante_seniat",
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
   cedula_importador: "Cédula del importador",
   rif_importador:
     "RIF con dirección en Nueva Esparta, Venezuela (ambos del importador)",
-  lista_empaque: "Desde fase Embarque (lista de embarque / empaque)",
+  lista_empaque: "Desde fase Embarque (lista de empaque)",
   nacionalizacion: "Declaración Única de Aduanas (DUA) ante SENIAT",
-  dav: "Desde fase Embarque (Declaración Andina de Valor)",
+  dav: "Declaración Andina de Valor (DAV)",
   sencamer: "Certificado / documento SENCAMER",
-  registro_puerto_libre: "Registro de Puerto Libre",
+  registro_puerto_libre:
+    "Registro de Puerto Libre (solo importador persona jurídica)",
   agente_aduanal_doc: "Documento del Agente de Aduanas autorizado",
   constancia_edi_reconocimiento:
     "Desde fase Llegada (Reconocimiento / constancia del estado de la carga)",
   pase_salida_levante: "Pase de salida y levante aduanero",
-  cancelacion_gastos_portuarios: "Cancelación de gastos portuarios",
+  cancelacion_gastos_portuarios:
+    "Cancelación de gastos portuarios, almacén y manipulación",
   nota_levante_seniat: "Emisión de la nota del levante por el SENIAT",
   constancia_residencia_permanencia:
     "Constancia de residencia en zona de Puerto Libre",

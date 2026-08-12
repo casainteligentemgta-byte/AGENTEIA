@@ -44,6 +44,7 @@ import {
   type LlegadaChecklistState,
 } from "@/lib/importacion/llegada-catalog";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
+import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsDesaduanamientoPorRegimen,
   getRegimenConfig,
@@ -205,13 +206,17 @@ export function PlanillaRegistroImportacion({
   );
 
   const regimenCfg = getRegimenConfig(initialImportacion.regimen);
+  const esImportadorJuridico =
+    clasificarTipoImportadorPorRif(initialImportacion.importadorDocumento) ===
+    "juridica";
   const desaduanamientoTipos = useMemo(
     () =>
       docsDesaduanamientoPorRegimen(
         initialImportacion.regimen,
-        PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
+        PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+        { esJuridica: esImportadorJuridico }
       ),
-    [initialImportacion.regimen]
+    [initialImportacion.regimen, esImportadorJuridico]
   );
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
@@ -1573,11 +1578,12 @@ function Fase3Aduana({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Genera el
-          Expediente PDF para SENIAT con cédula y RIF del importador (dirección
-          Nueva Esparta), lista de embarque, DUA, DAV, SENCAMER, registro de
-          Puerto Libre, agente aduanal, reconocimiento, pase de salida/levante,
-          cancelación de gastos portuarios y nota del levante SENIAT.
+          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Carga o
+          reutiliza los PDF del expediente SENIAT: cédula y RIF del importador,
+          lista de empaque, DUA, DAV, SENCAMER, registro de Puerto Libre (solo
+          persona jurídica), agente aduanal, reconocimiento, pase de salida y
+          levante, y cancelación de gastos portuarios, almacén y manipulación.
+          Luego genera el Expediente PDF con esos documentos.
         </p>
 
         <label className="mt-5 block space-y-1.5">

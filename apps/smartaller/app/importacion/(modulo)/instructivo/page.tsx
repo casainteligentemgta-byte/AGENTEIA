@@ -51,10 +51,11 @@ const FASES = [
     puntos: [
       "Nombre del Agente de Aduanas.",
       "Cédula y RIF del importador (RIF con dir. Nueva Esparta).",
-      "Lista de empaque, DUA, DAV, SENCAMER, registro Puerto Libre.",
+      "Lista de empaque, DUA, DAV, SENCAMER.",
+      "Registro de Puerto Libre (solo persona jurídica).",
       "Documento del agente, reconocimiento, pase de salida y levante.",
-      "Cancelación de gastos portuarios y nota del levante SENIAT.",
-      "Descarga el Expediente PDF SENIAT para consignar.",
+      "Cancelación de gastos portuarios, almacén y manipulación.",
+      "Genera el Expediente PDF SENIAT con los PDF cargados.",
     ],
   },
   {
