@@ -215,12 +215,12 @@ export const PL_FASE1_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Documentos de fase 2 (Embarque): BL, lista, DAV y póliza de transporte.
+ * Documentos de fase 2 (Embarque): BL, lista de empaque y póliza de transporte.
+ * La DAV se carga en desaduanamiento.
  */
 export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
-  "dav",
   "poliza_transporte",
 ];
 

@@ -801,7 +801,7 @@ export async function completePuertoLibreFase2EmbarqueAction(
   if (faltantes.length > 0) {
     return {
       success: false,
-      error: "Carga BL/Guía, lista de embarque, DAV y póliza de transporte",
+      error: "Carga BL/Guía, lista de empaque y póliza de transporte",
     };
   }
 
