@@ -32,6 +32,7 @@ import {
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
+import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
 import {
   OPCIONES_OK_DANO,
   PlanillaChecklistProgress,
@@ -66,7 +67,6 @@ import {
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARGAR_TIPOS,
-  PL_MATRICULACION_ENTREGA_TIPOS,
   PL_MATRICULACION_FISICO_TIPOS,
   PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
   PL_MATRICULACION_ORIGEN,
@@ -275,6 +275,7 @@ export function PlanillaRegistroImportacion({
   const matriculacionCompleta =
     matriculacionStats.listos === matriculacionStats.total &&
     Boolean(docs.titulo?.url) &&
+    Boolean(docs.foto_placa?.url) &&
     Boolean(placaVisible);
 
   const codigoExpediente =
@@ -2089,6 +2090,7 @@ function Fase6Matriculacion({
   const carpetaCompleta = stats.listos === stats.total;
   const pasoEntrega = paso >= 2;
   const tituloListo = Boolean(docs.titulo?.url);
+  const fotoPlacaLista = Boolean(docs.foto_placa?.url);
   const liquidacionListo = tieneLiquidacionOExencion(docs);
 
   return (
@@ -2260,40 +2262,100 @@ function Fase6Matriculacion({
             Entrega INTT — título y placas PL
           </h2>
           <p className="mt-2 text-sm text-slate-400">
-            Tras el trámite se entregan el título de propiedad y las placas PL.
-            Carga el título y registra el número de placa.
+            Tras el trámite se entregan el título y las placas PL. Toma una foto
+            de cada uno (o sube el archivo) y escribe el número de placa.
           </p>
 
-          <ul className="mt-5 space-y-3">
-            {PL_MATRICULACION_ENTREGA_TIPOS.map((tipo) => (
-              <MatriculacionDocRow
-                key={tipo}
+          <div className="mt-5 space-y-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-100">
+                    {DOCUMENTO_LABELS.titulo}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {PL_MATRICULACION_ORIGEN.titulo}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                    tituloListo
+                      ? "bg-emerald-950/60 text-emerald-300"
+                      : "bg-red-950/50 text-red-300"
+                  }`}
+                >
+                  {tituloListo ? "Listo" : "Pendiente"}
+                </span>
+              </div>
+              <PlanillaFotoChip
                 vehiculoId={vehiculoId}
-                tipo={tipo}
-                docs={docs}
-                setDocs={setDocs}
-                origen={PL_MATRICULACION_ORIGEN[tipo]}
-                onUploadedMessage={onUploadedMessage}
+                tipo="titulo"
+                existingUrl={docs.titulo?.url}
+                mode="both"
+                label="Título"
+                onUploaded={(next) => {
+                  setDocs(next);
+                  onUploadedMessage("Título guardado");
+                }}
               />
-            ))}
-          </ul>
+            </div>
 
-          <label className="mt-5 block space-y-1.5">
-            <span className="text-sm text-slate-400">Placa PL *</span>
-            <input
-              value={placa}
-              onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-              required
-              placeholder="Ej. AB123CO"
-              autoComplete="off"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-100">
+                    Número y foto de la placa PL
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Escribe el número y toma una foto de la placa entregada
+                  </p>
+                </div>
+                <span
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                    fotoPlacaLista && placa.trim()
+                      ? "bg-emerald-950/60 text-emerald-300"
+                      : "bg-red-950/50 text-red-300"
+                  }`}
+                >
+                  {fotoPlacaLista && placa.trim() ? "Listo" : "Pendiente"}
+                </span>
+              </div>
+
+              <label className="block space-y-1.5">
+                <span className="text-sm text-slate-400">Placa PL *</span>
+                <input
+                  value={placa}
+                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                  required
+                  placeholder="Ej. AB123CO"
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
+                />
+              </label>
+
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-slate-500">
+                  Foto de la placa *
+                </p>
+                <PlanillaFotoChip
+                  vehiculoId={vehiculoId}
+                  tipo="foto_placa"
+                  existingUrl={docs.foto_placa?.url}
+                  mode="both"
+                  label="Placa"
+                  onUploaded={(next) => {
+                    setDocs(next);
+                    onUploadedMessage("Foto de la placa guardada");
+                  }}
+                />
+              </div>
+            </div>
+          </div>
 
           <div className="mt-6">
             <PlanillaFaseActions
               pending={pending}
-              disabled={!placa.trim() || !tituloListo}
+              disabled={!placa.trim() || !tituloListo || !fotoPlacaLista}
               continueLabel="Finalizar y nacionalizar"
               onAction={(after) => onComplete(placa.trim(), after)}
             />
