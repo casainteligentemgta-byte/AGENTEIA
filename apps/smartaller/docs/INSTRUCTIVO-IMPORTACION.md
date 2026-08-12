@@ -135,10 +135,11 @@ Nombre (obligatorio), cédula, teléfono, email y dirección del comprador/propi
 
 ---
 
-## Fase 7 — Matriculación
+## Fase 7 — Matriculación (trámite INTT)
 
-1. Carga la carpeta de matrícula (experticia, SUMICA, tasas, etc., según lo que pida la pantalla).
-2. Registra la **placa real** (sustituye el placeholder `NP-…`).
+1. **Cargar:** inspección PNB, homologación (si el vehículo lo requiere), PUT y planilla de pago.
+2. **Presentar en físico:** factura, B/L, DUA, liquidación/exención, experticia, póliza RCV, cédula, RIF y constancia de residencia (verifica que estén en el expediente).
+3. **Entrega:** carga el **título** y registra las **placas PL**.
 
 Al cerrar: planilla completa (`fase 8`) y, en Puerto Libre, suele fijarse la **fecha límite de nacionalización** (≈ 3 años desde ingreso).
 

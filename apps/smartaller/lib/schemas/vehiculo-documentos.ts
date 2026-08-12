@@ -51,6 +51,8 @@ export const DOCUMENTO_TIPOS = [
   "recibo_seguro",
   "rcv_seguro",
   "experticia_verificacion_legal",
+  "inspeccion_pnb",
+  "homologacion",
   "planilla_sumica_put",
   "pago_tasas",
   "declaracion_complementaria",
@@ -115,6 +117,8 @@ export const vehiculosDocumentosSchema = z.object({
   recibo_seguro: vehiculoDocumentoRefSchema.optional(),
   rcv_seguro: vehiculoDocumentoRefSchema.optional(),
   experticia_verificacion_legal: vehiculoDocumentoRefSchema.optional(),
+  inspeccion_pnb: vehiculoDocumentoRefSchema.optional(),
+  homologacion: vehiculoDocumentoRefSchema.optional(),
   planilla_sumica_put: vehiculoDocumentoRefSchema.optional(),
   pago_tasas: vehiculoDocumentoRefSchema.optional(),
   declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
@@ -186,8 +190,10 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   recibo_seguro: "Recibo / pago de prima",
   rcv_seguro: "Póliza RCV / responsabilidad civil",
   experticia_verificacion_legal: "Constancia de experticia de verificación legal",
-  planilla_sumica_put: "Planilla SUMICA de trámite (PUT)",
-  pago_tasas: "Pago de tasas",
+  inspeccion_pnb: "Inspección PNB",
+  homologacion: "Homologación",
+  planilla_sumica_put: "PUT (planilla SUMICA)",
+  pago_tasas: "Planilla de pago",
   declaracion_complementaria: "Declaración complementaria SENIAT",
   liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
@@ -327,6 +333,8 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "cancelacion_gastos_portuarios",
   "nota_levante_seniat",
   "experticia_verificacion_legal",
+  "inspeccion_pnb",
+  "homologacion",
   "planilla_sumica_put",
   "pago_tasas",
   "declaracion_complementaria",
@@ -358,32 +366,121 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Carpeta a consignar (fase 6 Matriculación inicial).
- * Incluye docs de fases previas + nuevos recaudos.
+ * Matriculación INTT (fase 7): documentos a cargar digitalmente.
+ * Homologación es opcional según el vehículo (`requiereHomologacion`).
+ */
+export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
+  "inspeccion_pnb",
+  "planilla_sumica_put",
+  "pago_tasas",
+];
+
+/** Presentar en físico ante el INTT (deben estar en el expediente digital). */
+export const PL_MATRICULACION_FISICO_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "bl_guia",
+  "nacionalizacion",
+  "experticia_verificacion_legal",
+  "rcv_seguro",
+  "cedula_importador",
+  "rif_importador",
+  "constancia_residencia_permanencia",
+];
+
+/** Liquidación o exención: basta con uno de estos. */
+export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
+  "planilla_liquidacion_aduanera",
+  "oficio_exoneracion_seniat",
+];
+
+/** Entrega INTT: título + placas PL (paso 2). */
+export const PL_MATRICULACION_ENTREGA_TIPOS: DocumentoTipo[] = ["titulo"];
+
+/**
+ * Docs que suelen cargarse por primera vez en matriculación
+ * (homologación solo si aplica).
+ */
+export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
+  "inspeccion_pnb",
+  "homologacion",
+  "planilla_sumica_put",
+  "pago_tasas",
+  "experticia_verificacion_legal",
+  "constancia_residencia_permanencia",
+  "planilla_liquidacion_aduanera",
+  "oficio_exoneracion_seniat",
+  "titulo",
+];
+
+export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
+  factura_comercial: "Desde fase Registro (factura de compra)",
+  bl_guia: "Desde fase Embarque (B/L)",
+  nacionalizacion: "Desde fase Desaduanamiento (DUA)",
+  planilla_liquidacion_aduanera: "Liquidación aduanera o exención SENIAT",
+  oficio_exoneracion_seniat: "Liquidación aduanera o exención SENIAT",
+  experticia_verificacion_legal: "Experticia de verificación legal",
+  rcv_seguro: "Desde fase Seguro (póliza RCV)",
+  cedula_importador: "Desde fase Desaduanamiento",
+  rif_importador: "Desde fase Desaduanamiento",
+  constancia_residencia_permanencia: "Constancia de residencia (Nueva Esparta)",
+  inspeccion_pnb: "Inspección de la Policía Nacional Bolivariana",
+  homologacion: "Solo si el vehículo lo requiere",
+  planilla_sumica_put: "Planilla única de trámite (PUT / SUMICA)",
+  pago_tasas: "Planilla de pago de tasas INTT",
+  titulo: "Título entregado por el INTT junto con las placas PL",
+};
+
+/** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
+export function tiposMatriculacionBase(
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  return [
+    ...PL_MATRICULACION_CARGAR_TIPOS,
+    ...(requiereHomologacion ? (["homologacion"] as const) : []),
+    ...PL_MATRICULACION_FISICO_TIPOS,
+  ];
+}
+
+export function tieneLiquidacionOExencion(
+  docs: VehiculosDocumentos
+): boolean {
+  return PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS.some((t) =>
+    Boolean(docs[t]?.url)
+  );
+}
+
+/** Faltantes de carpeta INTT (paso 1). No incluye título/placa. */
+export function faltantesMatriculacionCarpeta(
+  docs: VehiculosDocumentos,
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  const faltantes = tiposMatriculacionBase(requiereHomologacion).filter(
+    (t) => !docs[t]?.url
+  );
+  if (!tieneLiquidacionOExencion(docs)) {
+    faltantes.push("planilla_liquidacion_aduanera");
+  }
+  return faltantes;
+}
+
+export function countMatriculacionCarpeta(
+  docs: VehiculosDocumentos,
+  requiereHomologacion: boolean
+): { listos: number; total: number } {
+  const base = tiposMatriculacionBase(requiereHomologacion);
+  const baseListos = base.filter((t) => docs[t]?.url).length;
+  const liq = tieneLiquidacionOExencion(docs) ? 1 : 0;
+  return { listos: baseListos + liq, total: base.length + 1 };
+}
+
+/**
+ * @deprecated Usar tiposMatriculacionBase + liquidación/exención.
+ * Conservado para conteos simples sin flag de homologación.
  */
 export const PL_MATRICULACION_CARPETA_TIPOS: DocumentoTipo[] = [
-  "factura_comercial",
-  "certificado_origen",
-  "nacionalizacion",
-  "rcv_seguro",
-  "experticia_verificacion_legal",
-  "planilla_sumica_put",
-  "pago_tasas",
+  ...PL_MATRICULACION_CARGAR_TIPOS,
+  ...PL_MATRICULACION_FISICO_TIPOS,
 ];
-
-/** Solo los que se cargan por primera vez en fase 6. */
-export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
-  "experticia_verificacion_legal",
-  "planilla_sumica_put",
-  "pago_tasas",
-];
-
-export const PL_MATRICULACION_ORIGEN: Partial<
-  Record<DocumentoTipo, string>
-> = {
-  nacionalizacion: "Desde fase Desaduanamiento (DUA)",
-  rcv_seguro: "Desde fase Seguro",
-};
 
 /** Vías de nacionalización desde Puerto Libre. */
 export const VIAS_NACIONALIZACION = ["cambio_regimen", "permanencia"] as const;
@@ -562,10 +659,12 @@ export const importacionSchema = z.object({
    */
   planillaFase: z.coerce.number().int().min(1).max(8).optional().nullable(),
   /**
-   * Subpaso de fase 6 Matriculación:
-   * 1 = carpeta a consignar, 2 = registrar placa (tras guardar carpeta).
+   * Subpaso de fase 7 Matriculación INTT:
+   * 1 = carpeta (cargar + físico), 2 = título y placas PL.
    */
   matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
+  /** Si el vehículo requiere homologación ante el INTT. */
+  requiereHomologacion: z.boolean().optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). El correlativo N se deriva parseando este código. */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
   /** Checklist de llegada (fase 2). */
@@ -725,6 +824,9 @@ export function parseImportacion(raw: unknown): ImportacionData {
     matriculacionPaso: asOptionalAnio(
       row.matriculacionPaso ?? row.matriculacion_paso
     ),
+    requiereHomologacion: asOptionalBool(
+      row.requiereHomologacion ?? row.requiere_homologacion
+    ),
     codigoExpediente: row.codigoExpediente ?? row.codigo_expediente,
     checklistLlegada:
       row.checklistLlegada && typeof row.checklistLlegada === "object"
@@ -837,6 +939,10 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     matriculacion_paso:
       data.matriculacionPaso != null && !Number.isNaN(data.matriculacionPaso)
         ? data.matriculacionPaso
+        : null,
+    requiere_homologacion:
+      typeof data.requiereHomologacion === "boolean"
+        ? data.requiereHomologacion
         : null,
     codigo_expediente: data.codigoExpediente?.trim() || null,
     checklist_llegada: data.checklistLlegada ?? null,

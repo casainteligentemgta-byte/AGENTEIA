@@ -13,7 +13,7 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
-  PL_MATRICULACION_CARPETA_TIPOS,
+  faltantesMatriculacionCarpeta,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   VIAS_NACIONALIZACION,
   documentoTipoSchema,
@@ -1148,60 +1148,74 @@ export async function completePuertoLibreFase5SeguroAction(
   return { success: true };
 }
 
-/** Guarda carpeta de matriculación y abre el paso de placa. */
+/** Guarda carpeta de matriculación INTT y abre el paso de título/placas. */
 export async function savePuertoLibreCarpetaMatriculacionAction(
-  vehiculoId: string
+  raw: unknown
 ): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const idParsed = z.string().uuid().safeParse(vehiculoId);
-  if (!idParsed.success) return { success: false, error: "ID inválido" };
-
-  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
-  if (!row) return { success: false, error: "Vehículo no encontrado" };
-
-  const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_MATRICULACION_CARPETA_TIPOS.filter((t) => !docs[t]?.url);
-  if (faltantes.length > 0) {
+  const parsed = z
+    .object({
+      vehiculoId: z.string().uuid(),
+      requiereHomologacion: z.boolean().optional(),
+    })
+    .safeParse(raw);
+  if (!parsed.success) {
     return {
       success: false,
-      error: "Completa todos los recaudos de la carpeta a consignar antes de continuar",
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
     };
   }
 
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
   const existing = parseImportacion(row.importacion);
+  const requiereHomologacion =
+    parsed.data.requiereHomologacion ?? existing.requiereHomologacion === true;
+  const faltantes = faltantesMatriculacionCarpeta(docs, requiereHomologacion);
+  if (faltantes.length > 0) {
+    return {
+      success: false,
+      error:
+        "Completa los documentos a cargar y los de presentar en físico antes de continuar",
+    };
+  }
+
   const importacion = serializeImportacion({
     ...existing,
     planillaFase: 7,
     matriculacionPaso: 2,
+    requiereHomologacion,
   });
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
     .update({ importacion, updated_at: new Date().toISOString() })
-    .eq("id", idParsed.data)
+    .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
   if (error) return { success: false, error: error.message };
-  revalidateFicha(idParsed.data);
+  revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
 
 const fase6MatriculacionSchema = z.object({
   vehiculoId: z.string().uuid(),
-  /** Placa asignada tras guardar la carpeta de matriculación. */
+  /** Placa PL asignada / entregada por el INTT. */
   placa: z
     .string()
     .trim()
-    .min(1, "Ingresa el número de placa obtenido en la matriculación")
+    .min(1, "Ingresa el número de placa PL obtenido en la matriculación")
     .max(20),
 });
 
-/** Registra placa y marca planilla completa (fase 8). */
+/** Registra título + placa PL y marca planilla completa (fase 8). */
 export async function completePuertoLibreFase6MatriculacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1219,20 +1233,27 @@ export async function completePuertoLibreFase6MatriculacionAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_MATRICULACION_CARPETA_TIPOS.filter((t) => !docs[t]?.url);
+  const existing = parseImportacion(row.importacion);
+  const requiereHomologacion = existing.requiereHomologacion === true;
+  const faltantes = faltantesMatriculacionCarpeta(docs, requiereHomologacion);
   if (faltantes.length > 0) {
     return {
       success: false,
       error:
-        "Completa todos los recaudos de la carpeta a consignar antes de finalizar",
+        "Completa los documentos a cargar y los de presentar en físico antes de finalizar",
+    };
+  }
+  if (!docs.titulo?.url) {
+    return {
+      success: false,
+      error: "Carga el título entregado por el INTT antes de finalizar",
     };
   }
 
-  const existing = parseImportacion(row.importacion);
   if ((existing.matriculacionPaso ?? 1) < 2) {
     return {
       success: false,
-      error: "Guarda primero la carpeta de matriculación antes de registrar la placa",
+      error: "Guarda primero la carpeta de matriculación antes de registrar título y placa",
     };
   }
 
