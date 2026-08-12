@@ -124,14 +124,6 @@ export function formatLlmAuthError(err: unknown): string {
     msg = [err.status, err.message].filter(Boolean).join(" ");
   }
   if (/402|insufficient credits|never purchased credits|payment required/i.test(msg)) {
-<<<<<<< HEAD
-    if (isOpenRouterKey()) {
-      return "OpenRouter sin créditos. Recarga en https://openrouter.ai/settings/credits o cambia OPENAI_API_KEY en Vercel por una clave OpenAI (sk-proj-...).";
-    }
-    return "La API de IA rechazó la petición (pago/créditos). Revisa la facturación de OPENAI_API_KEY en Vercel.";
-  }
-  if (/401|incorrect api key|invalid api key/i.test(msg)) {
-=======
     if (isGeminiProvider()) {
       return "Cuota gratuita de Gemini agotada o modelo de pago. Prueba más tarde o usa gemini-2.0-flash.";
     }
@@ -144,7 +136,6 @@ export function formatLlmAuthError(err: unknown): string {
     if (isGeminiProvider()) {
       return "Clave Gemini inválida. Crea una en https://aistudio.google.com/apikey y ponla en GEMINI_API_KEY (Vercel).";
     }
->>>>>>> origin/cursor/gemini-api-gratis-dd2a
     if (isOpenRouterKey()) {
       return "Clave OpenRouter inválida o expirada. Revisa OPENAI_API_KEY en Vercel (debe ser sk-or-v1-...).";
     }

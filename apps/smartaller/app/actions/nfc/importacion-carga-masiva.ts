@@ -5,6 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { formatLlmAuthError, isLlmConfigured } from "@/lib/ai/openai-config";
+import {
+  assertLlmBudgetAllows,
+  bindLlmUsageContext,
+} from "@/lib/ai/llm-usage";
 import { resolveImageMimeType } from "@/lib/mime-image";
 import {
   CARGA_MASIVA_MAX_ROWS,
@@ -68,10 +72,33 @@ import { normalizeRif } from "@/lib/validations/rif";
 
 async function requireTallerAuth() {
   const user = await getUser();
-  if (!user) return { error: "Debes iniciar sesión" as const, taller: null };
+  if (!user) return { error: "Debes iniciar sesión" as const, taller: null, userId: null };
   const taller = await getMyTaller();
-  if (!taller) return { error: "No se encontró tu taller" as const, taller: null };
-  return { error: null, taller };
+  if (!taller) {
+    return { error: "No se encontró tu taller" as const, taller: null, userId: user.id };
+  }
+  return { error: null, taller, userId: user.id };
+}
+
+async function gateLlmForTaller(
+  auth: { taller: { id: string }; userId: string | null },
+  action: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isLlmConfigured()) {
+    return {
+      ok: false,
+      error:
+        "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para leer documentos con IA.",
+    };
+  }
+  const budget = await assertLlmBudgetAllows(auth.taller.id);
+  if (!budget.ok) return budget;
+  bindLlmUsageContext({
+    action,
+    tallerId: auth.taller.id,
+    userId: auth.userId,
+  });
+  return { ok: true };
 }
 
 function maxNumeroExpedienteEnFilas(
@@ -284,12 +311,8 @@ export async function extractCargaMasivaDocumentosAction(
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  if (!isLlmConfigured()) {
-    return {
-      success: false,
-      error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para leer documentos con IA.",
-    };
-  }
+  const gate = await gateLlmForTaller(auth, "carga_masiva");
+  if (!gate.ok) return { success: false, error: gate.error };
 
   const files = formData.getAll("files").filter((f): f is File => f instanceof File);
   if (files.length === 0) {
@@ -672,14 +695,14 @@ export async function extractCargaMasivaEtapaAction(
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
-  if (!isLlmConfigured()) {
-    return {
-      success: false,
-      error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para leer documentos con IA.",
-    };
-  }
 
   const etapaRaw = String(formData.get("etapa") ?? "vins");
+  const gate = await gateLlmForTaller(
+    auth,
+    `carga_masiva_${etapaRaw || "vins"}`
+  );
+  if (!gate.ok) return { success: false, error: gate.error };
+
   if (etapaRaw !== "vins" && etapaRaw !== "datos" && etapaRaw !== "certs") {
     return { success: false, error: "Etapa inválida" };
   }
@@ -1001,12 +1024,8 @@ export async function completarCargaMasivaConCertificadosAction(
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  if (!isLlmConfigured()) {
-    return {
-      success: false,
-      error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para leer documentos con IA.",
-    };
-  }
+  const gate = await gateLlmForTaller(auth, "carga_masiva_certs");
+  if (!gate.ok) return { success: false, error: gate.error };
 
   let existingRows: CargaMasivaRow[] = [];
   try {

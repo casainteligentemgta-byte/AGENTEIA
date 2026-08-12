@@ -5,6 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { formatLlmAuthError, isLlmConfigured } from "@/lib/ai/openai-config";
+import {
+  assertLlmBudgetAllows,
+  bindLlmUsageContext,
+} from "@/lib/ai/llm-usage";
 import { resolveImageMimeType } from "@/lib/mime-image";
 import { extractSerialImprontaFromImage } from "@/lib/extract-impronta";
 import {
@@ -42,6 +46,14 @@ export async function verifyPuertoLibreImprontaAction(
       error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para verificar la impronta.",
     };
   }
+
+  const budget = await assertLlmBudgetAllows(taller.id);
+  if (!budget.ok) return { success: false, error: budget.error };
+  bindLlmUsageContext({
+    action: "ocr_impronta",
+    tallerId: taller.id,
+    userId: user.id,
+  });
 
   const vehiculoId = String(formData.get("vehiculoId") ?? "").trim();
   const file = formData.get("file");

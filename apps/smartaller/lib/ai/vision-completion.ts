@@ -2,6 +2,7 @@ import {
   createOpenAIClient,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
+import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
@@ -37,8 +38,9 @@ async function requestVisionCompletion(params: {
 }): Promise<string> {
   const timeoutMs = params.maxTokens >= 4000 ? 120_000 : 45_000;
   const openai = createOpenAIClient({ timeoutMs });
+  const model = getVisionModelId();
   const response = await openai.chat.completions.create({
-    model: getVisionModelId(),
+    model,
     ...(params.jsonMode
       ? { response_format: { type: "json_object" as const } }
       : {}),
@@ -57,6 +59,8 @@ async function requestVisionCompletion(params: {
     ],
     max_tokens: params.maxTokens,
   });
+
+  trackLlmUsage({ model, usage: response.usage });
 
   const raw = response.choices[0]?.message?.content;
   if (!raw) {
