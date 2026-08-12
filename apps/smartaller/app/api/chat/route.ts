@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       return new Response(
         JSON.stringify({
           error:
-            "Falta OPENAI_API_KEY. Configúrala en .env.local (OpenAI sk-proj-... u OpenRouter sk-or-v1-...) o en Vercel.",
+            "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY. Configúrala en Vercel o .env.local.",
         }),
         { status: 503, headers: { "Content-Type": "application/json" } }
       );

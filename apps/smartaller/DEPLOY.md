@@ -42,7 +42,8 @@ Obligatorias:
 ```
 TELEGRAM_BOT_TOKEN
 TELEGRAM_WEBHOOK_SECRET
-OPENAI_API_KEY
+GEMINI_API_KEY               # Recomendado: gratis (Google AI Studio). Prioridad sobre OPENAI_API_KEY
+OPENAI_API_KEY               # Alternativa: OpenAI sk-proj-... u OpenRouter sk-or-v1-... (si no hay Gemini)
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_URL
@@ -59,7 +60,7 @@ STRIPE_WEBHOOK_SECRET
 STRIPE_PRICE_ID
 ```
 
-Opcionales: `OPENAI_CHAT_MODEL`, `CALLMEBOT_API_KEY`, `PRESIDENCIA_PIN`, `RESEND_*`
+Opcionales: `OPENAI_CHAT_MODEL`, `GEMINI_CHAT_MODEL`, `GEMINI_VISION_MODEL`, `CALLMEBOT_API_KEY`, `PRESIDENCIA_PIN`, `RESEND_*`
 
 ## Supabase (antes del primer deploy)
 
