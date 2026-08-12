@@ -30,6 +30,7 @@ import {
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
 import { resolvePortalAccess } from "@/lib/portal/roles";
+import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import {
   diasHasta,
   esProximoNacionalizar,
@@ -209,7 +210,16 @@ async function loadVehiculosForImportacion(
           fechaPresentacionSeniat: v.fechaPresentacionSeniat,
           fechaRechazoSeniat: v.fechaRechazoSeniat,
           motivoRechazoSeniat: v.motivoRechazoSeniat,
-          diasNacionalizacion: diasHasta(v.fechaLimiteNacionalizacion),
+          diasNacionalizacion: diasHasta(
+            v.fechaLimiteNacionalizacion ??
+              (v.fechaIngreso
+                ? resolverFechaLimiteNacionalizacion({
+                    fechaIngreso: v.fechaIngreso,
+                    fechaLimiteNacionalizacion: v.fechaLimiteNacionalizacion,
+                    regimen: v.regimen,
+                  })
+                : null)
+          ),
           diasSeniat: diasHasta(v.fechaPresentacionSeniat),
           proximoNacionalizar: esProximoNacionalizar({
             planillaFase: v.planillaFase,
@@ -309,12 +319,17 @@ async function loadVehiculosForImportacion(
           stickerToken: null,
           regimen: imp.regimen ?? null,
           estadoNacionalizacion: imp.estadoNacionalizacion ?? null,
-          fechaLimiteNacionalizacion: imp.fechaLimiteNacionalizacion ?? null,
+          fechaLimiteNacionalizacion:
+            resolverFechaLimiteNacionalizacion(imp) ??
+            imp.fechaLimiteNacionalizacion ??
+            null,
           estadoSeniat: imp.estadoSeniat ?? null,
           fechaPresentacionSeniat: imp.fechaPresentacionSeniat ?? null,
           fechaRechazoSeniat: imp.fechaRechazoSeniat ?? null,
           motivoRechazoSeniat: imp.motivoRechazoSeniat ?? null,
-          diasNacionalizacion: diasHasta(imp.fechaLimiteNacionalizacion),
+          diasNacionalizacion: diasHasta(
+            resolverFechaLimiteNacionalizacion(imp)
+          ),
           diasSeniat: diasHasta(imp.fechaPresentacionSeniat),
           proximoNacionalizar: esProximoNacionalizar(imp),
           proximoSeniat: esProximoSeniat(imp),
@@ -508,7 +523,9 @@ export default async function PuertoLibrePage() {
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Nacionalizar",
       actionTone: "amber",
-      urgent: v.diasNacionalizacion != null && v.diasNacionalizacion <= 7,
+      urgent:
+        v.diasNacionalizacion != null &&
+        v.diasNacionalizacion <= 30,
     };
   });
 

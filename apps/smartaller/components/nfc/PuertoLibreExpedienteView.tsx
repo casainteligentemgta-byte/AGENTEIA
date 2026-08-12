@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
+import { AlertaDiasNacionalizacion } from "@/components/nfc/AlertaDiasNacionalizacion";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreDescargarPdf } from "@/components/nfc/PuertoLibreDescargarPdf";
 import {
@@ -276,6 +277,9 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           />
           <Dato label="Observaciones" value={imp.observaciones} wide />
         </dl>
+        <div className="mt-4">
+          <AlertaDiasNacionalizacion importacion={imp} />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">

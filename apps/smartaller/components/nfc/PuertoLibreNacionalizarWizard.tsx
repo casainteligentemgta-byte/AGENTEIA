@@ -18,6 +18,7 @@ import {
   type PuertoLibreFicha,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { AlertaDiasNacionalizacion } from "@/components/nfc/AlertaDiasNacionalizacion";
 import {
   DOCUMENTO_LABELS,
   PL_NACIONALIZACION_BASE_TIPOS,
@@ -118,6 +119,10 @@ export function PuertoLibreNacionalizarWizard({ ficha }: Props) {
           completo={yaNacionalizado}
         />
       </div>
+
+      {!yaNacionalizado ? (
+        <AlertaDiasNacionalizacion importacion={imp} />
+      ) : null}
 
       {(message || error) && (
         <div
