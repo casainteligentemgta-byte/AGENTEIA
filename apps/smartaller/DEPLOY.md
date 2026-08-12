@@ -10,6 +10,20 @@ Configura el dominio en Vercel (Settings → Domains) y define en Production:
 NEXT_PUBLIC_APP_URL=https://smarttaller.xyz
 ```
 
+**Importante:** si `NEXT_PUBLIC_APP_URL` (o el Site URL de Supabase Auth) apunta a `localhost`, los enlaces del portal/login llegan a `localhost:3000` en el móvil y fallan con `ERR_CONNECTION_FAILED`.
+
+## Supabase Auth — URL Configuration (producción)
+
+En el dashboard de Supabase → **Authentication → URL Configuration**:
+
+| Campo | Valor |
+|-------|--------|
+| **Site URL** | `https://smarttaller.xyz` |
+| **Redirect URLs** | `https://smarttaller.xyz/**`, `https://smarttaller.xyz/auth/callback` |
+
+Opcional staging: `https://a.smarttaller.xyz/**`.  
+No uses `http://localhost:3000` como Site URL en el proyecto de producción.
+
 ## Proyecto Vercel
 
 | Campo | Valor |

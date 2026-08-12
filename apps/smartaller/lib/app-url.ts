@@ -8,12 +8,45 @@ function normalizePublicUrl(raw: string): string {
   return `https://${trimmed.replace(/^https?:\/\//i, "")}`;
 }
 
-/** URL base pública (links WhatsApp, OpenRouter Referer, Stripe, portal cliente). */
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return /localhost|127\.0\.0\.1/i.test(url);
+  }
+}
+
+function isDeployedRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    Boolean(process.env.VERCEL) ||
+    Boolean(process.env.VERCEL_ENV)
+  );
+}
+
+/**
+ * URL base pública (links WhatsApp, OpenRouter Referer, Stripe, portal, NFC).
+ * En runtime desplegado nunca devuelve localhost aunque NEXT_PUBLIC_APP_URL esté mal.
+ */
 export function getAppBaseUrl(): string {
+  const deployed = isDeployedRuntime();
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (fromEnv) return normalizePublicUrl(fromEnv);
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NODE_ENV === "production") return PRODUCTION_APP_URL;
+
+  if (fromEnv) {
+    const normalized = normalizePublicUrl(fromEnv);
+    if (!deployed || !isLocalhostUrl(normalized)) {
+      return normalized;
+    }
+  }
+
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionHost && !isLocalhostUrl(`https://${productionHost}`)) {
+    return normalizePublicUrl(productionHost);
+  }
+
+  if (deployed) return PRODUCTION_APP_URL;
+
   return "http://localhost:3003";
 }
 
