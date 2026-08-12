@@ -53,7 +53,10 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
-import { docsDesaduanamientoPorRegimen } from "@/lib/importacion/regimenes";
+import {
+  docsDesaduanamientoPorRegimen,
+  REGIMENES_IMPORTACION,
+} from "@/lib/importacion/regimenes";
 import { canForzarImprontaSinVerificar, canMutateImportacionData } from "@/lib/importacion/access";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import {
@@ -798,6 +801,9 @@ const fase2EmbarqueSchema = z.object({
   aduana: z.string().trim().min(1, "Selecciona la aduana").max(120),
   numeroBl: z.string().trim().min(1, "Indica el nº de BL / guía").max(80),
   paisOrigen: z.string().trim().min(1, "Selecciona el país de origen").max(80),
+  regimen: z.enum(REGIMENES_IMPORTACION).default("puerto_libre"),
+  numeroCertificadoOrigen: z.string().trim().max(80).optional().nullable(),
+  observaciones: z.string().trim().max(1000).optional().nullable(),
 });
 
 /** Guarda datos de embarque (manual + OCR del BL) y avanza a llegada. */
@@ -844,6 +850,8 @@ export async function completePuertoLibreFase2EmbarqueAction(
   }
 
   const existing = parseImportacion(row.importacion);
+  const regimen = parsed.data.regimen;
+  const prevEstado = existing.estadoNacionalizacion ?? "pendiente";
   const importacion = serializeImportacion({
     ...existing,
     fechaLlegadaBuque: parsed.data.fechaLlegadaBuque,
@@ -856,6 +864,16 @@ export async function completePuertoLibreFase2EmbarqueAction(
     aduana: resolveAduanaVenezuela(parsed.data.aduana) || parsed.data.aduana,
     numeroBl: parsed.data.numeroBl.trim(),
     paisOrigen: resolvePais(parsed.data.paisOrigen) || parsed.data.paisOrigen,
+    regimen,
+    numeroCertificadoOrigen:
+      parsed.data.numeroCertificadoOrigen?.trim() || null,
+    observaciones: parsed.data.observaciones?.trim() || null,
+    estadoNacionalizacion:
+      regimen === "puerto_libre"
+        ? prevEstado === "no_aplica"
+          ? "pendiente"
+          : prevEstado
+        : "no_aplica",
     planillaFase: Math.max(existing.planillaFase ?? 2, 3),
   });
 

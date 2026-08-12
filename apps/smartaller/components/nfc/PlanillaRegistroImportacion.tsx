@@ -50,6 +50,9 @@ import {
   docsDesaduanamientoPorRegimen,
   getRegimenConfig,
   origenDocDesaduanamiento,
+  REGIMENES_IMPORTACION,
+  REGIMEN_IMPORTACION_LABELS,
+  type RegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import {
   ADUANAS_VENEZUELA,
@@ -500,6 +503,12 @@ export function PlanillaRegistroImportacion({
               resolvePais(initialImportacion.paisOrigen) ||
               initialImportacion.paisOrigen?.trim() ||
               "",
+            regimen:
+              (initialImportacion.regimen as RegimenImportacion | null) ??
+              "puerto_libre",
+            numeroCertificadoOrigen:
+              initialImportacion.numeroCertificadoOrigen?.trim() ?? "",
+            observaciones: initialImportacion.observaciones?.trim() ?? "",
           }}
           onComplete={(datos, after) => {
             setError(null);
@@ -1039,6 +1048,9 @@ type EmbarqueDatosForm = {
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
+  regimen: RegimenImportacion;
+  numeroCertificadoOrigen: string;
+  observaciones: string;
 };
 
 function Fase2Embarque({
@@ -1073,6 +1085,10 @@ function Fase2Embarque({
       aduana: initial.aduana || prev.aduana,
       numeroBl: initial.numeroBl || prev.numeroBl,
       paisOrigen: initial.paisOrigen || prev.paisOrigen,
+      regimen: initial.regimen || prev.regimen,
+      numeroCertificadoOrigen:
+        initial.numeroCertificadoOrigen || prev.numeroCertificadoOrigen,
+      observaciones: initial.observaciones || prev.observaciones,
     }));
   }, [initial]);
 
@@ -1142,10 +1158,58 @@ function Fase2Embarque({
           Datos de embarque
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Fecha de llegada del buque, puerto, tránsito/USO24, aduana, nº BL y país
-          de origen.
+          Fecha de llegada del buque, puerto, tránsito/USO24, aduana, nº BL, país
+          de origen, régimen y certificado.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0 sm:col-span-2">
+            <label className="block min-w-0 space-y-1.5">
+              <span className="text-sm text-slate-400">
+                Régimen de importación *
+              </span>
+              <select
+                name="regimen"
+                required
+                value={datos.regimen}
+                onChange={(e) =>
+                  patch("regimen", e.target.value as RegimenImportacion)
+                }
+                className={inputClass}
+              >
+                {REGIMENES_IMPORTACION.map((codigo) => (
+                  <option key={codigo} value={codigo}>
+                    {REGIMEN_IMPORTACION_LABELS[codigo]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-1.5 text-xs text-slate-500">
+              {getRegimenConfig(datos.regimen).descripcion}
+            </p>
+          </div>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Nº certificado de origen</span>
+            <input
+              name="numeroCertificadoOrigen"
+              value={datos.numeroCertificadoOrigen}
+              onChange={(e) =>
+                patch("numeroCertificadoOrigen", e.target.value.toUpperCase())
+              }
+              placeholder="Del certificado de origen"
+              className={`${inputClass} font-mono uppercase`}
+            />
+          </label>
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones</span>
+            <textarea
+              name="observaciones"
+              rows={3}
+              value={datos.observaciones}
+              onChange={(e) => patch("observaciones", e.target.value)}
+              placeholder="Notas de la unidad / llave…"
+              className={inputClass}
+            />
+          </label>
           <div className="min-w-0">
             <PlanillaFechaField
               label="Fecha de llegada del buque *"

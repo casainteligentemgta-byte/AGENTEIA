@@ -102,10 +102,11 @@ export const puertoLibreAltaSchema = z
         message: "Ingresa la fecha de llegada del buque (AAAA-MM-DD)",
       }),
 
-    /** Régimen de importación (SENIAT / INTT). */
-    regimen: z.enum(REGIMENES_IMPORTACION, {
-      errorMap: () => ({ message: "Selecciona el régimen de importación" }),
-    }),
+    /** Régimen de importación (se confirma en Embarque; default Puerto Libre). */
+    regimen: z
+      .enum(REGIMENES_IMPORTACION)
+      .optional()
+      .default("puerto_libre"),
 
     /**
      * Cliente importador (tabla importadores).
