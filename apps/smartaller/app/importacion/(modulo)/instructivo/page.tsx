@@ -79,7 +79,7 @@ const FASES = [
     puntos: [
       "Cargar: inspección PNB, homologación (si aplica), PUT y planilla de pago.",
       "Presentar en físico: factura, B/L, DUA, liquidación/exención, experticia, RCV, cédula, RIF y constancia de residencia.",
-      "Se entregan el título y las placas PL; registra ambos en la planilla.",
+      "Se entregan el título y las placas PL: toma foto de ambos y registra el número de placa.",
     ],
   },
 ] as const;

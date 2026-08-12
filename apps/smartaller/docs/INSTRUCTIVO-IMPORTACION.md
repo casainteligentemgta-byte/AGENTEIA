@@ -139,7 +139,7 @@ Nombre (obligatorio), cédula, teléfono, email y dirección del comprador/propi
 
 1. **Cargar:** inspección PNB, homologación (si el vehículo lo requiere), PUT y planilla de pago.
 2. **Presentar en físico:** factura, B/L, DUA, liquidación/exención, experticia, póliza RCV, cédula, RIF y constancia de residencia (verifica que estén en el expediente).
-3. **Entrega:** carga el **título** y registra las **placas PL**.
+3. **Entrega:** toma foto (o sube) el **título** y la **placa PL**, y registra el número de placa.
 
 Al cerrar: planilla completa (`fase 8`) y, en Puerto Libre, suele fijarse la **fecha límite de nacionalización** (≈ 3 años desde ingreso).
 

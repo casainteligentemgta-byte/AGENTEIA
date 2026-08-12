@@ -1246,7 +1246,13 @@ export async function completePuertoLibreFase6MatriculacionAction(
   if (!docs.titulo?.url) {
     return {
       success: false,
-      error: "Carga el título entregado por el INTT antes de finalizar",
+      error: "Carga la foto o PDF del título entregado por el INTT antes de finalizar",
+    };
+  }
+  if (!docs.foto_placa?.url) {
+    return {
+      success: false,
+      error: "Toma o carga la foto de la placa PL antes de finalizar",
     };
   }
 

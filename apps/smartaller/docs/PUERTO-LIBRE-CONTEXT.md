@@ -106,7 +106,7 @@ Subpaso 1 (`matriculacionPaso=1`): carpeta INTT.
 
 **Presentar en físico** (deben estar en el expediente): factura, B/L, DUA, liquidación **o** exención, experticia, RCV, cédula, RIF, constancia de residencia.
 
-Subpaso 2: carga `titulo` + registra placa PL entregada por el INTT.  
+Subpaso 2: carga `titulo` (foto/PDF) + `foto_placa` + registra el número de placa PL.  
 Al completar → **fase 8** y `fechaLimiteNacionalizacion` = fechaIngreso + 3 años (si falta).
 
 ### Fase 8 — Planilla completa

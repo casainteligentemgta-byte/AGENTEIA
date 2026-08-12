@@ -393,8 +393,11 @@ export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
   "oficio_exoneracion_seniat",
 ];
 
-/** Entrega INTT: título + placas PL (paso 2). */
-export const PL_MATRICULACION_ENTREGA_TIPOS: DocumentoTipo[] = ["titulo"];
+/** Entrega INTT: título + foto de placa PL (paso 2). */
+export const PL_MATRICULACION_ENTREGA_TIPOS: DocumentoTipo[] = [
+  "titulo",
+  "foto_placa",
+];
 
 /**
  * Docs que suelen cargarse por primera vez en matriculación
@@ -410,6 +413,7 @@ export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
   "planilla_liquidacion_aduanera",
   "oficio_exoneracion_seniat",
   "titulo",
+  "foto_placa",
 ];
 
 export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
@@ -427,7 +431,8 @@ export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
   homologacion: "Solo si el vehículo lo requiere",
   planilla_sumica_put: "Planilla única de trámite (PUT / SUMICA)",
   pago_tasas: "Planilla de pago de tasas INTT",
-  titulo: "Título entregado por el INTT junto con las placas PL",
+  titulo: "Título entregado por el INTT — toma foto o sube PDF",
+  foto_placa: "Foto de la placa PL entregada por el INTT",
 };
 
 /** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
