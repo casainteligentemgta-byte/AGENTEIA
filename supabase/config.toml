@@ -150,7 +150,8 @@ max_indexes = 5
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
+# in emails. Local CLI only — en el proyecto hosted de producción Site URL debe ser
+# https://smarttaller.xyz (Authentication → URL Configuration).
 site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://127.0.0.1:3000"]

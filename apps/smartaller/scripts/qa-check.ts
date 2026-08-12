@@ -106,7 +106,20 @@ async function main() {
   check("TELEGRAM_WEBHOOK_SECRET", isRealKey(process.env.TELEGRAM_WEBHOOK_SECRET), undefined, !strictEnv);
   check("OPENAI_API_KEY", isRealKey(process.env.OPENAI_API_KEY), undefined, !strictEnv);
   check("CRON_SECRET", isRealKey(process.env.CRON_SECRET), undefined, !strictEnv);
-  check("NEXT_PUBLIC_APP_URL", isRealKey(process.env.NEXT_PUBLIC_APP_URL, ["http://localhost:3003"]), undefined, !strictEnv);
+  {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "";
+    const looksLocal =
+      /localhost|127\.0\.0\.1/i.test(appUrl) || appUrl.includes(":3000");
+    check(
+      "NEXT_PUBLIC_APP_URL",
+      isRealKey(appUrl, ["http://localhost:3003"]) &&
+        (!strictEnv || !looksLocal),
+      looksLocal && strictEnv
+        ? "No uses localhost en producción (rompe enlaces del portal)"
+        : undefined,
+      !strictEnv
+    );
+  }
 
   const stripeOk =
     isRealKey(process.env.STRIPE_SECRET_KEY) &&
