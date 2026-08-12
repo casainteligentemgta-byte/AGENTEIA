@@ -44,7 +44,10 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
-import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
+import {
+  clasificarTipoImportadorPorRif,
+  evaluarCupoPersonaNatural,
+} from "@/lib/importacion/cumplimiento-importador";
 import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
@@ -1016,16 +1019,21 @@ export async function completePuertoLibreFase3Action(
 
   const existing = parseImportacion(row.importacion);
   const docs = parseVehiculosDocumentos(row.documentos);
+  const esJuridica =
+    clasificarTipoImportadorPorRif(existing.importadorDocumento) === "juridica";
   const carpeta = docsDesaduanamientoPorRegimen(
     existing.regimen,
-    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
+    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+    { esJuridica }
   );
   const faltantes = carpeta.filter((t) => !docs[t]?.url);
   if (faltantes.length > 0) {
     return {
       success: false,
       error:
-        "Completa la carpeta de desaduanamiento (documentos base + recaudos del régimen elegido)",
+        "Completa la carpeta de desaduanamiento (cédula/RIF, lista, DUA, DAV, SENCAMER, agente, reconocimiento, pase de salida, cancelación de gastos" +
+        (esJuridica ? ", registro PL" : "") +
+        " y recaudos del régimen)",
     };
   }
 

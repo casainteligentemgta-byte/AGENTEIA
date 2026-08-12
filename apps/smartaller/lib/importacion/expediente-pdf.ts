@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { placaRealVisible } from "@/lib/importacion/expediente";
+import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsDesaduanamientoPorRegimen,
   labelRegimenImportacion,
@@ -670,7 +671,11 @@ export async function buildDesaduanamientoPdf(
 
   const carpetaTipos = docsDesaduanamientoPorRegimen(
     imp.regimen,
-    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS
+    PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+    {
+      esJuridica:
+        clasificarTipoImportadorPorRif(imp.importadorDocumento) === "juridica",
+    }
   );
   const indexPairs: LinePair[] = carpetaTipos.map((tipo, i) => ({
     label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,

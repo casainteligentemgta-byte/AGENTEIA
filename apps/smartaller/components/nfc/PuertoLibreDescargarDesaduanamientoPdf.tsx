@@ -78,8 +78,8 @@ export function PuertoLibreDescargarDesaduanamientoPdf({
           </>
         )}
         {pending
-          ? "Generando carpeta PDF…"
-          : "Descargar / imprimir carpeta PDF"}
+          ? "Generando Expediente PDF SENIAT…"
+          : "Generar / descargar Expediente PDF SENIAT"}
       </button>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
     </div>
