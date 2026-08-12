@@ -74,18 +74,17 @@ Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUAN
 
 1. `cedula_importador`  
 2. `rif_importador` (dirección Nueva Esparta, Venezuela)  
-3. `lista_empaque`  
+3. `lista_empaque` (desde Embarque o carga aquí)  
 4. `nacionalizacion` (DUA)  
 5. `dav`  
 6. `sencamer`  
-7. `registro_puerto_libre`  
+7. `registro_puerto_libre` — solo importador persona jurídica  
 8. `agente_aduanal_doc`  
 9. `constancia_edi_reconocimiento` (desde Llegada)  
 10. `pase_salida_levante`  
-11. `cancelacion_gastos_portuarios`  
-12. `nota_levante_seniat` — emisión de la nota del levante por el SENIAT
+11. `cancelacion_gastos_portuarios` (portuarios, almacén y manipulación)
 
-PDF: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`).  
+PDF: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`) — botón «Generar / descargar Expediente PDF SENIAT».  
 `completePuertoLibreFase3Action({ vehiculoId, agenteAduanal })` → fase 5.
 
 ### Fase 5 — Propietario
@@ -202,9 +201,9 @@ Por tipo: `{ url, path, scanned_at?, file_name? }`.
 Grupos:
 
 - Registro: `factura_comercial`, `certificado_origen`
-- Embarque: `bl_guia`, `lista_empaque`, `dav`, `poliza_transporte`
+- Embarque: `bl_guia`, `lista_empaque`, `poliza_transporte`
 - Llegada: `acta_recepcion_mercancia`, `constancia_edi_reconocimiento`
-- Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre`, `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`, `cancelacion_gastos_portuarios`, `nota_levante_seniat`
+- Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre` (solo jurídica), `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`, `cancelacion_gastos_portuarios`
 - Fotos: `foto_frontal`, `foto_trasera`, `foto_lateral_izq`, `foto_lateral_der`, `foto_motor`, `foto_impronta`, `foto_odometro` (+ `foto_vin`, `foto_danos`, `foto_placa`, `foto_comprador`)
 - Seguro: `poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`
 - Matriculación extras: `experticia_verificacion_legal`, `planilla_sumica_put`, `pago_tasas`
