@@ -30,7 +30,7 @@ const FASES = [
     titulo: "Embarque",
     puntos: [
       "BL / Guía",
-      "Lista de embarque / empaque",
+      "Lista de empaque",
       "DAV",
       "Póliza de transporte",
     ],
