@@ -782,18 +782,41 @@ export async function updatePuertoLibrePropietarioAction(
  * Marca fase 2 (docs de embarque) completa y avanza a fase 3 (llegada).
  * Alias histórico: completePuertoLibreFase1aEmbarqueAction.
  */
+const fase2EmbarqueSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  fechaLlegadaBuque: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de llegada del buque inválida"),
+  puerto: z.string().trim().min(1, "Indica el puerto").max(120),
+  modalidadTransito: z.enum(["ninguno", "transito", "uso24"]).default("ninguno"),
+  aduanaTransito: z.string().trim().max(120).optional().nullable(),
+  aduana: z.string().trim().min(1, "Selecciona la aduana").max(120),
+  numeroBl: z.string().trim().min(1, "Indica el nº de BL / guía").max(80),
+  paisOrigen: z.string().trim().min(1, "Selecciona el país de origen").max(80),
+});
+
+/** Guarda datos de embarque (manual + OCR del BL) y avanza a llegada. */
 export async function completePuertoLibreFase2EmbarqueAction(
-  vehiculoId: string
+  raw: unknown
 ): Promise<PuertoLibreActionResult> {
   const auth = await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const idParsed = z.string().uuid().safeParse(vehiculoId);
-  if (!idParsed.success) return { success: false, error: "ID inválido" };
+  // Compat: llamadas antiguas solo con vehiculoId (string)
+  const normalized =
+    typeof raw === "string" ? { vehiculoId: raw } : raw;
+  const parsed = fase2EmbarqueSchema.safeParse(normalized);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos de embarque inválidos",
+    };
+  }
 
-  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
@@ -805,9 +828,30 @@ export async function completePuertoLibreFase2EmbarqueAction(
     };
   }
 
+  const modalidad = parsed.data.modalidadTransito;
+  if (
+    (modalidad === "transito" || modalidad === "uso24") &&
+    !parsed.data.aduanaTransito?.trim()
+  ) {
+    return {
+      success: false,
+      error: "Indica la aduana de tránsito / USO24",
+    };
+  }
+
   const existing = parseImportacion(row.importacion);
   const importacion = serializeImportacion({
     ...existing,
+    fechaLlegadaBuque: parsed.data.fechaLlegadaBuque,
+    puerto: parsed.data.puerto.trim(),
+    modalidadTransito: modalidad,
+    aduanaTransito:
+      modalidad === "transito" || modalidad === "uso24"
+        ? parsed.data.aduanaTransito?.trim() || null
+        : null,
+    aduana: resolveAduanaVenezuela(parsed.data.aduana) || parsed.data.aduana,
+    numeroBl: parsed.data.numeroBl.trim(),
+    paisOrigen: resolvePais(parsed.data.paisOrigen) || parsed.data.paisOrigen,
     planillaFase: Math.max(existing.planillaFase ?? 2, 3),
   });
 
@@ -815,11 +859,11 @@ export async function completePuertoLibreFase2EmbarqueAction(
   const { error } = await admin
     .from("vehiculos")
     .update({ importacion, updated_at: new Date().toISOString() })
-    .eq("id", idParsed.data)
+    .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
   if (error) return { success: false, error: error.message };
-  revalidateFicha(idParsed.data);
+  revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
 

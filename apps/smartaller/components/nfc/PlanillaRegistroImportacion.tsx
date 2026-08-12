@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -14,6 +15,7 @@ import {
   Camera,
   CheckCircle2,
   FileUp,
+  Ship,
   Shield,
   User,
 } from "lucide-react";
@@ -48,8 +50,15 @@ import {
   origenDocDesaduanamiento,
 } from "@/lib/importacion/regimenes";
 import {
+  ADUANAS_VENEZUELA,
+  resolveAduanaVenezuela,
+} from "@/lib/importacion/aduanas-venezuela";
+import { PAISES, resolvePais } from "@/lib/importacion/paises";
+import {
   DOCUMENTO_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
+  MODALIDAD_TRANSITO_LABELS,
+  MODALIDADES_TRANSITO,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
@@ -60,6 +69,7 @@ import {
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type ImportacionData,
+  type ModalidadTransito,
   type SeguroData,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
@@ -455,17 +465,40 @@ export function PlanillaRegistroImportacion({
           setDocs={setDocs}
           docsCount={embarqueCount}
           pending={pending}
-          canComplete={embarqueCompleto}
-          onComplete={(after) => {
+          canCompleteDocs={embarqueCompleto}
+          initial={{
+            fechaLlegadaBuque: initialImportacion.fechaLlegadaBuque?.trim() ?? "",
+            puerto: initialImportacion.puerto?.trim() ?? "",
+            modalidadTransito:
+              (initialImportacion.modalidadTransito as ModalidadTransito | null) ??
+              "ninguno",
+            aduanaTransito:
+              resolveAduanaVenezuela(initialImportacion.aduanaTransito) ||
+              initialImportacion.aduanaTransito?.trim() ||
+              "",
+            aduana:
+              resolveAduanaVenezuela(initialImportacion.aduana) ||
+              initialImportacion.aduana?.trim() ||
+              "",
+            numeroBl: initialImportacion.numeroBl?.trim() ?? "",
+            paisOrigen:
+              resolvePais(initialImportacion.paisOrigen) ||
+              initialImportacion.paisOrigen?.trim() ||
+              "",
+          }}
+          onComplete={(datos, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const result = await completePuertoLibreFase2EmbarqueAction(vehiculoId);
+              const result = await completePuertoLibreFase2EmbarqueAction({
+                vehiculoId,
+                ...datos,
+              });
               if (!result.success) {
                 setError(result.error);
                 return;
               }
-              setMessage("Documentos de embarque guardados");
+              setMessage("Embarque guardado");
               navigateAfterSave(after, 3);
             });
           }}
@@ -980,13 +1013,24 @@ function Fase1Registro({
   );
 }
 
+type EmbarqueDatosForm = {
+  fechaLlegadaBuque: string;
+  puerto: string;
+  modalidadTransito: ModalidadTransito;
+  aduanaTransito: string;
+  aduana: string;
+  numeroBl: string;
+  paisOrigen: string;
+};
+
 function Fase2Embarque({
   vehiculoId,
   docs,
   setDocs,
   docsCount,
   pending,
-  canComplete,
+  canCompleteDocs,
+  initial,
   onComplete,
   onUploadedMessage,
 }: {
@@ -995,10 +1039,48 @@ function Fase2Embarque({
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
   pending: boolean;
-  canComplete: boolean;
-  onComplete: (after: PlanillaAfterSave) => void;
+  canCompleteDocs: boolean;
+  initial: EmbarqueDatosForm;
+  onComplete: (datos: EmbarqueDatosForm, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
+  const [datos, setDatos] = useState<EmbarqueDatosForm>(initial);
+
+  useEffect(() => {
+    setDatos((prev) => ({
+      fechaLlegadaBuque: initial.fechaLlegadaBuque || prev.fechaLlegadaBuque,
+      puerto: initial.puerto || prev.puerto,
+      modalidadTransito: initial.modalidadTransito || prev.modalidadTransito,
+      aduanaTransito: initial.aduanaTransito || prev.aduanaTransito,
+      aduana: initial.aduana || prev.aduana,
+      numeroBl: initial.numeroBl || prev.numeroBl,
+      paisOrigen: initial.paisOrigen || prev.paisOrigen,
+    }));
+  }, [initial]);
+
+  function patch<K extends keyof EmbarqueDatosForm>(
+    key: K,
+    value: EmbarqueDatosForm[K]
+  ) {
+    setDatos((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const needsAduanaTransito =
+    datos.modalidadTransito === "transito" ||
+    datos.modalidadTransito === "uso24";
+
+  const datosCompletos =
+    Boolean(datos.fechaLlegadaBuque.trim()) &&
+    Boolean(datos.puerto.trim()) &&
+    Boolean(datos.aduana.trim()) &&
+    Boolean(datos.numeroBl.trim()) &&
+    Boolean(datos.paisOrigen.trim()) &&
+    (!needsAduanaTransito || Boolean(datos.aduanaTransito.trim()));
+
+  const canContinue = canCompleteDocs && datosCompletos;
+  const inputClass =
+    "box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60";
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
@@ -1010,8 +1092,8 @@ function Fase2Embarque({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Al cargar el BL / guía se extraen aduana, nº BL, país y fecha de llegada
-          del buque.
+          Al escanear el BL / guía se intentan rellenar nº BL, aduana, país y fecha
+          de llegada del buque. Puedes completarlos o corregirlos a mano abajo.
         </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
@@ -1027,7 +1109,7 @@ function Fase2Embarque({
                 setDocs(next);
                 onUploadedMessage(
                   tipo === "bl_guia"
-                    ? "BL guardado · datos de embarque extraídos si la IA pudo leerlos"
+                    ? "BL guardado · revisa/completa los datos de embarque"
                     : "Documento guardado"
                 );
               }}
@@ -1036,11 +1118,130 @@ function Fase2Embarque({
         </div>
       </section>
 
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Ship className="h-5 w-5 text-cyan-400" />
+          Datos de embarque
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Fecha de llegada del buque, puerto, tránsito/USO24, aduana, nº BL y país
+          de origen.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <PlanillaFechaField
+              label="Fecha de llegada del buque *"
+              value={datos.fechaLlegadaBuque}
+              onChange={(v) => patch("fechaLlegadaBuque", v)}
+              required
+              name="fechaLlegadaBuque"
+            />
+          </div>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Puerto *</span>
+            <input
+              name="puerto"
+              required
+              value={datos.puerto}
+              onChange={(e) => patch("puerto", e.target.value)}
+              placeholder="Ej. El Guamache"
+              className={inputClass}
+            />
+          </label>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Tránsito / USO24 *</span>
+            <select
+              name="modalidadTransito"
+              value={datos.modalidadTransito}
+              onChange={(e) => {
+                const next = e.target.value as ModalidadTransito;
+                patch("modalidadTransito", next);
+                if (next === "ninguno") patch("aduanaTransito", "");
+              }}
+              className={inputClass}
+            >
+              {MODALIDADES_TRANSITO.map((m) => (
+                <option key={m} value={m}>
+                  {MODALIDAD_TRANSITO_LABELS[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {needsAduanaTransito ? (
+            <label className="block min-w-0 space-y-1.5">
+              <span className="text-sm text-slate-400">Aduana tránsito / USO24 *</span>
+              <select
+                name="aduanaTransito"
+                required
+                value={datos.aduanaTransito}
+                onChange={(e) => patch("aduanaTransito", e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Selecciona aduana</option>
+                {ADUANAS_VENEZUELA.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Aduana *</span>
+            <select
+              name="aduana"
+              required
+              value={datos.aduana}
+              onChange={(e) => patch("aduana", e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Selecciona aduana</option>
+              {ADUANAS_VENEZUELA.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Nº BL / Guía *</span>
+            <input
+              name="numeroBl"
+              required
+              value={datos.numeroBl}
+              onChange={(e) => patch("numeroBl", e.target.value.toUpperCase())}
+              placeholder="Del escaneo del BL o captura manual"
+              className={`${inputClass} font-mono uppercase`}
+            />
+            <span className="block text-xs text-slate-500">
+              Se extrae al cargar el BL; también puedes escribirlo.
+            </span>
+          </label>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">País de origen *</span>
+            <select
+              name="paisOrigen"
+              required
+              value={datos.paisOrigen}
+              onChange={(e) => patch("paisOrigen", e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Selecciona país</option>
+              {PAISES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
       <PlanillaFaseActions
         pending={pending}
-        disabled={!canComplete}
+        disabled={!canContinue}
         continueLabel="Continuar a Llegada"
-        onAction={onComplete}
+        onAction={(after) => onComplete(datos, after)}
       />
     </div>
   );
