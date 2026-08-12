@@ -74,6 +74,12 @@ export function formatLlmAuthError(err: unknown): string {
   if (err instanceof OpenAI.APIError) {
     msg = [err.status, err.message].filter(Boolean).join(" ");
   }
+  if (/402|insufficient credits|never purchased credits|payment required/i.test(msg)) {
+    if (isOpenRouterKey()) {
+      return "OpenRouter sin créditos. Recarga en https://openrouter.ai/settings/credits o cambia OPENAI_API_KEY en Vercel por una clave OpenAI (sk-proj-...).";
+    }
+    return "La API de IA rechazó la petición (pago/créditos). Revisa la facturación de OPENAI_API_KEY en Vercel.";
+  }
   if (/401|incorrect api key|invalid api key/i.test(msg)) {
     if (isOpenRouterKey()) {
       return "Clave OpenRouter inválida o expirada. Revisa OPENAI_API_KEY en Vercel (debe ser sk-or-v1-...).";

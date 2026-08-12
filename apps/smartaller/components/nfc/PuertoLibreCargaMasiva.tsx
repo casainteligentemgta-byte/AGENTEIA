@@ -51,6 +51,13 @@ import {
   type DetectedImportador,
   type SharedShipmentFields,
 } from "@/lib/importacion/carga-masiva-ui";
+import {
+  formatCargaMasivaClientError,
+  safeStorageFileName,
+  type CargaMasivaStorageDocRef,
+} from "@/lib/importacion/carga-masiva-client";
+import { createClient } from "@/lib/supabase/client";
+import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { IMPORTADOR_TIPO_LABELS } from "@/lib/schemas/importador";
 
 type Mode = "plantilla" | "documentos";
@@ -63,9 +70,13 @@ type DocItem = {
 
 type Props = {
   initialImportadores: ImportadorListItem[];
+  tallerId: string;
 };
 
-export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
+export function PuertoLibreCargaMasiva({
+  initialImportadores,
+  tallerId,
+}: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("documentos");
   const [rows, setRows] = useState<CargaMasivaRow[]>([]);
@@ -205,9 +216,48 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     setDocs((prev) => [...prev, ...next].slice(0, 20));
   }
 
+  async function uploadDocsToStorage(
+    items: DocItem[],
+    batchId: string
+  ): Promise<CargaMasivaStorageDocRef[]> {
+    const supabase = createClient();
+    const refs: CargaMasivaStorageDocRef[] = [];
+    for (const d of items) {
+      const fileName = safeStorageFileName(d.file.name);
+      const path = `${tallerId}/carga-masiva-temp/${batchId}/${d.id}-${fileName}`;
+      const { error } = await supabase.storage
+        .from(VEHICULO_DOCS_BUCKET)
+        .upload(path, d.file, {
+          upsert: false,
+          contentType: d.file.type || "application/pdf",
+        });
+      if (error) {
+        throw new Error(`${d.file.name}: ${error.message}`);
+      }
+      refs.push({ path, tipo: d.tipo, fileName: d.file.name });
+    }
+    return refs;
+  }
+
+  function storageRefsForEtapa(
+    allRefs: CargaMasivaStorageDocRef[],
+    etapa: CargaMasivaEtapaId
+  ): CargaMasivaStorageDocRef[] {
+    if (etapa === "certs") {
+      return allRefs.filter(
+        (r) => r.tipo === "certificado_origen" || r.tipo === "bl_guia"
+      );
+    }
+    return allRefs.filter((r) => r.tipo === "factura_comercial");
+  }
+
   function extractDocs() {
     if (docs.length === 0) {
       setError("Agrega al menos un PDF o foto");
+      return;
+    }
+    if (!tallerId) {
+      setError("No se pudo identificar el taller para subir documentos");
       return;
     }
     setError(null);
@@ -224,66 +274,94 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
       : ["vins", "datos"];
 
     startTransition(async () => {
-      let currentRows: CargaMasivaRow[] = [];
-      const allWarnings: string[] = [];
-      let lastCertMatches: CertMatch[] = [];
-
-      for (let i = 0; i < etapas.length; i++) {
-        const etapa = etapas[i]!;
-        setActiveEtapa(etapa);
+      try {
+        const batchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}`;
         setExtractProgress({
-          etapa,
-          label: CARGA_MASIVA_ETAPA_LABELS[etapa],
-          hint: CARGA_MASIVA_ETAPA_HINTS[etapa],
-          vinsEncontrados: currentRows.filter(
-            (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
-          ).length,
-          filasCompletas: currentRows.filter(
-            (r) => vehicleCompleteness(r).complete
-          ).length,
-          totalFilas: currentRows.length,
-          pct: Math.round((i / etapas.length) * 100),
+          etapa: "vins",
+          label: "Subiendo documentos…",
+          hint: "Evita el límite de tamaño de red (Safari / Vercel)",
+          vinsEncontrados: 0,
+          filasCompletas: 0,
+          totalFilas: 0,
+          pct: 5,
         });
 
-        const fd = new FormData();
-        fd.set("etapa", etapa);
-        for (const d of docs) {
-          fd.append("files", d.file);
-          fd.append("tipos", d.tipo);
-        }
-        if (etapa !== "vins") {
-          fd.set("rowsJson", JSON.stringify(currentRows));
+        const allStorageDocs = await uploadDocsToStorage(docs, batchId);
+
+        let currentRows: CargaMasivaRow[] = [];
+        const allWarnings: string[] = [];
+        let lastCertMatches: CertMatch[] = [];
+
+        for (let i = 0; i < etapas.length; i++) {
+          const etapa = etapas[i]!;
+          const storageDocs = storageRefsForEtapa(allStorageDocs, etapa);
+          if (storageDocs.length === 0) {
+            if (etapa === "certs") continue;
+            setError("Falta la factura comercial para extraer VIN");
+            setActiveEtapa(null);
+            setExtractProgress(null);
+            return;
+          }
+
+          setActiveEtapa(etapa);
+          setExtractProgress({
+            etapa,
+            label: CARGA_MASIVA_ETAPA_LABELS[etapa],
+            hint: CARGA_MASIVA_ETAPA_HINTS[etapa],
+            vinsEncontrados: currentRows.filter(
+              (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
+            ).length,
+            filasCompletas: currentRows.filter(
+              (r) => vehicleCompleteness(r).complete
+            ).length,
+            totalFilas: currentRows.length,
+            pct: Math.round((i / etapas.length) * 100),
+          });
+
+          const fd = new FormData();
+          fd.set("etapa", etapa);
+          fd.set("storageDocs", JSON.stringify(storageDocs));
+          if (etapa !== "vins") {
+            fd.set("rowsJson", JSON.stringify(currentRows));
+          }
+
+          const result = await extractCargaMasivaEtapaAction(fd);
+          if (!result.success) {
+            setError(result.error);
+            setActiveEtapa(null);
+            setExtractProgress(null);
+            setWarnings(allWarnings);
+            return;
+          }
+
+          currentRows = result.rows;
+          allWarnings.push(...result.warnings);
+          if (result.certMatches.length > 0) {
+            lastCertMatches = result.certMatches;
+          }
+          ingestExtracted(result.rows, result.certMatches);
+          setExtractProgress({
+            ...result.progress,
+            pct: Math.round(((i + 1) / etapas.length) * 100),
+          });
+          setWarnings([...allWarnings]);
         }
 
-        const result = await extractCargaMasivaEtapaAction(fd);
-        if (!result.success) {
-          setError(result.error);
-          setActiveEtapa(null);
-          setExtractProgress(null);
-          setWarnings(allWarnings);
-          return;
-        }
-
-        currentRows = result.rows;
-        allWarnings.push(...result.warnings);
-        if (result.certMatches.length > 0) {
-          lastCertMatches = result.certMatches;
-        }
-        ingestExtracted(result.rows, result.certMatches);
-        setExtractProgress({
-          ...result.progress,
-          pct: Math.round(((i + 1) / etapas.length) * 100),
-        });
-        setWarnings([...allWarnings]);
+        setCertMatches(lastCertMatches);
+        setActiveEtapa(null);
+        setResultMsg(
+          `Extracción por etapas lista: ${currentRows.length} vehículo(s). ${
+            currentRows.filter((r) => vehicleCompleteness(r).complete).length
+          } con datos completos.`
+        );
+      } catch (err) {
+        setActiveEtapa(null);
+        setExtractProgress(null);
+        setError(formatCargaMasivaClientError(err));
       }
-
-      setCertMatches(lastCertMatches);
-      setActiveEtapa(null);
-      setResultMsg(
-        `Extracción por etapas lista: ${currentRows.length} vehículo(s). ${
-          currentRows.filter((r) => vehicleCompleteness(r).complete).length
-        } con datos completos.`
-      );
     });
   }
 
@@ -291,6 +369,10 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     if (!list?.length) return;
     if (rows.length === 0) {
       setError("Primero extrae o carga los vehículos");
+      return;
+    }
+    if (!tallerId) {
+      setError("No se pudo identificar el taller para subir documentos");
       return;
     }
     const certDocs: DocItem[] = Array.from(list).map((file) => ({
@@ -302,23 +384,30 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     setError(null);
     setResultMsg(null);
     startTransition(async () => {
-      const fd = new FormData();
-      for (const d of certDocs) {
-        fd.append("files", d.file);
+      try {
+        const batchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}`;
+        const storageDocs = await uploadDocsToStorage(certDocs, batchId);
+        const fd = new FormData();
+        fd.set("storageDocs", JSON.stringify(storageDocs));
+        fd.set("rowsJson", JSON.stringify(rows));
+        const result = await completarCargaMasivaConCertificadosAction(fd);
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        ingestExtracted(result.rows, result.certMatches);
+        setWarnings(result.warnings);
+        setResultMsg(
+          `Certificados aplicados. ${
+            result.rows.filter((r) => vehicleCompleteness(r).complete).length
+          }/${result.rows.length} filas con datos completos.`
+        );
+      } catch (err) {
+        setError(formatCargaMasivaClientError(err));
       }
-      fd.set("rowsJson", JSON.stringify(rows));
-      const result = await completarCargaMasivaConCertificadosAction(fd);
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      ingestExtracted(result.rows, result.certMatches);
-      setWarnings(result.warnings);
-      setResultMsg(
-        `Certificados aplicados. ${
-          result.rows.filter((r) => vehicleCompleteness(r).complete).length
-        }/${result.rows.length} filas con datos completos.`
-      );
     });
   }
 
@@ -377,6 +466,7 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
     });
 
     startTransition(async () => {
+      try {
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: selected.id,
         rows: rowsToImport,
@@ -461,6 +551,9 @@ export function PuertoLibreCargaMasiva({ initialImportadores }: Props) {
             .map((f) => `Fila ${f.index + 1} (${f.serial}): ${f.error}`)
             .join(" · ")
         );
+      }
+      } catch (err) {
+        setError(formatCargaMasivaClientError(err));
       }
     });
   }

@@ -46,7 +46,10 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
-import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
+import {
+  validateVehiculoDocumentoFile,
+  VEHICULO_DOCS_BUCKET,
+} from "@/lib/vehiculos/upload-documento";
 import type { PuertoLibreAltaInput } from "@/lib/schemas/importacion-alta";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -60,6 +63,7 @@ import {
   rifCoincideConSeleccionado,
   vehicleSemaforo,
 } from "@/lib/importacion/carga-masiva-ui";
+import type { CargaMasivaStorageDocRef } from "@/lib/importacion/carga-masiva-client";
 import { normalizeRif } from "@/lib/validations/rif";
 
 async function requireTallerAuth() {
@@ -543,13 +547,120 @@ function mergeRowByVin(
   );
 }
 
+type LoadedDoc = { file: File; buffer: Buffer; mimeType: string };
+
+async function loadCargaMasivaDocsFromForm(
+  formData: FormData,
+  tallerId: string,
+  warnings: string[]
+): Promise<
+  | {
+      ok: true;
+      facturas: LoadedDoc[];
+      certs: LoadedDoc[];
+      bls: LoadedDoc[];
+    }
+  | { ok: false; error: string }
+> {
+  const facturas: LoadedDoc[] = [];
+  const certs: LoadedDoc[] = [];
+  const bls: LoadedDoc[] = [];
+
+  function pushByTipo(tipoRaw: string, doc: LoadedDoc) {
+    if (tipoRaw === "factura_comercial") facturas.push(doc);
+    else if (tipoRaw === "certificado_origen") certs.push(doc);
+    else if (tipoRaw === "bl_guia") bls.push(doc);
+    else warnings.push(`${doc.file.name}: tipo desconocido, se omitió`);
+  }
+
+  const storageRaw = String(formData.get("storageDocs") ?? "").trim();
+  if (storageRaw) {
+    let refs: CargaMasivaStorageDocRef[] = [];
+    try {
+      const parsed = JSON.parse(storageRaw) as unknown;
+      if (!Array.isArray(parsed)) {
+        return { ok: false, error: "storageDocs inválido" };
+      }
+      refs = parsed as CargaMasivaStorageDocRef[];
+    } catch {
+      return { ok: false, error: "storageDocs JSON inválido" };
+    }
+    if (refs.length === 0) {
+      return { ok: false, error: "Selecciona al menos un PDF o foto" };
+    }
+    if (refs.length > 20) {
+      return { ok: false, error: "Máximo 20 documentos por carga" };
+    }
+
+    const admin = createAdminClient();
+    const prefix = `${tallerId}/`;
+    for (const ref of refs) {
+      const path = String(ref.path ?? "");
+      if (!path.startsWith(prefix) || path.includes("..")) {
+        warnings.push(`${ref.fileName || path}: ruta no autorizada`);
+        continue;
+      }
+      const { data, error } = await admin.storage
+        .from(VEHICULO_DOCS_BUCKET)
+        .download(path);
+      if (error || !data) {
+        warnings.push(
+          `${ref.fileName || path}: no se pudo leer de Storage (${error?.message ?? "sin datos"})`
+        );
+        continue;
+      }
+      const buffer = Buffer.from(await data.arrayBuffer());
+      const fileName = ref.fileName || path.split("/").pop() || "documento.pdf";
+      const file = new File([buffer], fileName, {
+        type: data.type || "application/pdf",
+      });
+      const mimeType = resolveDocMime(file, buffer);
+      pushByTipo(String(ref.tipo || guessTipoFromName(fileName)), {
+        file,
+        buffer,
+        mimeType,
+      });
+    }
+    return { ok: true, facturas, certs, bls };
+  }
+
+  const files = formData
+    .getAll("files")
+    .filter((f): f is File => f instanceof File);
+  if (files.length === 0) {
+    return { ok: false, error: "Selecciona al menos un PDF o foto" };
+  }
+  if (files.length > 20) {
+    return { ok: false, error: "Máximo 20 documentos por carga" };
+  }
+  const tipos = formData.getAll("tipos").map((t) => String(t));
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!;
+    const tipoRaw =
+      tipos[i] ||
+      String(formData.get(`tipo_${i}`) ?? "") ||
+      guessTipoFromName(file.name);
+    const validationError = validateVehiculoDocumentoFile(file);
+    if (validationError) {
+      warnings.push(`${file.name}: ${validationError}`);
+      continue;
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const mimeType = resolveDocMime(file, buffer);
+    pushByTipo(tipoRaw, { file, buffer, mimeType });
+  }
+  return { ok: true, facturas, certs, bls };
+}
+
 /**
  * Extracción por etapas (Fase B):
  * 1. vins — cosecha VIN de facturas
  * 2. datos — modelo/color/CIF/cabecera
  * 3. certs — certificados + BL
  *
- * FormData: etapa, files[], tipos[], rowsJson (etapas 2–3).
+ * FormData: etapa, rowsJson (2–3), y una de:
+ * - files[] + tipos[] (legacy, límite ~4.5 MB en Vercel)
+ * - storageDocs JSON [{path,tipo,fileName}] (recomendado: upload directo a Storage)
  */
 export async function extractCargaMasivaEtapaAction(
   formData: FormData
@@ -574,42 +685,26 @@ export async function extractCargaMasivaEtapaAction(
   }
   const etapa = etapaRaw as CargaMasivaEtapaId;
 
-  const files = formData.getAll("files").filter((f): f is File => f instanceof File);
-  if (files.length === 0) {
-    return { success: false, error: "Selecciona al menos un PDF o foto" };
-  }
-  if (files.length > 20) {
-    return { success: false, error: "Máximo 20 documentos por carga" };
-  }
-
-  const tipos = formData.getAll("tipos").map((t) => String(t));
   const facturas: { file: File; buffer: Buffer; mimeType: string }[] = [];
   const certs: { file: File; buffer: Buffer; mimeType: string }[] = [];
   const bls: { file: File; buffer: Buffer; mimeType: string }[] = [];
   const warnings: string[] = [];
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]!;
-    const tipoRaw =
-      tipos[i] ||
-      String(formData.get(`tipo_${i}`) ?? "") ||
-      guessTipoFromName(file.name);
-    const validationError = validateVehiculoDocumentoFile(file);
-    if (validationError) {
-      warnings.push(`${file.name}: ${validationError}`);
-      continue;
-    }
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const mimeType = resolveDocMime(file, buffer);
-    if (tipoRaw === "factura_comercial") {
-      facturas.push({ file, buffer, mimeType });
-    } else if (tipoRaw === "certificado_origen") {
-      certs.push({ file, buffer, mimeType });
-    } else if (tipoRaw === "bl_guia") {
-      bls.push({ file, buffer, mimeType });
-    } else {
-      warnings.push(`${file.name}: tipo desconocido, se omitió`);
-    }
+  const loaded = await loadCargaMasivaDocsFromForm(
+    formData,
+    auth.taller.id,
+    warnings
+  );
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  facturas.push(...loaded.facturas);
+  certs.push(...loaded.certs);
+  bls.push(...loaded.bls);
+
+  if (facturas.length + certs.length + bls.length === 0) {
+    return {
+      success: false,
+      error: "Selecciona al menos un PDF o foto válido",
+    };
   }
 
   const hasCertOrBl = certs.length > 0 || bls.length > 0;
@@ -636,8 +731,12 @@ export async function extractCargaMasivaEtapaAction(
         } catch (err) {
           const detail = formatLlmAuthError(err);
           warnings.push(`${f.file.name}: error en cosecha VIN — ${detail}`);
-          // Si el error ya trae diagnóstico OCR, úsalo como fallo principal al final
-          if (/Sin VIN legibles|OPENAI|API|visión|vision|clave/i.test(detail)) {
+          // Fallo de IA / facturación / OCR: no seguir gastando llamadas
+          if (
+            /Sin VIN|OPENAI|OpenRouter|créditos|credits|402|API|visión|vision|clave/i.test(
+              detail
+            )
+          ) {
             return { success: false, error: `${f.file.name}: ${detail}` };
           }
         }
@@ -892,7 +991,7 @@ export async function extractCargaMasivaEtapaAction(
 
 /**
  * Solo certificados de origen: completa filas ya extraídas emparejando por VIN.
- * FormData: files[] (certs) + rowsJson (CargaMasivaRow[]).
+ * FormData: rowsJson + storageDocs JSON (recomendado) o files[] (legacy).
  */
 export async function completarCargaMasivaConCertificadosAction(
   formData: FormData
@@ -921,29 +1020,44 @@ export async function completarCargaMasivaConCertificadosAction(
     return { success: false, error: "Filas inválidas" };
   }
 
-  const files = formData.getAll("files").filter((f): f is File => f instanceof File);
-  if (files.length === 0) {
-    return { success: false, error: "Selecciona al menos un certificado de origen" };
+  const warnings: string[] = [];
+  const loaded = await loadCargaMasivaDocsFromForm(
+    formData,
+    auth.taller.id,
+    warnings
+  );
+  if (!loaded.ok) {
+    return {
+      success: false,
+      error:
+        loaded.error === "Selecciona al menos un PDF o foto"
+          ? "Selecciona al menos un certificado de origen"
+          : loaded.error,
+    };
   }
-  if (files.length > 20) {
-    return { success: false, error: "Máximo 20 certificados por carga" };
+  const certFiles =
+    loaded.certs.length > 0
+      ? loaded.certs
+      : [...loaded.facturas, ...loaded.bls, ...loaded.certs];
+  if (certFiles.length === 0) {
+    return {
+      success: false,
+      error: "Selecciona al menos un certificado de origen",
+    };
   }
 
-  const warnings: string[] = [];
   let sharedFromCert: PuertoLibreRegistroScanFields = {};
   const certVehicles: { fields: PuertoLibreRegistroScanFields; fileName: string }[] =
     [];
   const certMatches: CertMatch[] = [];
 
   try {
-    for (const file of files) {
+    for (const { file, buffer, mimeType } of certFiles) {
       const validationError = validateVehiculoDocumentoFile(file);
       if (validationError) {
         warnings.push(`${file.name}: ${validationError}`);
         continue;
       }
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const mimeType = resolveDocMime(file, buffer);
       const extracted = await extractCertificadoOrigenMultiFromDocument(
         buffer,
         mimeType
