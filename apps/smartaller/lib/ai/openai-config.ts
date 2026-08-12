@@ -1,52 +1,101 @@
 import OpenAI from "openai";
 import { getAppBaseUrl } from "@/lib/app-url";
 
-/** Config OpenAI directo o vía OpenRouter (clave sk-or-v1-...). */
+/**
+ * Proveedores LLM:
+ * 1. GEMINI_API_KEY → Google AI Studio (tier gratuito, visión incluida)
+ * 2. OPENAI_API_KEY → OpenAI (sk-proj-...) u OpenRouter (sk-or-v1-...)
+ */
 
-export function getLlmApiKey(): string {
+export type LlmProvider = "gemini" | "openrouter" | "openai";
+
+const GEMINI_OPENAI_BASE_URL =
+  "https://generativelanguage.googleapis.com/v1beta/openai/";
+
+function isPlaceholderKey(key: string): boolean {
+  return key === "sk-..." || key.endsWith("...") || key.length <= 20;
+}
+
+export function getGeminiApiKey(): string {
+  return process.env.GEMINI_API_KEY?.trim() ?? "";
+}
+
+export function getOpenAIApiKey(): string {
   return process.env.OPENAI_API_KEY?.trim() ?? "";
 }
 
+/** Clave activa: Gemini tiene prioridad (gratis) sobre OpenAI/OpenRouter. */
+export function getLlmApiKey(): string {
+  const gemini = getGeminiApiKey();
+  if (gemini && !isPlaceholderKey(gemini)) return gemini;
+  return getOpenAIApiKey();
+}
+
+export function getLlmProvider(): LlmProvider | null {
+  const gemini = getGeminiApiKey();
+  if (gemini && !isPlaceholderKey(gemini)) return "gemini";
+  const openai = getOpenAIApiKey();
+  if (!openai || isPlaceholderKey(openai)) return null;
+  if (openai.startsWith("sk-or-")) return "openrouter";
+  return "openai";
+}
+
 export function isOpenRouterKey(apiKey: string = getLlmApiKey()): boolean {
-  return apiKey.startsWith("sk-or-");
+  return getLlmProvider() === "openrouter" || apiKey.startsWith("sk-or-");
+}
+
+export function isGeminiProvider(): boolean {
+  return getLlmProvider() === "gemini";
 }
 
 export function getOpenAIBaseURL(): string | undefined {
-  return isOpenRouterKey() ? "https://openrouter.ai/api/v1" : undefined;
+  const provider = getLlmProvider();
+  if (provider === "gemini") return GEMINI_OPENAI_BASE_URL;
+  if (provider === "openrouter") return "https://openrouter.ai/api/v1";
+  return undefined;
 }
 
 /** Modelo de chat según proveedor. */
 export function getChatModelId(): string {
-  const custom = process.env.OPENAI_CHAT_MODEL?.trim();
+  const custom =
+    process.env.OPENAI_CHAT_MODEL?.trim() ||
+    process.env.GEMINI_CHAT_MODEL?.trim();
   if (custom) return custom;
-  return isOpenRouterKey() ? "openai/gpt-4o-mini" : "gpt-4o-mini";
+  const provider = getLlmProvider();
+  if (provider === "gemini") return "gemini-2.0-flash";
+  if (provider === "openrouter") return "openai/gpt-4o-mini";
+  return "gpt-4o-mini";
 }
 
 /** Modelo de visión (placa, tablero, facturas). */
 export function getVisionModelId(): string {
-  const custom = process.env.OPENAI_VISION_MODEL?.trim();
+  const custom =
+    process.env.OPENAI_VISION_MODEL?.trim() ||
+    process.env.GEMINI_VISION_MODEL?.trim();
   if (custom) return custom;
-  return isOpenRouterKey() ? "openai/gpt-4o-mini" : "gpt-4o-mini";
+  const provider = getLlmProvider();
+  if (provider === "gemini") return "gemini-2.0-flash";
+  if (provider === "openrouter") return "openai/gpt-4o-mini";
+  return "gpt-4o-mini";
 }
 
 export function isLlmConfigured(): boolean {
-  const key = getLlmApiKey();
-  if (!key) return false;
-  if (key === "sk-..." || key.endsWith("...")) return false;
-  return key.length > 20;
+  return getLlmProvider() !== null;
 }
 
 export function requireLlmApiKey(): string {
   const key = getLlmApiKey();
-  if (!key) {
-    throw new Error("Falta OPENAI_API_KEY en las variables de entorno");
+  if (!key || isPlaceholderKey(key)) {
+    throw new Error(
+      "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY en las variables de entorno"
+    );
   }
   return key;
 }
 
 /** Headers recomendados para OpenRouter (Referer exigido en producción). */
 export function getOpenRouterHeaders(): Record<string, string> | undefined {
-  if (!isOpenRouterKey()) return undefined;
+  if (getLlmProvider() !== "openrouter") return undefined;
   const siteUrl = getAppBaseUrl();
   return {
     "HTTP-Referer": siteUrl,
@@ -75,16 +124,37 @@ export function formatLlmAuthError(err: unknown): string {
     msg = [err.status, err.message].filter(Boolean).join(" ");
   }
   if (/402|insufficient credits|never purchased credits|payment required/i.test(msg)) {
+<<<<<<< HEAD
     if (isOpenRouterKey()) {
       return "OpenRouter sin créditos. Recarga en https://openrouter.ai/settings/credits o cambia OPENAI_API_KEY en Vercel por una clave OpenAI (sk-proj-...).";
     }
     return "La API de IA rechazó la petición (pago/créditos). Revisa la facturación de OPENAI_API_KEY en Vercel.";
   }
   if (/401|incorrect api key|invalid api key/i.test(msg)) {
+=======
+    if (isGeminiProvider()) {
+      return "Cuota gratuita de Gemini agotada o modelo de pago. Prueba más tarde o usa gemini-2.0-flash.";
+    }
+    if (isOpenRouterKey()) {
+      return "OpenRouter sin créditos. Añade GEMINI_API_KEY (gratis en Google AI Studio) en Vercel, o recarga OpenRouter.";
+    }
+    return "La API de IA rechazó la petición (pago/créditos). Revisa la facturación de la clave en Vercel.";
+  }
+  if (/401|403|incorrect api key|invalid api key|API_KEY_INVALID/i.test(msg)) {
+    if (isGeminiProvider()) {
+      return "Clave Gemini inválida. Crea una en https://aistudio.google.com/apikey y ponla en GEMINI_API_KEY (Vercel).";
+    }
+>>>>>>> origin/cursor/gemini-api-gratis-dd2a
     if (isOpenRouterKey()) {
       return "Clave OpenRouter inválida o expirada. Revisa OPENAI_API_KEY en Vercel (debe ser sk-or-v1-...).";
     }
-    return "Clave OpenAI inválida. Usa sk-proj-... de OpenAI o sk-or-v1-... de OpenRouter en OPENAI_API_KEY.";
+    return "Clave OpenAI inválida. Usa sk-proj-... de OpenAI, sk-or-v1-... de OpenRouter, o GEMINI_API_KEY gratis.";
+  }
+  if (/429|rate limit|quota|RESOURCE_EXHAUSTED/i.test(msg)) {
+    if (isGeminiProvider()) {
+      return "Límite gratuito de Gemini alcanzado (RPM/día). Espera un momento o reduce el tamaño del PDF.";
+    }
+    return "Límite de la API de IA alcanzado. Espera un momento e intenta de nuevo.";
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN

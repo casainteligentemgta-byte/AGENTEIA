@@ -51,7 +51,7 @@ export async function extractImportadorDocumentoAction(
   if (!isLlmConfigured()) {
     return {
       success: false,
-      error: "Falta configurar OPENAI_API_KEY para leer documentos con IA.",
+      error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para leer documentos con IA.",
     };
   }
 

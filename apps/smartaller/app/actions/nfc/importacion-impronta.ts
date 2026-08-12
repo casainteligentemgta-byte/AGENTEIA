@@ -39,7 +39,7 @@ export async function verifyPuertoLibreImprontaAction(
   if (!isLlmConfigured()) {
     return {
       success: false,
-      error: "Falta configurar OPENAI_API_KEY para verificar la impronta.",
+      error: "Falta GEMINI_API_KEY (gratis) u OPENAI_API_KEY para verificar la impronta.",
     };
   }
 
