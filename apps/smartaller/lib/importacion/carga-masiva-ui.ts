@@ -137,18 +137,113 @@ export function motorPendiente(serialMotor: string): boolean {
   return PLACEHOLDER_MOTOR.test(v);
 }
 
-/** Campos que suelen completar el certificado de origen. */
+/** Semáforo de completitud por vehículo (carga masiva). */
+export type SemaforoNivel = "rojo" | "ambar" | "verde";
+
+export type VehicleSemaforo = {
+  nivel: SemaforoNivel;
+  /** Bloquean el registro (seguridad / integridad). */
+  criticos: string[];
+  /** Anuncian huecos; el expediente puede crearse y completarse después. */
+  avisos: string[];
+  label: string;
+  detail: string;
+};
+
+/**
+ * Semáforo rígido:
+ * - rojo: falta VIN/marca/modelo o hay error Zod → no se registra
+ * - ámbar: faltan motor real, color, año o nº cert. → se anuncia; registro opcional
+ * - verde: listo para alta automática
+ */
+export function vehicleSemaforo(row: CargaMasivaRow): VehicleSemaforo {
+  const criticos: string[] = [];
+  const avisos: string[] = [];
+
+  if (row.error?.trim()) criticos.push("error de validación");
+  if (!row.marca.trim()) criticos.push("marca");
+  if (!row.modelo.trim()) criticos.push("modelo");
+  if (!(row.serialCarroceria.trim() || row.vin.trim())) criticos.push("VIN");
+
+  const condicion = row.condicion.trim().toLowerCase();
+  if (condicion && condicion !== "nuevo" && condicion !== "usado") {
+    criticos.push("condición");
+  }
+  if (
+    (condicion === "usado" || condicion === "used") &&
+    !/^(si|sí|no|true|false|1|0)$/i.test(row.esSubasta.trim())
+  ) {
+    avisos.push("subasta");
+  }
+
+  if (motorPendiente(row.serialMotor)) avisos.push("motor");
+  if (!row.color.trim()) avisos.push("color");
+  if (!row.anio.trim()) avisos.push("año");
+  if (!row.numeroCertificadoOrigen.trim()) avisos.push("nº cert.");
+
+  if (criticos.length > 0) {
+    return {
+      nivel: "rojo",
+      criticos,
+      avisos,
+      label: "Rojo · no registrar",
+      detail: `Falta: ${criticos.join(", ")}`,
+    };
+  }
+  if (avisos.length > 0) {
+    return {
+      nivel: "ambar",
+      criticos,
+      avisos,
+      label: "Ámbar · datos faltantes",
+      detail: `Completar: ${avisos.join(", ")}`,
+    };
+  }
+  return {
+    nivel: "verde",
+    criticos,
+    avisos,
+    label: "Verde · listo",
+    detail: "Datos mínimos completos",
+  };
+}
+
+export function resumenSemaforo(rows: CargaMasivaRow[]): {
+  verde: number;
+  ambar: number;
+  rojo: number;
+  aptos: CargaMasivaRow[];
+  bloqueados: CargaMasivaRow[];
+} {
+  let verde = 0;
+  let ambar = 0;
+  let rojo = 0;
+  const aptos: CargaMasivaRow[] = [];
+  const bloqueados: CargaMasivaRow[] = [];
+  for (const row of rows) {
+    const s = vehicleSemaforo(row);
+    if (s.nivel === "verde") {
+      verde += 1;
+      aptos.push(row);
+    } else if (s.nivel === "ambar") {
+      ambar += 1;
+      aptos.push(row);
+    } else {
+      rojo += 1;
+      bloqueados.push(row);
+    }
+  }
+  return { verde, ambar, rojo, aptos, bloqueados };
+}
+
+/** @deprecated Preferir vehicleSemaforo. Compatible con etapas/progreso. */
 export function vehicleCompleteness(row: CargaMasivaRow): {
   complete: boolean;
   missing: string[];
 } {
-  const missing: string[] = [];
-  if (!row.marca.trim()) missing.push("marca");
-  if (!row.modelo.trim()) missing.push("modelo");
-  if (!row.color.trim()) missing.push("color");
-  if (!row.anio.trim()) missing.push("año");
-  if (motorPendiente(row.serialMotor)) missing.push("motor");
-  if (!(row.serialCarroceria.trim() || row.vin.trim())) missing.push("VIN");
-  if (!row.numeroCertificadoOrigen.trim()) missing.push("nº cert.");
-  return { complete: missing.length === 0, missing };
+  const s = vehicleSemaforo(row);
+  return {
+    complete: s.nivel === "verde",
+    missing: [...s.criticos, ...s.avisos],
+  };
 }
