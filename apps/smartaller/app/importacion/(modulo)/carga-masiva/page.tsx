@@ -50,7 +50,10 @@ export default async function CargaMasivaPuertoLibrePage() {
           </div>
         </div>
 
-        <PuertoLibreCargaMasiva initialImportadores={importadores} />
+        <PuertoLibreCargaMasiva
+          initialImportadores={importadores}
+          tallerId={taller.id}
+        />
       </div>
     </main>
   );
