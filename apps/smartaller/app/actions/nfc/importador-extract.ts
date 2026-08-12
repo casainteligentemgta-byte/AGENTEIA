@@ -3,6 +3,10 @@
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured, formatLlmAuthError } from "@/lib/ai/openai-config";
+import {
+  assertLlmBudgetAllows,
+  bindLlmUsageContext,
+} from "@/lib/ai/llm-usage";
 import { resolveImageMimeType } from "@/lib/mime-image";
 import {
   cedulaToImportadorFields,
@@ -55,7 +59,16 @@ export async function extractImportadorDocumentoAction(
     };
   }
 
+  const budget = await assertLlmBudgetAllows(taller.id);
+  if (!budget.ok) return { success: false, error: budget.error };
+
   const tipoDoc = String(formData.get("tipoDoc") ?? "").trim();
+  bindLlmUsageContext({
+    action: `ocr_importador_${tipoDoc || "doc"}`,
+    tallerId: taller.id,
+    userId: user.id,
+  });
+
   if (tipoDoc !== "rif" && tipoDoc !== "cedula") {
     return { success: false, error: "Tipo de documento inválido" };
   }

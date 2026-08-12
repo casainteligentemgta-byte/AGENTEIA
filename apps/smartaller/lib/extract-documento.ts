@@ -2,6 +2,7 @@ import {
   createOpenAIClient,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
+import { trackLlmUsage } from "@/lib/ai/llm-usage";
 
 export type CedulaExtraida = {
   numero_cedula: string | null;
@@ -42,9 +43,10 @@ async function extractJsonFromImage(
   prompt: string
 ): Promise<Record<string, unknown>> {
   const openai = createOpenAIClient();
+  const model = getVisionModelId();
 
   const response = await openai.chat.completions.create({
-    model: getVisionModelId(),
+    model,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -57,6 +59,8 @@ async function extractJsonFromImage(
     ],
     max_tokens: 600,
   });
+
+  trackLlmUsage({ model, usage: response.usage });
 
   const raw = response.choices[0]?.message?.content;
   if (!raw) {

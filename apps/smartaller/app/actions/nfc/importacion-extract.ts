@@ -3,6 +3,10 @@
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured, formatLlmAuthError } from "@/lib/ai/openai-config";
+import {
+  assertLlmBudgetAllows,
+  bindLlmUsageContext,
+} from "@/lib/ai/llm-usage";
 import { resolveImageMimeType } from "@/lib/mime-image";
 import {
   blToFormFields,
@@ -112,7 +116,16 @@ export async function extractPuertoLibreDocumentoAction(
     };
   }
 
+  const budget = await assertLlmBudgetAllows(taller.id);
+  if (!budget.ok) return { success: false, error: budget.error };
+
   const tipoRaw = String(formData.get("tipo") ?? "").trim();
+  bindLlmUsageContext({
+    action: `ocr_${tipoRaw || "doc"}`,
+    tallerId: taller.id,
+    userId: user.id,
+  });
+
   if (
     tipoRaw !== "factura_comercial" &&
     tipoRaw !== "bl_guia" &&

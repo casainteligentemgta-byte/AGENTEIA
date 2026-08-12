@@ -13,6 +13,7 @@ import {
   listPuertoLibreVehiculos,
   type PuertoLibreVehiculoListItem,
 } from "@/app/actions/nfc/importacion-vehiculo";
+import { getLlmUsageSummaryAction } from "@/app/actions/nfc/llm-usage";
 import { listPortalVehiculosAction } from "@/app/actions/portal";
 import { listUsuarioVehiculoIdsAction } from "@/app/actions/vehiculo-compartidos";
 import {
@@ -20,6 +21,7 @@ import {
   type DashboardBucketRow,
 } from "@/components/nfc/PuertoLibreDashboardBucket";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
+import { LlmUsagePanel } from "@/components/nfc/LlmUsagePanel";
 import {
   canAccessAllImportacionData,
   isImportacionUsuarioOnly,
@@ -371,6 +373,11 @@ export default async function PuertoLibrePage() {
       isTallerOrConcesionario(access) ||
       access.roles.includes("admin"));
 
+  const llmUsage =
+    puedeMutar && isTallerOrConcesionario(access!)
+      ? await getLlmUsageSummaryAction()
+      : null;
+
   const vehiculos = loaded.vehiculos;
   const porRegistro = sortPorLlegadaBuque(
     vehiculos.filter(esPorCompletarRegistro)
@@ -576,6 +583,9 @@ export default async function PuertoLibrePage() {
               <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
               Cómo llenar una importación
             </Link>
+            {llmUsage?.success ? (
+              <LlmUsagePanel summary={llmUsage.summary} />
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-2">

@@ -15,9 +15,15 @@ import {
   getOpenRouterHeaders,
   isLlmConfigured,
 } from "@/lib/ai/openai-config";
+import {
+  assertLlmBudgetAllows,
+  bindLlmUsageContext,
+  trackLlmUsage,
+} from "@/lib/ai/llm-usage";
 import { buildVehicleChatContext } from "@/lib/ai/vehicle-context";
 import { checkChatRateLimit } from "@/lib/ai/rate-limit";
 import { getUser } from "@/lib/supabase/server";
+import { getMyTaller } from "@/lib/taller";
 
 export const maxDuration = 30;
 
@@ -80,16 +86,42 @@ export async function POST(req: Request) {
       );
     }
 
+    const taller = await getMyTaller();
+    if (taller) {
+      const budget = await assertLlmBudgetAllows(taller.id);
+      if (!budget.ok) {
+        return new Response(JSON.stringify({ error: budget.error }), {
+          status: 402,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      bindLlmUsageContext({
+        action: "chat",
+        tallerId: taller.id,
+        userId: user.id,
+      });
+    }
+
     const openai = createOpenAI({
       apiKey: getLlmApiKey(),
       baseURL: getOpenAIBaseURL(),
       headers: getOpenRouterHeaders(),
     });
 
+    const modelId = getChatModelId();
     const result = streamText({
-      model: openai(getChatModelId()),
+      model: openai(modelId),
       system: buildSmartallerSystemPrompt(context),
       messages: await convertToModelMessages(messages),
+      onFinish: ({ usage }) => {
+        trackLlmUsage({
+          model: modelId,
+          usage,
+          action: "chat",
+          tallerId: taller?.id,
+          userId: user.id,
+        });
+      },
     });
 
     return createUIMessageStreamResponse({

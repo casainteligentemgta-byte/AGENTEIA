@@ -59,7 +59,7 @@ STRIPE_WEBHOOK_SECRET
 STRIPE_PRICE_ID
 ```
 
-Opcionales: `OPENAI_CHAT_MODEL`, `CALLMEBOT_API_KEY`, `PRESIDENCIA_PIN`, `RESEND_*`
+Opcionales: `OPENAI_CHAT_MODEL`, `LLM_MONTHLY_BUDGET_USD` (tope estimado IA/mes), `CALLMEBOT_API_KEY`, `PRESIDENCIA_PIN`, `RESEND_*`
 
 ## Supabase (antes del primer deploy)
 

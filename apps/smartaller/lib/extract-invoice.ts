@@ -5,6 +5,7 @@ import {
   getVisionModelId,
   isOpenRouterKey,
 } from "@/lib/ai/openai-config";
+import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 
 export type FacturaExtraida = {
@@ -60,10 +61,11 @@ function parseOpenAIJson(raw: string): FacturaExtraida {
 /** Extrae datos de factura enviando la URL pública del archivo de Telegram a GPT-4o-mini. */
 export async function extractMantenimientoFromUrl(fileUrl: string): Promise<FacturaExtraida> {
   const openai = createOpenAIClient();
+  const model = getVisionModelId();
 
   try {
     const response = await openai.chat.completions.create({
-      model: getVisionModelId(),
+      model,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -79,6 +81,8 @@ export async function extractMantenimientoFromUrl(fileUrl: string): Promise<Fact
       ],
       max_tokens: 500,
     });
+
+    trackLlmUsage({ model, usage: response.usage, action: "telegram_factura" });
 
     const raw = response.choices[0]?.message?.content;
     if (!raw) {

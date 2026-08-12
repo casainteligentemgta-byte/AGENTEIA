@@ -4,6 +4,7 @@ import {
   getChatModelId,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
+import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
@@ -105,8 +106,9 @@ async function jsonFromTextPrompt(
   maxTextChars: number
 ): Promise<Record<string, unknown>> {
   const openai = createOpenAIClient({ timeoutMs: 45_000 });
+  const model = getChatModelId();
   const response = await openai.chat.completions.create({
-    model: getChatModelId(),
+    model,
     response_format: { type: "json_object" },
     temperature: 0,
     max_tokens: maxTokens,
@@ -117,6 +119,7 @@ async function jsonFromTextPrompt(
       },
     ],
   });
+  trackLlmUsage({ model, usage: response.usage });
   const raw = response.choices[0]?.message?.content;
   if (!raw) throw new Error("La IA no devolvió una respuesta válida");
   return parseJsonOrSalvageVins(raw);
@@ -156,13 +159,15 @@ async function jsonFromPdfPageImages(
   }
 
   try {
+    const model = getVisionModelId();
     const response = await openai.chat.completions.create({
-      model: getVisionModelId(),
+      model,
       response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
     });
+    trackLlmUsage({ model, usage: response.usage });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error("La IA no devolvió una respuesta válida");
     return parseJsonOrSalvageVins(raw);
@@ -186,13 +191,15 @@ async function jsonFromPdfPageImages(
         },
       });
     }
+    const model = getVisionModelId();
     const response = await openai.chat.completions.create({
-      model: getVisionModelId(),
+      model,
       response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: lowContent }],
     });
+    trackLlmUsage({ model, usage: response.usage });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw firstError;
     return parseJsonOrSalvageVins(raw);
@@ -308,8 +315,9 @@ export async function createDocumentJsonCompletion(params: {
   const dataUrl = `data:application/pdf;base64,${params.buffer.toString("base64")}`;
 
   try {
+    const model = getVisionModelId();
     const response = await openai.chat.completions.create({
-      model: getVisionModelId(),
+      model,
       response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
@@ -329,6 +337,7 @@ export async function createDocumentJsonCompletion(params: {
         },
       ],
     });
+    trackLlmUsage({ model, usage: response.usage });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error("La IA no devolvió una respuesta válida");
     return parseJsonOrSalvageVins(raw);
