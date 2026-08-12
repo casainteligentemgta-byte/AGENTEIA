@@ -171,9 +171,9 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   documento_importacion: "Documento de importación",
   manual_vehiculo: "Manual del vehículo",
   otro_importacion: "Otro documento de importación",
-  acta_recepcion_mercancia: "Acta de recepción de mercancía (AR)",
+  acta_recepcion_mercancia: "Acta de recepción (AR)",
   constancia_edi_reconocimiento:
-    "Constancia EDI de la carga (Reconocimiento)",
+    "Reconocimiento / constancia del estado de la carga",
   sencamer: "SENCAMER",
   registro_puerto_libre: "Registro de Puerto Libre",
   agente_aduanal_doc: "Agente aduanal",
