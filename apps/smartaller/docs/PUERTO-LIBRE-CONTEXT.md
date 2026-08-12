@@ -98,10 +98,15 @@ Comprador: nombre (obligatorio), cédula, tel, email, dirección (`compradorDire
 ≠ póliza de **transporte** del embarque.  
 `completePuertoLibreFase5SeguroAction` → fase 7.
 
-### Fase 7 — Matriculación
+### Fase 7 — Matriculación (INTT)
 
-Subpaso 1 (`matriculacionPaso=1`): carpeta docs → paso 2.  
-Subpaso 2: registrar placa real.  
+Subpaso 1 (`matriculacionPaso=1`): carpeta INTT.
+
+**Cargar:** `inspeccion_pnb`, `homologacion` (si `requiereHomologacion`), `planilla_sumica_put` (PUT), `pago_tasas` (planilla de pago).
+
+**Presentar en físico** (deben estar en el expediente): factura, B/L, DUA, liquidación **o** exención, experticia, RCV, cédula, RIF, constancia de residencia.
+
+Subpaso 2: carga `titulo` + registra placa PL entregada por el INTT.  
 Al completar → **fase 8** y `fechaLimiteNacionalizacion` = fechaIngreso + 3 años (si falta).
 
 ### Fase 8 — Planilla completa
@@ -182,7 +187,7 @@ Notas:
 
 ### JSONB `importacion` (TS camelCase ↔ snake en serialize)
 
-`regimen`, `aduana`, `puerto`, `modalidadTransito`, `aduanaTransito`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+`regimen`, `aduana`, `puerto`, `modalidadTransito`, `aduanaTransito`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `requiereHomologacion`, `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
 
 ### Tabla `importadores` (clientes)
 
@@ -206,7 +211,7 @@ Grupos:
 - Desaduanamiento (Expediente SENIAT): `cedula_importador`, `rif_importador`, `lista_empaque`, `nacionalizacion` (DUA), `dav`, `sencamer`, `registro_puerto_libre` (solo jurídica), `agente_aduanal_doc`, `constancia_edi_reconocimiento`, `pase_salida_levante`, `cancelacion_gastos_portuarios`
 - Fotos: `foto_frontal`, `foto_trasera`, `foto_lateral_izq`, `foto_lateral_der`, `foto_motor`, `foto_impronta`, `foto_odometro` (+ `foto_vin`, `foto_danos`, `foto_placa`, `foto_comprador`)
 - Seguro: `poliza_seguro`, `certificado_seguro`, `recibo_seguro`, `rcv_seguro`
-- Matriculación extras: `experticia_verificacion_legal`, `planilla_sumica_put`, `pago_tasas`
+- Matriculación INTT: `inspeccion_pnb`, `homologacion` (opcional), `planilla_sumica_put`, `pago_tasas`; físico: factura, B/L, DUA, liquidación/exención, experticia, RCV, cédula, RIF, constancia; entrega: `titulo` + placa PL
 - Nacionalización: `declaracion_complementaria`, `liquidacion_nacionalizacion`, `resolucion_liberacion_seniat`, `constancia_residencia_permanencia`, `solicitud_levantamiento_intt`, `titulo_libre_circulacion`
 
 ### JSONB `seguro`

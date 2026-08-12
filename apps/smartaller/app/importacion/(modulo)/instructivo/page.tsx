@@ -75,11 +75,11 @@ const FASES = [
   },
   {
     n: 7,
-    titulo: "Matriculación",
+    titulo: "Matriculación (INTT)",
     puntos: [
-      "Carpeta de matrícula (experticia, SUMICA, tasas, etc.).",
-      "Registrar la placa real (sustituye el placeholder NP-…).",
-      "En Puerto Libre se fija la fecha límite de nacionalización (~3 años).",
+      "Cargar: inspección PNB, homologación (si aplica), PUT y planilla de pago.",
+      "Presentar en físico: factura, B/L, DUA, liquidación/exención, experticia, RCV, cédula, RIF y constancia de residencia.",
+      "Se entregan el título y las placas PL; registra ambos en la planilla.",
     ],
   },
 ] as const;
