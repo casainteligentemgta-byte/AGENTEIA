@@ -152,7 +152,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   factura_comercial: "Factura de compra",
   bl_guia: "BL / Guía",
   certificado_origen: "Certificado de origen",
-  lista_empaque: "Lista de embarque / empaque",
+  lista_empaque: "Lista de empaque",
   dav: "Declaración Andina de Valor (DAV)",
   poliza_transporte: "Póliza de transporte",
   permiso_importacion: "Permiso de importación",
