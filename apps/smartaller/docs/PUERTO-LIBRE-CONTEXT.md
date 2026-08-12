@@ -156,6 +156,8 @@ Helpers:
 
 Alertas email (Vercel Cron `/api/cron/alertas-vencimiento`, 13:00 UTC ≈ 09:00 VET): deadline 90d + seguro 30d vía Resend; cooldown 30d (`ultimaAlertaDeadlineEnviada` / `ultimaAlertaSeguroEnviada`).
 
+**UI — días restantes:** banner `AlertaDiasNacionalizacion` en `/nacionalizar` y ficha del expediente (`buildAlertaNacionalizacion`: ok / aviso ≤90d / urgente ≤30d / hoy / vencido). Dashboard «Por nacionalizar» marca urgente ≤30d.
+
 ---
 
 ## 4. Dashboard `/importacion` — buckets reales (UI)

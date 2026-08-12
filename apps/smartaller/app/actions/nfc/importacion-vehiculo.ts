@@ -33,6 +33,7 @@ import {
   type VehiculosDocumentos,
   type ViaNacionalizacion,
 } from "@/lib/schemas/vehiculo-documentos";
+import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
@@ -1956,12 +1957,17 @@ function mapListItem(
     stickerToken: stickers.get(id) ?? null,
     regimen: importacion.regimen ?? null,
     estadoNacionalizacion: importacion.estadoNacionalizacion ?? null,
-    fechaLimiteNacionalizacion: importacion.fechaLimiteNacionalizacion ?? null,
+    fechaLimiteNacionalizacion:
+      resolverFechaLimiteNacionalizacion(importacion) ??
+      importacion.fechaLimiteNacionalizacion ??
+      null,
     estadoSeniat: importacion.estadoSeniat ?? null,
     fechaPresentacionSeniat: importacion.fechaPresentacionSeniat ?? null,
     fechaRechazoSeniat: importacion.fechaRechazoSeniat ?? null,
     motivoRechazoSeniat: importacion.motivoRechazoSeniat ?? null,
-    diasNacionalizacion: diasHasta(importacion.fechaLimiteNacionalizacion),
+    diasNacionalizacion: diasHasta(
+      resolverFechaLimiteNacionalizacion(importacion)
+    ),
     diasSeniat: diasHasta(importacion.fechaPresentacionSeniat),
     proximoNacionalizar: esProximoNacionalizar(importacion),
     proximoSeniat: esProximoSeniat(importacion),
