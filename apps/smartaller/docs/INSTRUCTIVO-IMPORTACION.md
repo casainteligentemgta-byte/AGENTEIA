@@ -38,18 +38,11 @@ Cada unidad genera un expediente interno tipo `PL-2026.8.1` (distinto del númer
 - Cliente ya elegido (nombre, RIF, teléfono, email).
 - **Dirección fiscal** clara (para SENIAT / Nueva Esparta cuando aplique).
 
-### C. Datos de importación (en este orden)
+### C. Datos del vehículo
 
-1. **Régimen** (ej. Puerto Libre)
-2. **Aduana**
-3. **País de origen**
-4. **Puerto**
-5. **Tránsito o USO24** (si no aplica → “Sin tránsito / USO24”)
-6. **Aduana de tránsito** (solo si hay tránsito o USO24)
-7. **Nº BL / Guía**
-8. **Fecha de llegada del buque**
+Completa marca, modelo, color, VIN, seriales, condición y kilometraje.
 
-Luego, si los tienes: CIF, tasa BCV, Nº expediente SENIAT, DAV, certificado de origen, lista de empaque, póliza de transporte, observaciones.
+Luego, si los tienes: CIF, tasa BCV, Nº expediente SENIAT, DAV.
 
 ### D. Documentos obligatorios
 
@@ -64,12 +57,20 @@ Luego, si los tienes: CIF, tasa BCV, Nº expediente SENIAT, DAV, certificado de 
 
 ## Fase 2 — Embarque
 
-Carga estos 4 documentos:
+Carga estos documentos:
 
 1. BL / Guía
 2. Lista de embarque / empaque
 3. DAV
 4. Póliza de transporte
+
+Y completa:
+
+1. **Régimen** (ej. Puerto Libre)
+2. **Nº certificado de origen**
+3. **Observaciones** (unidad / llave)
+4. **Fecha de llegada del buque**
+5. **Puerto**, **tránsito/USO24**, **aduana**, **nº BL**, **país de origen**
 
 **Continuar a Llegada.**
 

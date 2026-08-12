@@ -14,11 +14,7 @@ import {
   type TipoCombustible,
 } from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
-import {
-  REGIMEN_SELECT_OPTIONS,
-  getRegimenConfig,
-  type RegimenImportacion,
-} from "@/lib/importacion/regimenes";
+import type { RegimenImportacion } from "@/lib/importacion/regimenes";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 import {
   resolveAduanaVenezuela,
@@ -544,57 +540,6 @@ export function PuertoLibreFase1Form({
           </div>
         </section>
       )}
-
-      <section
-        className={
-          variant === "planilla"
-            ? sectionClass
-            : "space-y-4 border-t border-slate-800 pt-8"
-        }
-      >
-        <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
-        <p className="text-sm text-slate-400">
-          Aduana, BL, país y fecha de llegada se completan al cargar el BL en
-          Embarque.
-        </p>
-        <div className={gridClass}>
-          <div className="min-w-0 sm:col-span-2">
-            <ControlledSelect
-              label="Régimen de importación *"
-              name="regimen"
-              placeholder="Selecciona régimen"
-              value={values.regimen}
-              options={REGIMEN_SELECT_OPTIONS}
-              onChange={(v) => setField("regimen", v as RegimenImportacion | "")}
-              required
-            />
-            {values.regimen ? (
-              <p className="mt-1.5 text-xs text-slate-500">
-                {getRegimenConfig(values.regimen).descripcion}
-              </p>
-            ) : null}
-          </div>
-          <ControlledField
-            label="Nº certificado de origen"
-            name="numeroCertificadoOrigen"
-            mono
-            upper
-            value={values.numeroCertificadoOrigen}
-            onChange={(v) => setField("numeroCertificadoOrigen", v)}
-          />
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Observaciones</span>
-            <textarea
-              name="observaciones"
-              rows={3}
-              value={values.observaciones}
-              onChange={(e) => setField("observaciones", e.target.value)}
-              placeholder="Notas de la unidad / llave…"
-              className="box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-        </div>
-      </section>
 
       {actions}
     </form>
