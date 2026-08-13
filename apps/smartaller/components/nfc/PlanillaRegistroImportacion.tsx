@@ -1126,8 +1126,9 @@ function Fase2Embarque({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Al escanear el BL / guía se intentan rellenar nº BL, aduana, país y fecha
-          de llegada del buque. Puedes completarlos o corregirlos a mano abajo.
+          Al escanear el BL / guía o la póliza de transporte se intentan rellenar
+          fecha de llegada del buque, puerto, tránsito, aduana, nº BL y país de
+          origen. Puedes completarlos o corregirlos a mano abajo.
         </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
@@ -1144,7 +1145,9 @@ function Fase2Embarque({
                 onUploadedMessage(
                   tipo === "bl_guia"
                     ? "BL guardado · revisa/completa los datos de embarque"
-                    : "Documento guardado"
+                    : tipo === "poliza_transporte"
+                      ? "Póliza guardada · revisa/completa los datos de embarque"
+                      : "Documento guardado"
                 );
               }}
             />

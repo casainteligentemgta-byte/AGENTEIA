@@ -42,6 +42,15 @@ export type FacturaComercialExtraida = {
 export type BlExtraido = {
   numero_bl: string | null;
   fecha_llegada_buque: string | null;
+  /** Puerto de descarga / place of delivery (texto libre). */
+  puerto: string | null;
+  /**
+   * Tránsito aduanero: ninguno | transito | uso24.
+   * null si el documento no lo indica con claridad.
+   */
+  modalidad_transito: "ninguno" | "transito" | "uso24" | null;
+  /** Aduana de tránsito / destino cuando modalidad es transito o uso24. */
+  aduana_transito: string | null;
   aduana: string | null;
   pais_origen: string | null;
   valor_cif: number | null;
@@ -55,6 +64,19 @@ export type BlExtraido = {
   anio: number | null;
   serial_motor: string | null;
   serial_carroceria: string | null;
+  observaciones: string | null;
+};
+
+/** Datos típicos de una póliza de transporte (marine / cargo insurance). */
+export type PolizaTransporteExtraida = {
+  numero_poliza: string | null;
+  numero_bl: string | null;
+  fecha_llegada_buque: string | null;
+  puerto: string | null;
+  modalidad_transito: "ninguno" | "transito" | "uso24" | null;
+  aduana_transito: string | null;
+  aduana: string | null;
+  pais_origen: string | null;
   observaciones: string | null;
 };
 
@@ -89,8 +111,15 @@ Lee SOLO lo escrito en el documento. NO inventes.
 Extrae en JSON con estas claves exactas:
 - numero_bl (string: B/L No., BL number, guía)
 - fecha_llegada_buque (string YYYY-MM-DD: ETA, arrival, llegada del buque o fecha del BL si es la única)
-- aduana (string: puerto de destino, discharge port, aduana)
-- pais_origen (string: país o puerto de origen / loading)
+- puerto (string: puerto de descarga / port of discharge / place of delivery; ej. El Guamache, La Guaira, Puerto Cabello)
+- modalidad_transito ("ninguno" | "transito" | "uso24" | null):
+  - "transito" si indica tránsito aduanero, in transit, transshipment hacia otra aduana/destino interior
+  - "uso24" si menciona USO24 / USO 24 / uso temporal 24
+  - "ninguno" solo si dice explícitamente destino final / sin tránsito / direct delivery al puerto de descarga
+  - null si no se puede deducir
+- aduana_transito (string: aduana o destino de tránsito/USO24 si aparece; null si no)
+- aduana (string: aduana / customs office de destino si aparece; si solo hay puerto de descarga puedes repetir el puerto aquí)
+- pais_origen (string: país de origen; si solo hay puerto de carga/loading, el país de ese puerto)
 - valor_cif (number si aparece valor declarado en USD)
 - importador_nombre (string: consignee / notify party / importador)
 - importador_documento (string: RIF/NIT/tax id del consignee)
@@ -103,6 +132,21 @@ Extrae en JSON con estas claves exactas:
 - serial_motor (string)
 - serial_carroceria (string: VIN/chasis)
 - observaciones (string breve: buque, voyage, contenedor si ayuda)
+Si no encuentras un dato, usa null. Responde solo JSON.`;
+
+const POLIZA_TRANSPORTE_PROMPT = `Eres un extractor de PÓLIZAS DE TRANSPORTE / marine cargo insurance / póliza de seguro de mercancía.
+Lee SOLO lo escrito en el documento. NO inventes.
+
+Extrae en JSON con estas claves exactas:
+- numero_poliza (string: Policy No., Nº póliza, certificado de seguro)
+- numero_bl (string: B/L No. / BL referenciado en la póliza, si aparece)
+- fecha_llegada_buque (string YYYY-MM-DD: ETA, arrival, fecha de llegada o vigencia de viaje si es la única fecha útil)
+- puerto (string: puerto de descarga / destino / place of discharge)
+- modalidad_transito ("ninguno" | "transito" | "uso24" | null): mismas reglas que en un BL; null si no se indica
+- aduana_transito (string|null)
+- aduana (string: aduana o puerto de destino si aparece)
+- pais_origen (string: país o puerto de origen / loading)
+- observaciones (string breve: aseguradora, buque, viaje si ayuda)
 Si no encuentras un dato, usa null. Responde solo JSON.`;
 
 function parseString(value: unknown): string | null {
@@ -296,7 +340,50 @@ export function splitColorAndCodigo(
   return { color: raw, codigo: null };
 }
 
+function parseModalidadTransito(
+  value: unknown
+): "ninguno" | "transito" | "uso24" | null {
+  if (typeof value === "boolean") {
+    return value ? "transito" : "ninguno";
+  }
+  const raw = parseString(value)?.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (!raw) return null;
+  if (
+    raw === "uso24" ||
+    raw === "uso_24" ||
+    /uso\s*24|uso24/.test(raw)
+  ) {
+    return "uso24";
+  }
+  if (
+    raw === "transito" ||
+    raw === "transit" ||
+    /transito|in\s*transit|transshipment|transbordo/.test(raw)
+  ) {
+    return "transito";
+  }
+  if (
+    raw === "ninguno" ||
+    raw === "none" ||
+    raw === "no" ||
+    /sin\s*transito|destino\s*final|direct\s*delivery|no\s*transit/.test(raw)
+  ) {
+    return "ninguno";
+  }
+  return null;
+}
+
 function mapBl(parsed: Record<string, unknown>): BlExtraido {
+  const puerto = parseString(
+    parsed.puerto ??
+      parsed.port_of_discharge ??
+      parsed.place_of_delivery ??
+      parsed.puerto_destino
+  );
+  const aduana =
+    parseString(parsed.aduana ?? parsed.customs_office ?? parsed.destino) ??
+    // Compat: prompts antiguos metían el puerto en aduana.
+    (puerto ? null : parseString(parsed.port_of_discharge));
   return {
     numero_bl:
       parseString(parsed.numero_bl ?? parsed.bl ?? parsed.bill_of_lading)?.toUpperCase() ??
@@ -304,8 +391,22 @@ function mapBl(parsed: Record<string, unknown>): BlExtraido {
     fecha_llegada_buque: parseFechaIso(
       parsed.fecha_llegada_buque ?? parsed.eta ?? parsed.arrival_date
     ),
-    aduana: parseString(parsed.aduana ?? parsed.port_of_discharge ?? parsed.destino),
-    pais_origen: parseString(parsed.pais_origen ?? parsed.port_of_loading),
+    puerto,
+    modalidad_transito: parseModalidadTransito(
+      parsed.modalidad_transito ??
+        parsed.transito ??
+        parsed.in_transit ??
+        parsed.hara_transito
+    ),
+    aduana_transito: parseString(
+      parsed.aduana_transito ??
+        parsed.aduana_destino_transito ??
+        parsed.transit_customs
+    ),
+    aduana: aduana ?? puerto,
+    pais_origen: parseString(
+      parsed.pais_origen ?? parsed.country_of_origin ?? parsed.port_of_loading
+    ),
     valor_cif: parseNumber(parsed.valor_cif ?? parsed.cif),
     importador_nombre: parseString(
       parsed.importador_nombre ?? parsed.consignee ?? parsed.notify_party
@@ -322,6 +423,43 @@ function mapBl(parsed: Record<string, unknown>): BlExtraido {
       parseString(parsed.serial_carroceria)?.toUpperCase() ??
       parseString(parsed.vin)?.toUpperCase() ??
       null,
+    observaciones: parseString(parsed.observaciones),
+  };
+}
+
+function mapPolizaTransporte(
+  parsed: Record<string, unknown>
+): PolizaTransporteExtraida {
+  const puerto = parseString(
+    parsed.puerto ??
+      parsed.port_of_discharge ??
+      parsed.place_of_delivery ??
+      parsed.puerto_destino
+  );
+  return {
+    numero_poliza:
+      parseString(
+        parsed.numero_poliza ??
+          parsed.policy_no ??
+          parsed.policy_number ??
+          parsed.numero_poliza_transporte
+      )?.toUpperCase() ?? null,
+    numero_bl:
+      parseString(parsed.numero_bl ?? parsed.bl ?? parsed.bill_of_lading)?.toUpperCase() ??
+      null,
+    fecha_llegada_buque: parseFechaIso(
+      parsed.fecha_llegada_buque ?? parsed.eta ?? parsed.arrival_date
+    ),
+    puerto,
+    modalidad_transito: parseModalidadTransito(
+      parsed.modalidad_transito ?? parsed.transito ?? parsed.in_transit
+    ),
+    aduana_transito: parseString(parsed.aduana_transito ?? parsed.transit_customs),
+    aduana:
+      parseString(parsed.aduana ?? parsed.customs_office ?? parsed.destino) ?? puerto,
+    pais_origen: parseString(
+      parsed.pais_origen ?? parsed.country_of_origin ?? parsed.port_of_loading
+    ),
     observaciones: parseString(parsed.observaciones),
   };
 }
@@ -405,6 +543,11 @@ export function blToFormFields(data: BlExtraido): PuertoLibreRegistroScanFields 
   const fields: PuertoLibreRegistroScanFields = {};
   if (data.numero_bl) fields.numeroBl = data.numero_bl;
   if (data.fecha_llegada_buque) fields.fechaLlegadaBuque = data.fecha_llegada_buque;
+  // Si el modelo solo rellenó aduana con el puerto de descarga, úsalo también como puerto.
+  if (data.puerto) fields.puerto = data.puerto;
+  else if (data.aduana) fields.puerto = data.aduana;
+  if (data.modalidad_transito) fields.modalidadTransito = data.modalidad_transito;
+  if (data.aduana_transito) fields.aduanaTransito = data.aduana_transito;
   if (data.aduana) fields.aduana = data.aduana;
   if (data.pais_origen) fields.paisOrigen = data.pais_origen;
   if (data.valor_cif != null) fields.valorCif = String(data.valor_cif);
@@ -423,6 +566,38 @@ export function blToFormFields(data: BlExtraido): PuertoLibreRegistroScanFields 
   }
   if (data.observaciones) fields.observaciones = data.observaciones;
   return fields;
+}
+
+export function polizaToFormFields(
+  data: PolizaTransporteExtraida
+): PuertoLibreRegistroScanFields {
+  const fields: PuertoLibreRegistroScanFields = {};
+  if (data.numero_poliza) fields.numeroPolizaTransporte = data.numero_poliza;
+  if (data.numero_bl) fields.numeroBl = data.numero_bl;
+  if (data.fecha_llegada_buque) fields.fechaLlegadaBuque = data.fecha_llegada_buque;
+  if (data.puerto) fields.puerto = data.puerto;
+  else if (data.aduana) fields.puerto = data.aduana;
+  if (data.modalidad_transito) fields.modalidadTransito = data.modalidad_transito;
+  if (data.aduana_transito) fields.aduanaTransito = data.aduana_transito;
+  if (data.aduana) fields.aduana = data.aduana;
+  if (data.pais_origen) fields.paisOrigen = data.pais_origen;
+  if (data.observaciones) fields.observaciones = data.observaciones;
+  return fields;
+}
+
+export async function extractPolizaTransporteFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<PolizaTransporteExtraida> {
+  const parsed = await createDocumentJsonCompletion({
+    prompt: POLIZA_TRANSPORTE_PROMPT,
+    buffer,
+    mimeType,
+    maxTokens: 1200,
+    maxPdfPages: 4,
+    preferHighDetail: true,
+  });
+  return mapPolizaTransporte(parsed);
 }
 
 export function countFilledFields(fields: PuertoLibreRegistroScanFields): number {
@@ -542,6 +717,9 @@ Responde SOLO JSON con:
 {
   "numero_bl": string|null,
   "fecha_llegada_buque": string|null,
+  "puerto": string|null,
+  "modalidad_transito": "ninguno"|"transito"|"uso24"|null,
+  "aduana_transito": string|null,
   "aduana": string|null,
   "pais_origen": string|null,
   "importador_nombre": string|null,
@@ -565,6 +743,10 @@ Responde SOLO JSON con:
   ]
 }
 fecha_llegada_buque en YYYY-MM-DD si aparece (ETA / arrival).
+puerto = port of discharge / place of delivery.
+modalidad_transito: "transito" si hay tránsito/transshipment; "uso24" si menciona USO24; "ninguno" solo si dice destino final/sin tránsito; null si no se deduce.
+aduana = aduana SENIAT o, si no hay, el puerto de descarga.
+pais_origen = país (o país del puerto de carga).
 Si la descripción es genérica sin VIN, "vehiculos" puede ser [].`;
 
 const CERTIFICADO_ORIGEN_MULTI_PROMPT = `Analiza este CERTIFICADO DE ORIGEN / Certificate of Origin (COO) de vehículos importados.

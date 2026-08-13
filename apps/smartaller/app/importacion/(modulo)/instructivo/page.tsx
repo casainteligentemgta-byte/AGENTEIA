@@ -30,8 +30,8 @@ const FASES = [
     titulo: "Embarque",
     puntos: [
       "BL / Guía, lista de empaque y póliza de transporte.",
-      "Datos manuales: fecha llegada del buque, puerto, tránsito/USO24, aduana, nº BL, país de origen.",
-      "El nº BL (y otros) pueden venir del escaneo del BL; se pueden corregir a mano.",
+      "Al escanear el BL o la póliza se intentan rellenar: fecha llegada del buque, puerto, tránsito/USO24, aduana, nº BL y país de origen.",
+      "Si faltan o están erróneos, se completan o corrigen a mano antes de continuar.",
     ],
   },
   {

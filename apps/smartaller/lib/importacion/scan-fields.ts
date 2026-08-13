@@ -25,6 +25,11 @@ export type PuertoLibreRegistroScanFields = {
   importadorTelefono?: string;
   importadorEmail?: string;
   importadorDireccion?: string;
+  /** Puerto de descarga / llegada (distinto de la aduana SENIAT). */
+  puerto?: string;
+  /** ninguno | transito | uso24 */
+  modalidadTransito?: "ninguno" | "transito" | "uso24";
+  aduanaTransito?: string;
   aduana?: string;
   numeroBl?: string;
   paisOrigen?: string;
