@@ -68,6 +68,7 @@ import {
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_PASE_SALIDA_TIPO,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARGAR_TIPOS,
@@ -595,6 +596,8 @@ export function PlanillaRegistroImportacion({
           docTipos={desaduanamientoTipos}
           regimenLabel={regimenCfg.label}
           regimen={initialImportacion.regimen}
+          importadorNombre={initialImportacion.importadorNombre ?? ""}
+          importadorDocumento={initialImportacion.importadorDocumento ?? ""}
           pending={pending}
           canComplete={aduanaCompleta}
           agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
@@ -1652,6 +1655,93 @@ function Fase2Llegada({
   );
 }
 
+function DesaduanamientoDocSlot({
+  index,
+  tipo,
+  regimen,
+  docs,
+  vehiculoId,
+  setDocs,
+  onUploadedMessage,
+  importadorDocumento,
+}: {
+  index: number;
+  tipo: DocumentoTipo;
+  regimen: string | null | undefined;
+  docs: VehiculosDocumentos;
+  vehiculoId: string;
+  setDocs: (d: VehiculosDocumentos) => void;
+  onUploadedMessage: (msg: string) => void;
+  /** Snapshot del RIF/cédula capturado en Registro (solo informativo). */
+  importadorDocumento?: string;
+}) {
+  const origen = origenDocDesaduanamiento(
+    regimen,
+    tipo,
+    PL_DESADUANAMIENTO_ORIGEN
+  );
+  const loaded = Boolean(docs[tipo]?.url);
+  const showImportadorHint =
+    (tipo === "cedula_importador" || tipo === "rif_importador") &&
+    Boolean(importadorDocumento?.trim());
+
+  return (
+    <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-100">
+            {index}. {DOCUMENTO_LABELS[tipo]}
+          </p>
+          {origen ? (
+            <p className="mt-0.5 text-xs text-slate-500">{origen}</p>
+          ) : (
+            <p className="mt-0.5 text-xs text-slate-500">
+              Cargar en PDF o foto / escaneo
+            </p>
+          )}
+          {showImportadorHint ? (
+            <p className="mt-1 text-xs text-cyan-400/90">
+              En registro: {importadorDocumento}
+              {loaded ? " · archivo ya cargado" : " · falta el archivo escaneado"}
+            </p>
+          ) : null}
+        </div>
+        <span
+          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+            loaded
+              ? "bg-emerald-950/60 text-emerald-300"
+              : "bg-red-950/50 text-red-300"
+          }`}
+        >
+          {loaded ? "Listo" : "Pendiente"}
+        </span>
+      </div>
+      {loaded && docs[tipo]?.url ? (
+        <a
+          href={docs[tipo]!.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
+        >
+          Ver documento
+        </a>
+      ) : null}
+      <ImportDocumentoUpload
+        vehiculoId={vehiculoId}
+        tipo={tipo}
+        existingUrl={docs[tipo]?.url}
+        acceptMode="both"
+        hint="Foto o PDF · máx. 10 MB"
+        actionLabel={loaded ? "Reemplazar" : "Cargar"}
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Documento guardado");
+        }}
+      />
+    </li>
+  );
+}
+
 function Fase3Aduana({
   vehiculoId,
   docs,
@@ -1660,6 +1750,8 @@ function Fase3Aduana({
   docTipos,
   regimenLabel,
   regimen,
+  importadorNombre,
+  importadorDocumento,
   pending,
   canComplete,
   agenteAduanalInicial,
@@ -1673,6 +1765,8 @@ function Fase3Aduana({
   docTipos: DocumentoTipo[];
   regimenLabel: string;
   regimen: string | null | undefined;
+  importadorNombre: string;
+  importadorDocumento: string;
   pending: boolean;
   canComplete: boolean;
   agenteAduanalInicial: string;
@@ -1682,6 +1776,14 @@ function Fase3Aduana({
   const [agenteAduanal, setAgenteAduanal] = useState(agenteAduanalInicial);
   const agenteOk = agenteAduanal.trim().length >= 2;
 
+  const pdfTipos = docTipos.filter((t) => t !== PL_PASE_SALIDA_TIPO);
+  const paseLoaded = Boolean(docs[PL_PASE_SALIDA_TIPO]?.url);
+  const pdfLoaded = pdfTipos.filter((t) => Boolean(docs[t]?.url)).length;
+
+  useEffect(() => {
+    setAgenteAduanal((prev) => agenteAduanalInicial || prev);
+  }, [agenteAduanalInicial]);
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
@@ -1689,20 +1791,38 @@ function Fase3Aduana({
           <FileUp className="h-5 w-5 text-cyan-400" />
           Desaduanamiento — Expediente SENIAT
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {docsCount}/{docTipos.length}
+            {pdfLoaded}/{pdfTipos.length} en PDF
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Carga o
-          reutiliza los PDF del expediente SENIAT: cédula y RIF del importador,
-          lista de empaque, DUA, DAV, SENCAMER, registro de Puerto Libre (solo
-          persona jurídica), agente aduanal, reconocimiento, pase de salida y
-          levante, y cancelación de gastos portuarios, almacén y manipulación.
-          Luego genera el Expediente PDF con esos documentos.
+          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Estos
+          documentos forman el Expediente PDF: cédula y RIF del importador, lista
+          de empaque, DUA, DAV, SENCAMER, constancia del agente, reconocimiento,
+          pago de tasas o impuestos y constancia de residencia permanente
+          {docTipos.includes("registro_puerto_libre")
+            ? " (+ registro PL si aplica)"
+            : ""}
+          .
         </p>
 
+        {(importadorNombre.trim() || importadorDocumento.trim()) && (
+          <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Importador (desde Registro)
+            </p>
+            {importadorNombre.trim() ? (
+              <p className="mt-1 text-slate-100">{importadorNombre}</p>
+            ) : null}
+            {importadorDocumento.trim() ? (
+              <p className="font-mono text-cyan-300">{importadorDocumento}</p>
+            ) : null}
+          </div>
+        )}
+
         <label className="mt-5 block space-y-1.5">
-          <span className="text-sm text-slate-400">Agente de Aduanas autorizado *</span>
+          <span className="text-sm text-slate-400">
+            Nombre del agente de aduanas *
+          </span>
           <input
             value={agenteAduanal}
             onChange={(e) => setAgenteAduanal(e.target.value)}
@@ -1712,66 +1832,19 @@ function Fase3Aduana({
         </label>
 
         <ul className="mt-5 space-y-3">
-          {docTipos.map((tipo, index) => {
-            const origen = origenDocDesaduanamiento(
-              regimen,
-              tipo,
-              PL_DESADUANAMIENTO_ORIGEN
-            );
-            const loaded = Boolean(docs[tipo]?.url);
-            return (
-              <li
-                key={tipo}
-                className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
-              >
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-100">
-                      {index + 1}. {DOCUMENTO_LABELS[tipo]}
-                    </p>
-                    {origen ? (
-                      <p className="mt-0.5 text-xs text-slate-500">{origen}</p>
-                    ) : (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        Cargar en PDF o foto / escaneo
-                      </p>
-                    )}
-                  </div>
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                      loaded
-                        ? "bg-emerald-950/60 text-emerald-300"
-                        : "bg-red-950/50 text-red-300"
-                    }`}
-                  >
-                    {loaded ? "Listo" : "Pendiente"}
-                  </span>
-                </div>
-                {loaded && docs[tipo]?.url ? (
-                  <a
-                    href={docs[tipo]!.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
-                  >
-                    Ver documento
-                  </a>
-                ) : null}
-                <ImportDocumentoUpload
-                  vehiculoId={vehiculoId}
-                  tipo={tipo}
-                  existingUrl={docs[tipo]?.url}
-                  acceptMode="both"
-                  hint="Foto o PDF · máx. 10 MB"
-                  actionLabel={loaded ? "Reemplazar" : "Cargar"}
-                  onUploaded={(next) => {
-                    setDocs(next);
-                    onUploadedMessage("Documento guardado");
-                  }}
-                />
-              </li>
-            );
-          })}
+          {pdfTipos.map((tipo, index) => (
+            <DesaduanamientoDocSlot
+              key={tipo}
+              index={index + 1}
+              tipo={tipo}
+              regimen={regimen}
+              docs={docs}
+              vehiculoId={vehiculoId}
+              setDocs={setDocs}
+              onUploadedMessage={onUploadedMessage}
+              importadorDocumento={importadorDocumento}
+            />
+          ))}
         </ul>
 
         <div className="mt-6 space-y-3">
@@ -1780,10 +1853,45 @@ function Fase3Aduana({
             variant="compact"
           />
           <p className="text-xs text-slate-500">
-            El PDF del Expediente SENIAT incluye portada, índice y los documentos
-            cargados para consignar ante el SENIAT.
+            El Expediente PDF SENIAT incluye portada (con el nombre del agente),
+            índice y los documentos de esta sección. El pase de salida no se
+            incluye.
           </p>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          Pase de salida
+          <span
+            className={`rounded-md px-2 py-0.5 text-xs font-normal ${
+              paseLoaded
+                ? "bg-emerald-950/60 text-emerald-300"
+                : "bg-slate-800 text-slate-400"
+            }`}
+          >
+            {paseLoaded ? "Listo" : "Pendiente"}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Cárgalo en esta misma pantalla. No forma parte del Expediente PDF
+          SENIAT; queda en el expediente digital del vehículo.
+        </p>
+        <ul className="mt-5 space-y-3">
+          <DesaduanamientoDocSlot
+            index={1}
+            tipo={PL_PASE_SALIDA_TIPO}
+            regimen={regimen}
+            docs={docs}
+            vehiculoId={vehiculoId}
+            setDocs={setDocs}
+            onUploadedMessage={onUploadedMessage}
+          />
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">
+          Carpeta completa: {docsCount}/{docTipos.length} (incluye pase de
+          salida).
+        </p>
       </section>
 
       <PlanillaFaseActions
