@@ -376,19 +376,21 @@ export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Recaudos de fases anteriores (referencia). No se cargan en Matriculación.
- * @deprecated No exigir ni subir en la UI de Matriculación.
+ * Recaudos de fases anteriores: solo referencia en Matriculación (sin re-cargar).
+ * Se incluyen en el PDF de carpeta INTT si ya están en el expediente.
  */
-export const PL_MATRICULACION_FISICO_TIPOS: DocumentoTipo[] = [
+export const PL_MATRICULACION_REFERENCIA_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "bl_guia",
   "nacionalizacion",
-  "experticia_verificacion_legal",
   "rcv_seguro",
   "cedula_importador",
   "rif_importador",
   "constancia_residencia_permanencia",
 ];
+
+/** @deprecated Usar PL_MATRICULACION_REFERENCIA_TIPOS. */
+export const PL_MATRICULACION_FISICO_TIPOS = PL_MATRICULACION_REFERENCIA_TIPOS;
 
 /** Liquidación o oficio de exención SENIAT: basta con uno. */
 export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
@@ -418,12 +420,39 @@ export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
 ];
 
 export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
+  factura_comercial: "Desde fase Registro",
+  bl_guia: "Desde fase Embarque",
+  nacionalizacion: "Desde fase Desaduanamiento (DUA)",
+  rcv_seguro: "Desde fase Seguro",
+  cedula_importador: "Desde fase Desaduanamiento",
+  rif_importador: "Desde fase Desaduanamiento",
+  constancia_residencia_permanencia: "Desde fase Desaduanamiento",
   planilla_liquidacion_aduanera: "Liquidación de impuestos / tasas aduaneras",
   oficio_exoneracion_seniat: "Oficio de exención / exoneración del SENIAT",
   inspeccion_pnb: "Inspección de la Policía Nacional Bolivariana",
   homologacion: "Solo si el vehículo lo requiere",
   planilla_sumica_put: "Planilla única de trámite (PUT / SUMICA)",
 };
+
+/**
+ * Orden de documentos del PDF de Matriculación INTT:
+ * referencias previas + docs cargados en esta fase.
+ */
+export function docsMatriculacionPdfTipos(
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  const seen = new Set<DocumentoTipo>();
+  const out: DocumentoTipo[] = [];
+  const push = (tipo: DocumentoTipo) => {
+    if (seen.has(tipo)) return;
+    seen.add(tipo);
+    out.push(tipo);
+  };
+  for (const t of PL_MATRICULACION_REFERENCIA_TIPOS) push(t);
+  for (const t of tiposMatriculacionBase(requiereHomologacion)) push(t);
+  for (const t of PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS) push(t);
+  return out;
+}
 
 /** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
 export function tiposMatriculacionBase(

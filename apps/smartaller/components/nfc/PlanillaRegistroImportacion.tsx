@@ -43,6 +43,7 @@ import {
   type LlegadaChecklistState,
 } from "@/lib/importacion/llegada-catalog";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
+import { PuertoLibreDescargarMatriculacionPdf } from "@/components/nfc/PuertoLibreDescargarMatriculacionPdf";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsDesaduanamientoPorRegimen,
@@ -70,6 +71,7 @@ import {
   PL_MATRICULACION_CARGAR_TIPOS,
   PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
   PL_MATRICULACION_ORIGEN,
+  PL_MATRICULACION_REFERENCIA_TIPOS,
   countMatriculacionCarpeta,
   tieneLiquidacionOExencion,
   SEGURO_DOCUMENTO_TIPOS,
@@ -2088,6 +2090,53 @@ function MatriculacionDocRow({
   );
 }
 
+function MatriculacionReferenciaRow({
+  tipo,
+  docs,
+}: {
+  tipo: DocumentoTipo;
+  docs: VehiculosDocumentos;
+}) {
+  const loaded = Boolean(docs[tipo]?.url);
+  return (
+    <li className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-100">
+            {DOCUMENTO_LABELS[tipo]}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {PL_MATRICULACION_ORIGEN[tipo] ?? "Cargado en una fase anterior"}
+          </p>
+        </div>
+        <span
+          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+            loaded
+              ? "bg-emerald-950/60 text-emerald-300"
+              : "bg-amber-950/50 text-amber-200"
+          }`}
+        >
+          {loaded ? "En expediente" : "No encontrado"}
+        </span>
+      </div>
+      {loaded && docs[tipo]?.url ? (
+        <a
+          href={docs[tipo]!.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex text-xs text-cyan-400 hover:underline"
+        >
+          Ver documento
+        </a>
+      ) : (
+        <p className="mt-2 text-xs text-slate-500">
+          Vuelve a la fase de origen para cargarlo; aquí solo se referencia.
+        </p>
+      )}
+    </li>
+  );
+}
+
 function Fase6Matriculacion({
   vehiculoId,
   docs,
@@ -2114,6 +2163,9 @@ function Fase6Matriculacion({
   const stats = countMatriculacionCarpeta(docs, requiereHomologacion);
   const carpetaCompleta = stats.listos === stats.total;
   const liquidacionListo = tieneLiquidacionOExencion(docs);
+  const refsListos = PL_MATRICULACION_REFERENCIA_TIPOS.filter((t) =>
+    Boolean(docs[t]?.url)
+  ).length;
 
   useEffect(() => {
     setRequiereHomologacion(requiereHomologacionInicial);
@@ -2130,12 +2182,15 @@ function Fase6Matriculacion({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Solo carga aquí la inspección PNB, la PUT, la homologación si aplica,
-          y la liquidación u oficio de exención del SENIAT. El resto del
-          expediente debió cargarse en las fases anteriores.
+          Carga aquí inspección PNB, PUT, homologación (si aplica) y liquidación
+          u oficio SENIAT. Abajo verás la referencia de los recaudos ya cargados
+          en fases anteriores para armar la carpeta PDF.
         </p>
 
-        <ul className="mt-5 space-y-3">
+        <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
+          Cargar en esta fase
+        </h3>
+        <ul className="mt-3 space-y-3">
           {PL_MATRICULACION_CARGAR_TIPOS.map((tipo) => (
             <MatriculacionDocRow
               key={tipo}
@@ -2252,16 +2307,43 @@ function Fase6Matriculacion({
             </div>
           </li>
         </ul>
+      </section>
 
-        <div className="mt-6">
-          <PlanillaFaseActions
-            pending={pending}
-            disabled={!carpetaCompleta}
-            continueLabel="Finalizar y nacionalizar"
-            onAction={(after) => onComplete(requiereHomologacion, after)}
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-100">
+          Referencia — ya en el expediente
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {refsListos}/{PL_MATRICULACION_REFERENCIA_TIPOS.length}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          No se vuelven a cargar aquí. Si figuran como “En expediente”, entran
+          al PDF de la carpeta INTT.
+        </p>
+        <ul className="mt-4 space-y-2.5">
+          {PL_MATRICULACION_REFERENCIA_TIPOS.map((tipo) => (
+            <MatriculacionReferenciaRow key={tipo} tipo={tipo} docs={docs} />
+          ))}
+        </ul>
+
+        <div className="mt-6 space-y-3">
+          <PuertoLibreDescargarMatriculacionPdf
+            vehiculoId={vehiculoId}
+            variant="compact"
           />
+          <p className="text-xs text-slate-500">
+            El PDF incluye portada, índice, los documentos de esta fase y las
+            referencias cargadas en fases anteriores.
+          </p>
         </div>
       </section>
+
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!carpetaCompleta}
+        continueLabel="Finalizar y nacionalizar"
+        onAction={(after) => onComplete(requiereHomologacion, after)}
+      />
     </div>
   );
 }

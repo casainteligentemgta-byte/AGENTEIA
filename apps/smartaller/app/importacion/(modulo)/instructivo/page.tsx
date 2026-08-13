@@ -79,7 +79,8 @@ const FASES = [
     puntos: [
       "Solo se cargan aquí: inspección PNB, PUT, homologación (si aplica).",
       "Liquidación / exención u oficio del SENIAT (basta con uno).",
-      "Los demás recaudos debieron cargarse en fases anteriores.",
+      "Los demás recaudos aparecen como referencia (ya cargados en fases anteriores).",
+      "Genera la carpeta PDF INTT con los nuevos + las referencias del expediente.",
     ],
   },
 ] as const;

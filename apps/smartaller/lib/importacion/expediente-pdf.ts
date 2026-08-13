@@ -14,6 +14,7 @@ import {
   PL_DESADUANAMIENTO_NUEVOS_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
+  docsMatriculacionPdfTipos,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
   PL_NACIONALIZACION_M3_TIPOS,
@@ -729,4 +730,115 @@ export function desaduanamientoPdfFileName(
 ): string {
   const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
   return `Expediente-SENIAT-${raw}.pdf`;
+}
+
+/**
+ * PDF de carpeta INTT (Matriculación):
+ * portada + índice + anexos (referencias de fases anteriores + docs de esta fase).
+ */
+export async function buildMatriculacionPdf(
+  ficha: ExpedientePdfSource
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const placa = placaRealVisible(ficha.placa, ficha.codigoExpediente);
+  const imp = ficha.importacion;
+  const tituloVehiculo =
+    [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Vehiculo";
+  const requiereHomologacion = imp.requiereHomologacion === true;
+
+  let page = addBlankPage(pdf);
+  let y = drawHeader(
+    page,
+    font,
+    bold,
+    "Carpeta PDF Matriculacion INTT",
+    `${codigo} · SmartTaller`
+  );
+
+  y = drawSectionTitle(page, bold, "Expediente", y);
+  ({ page, y } = drawPairs(
+    pdf,
+    page,
+    font,
+    bold,
+    [
+      { label: "Expediente PL", value: codigo },
+      { label: "Vehiculo", value: tituloVehiculo },
+      { label: "Color / anio", value: `${txt(ficha.color)} / ${txt(imp.anio)}` },
+      { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
+      { label: "Placa", value: txt(placa) },
+      { label: "Regimen", value: txt(labelRegimenImportacion(imp.regimen)) },
+      { label: "Importador", value: txt(imp.importadorNombre) },
+      { label: "RIF / cedula importador", value: txt(imp.importadorDocumento) },
+      {
+        label: "Homologacion",
+        value: requiereHomologacion ? "Requerida" : "No aplica",
+      },
+      { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
+      { label: "Nº BL / Guia", value: txt(imp.numeroBl) },
+    ],
+    y
+  ));
+
+  page = addBlankPage(pdf);
+  y = drawHeader(page, font, bold, "Indice — Carpeta INTT", codigo);
+  y = drawSectionTitle(page, bold, "Documentos (referencia + carga)", y);
+
+  const carpetaTipos = docsMatriculacionPdfTipos(requiereHomologacion);
+  const indexPairs: LinePair[] = carpetaTipos.map((tipo, i) => ({
+    label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
+    value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
+  }));
+  ({ page, y } = drawPairs(pdf, page, font, bold, indexPairs, y));
+
+  page.drawText(
+    winAnsi(
+      "Carpeta PDF para tramite INTT. Incluye recaudos de fases anteriores y los de Matriculacion."
+    ),
+    {
+      x: MARGIN,
+      y: MARGIN + 12,
+      size: 8,
+      font,
+      color: rgb(0.35, 0.4, 0.45),
+    }
+  );
+
+  const pagesUsed = { count: 0 };
+  for (const tipo of carpetaTipos) {
+    const url = ficha.documentos[tipo]?.url;
+    if (!url) {
+      separatorPage(
+        pdf,
+        bold,
+        font,
+        DOCUMENTO_LABELS[tipo],
+        "Documento pendiente de carga en el expediente digital."
+      );
+      pagesUsed.count += 1;
+      continue;
+    }
+    await appendAttachment(
+      pdf,
+      bold,
+      font,
+      DOCUMENTO_LABELS[tipo],
+      url,
+      pagesUsed
+    );
+  }
+
+  return pdf.save({ useObjectStreams: false });
+}
+
+export function matriculacionPdfFileName(
+  codigo: string | null | undefined,
+  placa: string
+): string {
+  const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
+  return `Carpeta-INTT-${raw}.pdf`;
 }
