@@ -34,6 +34,7 @@ import {
   type ViaNacionalizacion,
 } from "@/lib/schemas/vehiculo-documentos";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
+import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
@@ -114,7 +115,11 @@ const fase2LlegadaSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso inválida"),
-  partidaArancelaria: z.string().trim().max(32).optional().nullable(),
+  partidaArancelaria: z
+    .string()
+    .trim()
+    .min(1, "Partida arancelaria requerida")
+    .max(32, "Partida arancelaria demasiado larga"),
   checklistLlegada: z.record(z.string()).default({}),
   checklistLlegadaNotas: z.record(z.string()).default({}),
   otrosDispositivosNotas: z.string().trim().max(500).optional().nullable(),
@@ -923,12 +928,6 @@ export async function savePuertoLibreFase2LlegadaAction(
 
   const existingImportacion = parseImportacion(row.importacion);
   const docs = parseVehiculosDocumentos(row.documentos);
-  if (!docs.foto_impronta?.url) {
-    return {
-      success: false,
-      error: "Falta la foto de la impronta para verificar el serial.",
-    };
-  }
 
   const faltantesLlegada = PL_LLEGADA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
   if (faltantesLlegada.length > 0) {
@@ -936,6 +935,24 @@ export async function savePuertoLibreFase2LlegadaAction(
       success: false,
       error:
         "Carga el Acta de recepción (AR) y el reconocimiento / constancia del estado de la carga.",
+    };
+  }
+
+  const faltantesMemoria = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantesMemoria.length > 0) {
+    return {
+      success: false,
+      error:
+        "Completa la memoria descriptiva: las 7 fotos del vehículo (incluye impronta y odómetro).",
+    };
+  }
+
+  const checklist = parsed.data.checklistLlegada;
+  if (!isLlegadaChecklistCompleto(checklist)) {
+    return {
+      success: false,
+      error:
+        "Completa el cuestionario de revisión del vehículo (todos los ítems).",
     };
   }
 
@@ -955,14 +972,13 @@ export async function savePuertoLibreFase2LlegadaAction(
     };
   }
 
-  const checklist = parsed.data.checklistLlegada;
   const checklistNotas = parsed.data.checklistLlegadaNotas;
   const existingSeguro = parseSeguro(row.seguro);
 
   const importacion = serializeImportacion({
     ...existingImportacion,
     fechaIngreso: parsed.data.fechaIngreso,
-    partidaArancelaria: parsed.data.partidaArancelaria?.trim() || null,
+    partidaArancelaria: parsed.data.partidaArancelaria.trim(),
     checklistLlegada: checklist,
     checklistLlegadaNotas: checklistNotas,
     otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,

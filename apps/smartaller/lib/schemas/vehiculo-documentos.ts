@@ -347,7 +347,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "otro_importacion",
 ];
 
-/** Memoria fotográfica al llegar el vehículo (fase 2). */
+/** Memoria descriptiva (fotos) al llegar el vehículo (fase Llegada). */
 export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
   "foto_frontal",
   "foto_trasera",

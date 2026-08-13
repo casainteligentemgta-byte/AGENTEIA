@@ -300,7 +300,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         <div className="flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
             <ImageIcon className="h-4 w-4 text-cyan-400" />
-            Memoria fotográfica
+            Memoria descriptiva
           </h2>
           <span className="text-xs text-zinc-500">
             {fotosCargadas.length}/{MEMORIA_FOTOGRAFICA_TIPOS.length}

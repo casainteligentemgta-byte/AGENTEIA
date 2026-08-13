@@ -39,6 +39,7 @@ import {
   PlanillaChecklistRow,
 } from "@/components/nfc/PlanillaChecklistTap";
 import {
+  isLlegadaChecklistCompleto,
   LLEGADA_CHECKLIST_ITEMS,
   type LlegadaChecklistNotasState,
   type LlegadaChecklistRespuesta,
@@ -255,10 +256,13 @@ export function PlanillaRegistroImportacion({
 
   const embarqueCompleto = embarqueCount === PL_EMBARQUE_DOCUMENTO_TIPOS.length;
 
+  const llegadaDocsCount = countDocs(docs, PL_LLEGADA_DOCUMENTO_TIPOS);
   const llegadaCompleta =
     Boolean(initialImportacion.fechaIngreso?.trim()) &&
+    Boolean(initialImportacion.partidaArancelaria?.trim()) &&
+    llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length &&
     fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
-    checklistMarked === LLEGADA_CHECKLIST_ITEMS.length;
+    isLlegadaChecklistCompleto(checklist);
 
   const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
   const propietarioCompleto = Boolean(compradorNombre?.trim());
@@ -561,7 +565,7 @@ export function PlanillaRegistroImportacion({
               const result = await savePuertoLibreFase2LlegadaAction({
                 vehiculoId,
                 fechaIngreso,
-                partidaArancelaria: partidaArancelaria || null,
+                partidaArancelaria,
                 checklistLlegada: checklist,
                 checklistLlegadaNotas: checklistNotas,
                 otrosDispositivosNotas: otrosNotas || null,
@@ -1396,9 +1400,15 @@ function Fase2Llegada({
     (t) => Boolean(docs[t]?.url)
   ).length;
   const llegadaDocsOk = llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length;
+  const memoriaCompleta = fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length;
+  const cuestionarioCompleto = isLlegadaChecklistCompleto(checklist);
+  const datosLlegadaOk =
+    Boolean(fecha.trim()) && Boolean(partidaArancelaria.trim());
   const canContinue =
-    Boolean(fecha) &&
+    datosLlegadaOk &&
     llegadaDocsOk &&
+    memoriaCompleta &&
+    cuestionarioCompleto &&
     improntaEstado !== "no_coincide" &&
     (improntaOk || (canForce && forzarImpronta));
 
@@ -1406,11 +1416,15 @@ function Fase2Llegada({
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
-          Fecha de ingreso al PL
+          Datos de llegada
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Fecha de ingreso al Puerto Libre (distinta de la llegada del buque) y
+          partida arancelaria.
+        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
-            label=""
+            label="Fecha de ingreso al PL *"
             value={fecha}
             onChange={setFecha}
             required
@@ -1419,10 +1433,11 @@ function Fase2Llegada({
           />
         </div>
         <label className="mt-5 block min-w-0 space-y-1.5">
-          <span className="text-sm text-slate-400">Partida arancelaria</span>
+          <span className="text-sm text-slate-400">Partida arancelaria *</span>
           <input
             name="partidaArancelaria"
             type="text"
+            required
             value={partidaArancelaria}
             placeholder="Ej. 8703.23.91"
             onChange={(e) => setPartidaArancelaria(e.target.value.toUpperCase())}
@@ -1443,8 +1458,8 @@ function Fase2Llegada({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          En llegada se cargan el AR y el reconocimiento / constancia del estado
-          de la carga.
+          Acta de recepción (AR) y reconocimiento / constancia del estado de la
+          carga.
         </p>
         <div className="mt-5 grid gap-3">
           {PL_LLEGADA_DOCUMENTO_TIPOS.map((tipo) => (
@@ -1468,11 +1483,15 @@ function Fase2Llegada({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
           <Camera className="h-5 w-5 shrink-0 text-cyan-400" />
-          Memoria descriptiva fotográfica
+          Memoria descriptiva
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Fotos del vehículo al llegar. La impronta debe coincidir con el serial
+          del expediente.
+        </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -1550,7 +1569,13 @@ function Fase2Llegada({
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
-        <h2 className="text-lg font-semibold leading-snug text-slate-100">Revisión al llegar</h2>
+        <h2 className="text-lg font-semibold leading-snug text-slate-100">
+          Cuestionario de revisión del vehículo
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Marca cada ítem (OK / Daño). Obligatorio completar los{" "}
+          {LLEGADA_CHECKLIST_ITEMS.length} puntos para continuar.
+        </p>
         <div className="mt-4">
           <PlanillaChecklistProgress
             marked={checklistMarked}
