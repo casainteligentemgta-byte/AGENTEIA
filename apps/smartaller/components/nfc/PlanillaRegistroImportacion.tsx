@@ -1390,6 +1390,16 @@ function Fase2Llegada({
   const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
   const [forzarImpronta, setForzarImpronta] = useState(false);
 
+  useEffect(() => {
+    setFecha((prev) => fechaIngresoInicial || prev);
+    setPartidaArancelaria((prev) => partidaArancelariaInicial || prev);
+  }, [fechaIngresoInicial, partidaArancelariaInicial]);
+
+  useEffect(() => {
+    setImprontaEstado(initialImprontaEstado);
+    setImprontaLeido(initialImprontaLeido);
+  }, [initialImprontaEstado, initialImprontaLeido]);
+
   const expectedSerial = (serialCarroceria ?? "").trim();
   const improntaOk = improntaEstado === "coincide";
   const canForce =
