@@ -1,4 +1,4 @@
-/** Checklist de llegada del vehículo a Puerto Libre (fase 2). */
+/** Cuestionario de revisión del vehículo en fase Llegada (UI fase 3). */
 
 export const LLEGADA_CHECKLIST_ITEMS = [
   { id: "cristales_parabrisas", etiqueta: "Cristales / parabrisas" },
@@ -26,3 +26,20 @@ export type LlegadaChecklistState = Partial<
 >;
 
 export type LlegadaChecklistNotasState = Partial<Record<LlegadaChecklistItemId, string>>;
+
+const RESPUESTAS_VALIDAS = new Set<LlegadaChecklistRespuesta>([
+  "sin_dano",
+  "falla",
+  "na",
+]);
+
+/** True si todos los ítems del cuestionario de revisión tienen respuesta. */
+export function isLlegadaChecklistCompleto(
+  checklist: Record<string, string | undefined | null> | null | undefined
+): boolean {
+  if (!checklist) return false;
+  return LLEGADA_CHECKLIST_ITEMS.every((item) => {
+    const value = checklist[item.id];
+    return typeof value === "string" && RESPUESTAS_VALIDAS.has(value as LlegadaChecklistRespuesta);
+  });
+}

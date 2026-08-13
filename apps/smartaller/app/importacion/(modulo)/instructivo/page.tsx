@@ -38,11 +38,10 @@ const FASES = [
     n: 3,
     titulo: "Llegada",
     puntos: [
-      "Fecha de ingreso al PL (distinta de la llegada del buque).",
-      "Acta de recepción (AR).",
-      "Reconocimiento / constancia del estado de la carga.",
-      "Memoria fotográfica + verificación de impronta (serial debe coincidir).",
-      "Checklist de revisión al llegar.",
+      "Fecha de ingreso al PL (distinta de la llegada del buque) y partida arancelaria.",
+      "Acta de recepción (AR) y reconocimiento / constancia del estado de la carga.",
+      "Memoria descriptiva (7 fotos) + verificación de impronta (serial debe coincidir).",
+      "Cuestionario de revisión del vehículo (todos los ítems).",
     ],
   },
   {
