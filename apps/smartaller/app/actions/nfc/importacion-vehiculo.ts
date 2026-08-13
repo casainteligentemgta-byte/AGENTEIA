@@ -71,12 +71,62 @@ import {
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
-import { extractBlMultiFromDocument } from "@/lib/extract-puerto-libre-docs";
+import {
+  extractBlMultiFromDocument,
+  extractPolizaTransporteFromDocument,
+  polizaToFormFields,
+  type PuertoLibreRegistroScanFields,
+} from "@/lib/extract-puerto-libre-docs";
 import { resolveImageMimeType } from "@/lib/mime-image";
 import {
   resolveAduanaVenezuela,
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
+
+/** Parche de importación desde campos OCR de BL / póliza (solo claves presentes). */
+function embarquePatchFromScanFields(
+  fields: PuertoLibreRegistroScanFields,
+  existing: ImportacionData,
+  options?: { includeNumeroPoliza?: boolean }
+): Partial<ImportacionData> {
+  const patch: Partial<ImportacionData> = {};
+  if (fields.numeroBl?.trim()) patch.numeroBl = fields.numeroBl.trim();
+  if (fields.fechaLlegadaBuque?.trim()) {
+    patch.fechaLlegadaBuque = fields.fechaLlegadaBuque.trim();
+  }
+  if (fields.puerto?.trim()) patch.puerto = fields.puerto.trim();
+  const aduana = resolveAduanaVenezuela(fields.aduana);
+  if (aduana) patch.aduana = aduana;
+  const pais = resolvePais(fields.paisOrigen);
+  if (pais) patch.paisOrigen = pais;
+  if (
+    fields.modalidadTransito === "ninguno" ||
+    fields.modalidadTransito === "transito" ||
+    fields.modalidadTransito === "uso24"
+  ) {
+    patch.modalidadTransito = fields.modalidadTransito;
+  }
+  const aduanaTransito = resolveAduanaVenezuela(fields.aduanaTransito);
+  if (
+    aduanaTransito &&
+    (patch.modalidadTransito === "transito" ||
+      patch.modalidadTransito === "uso24" ||
+      existing.modalidadTransito === "transito" ||
+      existing.modalidadTransito === "uso24")
+  ) {
+    patch.aduanaTransito = aduanaTransito;
+  }
+  if (options?.includeNumeroPoliza && fields.numeroPolizaTransporte?.trim()) {
+    patch.numeroPolizaTransporte = fields.numeroPolizaTransporte.trim();
+  }
+  if (fields.importadorNombre?.trim() && !existing.importadorNombre) {
+    patch.importadorNombre = fields.importadorNombre.trim();
+  }
+  if (fields.importadorDocumento?.trim() && !existing.importadorDocumento) {
+    patch.importadorDocumento = fields.importadorDocumento.trim();
+  }
+  return patch;
+}
 
 export type PuertoLibreActionResult =
   | { success: true }
@@ -1766,8 +1816,11 @@ export async function uploadPuertoLibreDocumentoAction(
       };
     }
 
-    // BL: extraer aduana / nº BL / país / fecha y guardar en importación.
-    if (tipoParsed.data === "bl_guia" && isLlmConfigured()) {
+    // BL / póliza: extraer datos de embarque y guardar en importación (best-effort).
+    if (
+      (tipoParsed.data === "bl_guia" || tipoParsed.data === "poliza_transporte") &&
+      isLlmConfigured()
+    ) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
         const mimeType =
@@ -1778,24 +1831,16 @@ export async function uploadPuertoLibreDocumentoAction(
                 fileName: file.name,
                 buffer,
               }) ?? "image/jpeg";
-        const extracted = await extractBlMultiFromDocument(buffer, mimeType);
-        const fields = extracted.shared;
         const existingImp = parseImportacion(row.importacion);
-        const patch: Partial<ImportacionData> = {};
-        if (fields.numeroBl?.trim()) patch.numeroBl = fields.numeroBl.trim();
-        if (fields.fechaLlegadaBuque?.trim()) {
-          patch.fechaLlegadaBuque = fields.fechaLlegadaBuque.trim();
-        }
-        const aduana = resolveAduanaVenezuela(fields.aduana);
-        if (aduana) patch.aduana = aduana;
-        const pais = resolvePais(fields.paisOrigen);
-        if (pais) patch.paisOrigen = pais;
-        if (fields.importadorNombre?.trim() && !existingImp.importadorNombre) {
-          patch.importadorNombre = fields.importadorNombre.trim();
-        }
-        if (fields.importadorDocumento?.trim() && !existingImp.importadorDocumento) {
-          patch.importadorDocumento = fields.importadorDocumento.trim();
-        }
+        const fields =
+          tipoParsed.data === "bl_guia"
+            ? (await extractBlMultiFromDocument(buffer, mimeType)).shared
+            : polizaToFormFields(
+                await extractPolizaTransporteFromDocument(buffer, mimeType)
+              );
+        const patch = embarquePatchFromScanFields(fields, existingImp, {
+          includeNumeroPoliza: tipoParsed.data === "poliza_transporte",
+        });
         if (Object.keys(patch).length > 0) {
           const merged = serializeImportacion({ ...existingImp, ...patch });
           await admin

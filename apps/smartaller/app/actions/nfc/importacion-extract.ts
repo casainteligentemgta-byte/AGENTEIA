@@ -14,7 +14,9 @@ import {
   extractBlFromDocument,
   extractCertificadoOrigenMultiFromDocument,
   extractFacturaMultiFromDocument,
+  extractPolizaTransporteFromDocument,
   mergeScanFields,
+  polizaToFormFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
 import {
@@ -26,7 +28,11 @@ import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento"
 export type ExtractPuertoLibreDocResult =
   | {
       success: true;
-      tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+      tipo:
+        | "factura_comercial"
+        | "bl_guia"
+        | "certificado_origen"
+        | "poliza_transporte";
       fields: PuertoLibreRegistroScanFields;
       filledCount: number;
       /** Factura con varias unidades (hoja anexa / carátula multi). */
@@ -129,7 +135,8 @@ export async function extractPuertoLibreDocumentoAction(
   if (
     tipoRaw !== "factura_comercial" &&
     tipoRaw !== "bl_guia" &&
-    tipoRaw !== "certificado_origen"
+    tipoRaw !== "certificado_origen" &&
+    tipoRaw !== "poliza_transporte"
   ) {
     return { success: false, error: "Tipo de documento inválido" };
   }
@@ -216,6 +223,23 @@ export async function extractPuertoLibreDocumentoAction(
         };
       }
       return { success: true, tipo: "certificado_origen", fields, filledCount };
+    }
+
+    if (tipoRaw === "poliza_transporte") {
+      const extracted = await extractPolizaTransporteFromDocument(
+        buffer,
+        mimeType
+      );
+      const fields = polizaToFormFields(extracted);
+      const filledCount = countFilledFields(fields);
+      if (filledCount === 0) {
+        return {
+          success: false,
+          error:
+            "No se pudieron leer datos de la póliza de transporte. Prueba con una foto más nítida o completa los campos a mano.",
+        };
+      }
+      return { success: true, tipo: "poliza_transporte", fields, filledCount };
     }
 
     const extracted = await extractBlFromDocument(buffer, mimeType);
