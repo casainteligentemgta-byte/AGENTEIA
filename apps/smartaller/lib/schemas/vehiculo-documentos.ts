@@ -180,7 +180,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
     "Reconocimiento / constancia del estado de la carga",
   sencamer: "SENCAMER",
   registro_puerto_libre: "Registro de Puerto Libre",
-  agente_aduanal_doc: "Agente aduanal",
+  agente_aduanal_doc: "Constancia del agente aduanal",
   pase_salida_levante: "Pase de salida y levante",
   cancelacion_gastos_portuarios:
     "Cancelación de gastos portuarios, almacén y manipulación",
@@ -240,7 +240,8 @@ export const PL_LLEGADA_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Expediente PDF SENIAT (fase 4 UI / desaduanamiento).
+ * Carpeta completa de desaduanamiento (fase 4 UI).
+ * Incluye el pase de salida (se carga en pantalla pero NO va al Expediente PDF).
  * Registro PL solo aplica a importador jurídico (se filtra en runtime).
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
@@ -253,9 +254,13 @@ export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "registro_puerto_libre",
   "agente_aduanal_doc",
   "constancia_edi_reconocimiento",
+  "planilla_liquidacion_aduanera",
+  "constancia_residencia_permanencia",
   "pase_salida_levante",
-  "cancelacion_gastos_portuarios",
 ];
+
+/** Documento de salida: misma pantalla, fuera del Expediente PDF SENIAT. */
+export const PL_PASE_SALIDA_TIPO: DocumentoTipo = "pase_salida_levante";
 
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
 export const PL_ADUANA_DOCUMENTO_TIPOS = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS;
@@ -269,29 +274,33 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
   "sencamer",
   "registro_puerto_libre",
   "agente_aduanal_doc",
+  "planilla_liquidacion_aduanera",
+  "constancia_residencia_permanencia",
   "pase_salida_levante",
-  "cancelacion_gastos_portuarios",
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
-  cedula_importador: "Cédula del importador",
+  cedula_importador: "Cédula del importador (si ya está cargada, puedes reemplazarla)",
   rif_importador:
-    "RIF con dirección en Nueva Esparta, Venezuela (ambos del importador)",
+    "RIF con dirección en Nueva Esparta, Venezuela (si ya está cargado, puedes reemplazarlo)",
   lista_empaque: "Desde fase Embarque (lista de empaque)",
   nacionalizacion: "Declaración Única de Aduanas (DUA) ante SENIAT",
   dav: "Declaración Andina de Valor (DAV)",
   sencamer: "Certificado / documento SENCAMER",
   registro_puerto_libre:
     "Registro de Puerto Libre (solo importador persona jurídica)",
-  agente_aduanal_doc: "Documento del Agente de Aduanas autorizado",
+  agente_aduanal_doc: "Constancia / documento del Agente de Aduanas autorizado",
   constancia_edi_reconocimiento:
     "Desde fase Llegada (Reconocimiento / constancia del estado de la carga)",
-  pase_salida_levante: "Pase de salida y levante aduanero",
+  planilla_liquidacion_aduanera:
+    "Pago de tasas o impuestos / planilla de liquidación aduanera",
+  constancia_residencia_permanencia:
+    "Constancia de residencia permanente en zona de Puerto Libre",
+  pase_salida_levante:
+    "Pase de salida y levante — se carga aparte; no forma parte del Expediente PDF",
   cancelacion_gastos_portuarios:
     "Cancelación de gastos portuarios, almacén y manipulación",
   nota_levante_seniat: "Emisión de la nota del levante por el SENIAT",
-  constancia_residencia_permanencia:
-    "Constancia de residencia en zona de Puerto Libre",
 };
 
 /** Docs de registro + embarque + desaduanamiento (conteo faltantes en listados). */

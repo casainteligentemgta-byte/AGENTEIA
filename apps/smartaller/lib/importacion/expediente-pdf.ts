@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { placaRealVisible } from "@/lib/importacion/expediente";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
-  docsDesaduanamientoPorRegimen,
+  docsDesaduanamientoPdfPorRegimen,
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import {
@@ -669,7 +669,8 @@ export async function buildDesaduanamientoPdf(
   );
   y = drawSectionTitle(page, bold, "Documentos a consignar", y);
 
-  const carpetaTipos = docsDesaduanamientoPorRegimen(
+  // Expediente PDF: sin pase de salida (se carga aparte en la planilla).
+  const carpetaTipos = docsDesaduanamientoPdfPorRegimen(
     imp.regimen,
     PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
     {

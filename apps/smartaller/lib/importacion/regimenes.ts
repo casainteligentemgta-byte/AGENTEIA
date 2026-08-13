@@ -83,11 +83,9 @@ export const REGIMENES_IMPORTACION_CONFIG: Record<
     shortLabel: "P. Libre",
     descripcion:
       "Régimen preferencial de Puerto Libre. Constancia de residencia y vías de nacionalización a 3 años.",
-    docsExtraDesaduanamiento: ["constancia_residencia_permanencia"],
-    docsExtraOrigen: {
-      constancia_residencia_permanencia:
-        "Constancia de residencia en zona de Puerto Libre",
-    },
+    // constancia_residencia_permanencia va en la base del expediente SENIAT.
+    docsExtraDesaduanamiento: [],
+    docsExtraOrigen: {},
     nacionalizacionPuertoLibre: true,
     aplicaCupoPersonaNatural: true,
   },
@@ -98,13 +96,11 @@ export const REGIMENES_IMPORTACION_CONFIG: Record<
     descripcion:
       "Franquicia y facilidad diplomática (MPPRE) + exoneración SENIAT.",
     docsExtraDesaduanamiento: [
-      "constancia_residencia_permanencia",
       "oficio_exoneracion_seniat",
       "franquicia_diplomatica",
       "facilidad_diplomatica",
     ],
     docsExtraOrigen: {
-      constancia_residencia_permanencia: "Constancia de residencia",
       oficio_exoneracion_seniat: "Oficio de exoneración SENIAT",
       franquicia_diplomatica: "Franquicia diplomática (MPPRE)",
       facilidad_diplomatica: "Facilidad diplomática (MPPRE)",
@@ -185,6 +181,7 @@ export const REGIMEN_SELECT_OPTIONS: { value: RegimenImportacion; label: string 
 /**
  * Carpeta de desaduanamiento = base + extras del régimen (sin duplicar).
  * `registro_puerto_libre` solo si el importador es persona jurídica.
+ * Incluye el pase de salida (fuera del PDF).
  */
 export function docsDesaduanamientoPorRegimen(
   regimen: string | null | undefined,
@@ -202,6 +199,17 @@ export function docsDesaduanamientoPorRegimen(
     out.push(t);
   }
   return out;
+}
+
+/** Docs del Expediente PDF SENIAT: carpeta completa sin el pase de salida. */
+export function docsDesaduanamientoPdfPorRegimen(
+  regimen: string | null | undefined,
+  base: DocumentoTipo[],
+  options?: { esJuridica?: boolean }
+): DocumentoTipo[] {
+  return docsDesaduanamientoPorRegimen(regimen, base, options).filter(
+    (t) => t !== "pase_salida_levante"
+  );
 }
 
 export function origenDocDesaduanamiento(

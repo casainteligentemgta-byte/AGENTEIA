@@ -1050,9 +1050,9 @@ export async function completePuertoLibreFase3Action(
     return {
       success: false,
       error:
-        "Completa la carpeta de desaduanamiento (cédula/RIF, lista, DUA, DAV, SENCAMER, agente, reconocimiento, pase de salida, cancelación de gastos" +
+        "Completa desaduanamiento: cédula/RIF, lista de empaque, DUA, DAV, SENCAMER, constancia del agente, reconocimiento, pago de tasas/impuestos, constancia de residencia, pase de salida" +
         (esJuridica ? ", registro PL" : "") +
-        " y recaudos del régimen)",
+        " y recaudos del régimen",
     };
   }
 
