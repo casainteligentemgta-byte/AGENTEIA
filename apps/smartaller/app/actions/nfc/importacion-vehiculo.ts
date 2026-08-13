@@ -1167,7 +1167,10 @@ export async function completePuertoLibreFase5SeguroAction(
   return { success: true };
 }
 
-/** Guarda carpeta de matriculación INTT y abre el paso de título/placas. */
+/**
+ * Completa Matriculación (fase 7 → 8) con los docs propios de la fase:
+ * PNB, PUT, homologación si aplica, liquidación u oficio SENIAT.
+ */
 export async function savePuertoLibreCarpetaMatriculacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1201,15 +1204,22 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
     return {
       success: false,
       error:
-        "Completa los documentos a cargar y los de presentar en físico antes de continuar",
+        "Completa inspección PNB, PUT, homologación (si aplica) y liquidación u oficio SENIAT",
     };
   }
 
+  const fechaLimite =
+    existing.fechaLimiteNacionalizacion?.trim() ||
+    fechaLimitePermanencia3Anios(existing.fechaIngreso);
+
   const importacion = serializeImportacion({
     ...existing,
-    planillaFase: 7,
+    planillaFase: 8,
     matriculacionPaso: 2,
     requiereHomologacion,
+    estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
+    fechaLimiteNacionalizacion: fechaLimite,
+    nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
   });
 
   const admin = createAdminClient();
@@ -1224,17 +1234,10 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
   return { success: true };
 }
 
-const fase6MatriculacionSchema = z.object({
-  vehiculoId: z.string().uuid(),
-  /** Placa PL asignada / entregada por el INTT. */
-  placa: z
-    .string()
-    .trim()
-    .min(1, "Ingresa el número de placa PL obtenido en la matriculación")
-    .max(20),
-});
-
-/** Registra título + placa PL y marca planilla completa (fase 8). */
+/**
+ * @deprecated Usar savePuertoLibreCarpetaMatriculacionAction.
+ * Conservado por compatibilidad: completa matriculación sin exigir título/placa.
+ */
 export async function completePuertoLibreFase6MatriculacionAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1243,52 +1246,40 @@ export async function completePuertoLibreFase6MatriculacionAction(
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const parsed = fase6MatriculacionSchema.safeParse(raw);
+  const parsed = z
+    .object({
+      vehiculoId: z.string().uuid(),
+      placa: z.string().trim().max(20).optional(),
+      requiereHomologacion: z.boolean().optional(),
+    })
+    .safeParse(raw);
   if (!parsed.success) {
     return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const result = await savePuertoLibreCarpetaMatriculacionAction({
+    vehiculoId: parsed.data.vehiculoId,
+    requiereHomologacion: parsed.data.requiereHomologacion,
+  });
+  if (!result.success) return result;
+
+  const placaRaw = parsed.data.placa?.trim();
+  if (!placaRaw) {
+    revalidateFicha(parsed.data.vehiculoId);
+    return { success: true };
   }
 
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
-  const docs = parseVehiculosDocumentos(row.documentos);
   const existing = parseImportacion(row.importacion);
-  const requiereHomologacion = existing.requiereHomologacion === true;
-  const faltantes = faltantesMatriculacionCarpeta(docs, requiereHomologacion);
-  if (faltantes.length > 0) {
-    return {
-      success: false,
-      error:
-        "Completa los documentos a cargar y los de presentar en físico antes de finalizar",
-    };
-  }
-  if (!docs.titulo?.url) {
-    return {
-      success: false,
-      error: "Carga la foto o PDF del título entregado por el INTT antes de finalizar",
-    };
-  }
-  if (!docs.foto_placa?.url) {
-    return {
-      success: false,
-      error: "Toma o carga la foto de la placa PL antes de finalizar",
-    };
-  }
-
-  if ((existing.matriculacionPaso ?? 1) < 2) {
-    return {
-      success: false,
-      error: "Guarda primero la carpeta de matriculación antes de registrar título y placa",
-    };
-  }
-
   const codigoExpediente =
     resolveCodigoExpediente({
       codigoExpediente: existing.codigoExpediente,
       placa: row.placa,
     }) ?? null;
 
-  const placa = parsed.data.placa.trim().toUpperCase().replace(/\s+/g, "");
+  const placa = placaRaw.toUpperCase().replace(/\s+/g, "");
   if (parseCodigoExpediente(placa)) {
     return {
       success: false,
@@ -1311,24 +1302,10 @@ export async function completePuertoLibreFase6MatriculacionAction(
     return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
   }
 
-  const fechaLimite =
-    existing.fechaLimiteNacionalizacion?.trim() ||
-    fechaLimitePermanencia3Anios(existing.fechaIngreso);
-
-  const importacion = serializeImportacion({
-    ...existing,
-    planillaFase: 8,
-    matriculacionPaso: 2,
-    estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
-    fechaLimiteNacionalizacion: fechaLimite,
-    nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
-  });
-
   const { error } = await admin
     .from("vehiculos")
     .update({
       placa,
-      importacion,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId)

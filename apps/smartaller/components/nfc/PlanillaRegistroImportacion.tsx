@@ -25,14 +25,12 @@ import {
   completePuertoLibreFase3Action,
   completePuertoLibreFase4PropietarioAction,
   completePuertoLibreFase5SeguroAction,
-  completePuertoLibreFase6MatriculacionAction,
   savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
-import { PlanillaFotoChip } from "@/components/nfc/PlanillaFotoChip";
 import {
   OPCIONES_OK_DANO,
   PlanillaChecklistProgress,
@@ -70,7 +68,6 @@ import {
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARGAR_TIPOS,
-  PL_MATRICULACION_FISICO_TIPOS,
   PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
   PL_MATRICULACION_ORIGEN,
   countMatriculacionCarpeta,
@@ -209,9 +206,6 @@ export function PlanillaRegistroImportacion({
   const [otrosNotas, setOtrosNotas] = useState(
     initialImportacion.otrosDispositivosNotas ?? ""
   );
-  const [matriculacionPaso, setMatriculacionPaso] = useState(
-    initialImportacion.matriculacionPaso ?? 1
-  );
 
   const regimenCfg = getRegimenConfig(initialImportacion.regimen);
   const esImportadorJuridico =
@@ -276,10 +270,7 @@ export function PlanillaRegistroImportacion({
     initialImportacion.codigoExpediente
   );
   const matriculacionCompleta =
-    matriculacionStats.listos === matriculacionStats.total &&
-    Boolean(docs.titulo?.url) &&
-    Boolean(docs.foto_placa?.url) &&
-    Boolean(placaVisible);
+    matriculacionStats.listos === matriculacionStats.total;
 
   const codigoExpediente =
     resolveCodigoExpediente({
@@ -683,13 +674,11 @@ export function PlanillaRegistroImportacion({
           vehiculoId={vehiculoId}
           docs={docs}
           setDocs={setDocs}
-          placaInicial={placaVisible ?? ""}
-          paso={matriculacionPaso}
           requiereHomologacionInicial={
             initialImportacion.requiereHomologacion === true
           }
           pending={pending}
-          onSaveCarpeta={(requiereHomologacion, after) => {
+          onComplete={(requiereHomologacion, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -701,27 +690,7 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMatriculacionPaso(2);
-              setMessage("Carpeta INTT guardada · registra título y placas PL");
-              if (after === "ficha") {
-                router.push(`/importacion/${vehiculoId}`);
-              }
-              router.refresh();
-            });
-          }}
-          onComplete={(placaNueva, after) => {
-            setError(null);
-            setMessage(null);
-            startTransition(async () => {
-              const result = await completePuertoLibreFase6MatriculacionAction({
-                vehiculoId,
-                placa: placaNueva,
-              });
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
-              setMessage("Planilla completa · puedes nacionalizar");
+              setMessage("Matriculación completa · puedes nacionalizar");
               if (after === "ficha") {
                 router.push(`/importacion/${vehiculoId}`);
               } else {
@@ -2123,39 +2092,32 @@ function Fase6Matriculacion({
   vehiculoId,
   docs,
   setDocs,
-  placaInicial,
-  paso,
   requiereHomologacionInicial,
   pending,
-  onSaveCarpeta,
   onComplete,
   onUploadedMessage,
 }: {
   vehiculoId: string;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
-  placaInicial: string;
-  /** 1 = carpeta, 2 = título + placa. */
-  paso: number;
   requiereHomologacionInicial: boolean;
   pending: boolean;
-  onSaveCarpeta: (
+  onComplete: (
     requiereHomologacion: boolean,
     after: PlanillaAfterSave
   ) => void;
-  onComplete: (placa: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const [placa, setPlaca] = useState(placaInicial);
   const [requiereHomologacion, setRequiereHomologacion] = useState(
     requiereHomologacionInicial
   );
   const stats = countMatriculacionCarpeta(docs, requiereHomologacion);
   const carpetaCompleta = stats.listos === stats.total;
-  const pasoEntrega = paso >= 2;
-  const tituloListo = Boolean(docs.titulo?.url);
-  const fotoPlacaLista = Boolean(docs.foto_placa?.url);
   const liquidacionListo = tieneLiquidacionOExencion(docs);
+
+  useEffect(() => {
+    setRequiereHomologacion(requiereHomologacionInicial);
+  }, [requiereHomologacionInicial]);
 
   return (
     <div className="space-y-8">
@@ -2168,15 +2130,12 @@ function Fase6Matriculacion({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Carga los recaudos del trámite. Los documentos de fases anteriores se
-          reutilizan; si faltan, súbelos aquí. Al final se entregan el título y
-          las placas PL.
+          Solo carga aquí la inspección PNB, la PUT, la homologación si aplica,
+          y la liquidación u oficio de exención del SENIAT. El resto del
+          expediente debió cargarse en las fases anteriores.
         </p>
 
-        <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
-          Cargar
-        </h3>
-        <ul className="mt-3 space-y-3">
+        <ul className="mt-5 space-y-3">
           {PL_MATRICULACION_CARGAR_TIPOS.map((tipo) => (
             <MatriculacionDocRow
               key={tipo}
@@ -2216,35 +2175,14 @@ function Fase6Matriculacion({
               onUploadedMessage={onUploadedMessage}
             />
           ) : null}
-        </ul>
-
-        <h3 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-300">
-          Presentar en físico
-        </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Verifica que estén en el expediente (impresos para consignar ante el
-          INTT).
-        </p>
-        <ul className="mt-3 space-y-3">
-          {PL_MATRICULACION_FISICO_TIPOS.map((tipo) => (
-            <MatriculacionDocRow
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              docs={docs}
-              setDocs={setDocs}
-              origen={PL_MATRICULACION_ORIGEN[tipo]}
-              onUploadedMessage={onUploadedMessage}
-            />
-          ))}
           <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-100">
-                  Liquidación / exención
+                  Liquidación / exención y oficio SENIAT
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Basta con liquidación aduanera u oficio de exoneración SENIAT
+                  Basta con la liquidación o el oficio de exención del SENIAT
                 </p>
               </div>
               <span
@@ -2266,9 +2204,16 @@ function Fase6Matriculacion({
                     className="rounded-lg border border-slate-800/80 bg-slate-950/50 p-3"
                   >
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-100">
-                        {DOCUMENTO_LABELS[tipo]}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-100">
+                          {DOCUMENTO_LABELS[tipo]}
+                        </p>
+                        {PL_MATRICULACION_ORIGEN[tipo] ? (
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {PL_MATRICULACION_ORIGEN[tipo]}
+                          </p>
+                        ) : null}
+                      </div>
                       <span
                         className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
                           loaded
@@ -2308,124 +2253,16 @@ function Fase6Matriculacion({
           </li>
         </ul>
 
-        {!pasoEntrega ? (
-          <div className="mt-6">
-            <PlanillaFaseActions
-              pending={pending}
-              disabled={!carpetaCompleta}
-              continueLabel="Continuar a título y placas PL"
-              onAction={(after) => onSaveCarpeta(requiereHomologacion, after)}
-            />
-          </div>
-        ) : null}
+        <div className="mt-6">
+          <PlanillaFaseActions
+            pending={pending}
+            disabled={!carpetaCompleta}
+            continueLabel="Finalizar y nacionalizar"
+            onAction={(after) => onComplete(requiereHomologacion, after)}
+          />
+        </div>
       </section>
-
-      {pasoEntrega ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-          <h2 className="text-lg font-semibold text-slate-100">
-            Entrega INTT — título y placas PL
-          </h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Tras el trámite se entregan el título y las placas PL. Toma una foto
-            de cada uno (o sube el archivo) y escribe el número de placa.
-          </p>
-
-          <div className="mt-5 space-y-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-100">
-                    {DOCUMENTO_LABELS.titulo}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {PL_MATRICULACION_ORIGEN.titulo}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                    tituloListo
-                      ? "bg-emerald-950/60 text-emerald-300"
-                      : "bg-red-950/50 text-red-300"
-                  }`}
-                >
-                  {tituloListo ? "Listo" : "Pendiente"}
-                </span>
-              </div>
-              <PlanillaFotoChip
-                vehiculoId={vehiculoId}
-                tipo="titulo"
-                existingUrl={docs.titulo?.url}
-                mode="both"
-                label="Título"
-                onUploaded={(next) => {
-                  setDocs(next);
-                  onUploadedMessage("Título guardado");
-                }}
-              />
-            </div>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-100">
-                    Número y foto de la placa PL
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Escribe el número y toma una foto de la placa entregada
-                  </p>
-                </div>
-                <span
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                    fotoPlacaLista && placa.trim()
-                      ? "bg-emerald-950/60 text-emerald-300"
-                      : "bg-red-950/50 text-red-300"
-                  }`}
-                >
-                  {fotoPlacaLista && placa.trim() ? "Listo" : "Pendiente"}
-                </span>
-              </div>
-
-              <label className="block space-y-1.5">
-                <span className="text-sm text-slate-400">Placa PL *</span>
-                <input
-                  value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  required
-                  placeholder="Ej. AB123CO"
-                  autoComplete="off"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase tracking-wide text-slate-100 outline-none focus:border-cyan-500/60"
-                />
-              </label>
-
-              <div className="mt-3">
-                <p className="mb-2 text-xs text-slate-500">
-                  Foto de la placa *
-                </p>
-                <PlanillaFotoChip
-                  vehiculoId={vehiculoId}
-                  tipo="foto_placa"
-                  existingUrl={docs.foto_placa?.url}
-                  mode="both"
-                  label="Placa"
-                  onUploaded={(next) => {
-                    setDocs(next);
-                    onUploadedMessage("Foto de la placa guardada");
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <PlanillaFaseActions
-              pending={pending}
-              disabled={!placa.trim() || !tituloListo || !fotoPlacaLista}
-              continueLabel="Finalizar y nacionalizar"
-              onAction={(after) => onComplete(placa.trim(), after)}
-            />
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
+
