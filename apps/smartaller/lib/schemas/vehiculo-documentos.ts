@@ -375,74 +375,93 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Matriculación INTT (fase 7): documentos a cargar digitalmente.
+ * Matriculación INTT (fase 7): solo docs propios de esta fase.
  * Homologación es opcional según el vehículo (`requiereHomologacion`).
+ * El resto del expediente se cargó en fases anteriores.
  */
 export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
   "inspeccion_pnb",
   "planilla_sumica_put",
-  "pago_tasas",
 ];
 
-/** Presentar en físico ante el INTT (deben estar en el expediente digital). */
-export const PL_MATRICULACION_FISICO_TIPOS: DocumentoTipo[] = [
+/**
+ * Recaudos de fases anteriores: solo referencia en Matriculación (sin re-cargar).
+ * Se incluyen en el PDF de carpeta INTT si ya están en el expediente.
+ */
+export const PL_MATRICULACION_REFERENCIA_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
   "bl_guia",
   "nacionalizacion",
-  "experticia_verificacion_legal",
   "rcv_seguro",
   "cedula_importador",
   "rif_importador",
   "constancia_residencia_permanencia",
 ];
 
-/** Liquidación o exención: basta con uno de estos. */
+/** @deprecated Usar PL_MATRICULACION_REFERENCIA_TIPOS. */
+export const PL_MATRICULACION_FISICO_TIPOS = PL_MATRICULACION_REFERENCIA_TIPOS;
+
+/** Liquidación o oficio de exención SENIAT: basta con uno. */
 export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
   "planilla_liquidacion_aduanera",
   "oficio_exoneracion_seniat",
 ];
 
-/** Entrega INTT: título + foto de placa PL (paso 2). */
+/**
+ * Entrega INTT (título / foto placa): no se cargan en Matriculación.
+ * @deprecated Fuera del alcance de la fase Matriculación.
+ */
 export const PL_MATRICULACION_ENTREGA_TIPOS: DocumentoTipo[] = [
   "titulo",
   "foto_placa",
 ];
 
 /**
- * Docs que suelen cargarse por primera vez en matriculación
+ * Docs que se cargan por primera vez en matriculación
  * (homologación solo si aplica).
  */
 export const PL_MATRICULACION_NUEVOS_TIPOS: DocumentoTipo[] = [
   "inspeccion_pnb",
   "homologacion",
   "planilla_sumica_put",
-  "pago_tasas",
-  "experticia_verificacion_legal",
-  "constancia_residencia_permanencia",
   "planilla_liquidacion_aduanera",
   "oficio_exoneracion_seniat",
-  "titulo",
-  "foto_placa",
 ];
 
 export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
-  factura_comercial: "Desde fase Registro (factura de compra)",
-  bl_guia: "Desde fase Embarque (B/L)",
+  factura_comercial: "Desde fase Registro",
+  bl_guia: "Desde fase Embarque",
   nacionalizacion: "Desde fase Desaduanamiento (DUA)",
-  planilla_liquidacion_aduanera: "Liquidación aduanera o exención SENIAT",
-  oficio_exoneracion_seniat: "Liquidación aduanera o exención SENIAT",
-  experticia_verificacion_legal: "Experticia de verificación legal",
-  rcv_seguro: "Desde fase Seguro (póliza RCV)",
+  rcv_seguro: "Desde fase Seguro",
   cedula_importador: "Desde fase Desaduanamiento",
   rif_importador: "Desde fase Desaduanamiento",
-  constancia_residencia_permanencia: "Constancia de residencia (Nueva Esparta)",
+  constancia_residencia_permanencia: "Desde fase Desaduanamiento",
+  planilla_liquidacion_aduanera: "Liquidación de impuestos / tasas aduaneras",
+  oficio_exoneracion_seniat: "Oficio de exención / exoneración del SENIAT",
   inspeccion_pnb: "Inspección de la Policía Nacional Bolivariana",
   homologacion: "Solo si el vehículo lo requiere",
   planilla_sumica_put: "Planilla única de trámite (PUT / SUMICA)",
-  pago_tasas: "Planilla de pago de tasas INTT",
-  titulo: "Título entregado por el INTT — toma foto o sube PDF",
-  foto_placa: "Foto de la placa PL entregada por el INTT",
 };
+
+/**
+ * Orden de documentos del PDF de Matriculación INTT:
+ * referencias previas + docs cargados en esta fase.
+ */
+export function docsMatriculacionPdfTipos(
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  const seen = new Set<DocumentoTipo>();
+  const out: DocumentoTipo[] = [];
+  const push = (tipo: DocumentoTipo) => {
+    if (seen.has(tipo)) return;
+    seen.add(tipo);
+    out.push(tipo);
+  };
+  for (const t of PL_MATRICULACION_REFERENCIA_TIPOS) push(t);
+  for (const t of tiposMatriculacionBase(requiereHomologacion)) push(t);
+  for (const t of PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS) push(t);
+  return out;
+}
 
 /** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
 export function tiposMatriculacionBase(
@@ -451,7 +470,6 @@ export function tiposMatriculacionBase(
   return [
     ...PL_MATRICULACION_CARGAR_TIPOS,
     ...(requiereHomologacion ? (["homologacion"] as const) : []),
-    ...PL_MATRICULACION_FISICO_TIPOS,
   ];
 }
 
@@ -463,7 +481,7 @@ export function tieneLiquidacionOExencion(
   );
 }
 
-/** Faltantes de carpeta INTT (paso 1). No incluye título/placa. */
+/** Faltantes de matriculación (PNB, PUT, homologación si aplica, liquidación/oficio). */
 export function faltantesMatriculacionCarpeta(
   docs: VehiculosDocumentos,
   requiereHomologacion: boolean
@@ -489,11 +507,9 @@ export function countMatriculacionCarpeta(
 
 /**
  * @deprecated Usar tiposMatriculacionBase + liquidación/exención.
- * Conservado para conteos simples sin flag de homologación.
  */
 export const PL_MATRICULACION_CARPETA_TIPOS: DocumentoTipo[] = [
   ...PL_MATRICULACION_CARGAR_TIPOS,
-  ...PL_MATRICULACION_FISICO_TIPOS,
 ];
 
 /** Vías de nacionalización desde Puerto Libre. */

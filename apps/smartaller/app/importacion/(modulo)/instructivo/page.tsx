@@ -76,9 +76,10 @@ const FASES = [
     n: 7,
     titulo: "Matriculación (INTT)",
     puntos: [
-      "Cargar: inspección PNB, homologación (si aplica), PUT y planilla de pago.",
-      "Presentar en físico: factura, B/L, DUA, liquidación/exención, experticia, RCV, cédula, RIF y constancia de residencia.",
-      "Se entregan el título y las placas PL: toma foto de ambos y registra el número de placa.",
+      "Solo se cargan aquí: inspección PNB, PUT, homologación (si aplica).",
+      "Liquidación / exención u oficio del SENIAT (basta con uno).",
+      "Los demás recaudos aparecen como referencia (ya cargados en fases anteriores).",
+      "Genera la carpeta PDF INTT con los nuevos + las referencias del expediente.",
     ],
   },
 ] as const;
