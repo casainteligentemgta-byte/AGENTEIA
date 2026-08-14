@@ -26,6 +26,9 @@ import {
 } from "@/lib/importacion/expediente";
 import { parseImportacion, serializeImportacion } from "@/lib/schemas/vehiculo-documentos";
 import {
+  placeholderOValor,
+} from "@/lib/importacion/completitud-datos";
+import {
   extractBlMultiFromDocument,
   extractCertificadoOrigenMultiFromDocument,
   enrichFacturaRowsStageFromDocument,
@@ -1266,13 +1269,11 @@ export async function createPuertoLibreCargaMasivaAction(input: {
 
   const validated = validateCargaMasivaRows(withImportador);
 
-  // Semáforo: solo registrar aptos (verde/ámbar). Las rojas no entran en el lote.
-  const aptos = validated.filter((r) => vehicleSemaforo(r).nivel !== "rojo");
-  const bloqueados = validated.filter(
-    (r) => vehicleSemaforo(r).nivel === "rojo"
-  );
+  // Registrable = VIN válido (rojo/ámbar/verde). Sin VIN → omitidos.
+  const aptos = validated.filter((r) => vehicleSemaforo(r).registrable);
+  const omitidos = validated.filter((r) => !vehicleSemaforo(r).registrable);
   if (aptos.length === 0) {
-    const ejemplos = bloqueados
+    const ejemplos = omitidos
       .slice(0, 3)
       .map((r) => {
         const s = vehicleSemaforo(r);
@@ -1282,15 +1283,15 @@ export async function createPuertoLibreCargaMasivaAction(input: {
       .join("; ");
     return {
       success: false,
-      error: `No hay vehículos aptos para registrar. ${bloqueados.length} en rojo. ${ejemplos}`,
+      error: `Ningún vehículo tiene VIN válido para crear expediente. ${ejemplos}`,
     };
   }
 
-  const invalid = aptos.filter((r) => r.error);
+  const invalid = aptos.filter((r) => r.error && !vehicleSemaforo(r).registrable);
   if (invalid.length > 0) {
     return {
       success: false,
-      error: `Hay ${invalid.length} fila(s) con error. Corrige la tabla antes de registrar.`,
+      error: `Hay ${invalid.length} fila(s) con error de VIN. Corrige o elimínalas.`,
     };
   }
 
@@ -1308,9 +1309,12 @@ export async function createPuertoLibreCargaMasivaAction(input: {
 
   for (let i = 0; i < aptos.length; i++) {
     const row = aptos[i]!;
-    // Ámbar: permitir huecos de color/motor/año con placeholder (se completan luego)
+    const sem = vehicleSemaforo(row);
+    // Se crea el expediente aunque falten datos; placeholders + semáforo en importacion
     const rowForAlta = {
       ...row,
+      marca: placeholderOValor(row.marca),
+      modelo: placeholderOValor(row.modelo),
       color: row.color.trim() || "POR-COMPLETAR",
       serialMotor: row.serialMotor.trim() || "POR-COMPLETAR",
       anio: row.anio.trim() || String(new Date().getFullYear()),
@@ -1329,6 +1333,8 @@ export async function createPuertoLibreCargaMasivaAction(input: {
       month,
       numero: nextNumero,
       importadorIdLocked: importador.id,
+      completitudDatos: sem.nivel,
+      datosPendientes: [...sem.criticos, ...sem.avisos],
     });
 
     if (!result.ok) {
@@ -1375,12 +1381,23 @@ async function insertOneVehiculo(params: {
   numero: number;
   /** Si viene, se usa ese importador (ya verificado) sin ensure por RIF. */
   importadorIdLocked?: string;
+  completitudDatos?: "rojo" | "ambar" | "verde";
+  datosPendientes?: string[];
 }): Promise<
   | { ok: true; vehiculoId: string; codigoExpediente: string }
   | { ok: false; error: string }
 > {
-  const { admin, tallerId, data, year, month, numero, importadorIdLocked } =
-    params;
+  const {
+    admin,
+    tallerId,
+    data,
+    year,
+    month,
+    numero,
+    importadorIdLocked,
+    completitudDatos,
+    datosPendientes,
+  } = params;
   const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
   const serialMotor = normalizarSerialCarroceria(data.serialMotor);
 
@@ -1463,6 +1480,9 @@ async function insertOneVehiculo(params: {
     estadoSeniat: "pendiente",
     planillaFase: 1,
     codigoExpediente,
+    completitudDatos: completitudDatos ?? null,
+    datosPendientes:
+      datosPendientes && datosPendientes.length > 0 ? datosPendientes : null,
   });
 
   const { data: created, error } = await admin

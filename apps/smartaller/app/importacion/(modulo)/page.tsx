@@ -90,9 +90,30 @@ function labelExpediente(v: PuertoLibreVehiculoListItem): string {
 }
 
 function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
-  const marcaModelo = [v.marca, v.modelo].filter(Boolean).join(" ");
-  if (marcaModelo && v.color) return `${marcaModelo} ${v.color}`;
-  return marcaModelo || v.color || "—";
+  const marca =
+    v.marca && !/^POR-COMPLETAR$/i.test(v.marca) ? v.marca : null;
+  const modelo =
+    v.modelo && !/^POR-COMPLETAR$/i.test(v.modelo) ? v.modelo : null;
+  const color =
+    v.color && !/^POR-COMPLETAR$/i.test(v.color) ? v.color : null;
+  const marcaModelo = [marca, modelo].filter(Boolean).join(" ");
+  if (marcaModelo && color) return `${marcaModelo} ${color}`;
+  return marcaModelo || color || "Datos pendientes";
+}
+
+function completitudTone(
+  nivel: PuertoLibreVehiculoListItem["completitudDatos"]
+): "cyan" | "red" | "amber" {
+  if (nivel === "rojo") return "red";
+  if (nivel === "ambar") return "amber";
+  return "cyan";
+}
+
+function completitudDot(nivel: PuertoLibreVehiculoListItem["completitudDatos"]): string {
+  if (nivel === "rojo") return "●";
+  if (nivel === "ambar") return "●";
+  if (nivel === "verde") return "●";
+  return "";
 }
 
 function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
@@ -246,6 +267,8 @@ async function loadVehiculosForImportacion(
           rechazadoSeniat: v.estadoSeniat === "rechazada",
           codigoExpediente: v.codigoExpediente,
           fotoUrl: null,
+          completitudDatos: null,
+          datosPendientes: [],
         })
       ),
     };
@@ -338,6 +361,8 @@ async function loadVehiculosForImportacion(
           rechazadoSeniat: (imp.estadoSeniat ?? "pendiente") === "rechazada",
           codigoExpediente,
           fotoUrl: null,
+          completitudDatos: imp.completitudDatos ?? null,
+          datosPendientes: imp.datosPendientes ?? [],
         };
       }),
     };
@@ -406,13 +431,26 @@ export default async function PuertoLibrePage() {
   const rowsPorRegistro: DashboardBucketRow[] = porRegistro.map((v) => {
     const expediente = labelExpediente(v);
     const vehiculo = labelVehiculo(v);
+    const pend =
+      v.datosPendientes.length > 0
+        ? `Falta: ${v.datosPendientes.slice(0, 4).join(", ")}`
+        : v.completitudDatos === "verde"
+          ? "Datos del vehículo listos"
+          : undefined;
     return {
       id: v.id,
       href: `/importacion/${v.id}/planilla?fase=1`,
-      cells: { expediente, vehiculo, accion: "Completar" },
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      cells: {
+        expediente: v.completitudDatos
+          ? `${completitudDot(v.completitudDatos)} ${expediente}`
+          : expediente,
+        vehiculo,
+        accion: "Completar",
+      },
+      subcells: pend ? { vehiculo: pend } : undefined,
+      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
       actionLabel: "Completar",
-      actionTone: "cyan",
+      actionTone: completitudTone(v.completitudDatos),
     };
   });
 

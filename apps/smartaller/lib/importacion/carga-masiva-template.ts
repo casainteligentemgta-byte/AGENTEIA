@@ -551,10 +551,8 @@ function healCheryCargaMasivaRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
   });
 }
 
-/** Errores que bloquean (rojo). Color/motor/año/cert se anuncian en ámbar. */
+/** Errores que impiden crear expediente (solo sin VIN válido). */
 function criticalCargaMasivaError(row: CargaMasivaRow): string | null {
-  if (!row.marca.trim()) return "Ingresa la marca";
-  if (!row.modelo.trim()) return "Ingresa el modelo";
   const vin = repairCheryWmi(
     (row.serialCarroceria || row.vin).replace(/[^A-Za-z0-9]/gi, "").toUpperCase()
   );

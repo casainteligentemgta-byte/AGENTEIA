@@ -697,6 +697,13 @@ export const importacionSchema = z.object({
   requiereHomologacion: z.boolean().optional().nullable(),
   /** Código de expediente PL-Año.Mes.Número (ej. PL-2026.6.3). El correlativo N se deriva parseando este código. */
   codigoExpediente: z.string().trim().max(32).optional().nullable(),
+  /**
+   * Completitud de datos del vehículo tras carga masiva / OCR:
+   * verde = completo, ambar = faltan medios, rojo = faltan marca/modelo (expediente creado igual).
+   */
+  completitudDatos: z.enum(["rojo", "ambar", "verde"]).optional().nullable(),
+  /** Lista corta de campos pendientes (ej. motor, color, nº cert.). */
+  datosPendientes: z.array(z.string().trim().max(40)).max(20).optional().nullable(),
   /** Checklist de llegada (fase 2). */
   checklistLlegada: z.record(z.string()).optional().nullable(),
   /** Notas de daño por ítem del checklist de llegada. */
@@ -858,6 +865,15 @@ export function parseImportacion(raw: unknown): ImportacionData {
       row.requiereHomologacion ?? row.requiere_homologacion
     ),
     codigoExpediente: row.codigoExpediente ?? row.codigo_expediente,
+    completitudDatos: asOptionalEnum(
+      row.completitudDatos ?? row.completitud_datos,
+      ["rojo", "ambar", "verde"] as const
+    ),
+    datosPendientes: Array.isArray(row.datosPendientes)
+      ? (row.datosPendientes as string[]).map(String).slice(0, 20)
+      : Array.isArray(row.datos_pendientes)
+        ? (row.datos_pendientes as string[]).map(String).slice(0, 20)
+        : null,
     checklistLlegada:
       row.checklistLlegada && typeof row.checklistLlegada === "object"
         ? (row.checklistLlegada as Record<string, string>)
@@ -975,6 +991,11 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
         ? data.requiereHomologacion
         : null,
     codigo_expediente: data.codigoExpediente?.trim() || null,
+    completitud_datos: data.completitudDatos || null,
+    datos_pendientes:
+      data.datosPendientes && data.datosPendientes.length > 0
+        ? data.datosPendientes.slice(0, 20)
+        : null,
     checklist_llegada: data.checklistLlegada ?? null,
     checklist_llegada_notas: data.checklistLlegadaNotas ?? null,
     otros_dispositivos_notas: data.otrosDispositivosNotas?.trim() || null,

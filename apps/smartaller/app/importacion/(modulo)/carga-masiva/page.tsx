@@ -44,8 +44,8 @@ export default async function CargaMasivaPuertoLibrePage() {
               Carga masiva de vehículos
             </h1>
             <p className="mt-0.5 text-sm text-zinc-400">
-              PDF multi-vehículo → extracción automática · semáforo
-              verde/ámbar/rojo · registro de aptos
+              Factura + certificados → se crean expedientes con VIN; el semáforo
+              (rojo/ámbar/verde) indica qué falta completar después
             </p>
           </div>
         </div>

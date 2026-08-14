@@ -5,6 +5,11 @@ import {
   isModeloFragmentInColor,
 } from "@/lib/importacion/factura-row-fidelity";
 import { repairCheryWmi } from "@/lib/importacion/vin-text";
+import {
+  computeCompletitudDatos,
+  isPlaceholderDato,
+  type CompletitudNivel,
+} from "@/lib/importacion/completitud-datos";
 
 export function normalizeSerialKey(serial: string): string {
   return repairCheryWmi(
@@ -173,50 +178,49 @@ export function applyImportadorToRows(
   }));
 }
 
-const PLACEHOLDER_MOTOR = /^(POR-COMPLETAR|N\/?A|S\/?D|-)?$/i;
-
 export function motorPendiente(serialMotor: string): boolean {
-  const v = serialMotor.trim();
-  if (!v) return true;
-  return PLACEHOLDER_MOTOR.test(v);
+  return isPlaceholderDato(serialMotor);
 }
 
 /** Semáforo de completitud por vehículo (carga masiva). */
-export type SemaforoNivel = "rojo" | "ambar" | "verde";
+export type SemaforoNivel = CompletitudNivel;
 
 export type VehicleSemaforo = {
   nivel: SemaforoNivel;
-  /** Bloquean el registro (seguridad / integridad). */
+  /** Datos fuertes faltantes (marca/modelo/VIN). */
   criticos: string[];
-  /** Anuncian huecos; el expediente puede crearse y completarse después. */
+  /** Huecos medios; el expediente se crea y se completa después. */
   avisos: string[];
+  /** true si hay VIN de 17 → se puede crear el expediente. */
+  registrable: boolean;
   label: string;
   detail: string;
 };
 
 /**
- * Semáforo rígido:
- * - rojo: falta VIN/marca/modelo o hay error Zod → no se registra
- * - ámbar: faltan motor real, color, año o nº cert. → se anuncia; registro opcional
- * - verde: listo para alta automática
+ * Semáforo = completitud (no es un candado de registro):
+ * - rojo: faltan datos fuertes (marca/modelo) o VIN inválido
+ * - ámbar: faltan motor/color/año/cert → se crea y se completa después
+ * - verde: sin pendientes
+ * Registrable = VIN 17 chars (rojo/ámbar/verde con VIN válido se registran).
  */
 export function vehicleSemaforo(row: CargaMasivaRow): VehicleSemaforo {
-  const criticos: string[] = [];
-  const avisos: string[] = [];
+  const c = computeCompletitudDatos({
+    marca: row.marca,
+    modelo: row.modelo,
+    color: row.color,
+    anio: row.anio,
+    serialMotor: row.serialMotor,
+    vin: row.vin,
+    serialCarroceria: row.serialCarroceria,
+    numeroCertificadoOrigen: row.numeroCertificadoOrigen,
+  });
 
-  if (row.error?.trim()) criticos.push("error de validación");
-  if (!row.marca.trim()) criticos.push("marca");
-  if (!row.modelo.trim()) criticos.push("modelo");
-  const vinRaw = (row.serialCarroceria.trim() || row.vin.trim()).replace(
-    /[^A-Za-z0-9]/g,
-    ""
-  );
-  if (!vinRaw) criticos.push("VIN");
-  else if (vinRaw.length !== 17) criticos.push("VIN incompleto");
-  else if (!/^[A-HJ-NPR-Z0-9]{17}$/i.test(vinRaw)) criticos.push("VIN");
-  // Color con fragmentos de modelo (PRO MAX) → avisar
-  if (/^(PRO(\s*MAX)?|MAX)$/i.test(row.color.trim())) {
-    avisos.push("color (parece modelo)");
+  const criticos = [...c.criticos];
+  const avisos = [...c.medios];
+
+  if (row.error?.trim() && !c.registrable) {
+    criticos.push("error de validación");
   }
 
   const condicion = row.condicion.trim().toLowerCase();
@@ -230,26 +234,37 @@ export function vehicleSemaforo(row: CargaMasivaRow): VehicleSemaforo {
     avisos.push("subasta");
   }
 
-  if (motorPendiente(row.serialMotor)) avisos.push("motor");
-  if (!row.color.trim()) avisos.push("color");
-  if (!row.anio.trim()) avisos.push("año");
-  if (!row.numeroCertificadoOrigen.trim()) avisos.push("nº cert.");
+  if (/^(PRO(\s*MAX)?|MAX)$/i.test(row.color.trim())) {
+    if (!avisos.includes("color")) avisos.push("color");
+  }
 
-  if (criticos.length > 0) {
+  let nivel: SemaforoNivel = c.nivel;
+  if (criticos.length > 0 || !c.registrable) nivel = "rojo";
+  else if (avisos.length > 0) nivel = "ambar";
+  else nivel = "verde";
+
+  if (nivel === "rojo") {
     return {
-      nivel: "rojo",
+      nivel,
       criticos,
       avisos,
-      label: "Rojo · no registrar",
-      detail: `Falta: ${criticos.join(", ")}`,
+      registrable: c.registrable,
+      label: c.registrable
+        ? "Rojo · se crea; completar después"
+        : "Rojo · sin VIN (no se registra)",
+      detail:
+        criticos.length > 0
+          ? `Falta: ${criticos.join(", ")}`
+          : c.detail,
     };
   }
-  if (avisos.length > 0) {
+  if (nivel === "ambar") {
     return {
-      nivel: "ambar",
+      nivel,
       criticos,
       avisos,
-      label: "Ámbar · datos faltantes",
+      registrable: true,
+      label: "Ámbar · completar después",
       detail: `Completar: ${avisos.join(", ")}`,
     };
   }
@@ -257,8 +272,9 @@ export function vehicleSemaforo(row: CargaMasivaRow): VehicleSemaforo {
     nivel: "verde",
     criticos,
     avisos,
-    label: "Verde · listo",
-    detail: "Datos mínimos completos",
+    registrable: true,
+    label: "Verde · datos completos",
+    detail: "Sin pendientes",
   };
 }
 
@@ -266,7 +282,9 @@ export function resumenSemaforo(rows: CargaMasivaRow[]): {
   verde: number;
   ambar: number;
   rojo: number;
+  /** Filas con VIN válido → se crean expedientes. */
   aptos: CargaMasivaRow[];
+  /** Sin VIN válido → no se pueden crear. */
   bloqueados: CargaMasivaRow[];
 } {
   let verde = 0;
@@ -276,16 +294,12 @@ export function resumenSemaforo(rows: CargaMasivaRow[]): {
   const bloqueados: CargaMasivaRow[] = [];
   for (const row of rows) {
     const s = vehicleSemaforo(row);
-    if (s.nivel === "verde") {
-      verde += 1;
-      aptos.push(row);
-    } else if (s.nivel === "ambar") {
-      ambar += 1;
-      aptos.push(row);
-    } else {
-      rojo += 1;
-      bloqueados.push(row);
-    }
+    if (s.nivel === "verde") verde += 1;
+    else if (s.nivel === "ambar") ambar += 1;
+    else rojo += 1;
+
+    if (s.registrable) aptos.push(row);
+    else bloqueados.push(row);
   }
   return { verde, ambar, rojo, aptos, bloqueados };
 }

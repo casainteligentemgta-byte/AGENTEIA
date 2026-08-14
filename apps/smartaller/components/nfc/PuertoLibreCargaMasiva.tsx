@@ -147,17 +147,15 @@ export function PuertoLibreCargaMasiva({
     );
   }, [detectedImportador.documento, selected]);
 
-  const errorCount = useMemo(() => rows.filter((r) => r.error).length, [rows]);
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
   const incompleteCount = useMemo(
     () => rows.filter((r) => !vehicleCompleteness(r).complete).length,
     [rows]
   );
 
-  /** Se registran filas no rojas (verde + ámbar). Las rojas se pueden corregir o borrar aparte. */
+  /** Se registran todos con VIN válido (rojo/ámbar/verde). Sin VIN = omitidos. */
   const canImport =
     semaforo.aptos.length > 0 &&
-    errorCount === 0 &&
     !pending &&
     Boolean(selected) &&
     rifOk;
@@ -437,23 +435,23 @@ export function PuertoLibreCargaMasiva({
       );
       return;
     }
-    const { aptos, bloqueados, ambar, verde } = resumenSemaforo(rows);
+    const { aptos, bloqueados } = resumenSemaforo(rows);
     if (aptos.length === 0) {
       setError(
         bloqueados.length > 0
-          ? `Hay ${bloqueados.length} vehículo(s) en rojo y ninguno apto. Corrígelos o elimínalos.`
-          : "No hay vehículos aptos para registrar"
+          ? `Ningún vehículo tiene VIN válido. Corrige o elimina las ${bloqueados.length} fila(s) sin VIN.`
+          : "No hay vehículos para registrar"
       );
       return;
     }
     if (bloqueados.length > 0) {
-      // Se registran solo aptos; las rojas quedan fuera del lote enviado
       setResultMsg(
-        `Se omitirán ${bloqueados.length} vehículo(s) en rojo. Registrando ${aptos.length} apto(s)…`
+        `Se omitirán ${bloqueados.length} sin VIN. Se crearán ${aptos.length} expediente(s); los datos faltantes se completan después.`
       );
+    } else {
+      setResultMsg(null);
     }
     setError(null);
-    if (bloqueados.length === 0) setResultMsg(null);
 
     const rowsToImport = applySharedShipmentToRows(aptos, shared).map((r) => ({
       ...r,
@@ -518,15 +516,25 @@ export function PuertoLibreCargaMasiva({
         }
       }
 
+      const { aptos: registrables } = resumenSemaforo(rowsToImport);
+      const verdCount = registrables.filter(
+        (r) => vehicleSemaforo(r).nivel === "verde"
+      ).length;
+      const ambarCount = registrables.filter(
+        (r) => vehicleSemaforo(r).nivel === "ambar"
+      ).length;
+      const rojoCount = registrables.filter(
+        (r) => vehicleSemaforo(r).nivel === "rojo"
+      ).length;
       const semNote =
-        ambar > 0
-          ? ` Semáforo: ${verde} verde, ${ambar} ámbar (completar motor/cert en el expediente).`
+        ambarCount > 0 || rojoCount > 0
+          ? ` Semáforo: ${verdCount} verde, ${ambarCount} ámbar, ${rojoCount} rojo (completar datos en el expediente).`
           : "";
 
       setResultMsg(
         fail > 0
           ? `Creados ${ok}. Fallaron ${fail}.${semNote}${attachNote}`
-          : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"} automáticamente.${semNote}${attachNote}`
+          : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${semNote}${attachNote}`
       );
       if (ok > 0) {
         setRows((prev) =>
@@ -968,10 +976,12 @@ export function PuertoLibreCargaMasiva({
                 </span>
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Rojo = no se registra (falta VIN/marca/modelo). Ámbar = se crea el
-                expediente y anuncia motor/cert/color/año faltantes. Verde = listo.
-                {incompleteCount > 0 && semaforo.rojo === 0
-                  ? " Sube certificados para pasar ámbar → verde."
+                Semáforo = completitud. Con VIN válido se crea el expediente aunque
+                falten datos (se completan en la ficha). Verde = completo · Ámbar =
+                faltan motor/color/año/cert · Rojo = faltan marca/modelo (igual se
+                crea). Sin VIN no se registra.
+                {incompleteCount > 0
+                  ? " Sube certificados para rellenar motor y nº cert."
                   : null}
               </p>
             </div>
@@ -988,15 +998,21 @@ export function PuertoLibreCargaMasiva({
               )}
               {pending
                 ? "Registrando…"
-                : `Registrar ${semaforo.aptos.length} apto${semaforo.aptos.length === 1 ? "" : "s"}`}
+                : `Registrar ${semaforo.aptos.length} vehículo${semaforo.aptos.length === 1 ? "" : "s"}`}
             </button>
           </div>
 
-          {semaforo.rojo > 0 ? (
+          {semaforo.bloqueados.length > 0 ? (
             <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              Hay {semaforo.rojo} vehículo(s) en rojo (no se registrarán).
-              Corrígelos o elimínalos. Puedes registrar los {semaforo.aptos.length}{" "}
-              apto(s) ahora.
+              {semaforo.bloqueados.length} sin VIN válido (no se crearán). El resto
+              ({semaforo.aptos.length}) sí se registra; el color indica qué falta
+              completar después.
+            </p>
+          ) : semaforo.rojo > 0 || semaforo.ambar > 0 ? (
+            <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+              Se crearán {semaforo.aptos.length} expediente(s). Los de color
+              rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
+              en la ficha.
             </p>
           ) : null}
 
@@ -1103,7 +1119,9 @@ export function PuertoLibreCargaMasiva({
                             title={sem.detail}
                           >
                             <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-400" />
-                            Rojo · {sem.criticos.slice(0, 2).join(", ")}
+                            {sem.registrable
+                              ? `Rojo · ${sem.criticos.slice(0, 2).join(", ") || "completar"}`
+                              : `Sin VIN · ${sem.criticos.slice(0, 2).join(", ")}`}
                             {sem.criticos.length > 2 ? "…" : ""}
                           </span>
                         )}

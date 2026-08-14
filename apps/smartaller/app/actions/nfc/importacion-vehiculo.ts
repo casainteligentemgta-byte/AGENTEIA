@@ -34,6 +34,7 @@ import {
   type ViaNacionalizacion,
 } from "@/lib/schemas/vehiculo-documentos";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
+import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
@@ -194,7 +195,9 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("vehiculos")
-    .select("id, taller_id, placa, documentos, importacion, seguro")
+    .select(
+      "id, taller_id, placa, marca, modelo, color, serial_motor, serial_carroceria, documentos, importacion, seguro"
+    )
     .eq("id", vehiculoId)
     .maybeSingle();
   if (!data || data.taller_id !== tallerId) return null;
@@ -647,7 +650,22 @@ export async function updatePuertoLibreImportacionAction(
 
   const { vehiculoId, ...importacion } = parsed.data;
   const existing = parseImportacion(row.importacion);
-  const merged = serializeImportacion({ ...existing, ...importacion });
+  const mergedImport = { ...existing, ...importacion };
+  const completitud = computeCompletitudDatos({
+    marca: (row.marca as string | null) ?? null,
+    modelo: (row.modelo as string | null) ?? null,
+    color: (row.color as string | null) ?? null,
+    anio: mergedImport.anio,
+    serialMotor: (row.serial_motor as string | null) ?? null,
+    vin: mergedImport.vin ?? (row.serial_carroceria as string | null),
+    serialCarroceria: (row.serial_carroceria as string | null) ?? null,
+    numeroCertificadoOrigen: mergedImport.numeroCertificadoOrigen,
+  });
+  const merged = serializeImportacion({
+    ...mergedImport,
+    completitudDatos: completitud.nivel,
+    datosPendientes: completitud.pendientes,
+  });
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -770,16 +788,37 @@ export async function updatePuertoLibreVehiculoAction(
     }
   }
 
+  const marca = parsed.data.marca?.trim() || null;
+  const modelo = parsed.data.modelo?.trim() || null;
+  const color = parsed.data.color?.trim() || null;
+  const completitud = computeCompletitudDatos({
+    marca,
+    modelo,
+    color,
+    anio: importacion.anio,
+    serialMotor,
+    vin: importacion.vin ?? serialCarroceria,
+    serialCarroceria,
+    numeroCertificadoOrigen: importacion.numeroCertificadoOrigen,
+  });
+  const importacionPatch = serializeImportacion({
+    ...importacion,
+    vin: importacion.vin ?? serialCarroceria,
+    completitudDatos: completitud.nivel,
+    datosPendientes: completitud.pendientes,
+  });
+
   const { error } = await admin
     .from("vehiculos")
     .update({
       placa,
-      marca: parsed.data.marca?.trim() || null,
-      modelo: parsed.data.modelo?.trim() || null,
-      color: parsed.data.color?.trim() || null,
+      marca,
+      modelo,
+      color,
       serial_motor: serialMotor,
       serial_carroceria: serialCarroceria,
       kilometraje_ultimo: parsed.data.kilometrajeUltimo ?? null,
+      importacion: importacionPatch,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId)
@@ -1898,6 +1937,9 @@ export type PuertoLibreVehiculoListItem = {
   rechazadoSeniat: boolean;
   codigoExpediente: string | null;
   fotoUrl: string | null;
+  /** Semáforo de datos del vehículo (carga masiva / OCR). */
+  completitudDatos: "rojo" | "ambar" | "verde" | null;
+  datosPendientes: string[];
 };
 
 export async function listPuertoLibreVehiculos(): Promise<
@@ -2033,6 +2075,8 @@ function mapListItem(
       placa,
     }),
     fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
+    completitudDatos: importacion.completitudDatos ?? null,
+    datosPendientes: importacion.datosPendientes ?? [],
   };
 }
 
