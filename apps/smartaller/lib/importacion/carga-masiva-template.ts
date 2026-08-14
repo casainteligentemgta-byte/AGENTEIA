@@ -2,7 +2,7 @@ import { puertoLibreAltaSchema, type PuertoLibreAltaInput } from "@/lib/schemas/
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
-} from "@/lib/importacion/factura-row-fidelity";
+} from "@/lib/importacion/chery-modelo";
 import { repairCheryWmi } from "@/lib/importacion/vin-text";
 
 /** Columnas de la plantilla (orden fijo para Excel). */

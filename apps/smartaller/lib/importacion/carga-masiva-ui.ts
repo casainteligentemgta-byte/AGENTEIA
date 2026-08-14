@@ -3,7 +3,7 @@ import { normalizeRif } from "@/lib/validations/rif";
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
-} from "@/lib/importacion/factura-row-fidelity";
+} from "@/lib/importacion/chery-modelo";
 import { repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
