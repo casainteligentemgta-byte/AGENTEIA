@@ -26,3 +26,6 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Tesseract language data (downloaded at runtime)
+*.traineddata

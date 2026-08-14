@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["@napi-rs/canvas", "unpdf"],
+    serverComponentsExternalPackages: ["@napi-rs/canvas", "unpdf", "tesseract.js"],
   },
   images: {
     remotePatterns: [

@@ -18,6 +18,8 @@ import {
   sanitizeFacturaMulti,
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
+import { extractVinsWithTesseract, extractVinsWithTesseractOriented, isPlausibleOcrVin } from "@/lib/importacion/ocr-vin-tesseract";
+import { isLlmConfigured } from "@/lib/ai/openai-config";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -210,7 +212,11 @@ function parseFechaIso(value: unknown): string | null {
 
 function compactSerial(value: string | null): string | null {
   if (!value) return null;
-  const compact = value.replace(/[\s\-]/g, "").toUpperCase();
+  const compact = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  // OCR Chery: LWV / LVW → LVV
+  if (/^LWV|^LV[WY]|^LYV|^LWW/.test(compact)) {
+    return `LVV${compact.slice(3)}`;
+  }
   return compact || null;
 }
 
@@ -1240,7 +1246,7 @@ export async function extractFacturaMultiFromDocument(
 }
 
 /**
- * Etapa 1 — cosecha de VIN (prioriza listado en texto plano + recortes Chery).
+ * Etapa 1 — cosecha de VIN (Tesseract local primero; visión solo si hace falta).
  * Si no hay VIN, lanza Error con el diagnóstico de OCR (no lo oculta).
  */
 export async function extractFacturaVinsStageFromDocument(
@@ -1250,17 +1256,29 @@ export async function extractFacturaVinsStageFromDocument(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const diagnostics: string[] = [];
   const vinSet = new Set<string>();
+  const mavState: { rows: DocMultiExtracted | null } = { rows: null };
+  let visionCreditsBlocked = false;
 
   const addVins = (vins: string[], source: string) => {
     let added = 0;
     for (const v of vins) {
-      const n = v.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
-      if (n.length === 17 && !vinSet.has(n)) {
-        vinSet.add(n);
-        added += 1;
-      }
+      let n = v.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
+      // OCR Chery: LVV → LVW / LYV
+      if (/^LV[WY]/.test(n)) n = `LVV${n.slice(3)}`;
+      if (n.length !== 17 || vinSet.has(n)) continue;
+      if (!isPlausibleOcrVin(n) && !/^MF3|^LVV|^LVT|^LVD/.test(n)) continue;
+      vinSet.add(n);
+      added += 1;
     }
     diagnostics.push(`${source}: +${added} (total ${vinSet.size})`);
+  };
+
+  const noteVisionError = (label: string, err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    diagnostics.push(`${label}: ERROR ${msg.slice(0, 160)}`);
+    if (/402|insufficient credits|purchase more/i.test(msg)) {
+      visionCreditsBlocked = true;
+    }
   };
 
   const fromImageList = async (
@@ -1268,6 +1286,7 @@ export async function extractFacturaVinsStageFromDocument(
     imgMime: string,
     label: string
   ) => {
+    if (visionCreditsBlocked || !isLlmConfigured()) return;
     try {
       const sized = await compressImageForVision(img);
       const vins = await createVisionVinListCompletion({
@@ -1278,8 +1297,34 @@ export async function extractFacturaVinsStageFromDocument(
       });
       addVins(vins, label);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      diagnostics.push(`${label}: ERROR ${msg.slice(0, 160)}`);
+      noteVisionError(label, err);
+    }
+  };
+
+  const tryMavFromText = (text: string, source: string) => {
+    if (!text || text.trim().length < 40) return;
+    try {
+      const det = parseMavHojaAnexaFromText(text);
+      if (!det?.vehiculos.length) return;
+      const mf3Count = det.vehiculos.filter((v) =>
+        (v.serialCarroceria ?? v.vin ?? "").toUpperCase().startsWith("MF3")
+      ).length;
+      // Solo aceptar filas MAV reales (evita basura OCR en facturas Chery)
+      if (mf3Count < 2) return;
+      addVins(
+        det.vehiculos
+          .map((v) => v.serialCarroceria ?? v.vin ?? "")
+          .filter(Boolean),
+        source
+      );
+      if (!mavState.rows || det.vehiculos.length > mavState.rows.vehiculos.length) {
+        mavState.rows = {
+          shared: det.shared ?? {},
+          vehiculos: det.vehiculos,
+        };
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -1291,15 +1336,7 @@ export async function extractFacturaVinsStageFromDocument(
         .toUpperCase()
         .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
       if (fromPlain?.length) addVins(fromPlain, "texto-pdf");
-      const det = parseMavHojaAnexaFromText(plain);
-      if (det?.vehiculos.length) {
-        addVins(
-          det.vehiculos
-            .map((v) => v.serialCarroceria ?? v.vin ?? "")
-            .filter(Boolean),
-          "parser-mav"
-        );
-      }
+      tryMavFromText(plain, "parser-mav");
     } catch (err) {
       diagnostics.push(
         `texto-pdf: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
@@ -1307,37 +1344,95 @@ export async function extractFacturaVinsStageFromDocument(
     }
   }
 
-  // Raster página 1 + recortes Chery (columna Code / tabla)
+  // Raster + Tesseract (local, sin créditos OpenRouter) + visión opcional
   try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.4 })
+      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.8 })
       : [buffer];
     const page1 = pages[0];
     if (!page1) {
       diagnostics.push("raster: no se pudo renderizar la página 1");
     } else {
       diagnostics.push(`raster: ok ${page1.length} bytes`);
-      const pageMime = isPdf ? "image/png" : mimeType;
-      await fromImageList(page1, pageMime, "pagina-1");
 
-      // Recortes tipicos factura Chery: tabla y columna Code
-      const cheryCrops = [
+      // Recortes Chery (Code) + MAV (columna Chasis aprox. tras rotar)
+      const cropSpecs = [
         { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
-        { label: "col-code", region: { x: 0.2, y: 0.28, w: 0.35, h: 0.55 } },
+        { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
+        { label: "col-code-2", region: { x: 0.2, y: 0.36, w: 0.15, h: 0.5 } },
+        // Hoja anexa MAV: No. de Chasis suele ir a la izquierda-centro
+        { label: "col-chasis", region: { x: 0.08, y: 0.18, w: 0.28, h: 0.7 } },
+        { label: "col-chasis-2", region: { x: 0.12, y: 0.2, w: 0.22, h: 0.65 } },
         { label: "banda-sup", region: { x: 0.05, y: 0.28, w: 0.9, h: 0.35 } },
         { label: "banda-inf", region: { x: 0.05, y: 0.48, w: 0.9, h: 0.35 } },
       ] as const;
 
-      for (const crop of cheryCrops) {
-        if (vinSet.size >= 15) break;
+      const croppedBuffers: { label: string; buffer: Buffer; mimeType: string }[] =
+        [];
+      for (const crop of cropSpecs) {
         try {
           const cropped = await cropImageBuffer(page1, crop.region);
-          await fromImageList(cropped.buffer, cropped.mimeType, crop.label);
+          croppedBuffers.push({
+            label: crop.label,
+            buffer: cropped.buffer,
+            mimeType: cropped.mimeType,
+          });
         } catch (err) {
           diagnostics.push(
             `${crop.label}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
           );
         }
+      }
+
+      // 1) Tesseract primero (no depende de créditos OpenRouter)
+      try {
+        const tessImages = croppedBuffers
+          .filter(
+            (c) =>
+              c.label.startsWith("col-code") ||
+              c.label.startsWith("col-chasis")
+          )
+          .map((c) => c.buffer);
+
+        const tess = isPdf
+          ? await extractVinsWithTesseract(
+              tessImages.length > 0 ? tessImages : [page1]
+            )
+          : await extractVinsWithTesseractOriented(page1);
+
+        // En foto: también OCR de recortes si la página orientada ya aportó poco
+        if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
+          const extra = await extractVinsWithTesseract(tessImages);
+          addVins(extra.vins, "tesseract-crops");
+          tryMavFromText(extra.fullText, "tesseract-mav-crops");
+        }
+
+        addVins(tess.vins, "tesseract");
+        tryMavFromText(tess.fullText, "tesseract-mav");
+        if (tess.textSample) {
+          diagnostics.push(`tesseract-sample: ${tess.textSample.slice(0, 80)}`);
+        }
+      } catch (err) {
+        diagnostics.push(
+          `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+        );
+      }
+
+      // 2) Visión LLM solo si faltan VIN y hay créditos / clave
+      if (vinSet.size < 12 && isLlmConfigured() && !visionCreditsBlocked) {
+        const pageMime = isPdf ? "image/png" : mimeType;
+        await fromImageList(page1, pageMime, "pagina-1");
+        if (!visionCreditsBlocked) {
+          for (const crop of croppedBuffers) {
+            if (vinSet.size >= 15 || visionCreditsBlocked) break;
+            if (crop.label.startsWith("banda") && vinSet.size >= 8) continue;
+            await fromImageList(crop.buffer, crop.mimeType, crop.label);
+          }
+        }
+      } else if (vinSet.size >= 12) {
+        diagnostics.push("vision: omitida (tesseract suficiente)");
+      } else if (!isLlmConfigured()) {
+        diagnostics.push("vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)");
       }
     }
   } catch (err) {
@@ -1346,8 +1441,8 @@ export async function extractFacturaVinsStageFromDocument(
     );
   }
 
-  // Fallback JSON harvest / tabla si aún faltan
-  if (vinSet.size < 2) {
+  // Fallback JSON harvest / tabla si aún faltan y hay créditos
+  if (vinSet.size < 2 && isLlmConfigured() && !visionCreditsBlocked) {
     try {
       const sized = await compressImageForVision(
         isPdf
@@ -1370,19 +1465,59 @@ export async function extractFacturaVinsStageFromDocument(
         "json-harvest"
       );
     } catch (err) {
-      diagnostics.push(
-        `json-harvest: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
-      );
+      noteVisionError("json-harvest", err);
     }
   }
 
   if (vinSet.size === 0) {
+    const hint = visionCreditsBlocked
+      ? "OpenRouter sin créditos (402). Recarga en openrouter.ai o usa Excel mientras tanto."
+      : "Revisa nitidez / rotación de la foto, o usa la plantilla Excel.";
     throw new Error(
-      `Sin VIN legibles. ${diagnostics.slice(0, 4).join(" · ") || "Revisa OPENAI_API_KEY / modelo de visión en Vercel."}`
+      `Sin VIN legibles. ${diagnostics.slice(0, 6).join(" · ") || hint}`
     );
   }
 
-  const looksChery = [...vinSet].some((v) => v.startsWith("LVV") || v.startsWith("LVT") || v.startsWith("LVD"));
+  // Preferir filas MAV completas (motor/color/llave) si el OCR local las armó
+  if (
+    mavState.rows !== null &&
+    mavState.rows.vehiculos.length >= Math.min(2, vinSet.size)
+  ) {
+    const rows = mavState.rows;
+    const byVin = new Map<string, PuertoLibreRegistroScanFields>();
+    for (const v of rows.vehiculos) {
+      let vin = (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
+      if (/^LV[WY]/.test(vin)) vin = `LVV${vin.slice(3)}`;
+      if (vin.length !== 17 || !isPlausibleOcrVin(vin)) continue;
+      byVin.set(vin, { ...v, serialCarroceria: vin, vin });
+    }
+    for (const vin of vinSet) {
+      if (!byVin.has(vin)) {
+        byVin.set(
+          vin,
+          sanitizeVehiculoRowLocal({
+            serialCarroceria: vin,
+            vin,
+            serialMotor: "POR-COMPLETAR",
+            condicion: "nuevo",
+            kilometraje: "0",
+            anio: anioFromVin(vin)?.toString(),
+          })
+        );
+      }
+    }
+    if (byVin.size > 0) {
+      return {
+        shared: rows.shared ?? {},
+        vehiculos: [...byVin.values()],
+      };
+    }
+  }
+
+  const looksChery = [...vinSet].some(
+    (v) => v.startsWith("LVV") || v.startsWith("LVT") || v.startsWith("LVD")
+  );
+  const looksMav = [...vinSet].some((v) => v.startsWith("MF3"));
   const vehiculos = [...vinSet].map((vin) =>
     sanitizeVehiculoRowLocal({
       serialCarroceria: vin,
@@ -1396,7 +1531,7 @@ export async function extractFacturaVinsStageFromDocument(
   );
 
   return {
-    shared: looksChery ? { marca: "Chery" } : {},
+    shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
     vehiculos,
   };
 }
@@ -1423,29 +1558,49 @@ export async function enrichFacturaRowsStageFromDocument(
 ): Promise<DocMultiExtracted> {
   const prompt = buildEnrichPrompt(knownVins.slice(0, 40));
   const candidates: DocMultiExtracted[] = [];
+  const isPdf = mimeType.toLowerCase().includes("pdf");
 
+  // OCR local primero (útil con OpenRouter sin créditos)
   try {
-    const isPdf = mimeType.toLowerCase().includes("pdf");
-    if (isPdf) {
-      const pages = await renderPdfPagesAsPng(buffer, {
-        maxPages: 1,
-        scale: 2.4,
-      });
-      const page1 = pages[0];
-      if (page1) {
-        candidates.push(
-          await extractFacturaMultiFromImage(page1, "image/png", prompt)
-        );
+    const page = isPdf
+      ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.6 }))[0]
+      : buffer;
+    if (page) {
+      const tess = isPdf
+        ? await extractVinsWithTesseract(page)
+        : await extractVinsWithTesseractOriented(page);
+      const mav = parseMavHojaAnexaFromText(tess.fullText);
+      if (mav && mav.vehiculos.length > 0) {
+        candidates.push(mav);
       }
     }
   } catch {
-    // fallback full doc
+    // sigue a visión
   }
 
-  try {
-    candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
-  } catch {
-    // ignore
+  if (isLlmConfigured()) {
+    try {
+      if (isPdf) {
+        const pages = await renderPdfPagesAsPng(buffer, {
+          maxPages: 1,
+          scale: 2.4,
+        });
+        const page1 = pages[0];
+        if (page1) {
+          candidates.push(
+            await extractFacturaMultiFromImage(page1, "image/png", prompt)
+          );
+        }
+      }
+    } catch {
+      // fallback full doc
+    }
+
+    try {
+      candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
+    } catch {
+      // ignore
+    }
   }
 
   if (candidates.length === 0) {

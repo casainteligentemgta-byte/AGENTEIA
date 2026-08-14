@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Compacta: mayúsculas, sin espacios. */
 export function normalizarSerialCarroceria(serial: string): string {
-  return serial.trim().toUpperCase().replace(/\s+/g, "");
+  return compactarSerial(serial);
 }
 
 /** Solo alfanumérico (útil para OCR con guiones/puntos). */

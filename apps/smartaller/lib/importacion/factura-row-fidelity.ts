@@ -23,9 +23,12 @@ export function compactAlnum(raw: string | null | undefined): string {
   return compactAlnumVin(raw);
 }
 
-/** VIN: 17 chars, sin I/O/Q. */
-export function normalizeVin(raw: string | null | undefined): string | null {
-  return normalizeVinLoose(raw);
+/** VIN: 17 chars, sin I/O/Q. Por defecto exige 17 (carga masiva). */
+export function normalizeVin(
+  raw: string | null | undefined,
+  options?: { strict?: boolean }
+): string | null {
+  return normalizeVinLoose(raw, { strict: options?.strict ?? true });
 }
 
 export function normalizeMotor(raw: string | null | undefined): string | null {
@@ -45,13 +48,70 @@ export function normalizeLlave(raw: string | null | undefined): string | null {
   return t.startsWith("M") ? t : `M${t}`;
 }
 
+/** Fragmentos de modelo Chery que el OCR mete en la columna Color. */
+const MODELO_EN_COLOR_RE =
+  /^(PRO(\s*MAX)?|MAX|TIGGO(\s*\d+)?(\s*PRO)?(\s*MAX)?|ARRIZO(\s*\d+)?(\s*PRO)?|7\s*PRO(\s*MAX)?|8\s*PRO)$/i;
+
+export function isModeloFragmentInColor(raw: string | null | undefined): boolean {
+  const t = (raw ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return false;
+  return MODELO_EN_COLOR_RE.test(t);
+}
+
 export function normalizeColorCelda(raw: string | null | undefined): string | null {
   const t = (raw ?? "").trim().replace(/\s+/g, " ").toUpperCase();
   if (!t) return null;
   // Evitar que un código largo se meta como color
   if (/^SB[A-Z0-9]{8,}$/i.test(t.replace(/\s/g, ""))) return null;
   if (t.replace(/\s/g, "").length > 24) return null;
+  // "PRO MAX" / "TIGGO 7" no son color
+  if (isModeloFragmentInColor(t)) return null;
   return t;
+}
+
+/**
+ * Normaliza modelo comercial Chery a partir de fragmentos OCR
+ * ("7 pro", "PRO MAX", "TIGGO 7 PRO").
+ */
+export function inferCheryModelo(
+  modelo: string | null | undefined,
+  colorMaybeModelo?: string | null
+): string | null {
+  const parts = [modelo, colorMaybeModelo]
+    .map((x) => (x ?? "").trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  const joined = parts.join(" ").toUpperCase();
+
+  if (/TIGGO\s*8|8\s*PRO/.test(joined)) {
+    if (/PRO\s*MAX|\bMAX\b/.test(joined)) return "Tiggo 8 Pro Max";
+    if (/PRO/.test(joined)) return "Tiggo 8 Pro";
+    return "Tiggo 8";
+  }
+  if (
+    /TIGGO\s*7|7\s*PRO|\b7\b/.test(joined) ||
+    (/PRO\s*MAX/.test(joined) && !/TIGGO\s*[248]/.test(joined))
+  ) {
+    if (/PRO\s*MAX|\bMAX\b/.test(joined)) return "Tiggo 7 Pro Max";
+    if (/PRO/.test(joined) || /\b7\b/.test(joined)) return "Tiggo 7 Pro";
+    return "Tiggo 7";
+  }
+  if (/TIGGO\s*4/.test(joined)) return "Tiggo 4";
+  if (/TIGGO\s*2/.test(joined)) return "Tiggo 2";
+  if (/ARRIZO\s*8/.test(joined)) return "Arrizo 8";
+  if (/ARRIZO\s*5|ARRIZO/.test(joined)) return "Arrizo 5";
+  if (/TIGGO/.test(joined)) return parts[0]!;
+
+  const first = parts[0]!;
+  if (isModeloFragmentInColor(first) && !/tiggo|arrizo/i.test(first)) {
+    return inferCheryModelo(`Tiggo ${first}`, null);
+  }
+  return first;
+}
+
+export function looksLikeCheryVin(vin: string | null | undefined): boolean {
+  const v = compactAlnum(vin);
+  return /^LVV|^LVT|^LVD/.test(v);
 }
 
 export function normalizeCodigoModelo(raw: string | null | undefined): string | null {
@@ -85,19 +145,48 @@ export function scoreFacturaMulti(extracted: FacturaMultiLike): number {
 export function sanitizeVehiculoRow(
   row: PuertoLibreRegistroScanFields
 ): PuertoLibreRegistroScanFields {
+  const rawColor = row.color?.trim() ?? "";
+  const colorWasModelo = isModeloFragmentInColor(rawColor);
   const vin = normalizeVin(row.serialCarroceria ?? row.vin);
   const motor = normalizeMotor(row.serialMotor);
-  const color = normalizeColorCelda(row.color);
+  const color = colorWasModelo ? null : normalizeColorCelda(row.color);
   const next: PuertoLibreRegistroScanFields = { ...row };
+
   if (vin) {
     next.serialCarroceria = vin;
     next.vin = vin;
+  } else {
+    // Limpiar basura OCR (":", "-") aunque el VIN quede incompleto
+    const compact = compactAlnum(row.serialCarroceria ?? row.vin);
+    if (compact) {
+      next.serialCarroceria = compact;
+      next.vin = compact;
+    }
   }
+
   if (motor) next.serialMotor = motor;
   else if (row.serialMotor?.toUpperCase() === "POR-COMPLETAR") {
     next.serialMotor = "POR-COMPLETAR";
   }
+
   if (color) next.color = color;
+  else if (colorWasModelo) delete next.color;
+
+  const isChery =
+    looksLikeCheryVin(vin ?? next.serialCarroceria) ||
+    /^chery$/i.test(row.marca?.trim() ?? "");
+
+  if (isChery) {
+    if (!next.marca?.trim()) next.marca = "Chery";
+    const inferred = inferCheryModelo(
+      row.modelo,
+      colorWasModelo ? rawColor : null
+    );
+    if (inferred) next.modelo = inferred;
+  } else if (colorWasModelo && !next.modelo?.trim()) {
+    next.modelo = rawColor;
+  }
+
   if (!next.anio && vin) {
     const y = anioFromVin(vin);
     if (y != null) next.anio = String(y);
@@ -107,11 +196,63 @@ export function sanitizeVehiculoRow(
   return next;
 }
 
+/**
+ * Propaga marca/modelo Chery a filas incompletas del mismo lote.
+ */
+export function healCheryFacturaRows(
+  extracted: FacturaMultiLike
+): FacturaMultiLike {
+  const vehiculos = extracted.vehiculos.map(sanitizeVehiculoRow);
+  const anyChery = vehiculos.some(
+    (v) =>
+      looksLikeCheryVin(v.serialCarroceria ?? v.vin) ||
+      /^chery$/i.test(v.marca ?? "")
+  );
+  if (!anyChery) {
+    return { shared: extracted.shared, vehiculos };
+  }
+
+  const shared = { ...extracted.shared };
+  if (!shared.marca?.trim() || /mav\s*trade/i.test(shared.marca)) {
+    shared.marca = "Chery";
+  }
+
+  const bestModelo =
+    inferCheryModelo(shared.modelo) ||
+    vehiculos
+      .map((v) => inferCheryModelo(v.modelo))
+      .filter(Boolean)
+      .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0))[0] ||
+    null;
+
+  if (bestModelo && !shared.modelo?.trim()) shared.modelo = bestModelo;
+
+  const healed = vehiculos.map((v) => {
+    const next = { ...v };
+    if (!next.marca?.trim()) next.marca = "Chery";
+    if (!next.modelo?.trim() && bestModelo) next.modelo = bestModelo;
+    else if (next.modelo?.trim()) {
+      const inferred = inferCheryModelo(next.modelo);
+      if (inferred) next.modelo = inferred;
+    }
+    if (isModeloFragmentInColor(next.color)) delete next.color;
+    return next;
+  });
+
+  return {
+    shared,
+    vehiculos: healed.filter((v) =>
+      Boolean(normalizeVin(v.serialCarroceria ?? v.vin, { strict: false }))
+    ),
+  };
+}
+
 export function sanitizeFacturaMulti(extracted: FacturaMultiLike): FacturaMultiLike {
-  const vehiculos = extracted.vehiculos
-    .map(sanitizeVehiculoRow)
-    .filter((v) => Boolean(normalizeVin(v.serialCarroceria ?? v.vin)));
-  return { shared: extracted.shared, vehiculos };
+  const healed = healCheryFacturaRows(extracted);
+  const vehiculos = healed.vehiculos.filter((v) =>
+    Boolean(normalizeVin(v.serialCarroceria ?? v.vin))
+  );
+  return { shared: healed.shared, vehiculos };
 }
 
 function preferField(a: string | undefined, b: string | undefined): string | undefined {
@@ -190,12 +331,25 @@ export function mergeFacturaMultiByVin(
  */
 export function parseMavHojaAnexaFromText(text: string): FacturaMultiLike | null {
   const cleaned = text.replace(/\s+/g, " ").toUpperCase();
-  if (!/HOJA\s*ANEXA|ATTACHED\s*SHEET|NO\.\s*DE\s*CHASIS|VIN\s*NUMBER/i.test(text)) {
-    // Aún así intentar si hay varios VIN tipo MF3…
-  }
 
-  const vins = [...cleaned.matchAll(VIN_RE)].map((m) => m[1]!);
-  const uniqueVins = [...new Set(vins.map((v) => normalizeVin(v)).filter(Boolean))] as string[];
+  // VIN con o sin espacios (OCR pega "00001MF3PB…")
+  const vinsFromBoundary = [...cleaned.matchAll(VIN_RE)].map((m) => m[1]!);
+  const compact = cleaned.replace(/[^A-Z0-9]/g, "");
+  const vinsEmbedded: string[] = [];
+  let searchFrom = 0;
+  while (searchFrom < compact.length) {
+    const idx = compact.indexOf("MF3", searchFrom);
+    if (idx < 0) break;
+    vinsEmbedded.push(compact.slice(idx, idx + 17));
+    searchFrom = idx + 1;
+  }
+  const uniqueVins = [
+    ...new Set(
+      [...vinsFromBoundary, ...vinsEmbedded]
+        .map((v) => normalizeVin(v))
+        .filter((v): v is string => !!v && v.length === 17 && v.startsWith("MF3"))
+    ),
+  ];
   if (uniqueVins.length < 2) return null;
 
   const vehiculos: PuertoLibreRegistroScanFields[] = [];

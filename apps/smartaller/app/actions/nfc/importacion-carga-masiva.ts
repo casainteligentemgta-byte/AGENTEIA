@@ -140,8 +140,10 @@ function scanFieldsToRow(
   fuente: string,
   preserveId?: string
 ): CargaMasivaRow {
-  const serial = fields.serialCarroceria ?? "";
-  const vin = fields.vin ?? serial;
+  const serialRaw = fields.serialCarroceria ?? "";
+  const vinRaw = fields.vin ?? serialRaw;
+  const serial = normalizarSerialCarroceria(serialRaw || vinRaw);
+  const vin = normalizarSerialCarroceria(vinRaw || serialRaw) || serial;
   return emptyCargaMasivaRow({
     id: preserveId,
     marca: fields.marca ?? "",
@@ -754,9 +756,9 @@ export async function extractCargaMasivaEtapaAction(
         } catch (err) {
           const detail = formatLlmAuthError(err);
           warnings.push(`${f.file.name}: error en cosecha VIN — ${detail}`);
-          // Fallo de IA / facturación / OCR: no seguir gastando llamadas
+          // Diagnóstico OCR / Tesseract / API: fallar con el mensaje real
           if (
-            /Sin VIN|OPENAI|OpenRouter|créditos|credits|402|API|visión|vision|clave/i.test(
+            /Sin VIN|OPENAI|OpenRouter|créditos|credits|402|API|visión|vision|clave|tesseract|raster/i.test(
               detail
             )
           ) {
@@ -1264,11 +1266,12 @@ export async function createPuertoLibreCargaMasivaAction(input: {
 
   const validated = validateCargaMasivaRows(withImportador);
 
-  // Semáforo rígido en servidor: nunca registrar filas rojas (sin VIN/marca/modelo).
+  // Semáforo: solo registrar aptos (verde/ámbar). Las rojas no entran en el lote.
+  const aptos = validated.filter((r) => vehicleSemaforo(r).nivel !== "rojo");
   const bloqueados = validated.filter(
     (r) => vehicleSemaforo(r).nivel === "rojo"
   );
-  if (bloqueados.length > 0) {
+  if (aptos.length === 0) {
     const ejemplos = bloqueados
       .slice(0, 3)
       .map((r) => {
@@ -1279,11 +1282,11 @@ export async function createPuertoLibreCargaMasivaAction(input: {
       .join("; ");
     return {
       success: false,
-      error: `Hay ${bloqueados.length} vehículo(s) en rojo (datos críticos faltantes). Corrígelos o quítalos antes de registrar. ${ejemplos}`,
+      error: `No hay vehículos aptos para registrar. ${bloqueados.length} en rojo. ${ejemplos}`,
     };
   }
 
-  const invalid = validated.filter((r) => r.error);
+  const invalid = aptos.filter((r) => r.error);
   if (invalid.length > 0) {
     return {
       success: false,
@@ -1303,9 +1306,16 @@ export async function createPuertoLibreCargaMasivaAction(input: {
   }[] = [];
   const failed: { index: number; serial: string; error: string }[] = [];
 
-  for (let i = 0; i < validated.length; i++) {
-    const row = validated[i]!;
-    const parsed = cargaMasivaRowToAltaInput(row);
+  for (let i = 0; i < aptos.length; i++) {
+    const row = aptos[i]!;
+    // Ámbar: permitir huecos de color/motor/año con placeholder (se completan luego)
+    const rowForAlta = {
+      ...row,
+      color: row.color.trim() || "POR-COMPLETAR",
+      serialMotor: row.serialMotor.trim() || "POR-COMPLETAR",
+      anio: row.anio.trim() || String(new Date().getFullYear()),
+    };
+    const parsed = cargaMasivaRowToAltaInput(rowForAlta);
     if (!parsed.ok) {
       failed.push({ index: i, serial: row.serialCarroceria, error: parsed.error });
       continue;

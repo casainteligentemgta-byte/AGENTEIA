@@ -1,4 +1,9 @@
 import { puertoLibreAltaSchema, type PuertoLibreAltaInput } from "@/lib/schemas/importacion-alta";
+import {
+  inferCheryModelo,
+  isModeloFragmentInColor,
+} from "@/lib/importacion/factura-row-fidelity";
+import { repairCheryWmi } from "@/lib/importacion/vin-text";
 
 /** Columnas de la plantilla (orden fijo para Excel). */
 export const CARGA_MASIVA_COLUMNS = [
@@ -506,14 +511,73 @@ export function cargaMasivaRowToAltaInput(
   return { ok: true, data: parsed.data };
 }
 
+function healCheryCargaMasivaRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
+  const anyChery = rows.some((r) => {
+    const vin = repairCheryWmi(
+      (r.serialCarroceria || r.vin).replace(/[^A-Za-z0-9]/gi, "").toUpperCase()
+    );
+    return /^LVV|^LVT|^LVD/.test(vin) || /^chery$/i.test(r.marca.trim());
+  });
+  if (!anyChery) return rows;
+
+  const bestModelo =
+    rows
+      .map((r) =>
+        inferCheryModelo(
+          r.modelo,
+          isModeloFragmentInColor(r.color) ? r.color : null
+        )
+      )
+      .filter(Boolean)
+      .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0))[0] ?? null;
+
+  return rows.map((r) => {
+    const vin = repairCheryWmi(
+      (r.serialCarroceria || r.vin).replace(/[^A-Za-z0-9]/gi, "").toUpperCase()
+    );
+    const colorWasModelo = isModeloFragmentInColor(r.color);
+    const modelo =
+      inferCheryModelo(r.modelo, colorWasModelo ? r.color : null) ||
+      bestModelo ||
+      r.modelo;
+    return {
+      ...r,
+      marca: r.marca.trim() || "Chery",
+      modelo: modelo || r.modelo,
+      color: colorWasModelo ? "" : r.color,
+      vin: vin || r.vin,
+      serialCarroceria: vin || r.serialCarroceria,
+    };
+  });
+}
+
+/** Errores que bloquean (rojo). Color/motor/año/cert se anuncian en ámbar. */
+function criticalCargaMasivaError(row: CargaMasivaRow): string | null {
+  if (!row.marca.trim()) return "Ingresa la marca";
+  if (!row.modelo.trim()) return "Ingresa el modelo";
+  const vin = repairCheryWmi(
+    (row.serialCarroceria || row.vin).replace(/[^A-Za-z0-9]/gi, "").toUpperCase()
+  );
+  if (!vin) return "Ingresa el VIN";
+  if (vin.length !== 17) return "VIN incompleto (debe tener 17 caracteres)";
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return "VIN inválido";
+  const condicion = row.condicion.trim().toLowerCase();
+  if (condicion && condicion !== "nuevo" && condicion !== "usado") {
+    return "Condición debe ser nuevo o usado";
+  }
+  return null;
+}
+
 export function validateCargaMasivaRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
   const seenSerials = new Set<string>();
-  return rows.map((row) => {
-    const result = cargaMasivaRowToAltaInput(row);
-    if (!result.ok) {
-      return { ...row, error: result.error };
+  return healCheryCargaMasivaRows(rows).map((row) => {
+    const critical = criticalCargaMasivaError(row);
+    if (critical) {
+      return { ...row, error: critical };
     }
-    const serial = result.data.serialCarroceria.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const serial = repairCheryWmi(
+      (row.serialCarroceria || row.vin).replace(/[^A-Za-z0-9]/gi, "").toUpperCase()
+    );
     if (seenSerials.has(serial)) {
       return { ...row, error: "Serial de carrocería duplicado en el archivo" };
     }

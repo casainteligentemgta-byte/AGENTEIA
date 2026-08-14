@@ -1,8 +1,52 @@
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { normalizeRif } from "@/lib/validations/rif";
+import {
+  inferCheryModelo,
+  isModeloFragmentInColor,
+} from "@/lib/importacion/factura-row-fidelity";
+import { repairCheryWmi } from "@/lib/importacion/vin-text";
 
 export function normalizeSerialKey(serial: string): string {
-  return serial.trim().toUpperCase().replace(/\s+/g, "");
+  return repairCheryWmi(
+    serial.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+  );
+}
+
+/** Corrige filas Chery ya en UI: marca, modelo desde «PRO MAX», limpia VIN. */
+export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
+  const anyChery = rows.some((r) => {
+    const vin = normalizeSerialKey(r.serialCarroceria || r.vin);
+    return /^LVV|^LVT|^LVD/.test(vin) || /^chery$/i.test(r.marca.trim());
+  });
+  if (!anyChery) return rows;
+
+  const bestModelo =
+    rows
+      .map((r) =>
+        inferCheryModelo(
+          r.modelo,
+          isModeloFragmentInColor(r.color) ? r.color : null
+        )
+      )
+      .filter(Boolean)
+      .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0))[0] ?? null;
+
+  return rows.map((r) => {
+    const vin = normalizeSerialKey(r.serialCarroceria || r.vin);
+    const colorWasModelo = isModeloFragmentInColor(r.color);
+    const modelo =
+      inferCheryModelo(r.modelo, colorWasModelo ? r.color : null) ||
+      bestModelo ||
+      r.modelo;
+    return {
+      ...r,
+      marca: r.marca.trim() || "Chery",
+      modelo: modelo || r.modelo,
+      color: colorWasModelo ? "" : r.color,
+      vin: vin || r.vin,
+      serialCarroceria: vin || r.serialCarroceria,
+    };
+  });
 }
 
 /** Columnas editables por vehículo (no se repiten aduana/BL/importador). */
@@ -163,7 +207,17 @@ export function vehicleSemaforo(row: CargaMasivaRow): VehicleSemaforo {
   if (row.error?.trim()) criticos.push("error de validación");
   if (!row.marca.trim()) criticos.push("marca");
   if (!row.modelo.trim()) criticos.push("modelo");
-  if (!(row.serialCarroceria.trim() || row.vin.trim())) criticos.push("VIN");
+  const vinRaw = (row.serialCarroceria.trim() || row.vin.trim()).replace(
+    /[^A-Za-z0-9]/g,
+    ""
+  );
+  if (!vinRaw) criticos.push("VIN");
+  else if (vinRaw.length !== 17) criticos.push("VIN incompleto");
+  else if (!/^[A-HJ-NPR-Z0-9]{17}$/i.test(vinRaw)) criticos.push("VIN");
+  // Color con fragmentos de modelo (PRO MAX) → avisar
+  if (/^(PRO(\s*MAX)?|MAX)$/i.test(row.color.trim())) {
+    avisos.push("color (parece modelo)");
+  }
 
   const condicion = row.condicion.trim().toLowerCase();
   if (condicion && condicion !== "nuevo" && condicion !== "usado") {

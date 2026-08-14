@@ -154,10 +154,9 @@ export function PuertoLibreCargaMasiva({
     [rows]
   );
 
-  /** Solo se registran filas no rojas (verde + ámbar). */
+  /** Se registran filas no rojas (verde + ámbar). Las rojas se pueden corregir o borrar aparte. */
   const canImport =
     semaforo.aptos.length > 0 &&
-    semaforo.rojo === 0 &&
     errorCount === 0 &&
     !pending &&
     Boolean(selected) &&
@@ -439,18 +438,22 @@ export function PuertoLibreCargaMasiva({
       return;
     }
     const { aptos, bloqueados, ambar, verde } = resumenSemaforo(rows);
-    if (bloqueados.length > 0) {
+    if (aptos.length === 0) {
       setError(
-        `Hay ${bloqueados.length} vehículo(s) en rojo. Corrígelos o elimínalos; solo se registran verde/ámbar.`
+        bloqueados.length > 0
+          ? `Hay ${bloqueados.length} vehículo(s) en rojo y ninguno apto. Corrígelos o elimínalos.`
+          : "No hay vehículos aptos para registrar"
       );
       return;
     }
-    if (aptos.length === 0) {
-      setError("No hay vehículos aptos para registrar");
-      return;
+    if (bloqueados.length > 0) {
+      // Se registran solo aptos; las rojas quedan fuera del lote enviado
+      setResultMsg(
+        `Se omitirán ${bloqueados.length} vehículo(s) en rojo. Registrando ${aptos.length} apto(s)…`
+      );
     }
     setError(null);
-    setResultMsg(null);
+    if (bloqueados.length === 0) setResultMsg(null);
 
     const rowsToImport = applySharedShipmentToRows(aptos, shared).map((r) => ({
       ...r,
@@ -991,8 +994,9 @@ export function PuertoLibreCargaMasiva({
 
           {semaforo.rojo > 0 ? (
             <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              Hay {semaforo.rojo} vehículo(s) en rojo. Corrígelos o elimínalos para
-              habilitar el registro automático.
+              Hay {semaforo.rojo} vehículo(s) en rojo (no se registrarán).
+              Corrígelos o elimínalos. Puedes registrar los {semaforo.aptos.length}{" "}
+              apto(s) ahora.
             </p>
           ) : null}
 

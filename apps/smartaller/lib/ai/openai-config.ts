@@ -123,12 +123,16 @@ export function formatLlmAuthError(err: unknown): string {
   if (err instanceof OpenAI.APIError) {
     msg = [err.status, err.message].filter(Boolean).join(" ");
   }
-  if (/402|insufficient credits|never purchased credits|payment required/i.test(msg)) {
+  if (
+    /402|insufficient credits|never purchased credits|purchase more credits|payment required/i.test(
+      msg
+    )
+  ) {
     if (isGeminiProvider()) {
       return "Cuota gratuita de Gemini agotada o modelo de pago. Prueba más tarde o usa gemini-2.0-flash.";
     }
     if (isOpenRouterKey()) {
-      return "OpenRouter sin créditos. Añade GEMINI_API_KEY (gratis en Google AI Studio) en Vercel, o recarga OpenRouter.";
+      return "OpenRouter sin créditos. Añade GEMINI_API_KEY (gratis en Google AI Studio) en Vercel, o recarga OpenRouter. El OCR local (Tesseract) sigue intentando leer VIN sin créditos.";
     }
     return "La API de IA rechazó la petición (pago/créditos). Revisa la facturación de la clave en Vercel.";
   }
@@ -149,7 +153,7 @@ export function formatLlmAuthError(err: unknown): string {
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN
-    if (/Sin VIN|raster:|pagina-1|col-code|json-harvest/i.test(msg)) {
+    if (/Sin VIN|raster:|pagina-1|col-code|json-harvest|tesseract/i.test(msg)) {
       return msg;
     }
     return "No se pudo analizar la imagen con la IA. Prueba otra foto más nítida o un PDF más liviano.";
