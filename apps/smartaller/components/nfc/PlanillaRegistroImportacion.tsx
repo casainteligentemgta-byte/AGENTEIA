@@ -1443,10 +1443,6 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Datos de llegada
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Fecha de ingreso al Puerto Libre (distinta de la llegada del buque) y
-          partida arancelaria.
-        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
             label="Fecha de ingreso al PL *"
