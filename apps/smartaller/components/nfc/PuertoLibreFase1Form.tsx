@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Car, Ship } from "lucide-react";
 import {
   PuertoLibreDocScan,
+  type MultiDocDetectedPayload,
   type PuertoLibreScanTipo,
 } from "@/components/nfc/PuertoLibreDocScan";
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
@@ -173,6 +174,7 @@ type Props = {
   /** Documentos ya persistidos (mismo JSONB que Embarque). */
   existingDocumentos?: VehiculosDocumentos;
   onDocumentosChange?: (documentos: VehiculosDocumentos) => void;
+  onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
 };
 
 /**
@@ -188,6 +190,7 @@ export function PuertoLibreFase1Form({
   vehiculoId,
   existingDocumentos,
   onDocumentosChange,
+  onMultiDetected,
 }: Props) {
   const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => {
     const merged = { ...emptyPuertoLibreFase1Values(), ...initial };
@@ -272,6 +275,7 @@ export function PuertoLibreFase1Form({
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
+        onMultiDetected={onMultiDetected}
       />
 
       <section className={sectionClass}>

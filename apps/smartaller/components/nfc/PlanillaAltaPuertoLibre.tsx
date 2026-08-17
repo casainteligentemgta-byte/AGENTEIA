@@ -11,6 +11,7 @@ import {
   type PuertoLibreFase1FormValues,
   type PuertoLibreScanFiles,
 } from "@/components/nfc/PuertoLibreFase1Form";
+import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
 import type { UltimoImportador } from "@/lib/taller-preferencias";
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
   initialImportador?: UltimoImportador | null;
   /** Si true, no se editan datos del importador (vienen del paso cliente). */
   lockImportador?: boolean;
+  onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
@@ -94,6 +96,7 @@ export function PlanillaAltaPuertoLibre({
   importadorId,
   initialImportador,
   lockImportador = false,
+  onMultiDetected,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -145,6 +148,7 @@ export function PlanillaAltaPuertoLibre({
         importadorDireccion: initialImportador?.importadorDireccion ?? "",
       }}
       onSubmit={handleSubmit}
+      onMultiDetected={onMultiDetected}
       actions={
         <>
           {error ? (
