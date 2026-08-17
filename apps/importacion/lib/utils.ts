@@ -1,0 +1,49 @@
+export function cn(...classes: (string | false | null | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function formatCurrencyCompact(value: number): string {
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `$${Math.round(value / 1_000)}K`;
+  }
+  return formatCurrency(value);
+}
+
+export function formatDate(date: string | null | undefined): string {
+  if (!date) return "—";
+  const parsed = new Date(date.includes("T") ? date : `${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
+export function formatKm(km: number | null): string {
+  if (km == null) return "—";
+  return `${km.toLocaleString("es-CO")} km`;
+}
+
+export function formatOdometroDashboard(
+  km: number | null,
+  horas: number | null,
+  unidad: string
+): string {
+  if (unidad === "horas") {
+    if (horas == null) return "—";
+    return `${horas.toLocaleString("es-CO")} h`;
+  }
+  return formatKm(km);
+}

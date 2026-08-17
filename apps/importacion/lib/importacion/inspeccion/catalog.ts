@@ -1,0 +1,90 @@
+export type TransportistaSeccion =
+  | "datos_recepcion"
+  | "estado_exterior"
+  | "inventario"
+  | "evidencia"
+  | "observaciones";
+
+export type TransportistaChecklistItem = {
+  id: string;
+  seccion: TransportistaSeccion;
+  etiqueta: string;
+  orden: number;
+  /** Si true, es campo de texto libre en la planilla digital */
+  esTexto?: boolean;
+};
+
+export const TRANSPORTISTA_SECCION_LABELS: Record<TransportistaSeccion, string> = {
+  datos_recepcion: "Datos del recepcionista",
+  estado_exterior: "Estado exterior al recibir",
+  inventario: "Inventario / elementos entregados",
+  evidencia: "Evidencia fotográfica",
+  observaciones: "Observaciones",
+};
+
+/**
+ * Planilla de recepción del vehículo en puerto / transportista (Puerto Libre).
+ */
+export const TRANSPORTISTA_CHECKLIST: TransportistaChecklistItem[] = [
+  // Datos del recepcionista — verificación con ✓ / ✗
+  { id: "rec_guia_bl", seccion: "datos_recepcion", etiqueta: "Coincide guía / BL con el vehículo", orden: 10 },
+  { id: "rec_placa_vin", seccion: "datos_recepcion", etiqueta: "Placa / VIN verificados vs documentos", orden: 20 },
+  { id: "rec_precintos", seccion: "datos_recepcion", etiqueta: "Precintos / sellos íntegros (si aplica)", orden: 30 },
+
+  // Estado exterior
+  { id: "ext_frontal", seccion: "estado_exterior", etiqueta: "Frontal sin daños visibles", orden: 10 },
+  { id: "ext_trasero", seccion: "estado_exterior", etiqueta: "Trasero sin daños visibles", orden: 20 },
+  { id: "ext_lat_izq", seccion: "estado_exterior", etiqueta: "Lateral izquierdo sin daños visibles", orden: 30 },
+  { id: "ext_lat_der", seccion: "estado_exterior", etiqueta: "Lateral derecho sin daños visibles", orden: 40 },
+  { id: "ext_techo", seccion: "estado_exterior", etiqueta: "Techo / capot sin daños visibles", orden: 50 },
+  { id: "ext_cristales", seccion: "estado_exterior", etiqueta: "Cristales / parabrisas sin daños visibles", orden: 60 },
+  { id: "ext_llantas", seccion: "estado_exterior", etiqueta: "Llantas / rines sin daños visibles", orden: 70 },
+  { id: "ext_luces", seccion: "estado_exterior", etiqueta: "Luces exteriores operativas", orden: 80 },
+  { id: "ext_fuga", seccion: "estado_exterior", etiqueta: "Sin fugas visibles de fluidos", orden: 90 },
+
+  // Inventario
+  { id: "inv_llaves", seccion: "inventario", etiqueta: "Llaves entregadas", orden: 10 },
+  { id: "inv_control", seccion: "inventario", etiqueta: "Control / alarma", orden: 20 },
+  { id: "inv_manuales", seccion: "inventario", etiqueta: "Manuales", orden: 30 },
+  { id: "inv_repuesto", seccion: "inventario", etiqueta: "Goma de repuesto", orden: 40 },
+  { id: "inv_gato", seccion: "inventario", etiqueta: "Gato / herramientas", orden: 50 },
+  { id: "inv_triangulo", seccion: "inventario", etiqueta: "Triángulo / kit seguridad", orden: 60 },
+  { id: "inv_documentos", seccion: "inventario", etiqueta: "Documentos del vehículo en carpeta", orden: 70 },
+  { id: "inv_accesorios", seccion: "inventario", etiqueta: "Accesorios declarados presentes", orden: 80 },
+
+  // Evidencia
+  { id: "evi_frontal", seccion: "evidencia", etiqueta: "Foto frontal tomada", orden: 10 },
+  { id: "evi_trasera", seccion: "evidencia", etiqueta: "Foto trasera tomada", orden: 20 },
+  { id: "evi_laterales", seccion: "evidencia", etiqueta: "Fotos laterales tomadas", orden: 30 },
+  { id: "evi_vin", seccion: "evidencia", etiqueta: "Foto VIN / chasis tomada", orden: 40 },
+  { id: "evi_odometro", seccion: "evidencia", etiqueta: "Foto odómetro / tablero tomada", orden: 50 },
+  { id: "evi_danos", seccion: "evidencia", etiqueta: "Daños existentes fotografiados (si hay)", orden: 60 },
+];
+
+export function transportistaPorSeccion(seccion: TransportistaSeccion) {
+  return TRANSPORTISTA_CHECKLIST.filter((i) => i.seccion === seccion).sort(
+    (a, b) => a.orden - b.orden
+  );
+}
+
+export const TRANSPORTISTA_SECCIONES: TransportistaSeccion[] = [
+  "datos_recepcion",
+  "estado_exterior",
+  "inventario",
+  "evidencia",
+];
+
+/** Ítems de exterior donde N/A se reemplaza por carga de foto. */
+export const EXTERIOR_FOTO_POR_ITEM: Record<
+  string,
+  "foto_frontal" | "foto_trasera" | "foto_lateral_izq" | "foto_lateral_der"
+> = {
+  ext_frontal: "foto_frontal",
+  ext_trasero: "foto_trasera",
+  ext_lat_izq: "foto_lateral_izq",
+  ext_lat_der: "foto_lateral_der",
+};
+
+export function exteriorTieneFoto(itemId: string): boolean {
+  return itemId in EXTERIOR_FOTO_POR_ITEM;
+}

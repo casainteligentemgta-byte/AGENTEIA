@@ -17,7 +17,7 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | **SmartTaller** código `main` | ✅ PRs #13–#19 mergeados |
 | SmartTaller Vercel | ✅ auto-deploy en push |
 | SmartTaller SQL en PC | ✅ `apps/smartaller/supabase/pc-deploy/` |
-| SmartTaller Supabase prod | ⏳ ejecutar SQL en PC (ver checklist) |
+| **Puerto Libre** app `apps/importacion` | ⏳ PR extracción; Vercel proyecto nuevo |
 | SmartTaller Stripe/Telegram prod | ⏳ env vars + webhooks |
 | SmartTaller smoke test | ⏳ `npm run qa -- --url TU_DOMINIO` |
 
@@ -47,6 +47,26 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 4. Guía: `pc-deploy/00-LEEME.md`
 
 Detalle: `DEPLOY.md` · `docs/CHECKLIST-LANZAMIENTO.md` · Stripe: `docs/STRIPE-SETUP.md`
+
+---
+
+## Puerto Libre (`apps/importacion`) — micro-SaaS #3
+
+| Tarea | Estado |
+|-------|--------|
+| Código extraído de SmartTaller | ⏳ este PR |
+| Mismo Supabase (RLS / tablas) | ✅ no requiere SQL nuevo |
+| Proyecto Vercel (root `apps/importacion`) | ⏳ crear |
+| Env vars + Auth redirect URLs | ⏳ |
+| Corte: `IMPORTACION_APP_URL` en SmartTaller | ⏳ después del primer deploy |
+
+```bash
+cd apps/importacion
+npm install
+npm run dev
+```
+
+Puerto: http://localhost:3004
 
 ---
 

@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const checks: Record<string, "ok" | "error" | "skipped"> = {
+    supabase: "skipped",
+    openai: process.env.OPENAI_API_KEY?.trim() ? "ok" : "skipped",
+    gemini: process.env.GEMINI_API_KEY?.trim() ? "ok" : "skipped",
+    cron: process.env.CRON_SECRET?.trim() ? "ok" : "skipped",
+    resend: process.env.RESEND_API_KEY?.trim() ? "ok" : "skipped",
+  };
+
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const supabase = createAdminClient();
+      const { error } = await supabase.from("talleres").select("id", { head: true, count: "exact" });
+      checks.supabase = error ? "error" : "ok";
+    } catch {
+      checks.supabase = "error";
+    }
+  }
+
+  const healthy = Object.values(checks).every((v) => v !== "error");
+
+  return NextResponse.json(
+    {
+      status: healthy ? "ok" : "degraded",
+      service: "importacion",
+      timestamp: new Date().toISOString(),
+      checks,
+    },
+    { status: healthy ? 200 : 503 }
+  );
+}

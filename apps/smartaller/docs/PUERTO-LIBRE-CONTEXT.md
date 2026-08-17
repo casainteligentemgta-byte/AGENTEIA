@@ -1,5 +1,7 @@
 # CONTEXTO: Módulo Importación / Puerto Libre — Smartaller (`apps/smartaller`)
 
+> **App independiente:** el producto canónico es `apps/importacion`. Este módulo en SmartTaller se mantiene hasta definir `IMPORTACION_APP_URL` (redirect). Ver `apps/importacion/README.md`.
+
 Documento de referencia para agentes/IA. Toda respuesta sobre importación, SENIAT, aduana, planilla o expedientes PL debe basarse aquí. Stack: Next.js 14 App Router, Server Actions, Supabase (JSONB), Zod, Tailwind. Base path: `/importacion`. No inventar rutas, columnas ni campos que no estén aquí.
 
 **Instructivo operativo (humano):** `docs/INSTRUCTIVO-IMPORTACION.md` · UI: `/importacion/instructivo`.

@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/alertas-vencimiento",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}

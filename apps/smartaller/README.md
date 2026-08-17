@@ -266,3 +266,12 @@ npm run dev
 ```
 
 Puerto: http://localhost:3003
+
+## Importación Puerto Libre
+
+El módulo vive ahora como app independiente: `apps/importacion` (puerto 3004).
+
+Hasta que despliegues ese proyecto, `/importacion` sigue funcionando aquí.
+
+Cuando la app nueva esté en producción, define `IMPORTACION_APP_URL` en Vercel (SmartTaller) y `/importacion` redirigirá al otro dominio. Guía: `apps/importacion/README.md`.
+
