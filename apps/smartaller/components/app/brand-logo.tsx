@@ -9,6 +9,8 @@ type BrandLogoProps = {
   theme?: "dark" | "light";
   showDot?: boolean;
   markOnly?: boolean;
+  /** smartimport = texto SmartImport (módulo PL). */
+  product?: "smarttaller" | "smartimport";
   className?: string;
 };
 
@@ -47,11 +49,13 @@ export function BrandLogo({
   theme = "dark",
   showDot = false,
   markOnly = false,
+  product = "smarttaller",
   className,
 }: BrandLogoProps) {
   const gradId = useId();
   const s = sizes[size];
   const isDark = theme === "dark";
+  const suffix = product === "smartimport" ? "Import" : "Taller";
 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
@@ -61,7 +65,7 @@ export function BrandLogo({
       {!markOnly && (
         <div className={cn("flex items-baseline font-bold tracking-tight", s.text)}>
           <span className={isDark ? "text-white" : "text-zinc-900"}>Smart</span>
-          <span style={{ color: BRAND.colors.primary }}>Taller</span>
+          <span style={{ color: BRAND.colors.primary }}>{suffix}</span>
           {showDot && (
             <span
               className="mb-2 ml-0.5 h-2 w-2 rounded-full"

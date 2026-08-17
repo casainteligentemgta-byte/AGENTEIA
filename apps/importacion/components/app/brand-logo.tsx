@@ -9,6 +9,7 @@ type BrandLogoProps = {
   theme?: "dark" | "light";
   showDot?: boolean;
   markOnly?: boolean;
+  product?: "puertolibre" | "smartimport";
   className?: string;
 };
 
@@ -47,11 +48,16 @@ export function BrandLogo({
   theme = "dark",
   showDot = false,
   markOnly = false,
+  product = "puertolibre",
   className,
 }: BrandLogoProps) {
   const gradId = useId();
   const s = sizes[size];
   const isDark = theme === "dark";
+  const label =
+    product === "smartimport"
+      ? { lead: "Smart", accent: "Import" }
+      : { lead: "Puerto", accent: "Libre" };
 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
@@ -60,8 +66,8 @@ export function BrandLogo({
       </div>
       {!markOnly && (
         <div className={cn("flex items-baseline font-bold tracking-tight", s.text)}>
-          <span className={isDark ? "text-white" : "text-zinc-900"}>Puerto</span>
-          <span style={{ color: BRAND.colors.primary }}>Libre</span>
+          <span className={isDark ? "text-white" : "text-zinc-900"}>{label.lead}</span>
+          <span style={{ color: BRAND.colors.primary }}>{label.accent}</span>
           {showDot && (
             <span
               className="mb-2 ml-0.5 h-2 w-2 rounded-full"

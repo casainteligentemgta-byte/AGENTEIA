@@ -2,11 +2,18 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
-import { canonicalizeImportacionPath, IMPORTACION_BASE, isImportacionAppPath } from "@/lib/importacion/paths";
+import {
+  canonicalizeImportacionPath,
+  IMPORTACION_BASE,
+  isImportacionAppPath,
+} from "@/lib/importacion/paths";
+
+const SMARTTALLER_LOGIN_URL = "https://smarttaller.xyz/login";
 
 function ImportacionLoginForm() {
   const searchParams = useSearchParams();
@@ -68,36 +75,10 @@ function ImportacionLoginForm() {
     setLoading(false);
   };
 
-  const handleOAuth = async () => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      const supabase = createClient();
-      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(effectiveRedirect)}&logLogin=1`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: callbackUrl },
-      });
-      if (error) throw error;
-    } catch (err) {
-      setMessage({
-        type: "error",
-        text: err instanceof Error ? err.message : "Error con Google",
-      });
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-md">
       <div className="mb-8">
-        <BrandLogo size="md" theme="dark" showDot={false} />
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-zinc-50">
-          Importación
-        </h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Expedientes, desaduanamiento y nacionalización. Entra con tu correo.
-        </p>
+        <BrandLogo size="md" theme="dark" showDot={false} product="smartimport" />
       </div>
 
       <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-6 sm:p-8">
@@ -171,28 +152,18 @@ function ImportacionLoginForm() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "login" ? "Entrar a Importación" : "Crear cuenta"}
+            {mode === "login" ? "Entrar" : "Crear cuenta"}
           </button>
         </form>
-
-        <div className="my-5 flex items-center gap-3 text-xs text-zinc-600">
-          <div className="h-px flex-1 bg-zinc-800" />
-          o
-          <div className="h-px flex-1 bg-zinc-800" />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleOAuth}
-          disabled={loading}
-          className="w-full rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:bg-zinc-900 disabled:opacity-60"
-        >
-          Continuar con Google
-        </button>
       </div>
 
       <p className="mt-6 text-center text-xs text-zinc-600">
-        App independiente de importación Puerto Libre.
+        <Link
+          href={SMARTTALLER_LOGIN_URL}
+          className="text-zinc-400 hover:text-zinc-200"
+        >
+          Login general SmartTaller
+        </Link>
       </p>
     </div>
   );
