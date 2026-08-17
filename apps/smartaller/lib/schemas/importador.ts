@@ -16,6 +16,18 @@ export const IMPORTADOR_TIPO_LABELS: Record<ImportadorTipo, string> = {
   juridica: "Persona jurídica",
 };
 
+/** Línea de documento para UI: RIF siempre; CI solo en persona jurídica. */
+export function formatImportadorDocumentoLine(c: {
+  tipo: ImportadorTipo;
+  documento: string;
+  cedula?: string | null;
+}): string {
+  if (c.tipo === "natural" || !c.cedula) {
+    return `RIF ${c.documento}`;
+  }
+  return `RIF ${c.documento} · CI ${c.cedula}`;
+}
+
 const optionalText = (max: number) =>
   z.string().trim().max(max).optional().or(z.literal(""));
 

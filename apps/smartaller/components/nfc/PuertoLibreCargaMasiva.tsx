@@ -58,7 +58,7 @@ import {
 } from "@/lib/importacion/carga-masiva-client";
 import { createClient } from "@/lib/supabase/client";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
-import { IMPORTADOR_TIPO_LABELS } from "@/lib/schemas/importador";
+import { IMPORTADOR_TIPO_LABELS, formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 
 type Mode = "plantilla" | "documentos";
 
@@ -591,8 +591,7 @@ export function PuertoLibreCargaMasiva({
               {selected.nombre}
             </p>
             <p className="mt-0.5 font-mono text-xs text-zinc-400">
-              RIF {selected.documento}
-              {selected.cedula ? ` · CI ${selected.cedula}` : ""}
+              {formatImportadorDocumentoLine(selected)}
               {" · "}
               {IMPORTADOR_TIPO_LABELS[selected.tipo]}
             </p>

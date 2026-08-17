@@ -5,7 +5,10 @@ import { CheckCircle2, Plus, Search, UserRound } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
 import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
-import { IMPORTADOR_TIPO_LABELS } from "@/lib/schemas/importador";
+import {
+  IMPORTADOR_TIPO_LABELS,
+  formatImportadorDocumentoLine,
+} from "@/lib/schemas/importador";
 
 type Props = {
   initialImportadores: ImportadorListItem[];
@@ -45,8 +48,7 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
           </p>
           <p className="mt-1 text-sm font-semibold text-zinc-50">{selected.nombre}</p>
           <p className="mt-0.5 font-mono text-xs text-zinc-400">
-            RIF {selected.documento}
-            {selected.cedula ? ` · CI ${selected.cedula}` : ""}
+            {formatImportadorDocumentoLine(selected)}
             {" · "}
             {IMPORTADOR_TIPO_LABELS[selected.tipo]}
           </p>
