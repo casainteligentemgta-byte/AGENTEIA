@@ -576,11 +576,6 @@ export function PuertoLibreCargaMasiva({
           <UserRound className="h-4 w-4 text-cyan-400" />
           1. Cliente importador
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Todos los expedientes de esta carga quedan asociados a este cliente. Si
-          la factura trae otro RIF, debes elegir el importador correcto antes de
-          registrar.
-        </p>
 
         {selected ? (
           <div className="mt-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3">
@@ -685,26 +680,18 @@ export function PuertoLibreCargaMasiva({
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 space-y-4">
         <h2 className="text-base font-semibold text-slate-100">
-          Factura con varios vehículos
+          2.- Factura con varios vehículos
         </h2>
-        <p className="mt-1 text-justify text-sm text-slate-400">
-          Ideal para{" "}
-          <span className="text-slate-200">hoja anexa MAV</span> (No. de Chasis /
-          Motor / Llave / Color / Código) o carátula multipágina. La IA lista
-          todas las unidades; luego los{" "}
-          <span className="text-slate-200">certificados de origen</span>{" "}
-          completan motor y nº de certificado por VIN. También Excel/CSV (hasta{" "}
-          {CARGA_MASIVA_MAX_ROWS} filas).
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+
+        <div className="grid grid-cols-2 gap-2">
           <a
             href="/smartimport/carga-masiva/plantilla.xlsx"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4 shrink-0" />
-            <span className="leading-tight">Plantilla Excel (.xlsx)</span>
+            <span className="leading-tight">Plantilla Excel</span>
           </a>
           <a
             href="/smartimport/carga-masiva/plantilla.csv"
@@ -714,223 +701,209 @@ export function PuertoLibreCargaMasiva({
             <span className="leading-tight">Plantilla CSV</span>
           </a>
         </div>
-      </section>
 
-      <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
-        {(
-          [
-            { id: "documentos" as const, label: "PDFs / fotos", icon: FileUp },
-            { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
-          ] as const
-        ).map((tab) => {
-          const active = mode === tab.id;
-          const Icon = tab.icon;
-          return (
+        <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
+          {(
+            [
+              { id: "documentos" as const, label: "PDF / Fotos", icon: FileUp },
+              { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
+            ] as const
+          ).map((tab) => {
+            const active = mode === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMode(tab.id)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "bg-cyan-600 text-white"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {mode === "plantilla" ? (
+          <div>
             <button
-              key={tab.id}
               type="button"
-              onClick={() => setMode(tab.id)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                active
-                  ? "bg-cyan-600 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              disabled={pending}
+              onClick={() => sheetRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {pending ? "Leyendo…" : "Elegir archivo"}
             </button>
-          );
-        })}
-      </div>
-
-      {mode === "plantilla" ? (
-        <section className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
-          <h2 className="text-base font-semibold text-slate-100">
-            2. Sube el archivo
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Acepta .xlsx, .xls o .csv (coma o punto y coma).
-          </p>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => sheetRef.current?.click()}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
-          >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {pending ? "Leyendo…" : "Elegir archivo"}
-          </button>
-          <input
-            ref={sheetRef}
-            type="file"
-            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            className="hidden"
-            onChange={(e) => {
-              handleSheetFile(e.target.files?.[0] ?? null);
-              e.target.value = "";
-            }}
-          />
-        </section>
-      ) : (
-        <section className="space-y-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-5">
-          <h2 className="text-base font-semibold text-slate-100">
-            2. Sube facturas y certificados
-          </h2>
-          <p className="text-sm text-slate-400">
-            Sube la factura (carátula o anexa) y los certificados de origen. El
-            certificado rellena motor, color y nº cert. por VIN. Aduana, nº BL,
-            país y fecha de llegada se completan al cargar el BL en Embarque del
-            expediente (no en esta pantalla).
-          </p>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => docsRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
-          >
-            <Upload className="h-4 w-4" />
-            Agregar PDFs o fotos
-          </button>
-          <input
-            ref={docsRef}
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              handleDocsFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-
-          {docs.length > 0 ? (
-            <ul className="space-y-2">
-              {docs.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                    {d.file.name}
-                  </span>
-                  <select
-                    value={d.tipo}
-                    onChange={(e) =>
-                      setDocs((prev) =>
-                        prev.map((x) =>
-                          x.id === d.id
-                            ? {
-                                ...x,
-                                tipo: e.target.value as DocItem["tipo"],
-                              }
-                            : x
-                        )
-                      )
-                    }
-                    className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-                  >
-                    <option value="factura_comercial">Factura</option>
-                    <option value="certificado_origen">Certificado origen</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDocs((prev) => prev.filter((x) => x.id !== d.id))
-                    }
-                    className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
-                    aria-label="Quitar documento"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <button
-            type="button"
-            disabled={pending || docs.length === 0}
-            onClick={extractDocs}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
-          >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileUp className="h-4 w-4" />
-            )}
-            {pending ? "Extrayendo por etapas…" : "Extraer vehículos"}
-          </button>
-
-          {(pending && extractProgress) || extractProgress ? (
-            <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
-                Extracción por etapas
-              </p>
-              <ol className="mt-2 space-y-1.5">
-                {CARGA_MASIVA_ETAPAS.map((id) => {
-                  const done =
-                    extractProgress &&
-                    CARGA_MASIVA_ETAPAS.indexOf(extractProgress.etapa) >
-                      CARGA_MASIVA_ETAPAS.indexOf(id);
-                  const current = activeEtapa === id;
-                  const skipped =
-                    id === "certs" &&
-                    !docs.some(
-                      (d) =>
-                        d.tipo === "certificado_origen" || d.tipo === "bl_guia"
-                    );
-                  return (
-                    <li
-                      key={id}
-                      className={`flex items-center gap-2 text-sm ${
-                        skipped
-                          ? "text-slate-600"
-                          : current
-                            ? "text-cyan-100"
-                            : done
-                              ? "text-emerald-300/90"
-                              : "text-slate-500"
-                      }`}
-                    >
-                      {current ? (
-                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                      ) : done ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-current opacity-40" />
-                      )}
-                      <span>
-                        {CARGA_MASIVA_ETAPA_LABELS[id]}
-                        {skipped ? " (omitida)" : ""}
-                        {current ? ` — ${CARGA_MASIVA_ETAPA_HINTS[id]}` : ""}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ol>
-              {extractProgress ? (
-                <div className="mt-3">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                    <div
-                      className="h-full rounded-full bg-cyan-500 transition-all duration-500"
-                      style={{ width: `${extractProgress.pct}%` }}
-                    />
-                  </div>
-                  <p className="mt-1.5 text-xs text-slate-400">
-                    {extractProgress.vinsEncontrados} VIN ·{" "}
-                    {extractProgress.filasCompletas}/
-                    {extractProgress.totalFilas || "—"} filas completas
-                  </p>
-                </div>
-              ) : null}
+            <input
+              ref={sheetRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="hidden"
+              onChange={(e) => {
+                handleSheetFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => docsRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                Agregar PDF
+              </button>
+              <button
+                type="button"
+                disabled={pending || docs.length === 0}
+                onClick={extractDocs}
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileUp className="h-4 w-4" />
+                )}
+                {pending ? "Extrayendo…" : "Extraer vehículos"}
+              </button>
             </div>
-          ) : null}
-        </section>
-      )}
+            <input
+              ref={docsRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                handleDocsFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+
+            {docs.length > 0 ? (
+              <ul className="space-y-2">
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                      {d.file.name}
+                    </span>
+                    <select
+                      value={d.tipo}
+                      onChange={(e) =>
+                        setDocs((prev) =>
+                          prev.map((x) =>
+                            x.id === d.id
+                              ? {
+                                  ...x,
+                                  tipo: e.target.value as DocItem["tipo"],
+                                }
+                              : x
+                          )
+                        )
+                      }
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                    >
+                      <option value="factura_comercial">Factura</option>
+                      <option value="certificado_origen">Certificado origen</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
+                      }
+                      className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
+                      aria-label="Quitar documento"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {(pending && extractProgress) || extractProgress ? (
+              <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
+                  Extracción por etapas
+                </p>
+                <ol className="mt-2 space-y-1.5">
+                  {CARGA_MASIVA_ETAPAS.map((id) => {
+                    const done =
+                      extractProgress &&
+                      CARGA_MASIVA_ETAPAS.indexOf(extractProgress.etapa) >
+                        CARGA_MASIVA_ETAPAS.indexOf(id);
+                    const current = activeEtapa === id;
+                    const skipped =
+                      id === "certs" &&
+                      !docs.some(
+                        (d) =>
+                          d.tipo === "certificado_origen" || d.tipo === "bl_guia"
+                      );
+                    return (
+                      <li
+                        key={id}
+                        className={`flex items-center gap-2 text-sm ${
+                          skipped
+                            ? "text-slate-600"
+                            : current
+                              ? "text-cyan-100"
+                              : done
+                                ? "text-emerald-300/90"
+                                : "text-slate-500"
+                        }`}
+                      >
+                        {current ? (
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                        ) : done ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-current opacity-40" />
+                        )}
+                        <span>
+                          {CARGA_MASIVA_ETAPA_LABELS[id]}
+                          {skipped ? " (omitida)" : ""}
+                          {current ? ` — ${CARGA_MASIVA_ETAPA_HINTS[id]}` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {extractProgress ? (
+                  <div className="mt-3">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                        style={{ width: `${extractProgress.pct}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-400">
+                      {extractProgress.vinsEncontrados} VIN ·{" "}
+                      {extractProgress.filasCompletas}/
+                      {extractProgress.totalFilas || "—"} filas completas
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
 
       {warnings.length > 0 ? (
         <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">

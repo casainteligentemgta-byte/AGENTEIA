@@ -43,10 +43,6 @@ export default async function CargaMasivaPuertoLibrePage() {
             <h1 className="text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
               Carga masiva de vehículos
             </h1>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              Factura + certificados → se crean expedientes con VIN; el semáforo
-              (rojo/ámbar/verde) indica qué falta completar después
-            </p>
           </div>
         </div>
 
