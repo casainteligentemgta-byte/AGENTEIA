@@ -36,7 +36,7 @@ import {
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
-import { uploadVehiculoDocumento, validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
+import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
 import {
@@ -75,7 +75,9 @@ import {
 import { isLlmConfigured } from "@/lib/ai/openai-config";
 import {
   extractBlMultiFromDocument,
+  extractCertificadoOrigenMultiFromDocument,
   extractPolizaTransporteFromDocument,
+  mergeScanFields,
   polizaToFormFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
@@ -128,6 +130,29 @@ function embarquePatchFromScanFields(
     patch.importadorDocumento = fields.importadorDocumento.trim();
   }
   return patch;
+}
+
+/** Parche desde OCR de certificado de origen (nº cert., país, etc.). */
+function certificadoPatchFromScanFields(
+  fields: PuertoLibreRegistroScanFields,
+  existing: ImportacionData
+): Partial<ImportacionData> {
+  const patch: Partial<ImportacionData> = {};
+  if (fields.numeroCertificadoOrigen?.trim()) {
+    patch.numeroCertificadoOrigen = fields.numeroCertificadoOrigen.trim();
+  }
+  const pais = resolvePais(fields.paisOrigen);
+  if (pais && !existing.paisOrigen?.trim()) patch.paisOrigen = pais;
+  return patch;
+}
+
+async function ocrCertificadoOrigenBuffer(
+  buffer: Buffer,
+  mimeType: string
+): Promise<PuertoLibreRegistroScanFields> {
+  const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType);
+  const first = extracted.vehiculos[0] ?? {};
+  return mergeScanFields(extracted.shared, first);
 }
 
 export type PuertoLibreActionResult =
@@ -877,6 +902,77 @@ export async function updatePuertoLibrePropietarioAction(
   if (error) return { success: false, error: error.message };
   revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
+}
+
+/** Lee el certificado de origen ya cargado y devuelve/ persiste el nº de certificado. */
+export async function syncCertificadoOrigenNumeroAction(vehiculoId: string): Promise<
+  | { success: true; numeroCertificadoOrigen: string | null }
+  | { success: false; error: string }
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) {
+    return { success: false, error: "ID inválido" };
+  }
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existingImp = parseImportacion(row.importacion);
+  if (existingImp.numeroCertificadoOrigen?.trim()) {
+    return {
+      success: true,
+      numeroCertificadoOrigen: existingImp.numeroCertificadoOrigen.trim(),
+    };
+  }
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const certRef = docs.certificado_origen;
+  if (!certRef?.path) {
+    return { success: true, numeroCertificadoOrigen: null };
+  }
+
+  if (!isLlmConfigured()) {
+    return { success: true, numeroCertificadoOrigen: null };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
+      .from(VEHICULO_DOCS_BUCKET)
+      .download(certRef.path);
+    if (error || !data) {
+      return { success: true, numeroCertificadoOrigen: null };
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    const mimeType =
+      data.type === "application/pdf" || /\.pdf$/i.test(certRef.path)
+        ? "application/pdf"
+        : resolveImageMimeType({
+            declaredMime: data.type,
+            fileName: certRef.path,
+            buffer,
+          }) ?? "image/jpeg";
+    const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType);
+    const patch = certificadoPatchFromScanFields(fields, existingImp);
+    const numero = patch.numeroCertificadoOrigen?.trim() ?? null;
+    if (numero) {
+      const merged = serializeImportacion({ ...existingImp, ...patch });
+      await admin
+        .from("vehiculos")
+        .update({ importacion: merged, updated_at: new Date().toISOString() })
+        .eq("id", idParsed.data)
+        .eq("taller_id", auth.taller.id);
+      revalidateFicha(idParsed.data);
+    }
+    return { success: true, numeroCertificadoOrigen: numero };
+  } catch {
+    return { success: true, numeroCertificadoOrigen: null };
+  }
 }
 
 /**
@@ -1848,9 +1944,11 @@ export async function uploadPuertoLibreDocumentoAction(
       };
     }
 
-    // BL / póliza: extraer datos de embarque y guardar en importación (best-effort).
+    // BL / póliza / certificado: extraer datos y guardar en importación (best-effort).
     if (
-      (tipoParsed.data === "bl_guia" || tipoParsed.data === "poliza_transporte") &&
+      (tipoParsed.data === "bl_guia" ||
+        tipoParsed.data === "poliza_transporte" ||
+        tipoParsed.data === "certificado_origen") &&
       isLlmConfigured()
     ) {
       try {
@@ -1864,15 +1962,21 @@ export async function uploadPuertoLibreDocumentoAction(
                 buffer,
               }) ?? "image/jpeg";
         const existingImp = parseImportacion(row.importacion);
-        const fields =
-          tipoParsed.data === "bl_guia"
-            ? (await extractBlMultiFromDocument(buffer, mimeType)).shared
-            : polizaToFormFields(
-                await extractPolizaTransporteFromDocument(buffer, mimeType)
-              );
-        const patch = embarquePatchFromScanFields(fields, existingImp, {
-          includeNumeroPoliza: tipoParsed.data === "poliza_transporte",
-        });
+        let patch: Partial<ImportacionData> = {};
+        if (tipoParsed.data === "certificado_origen") {
+          const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType);
+          patch = certificadoPatchFromScanFields(fields, existingImp);
+        } else {
+          const fields =
+            tipoParsed.data === "bl_guia"
+              ? (await extractBlMultiFromDocument(buffer, mimeType)).shared
+              : polizaToFormFields(
+                  await extractPolizaTransporteFromDocument(buffer, mimeType)
+                );
+          patch = embarquePatchFromScanFields(fields, existingImp, {
+            includeNumeroPoliza: tipoParsed.data === "poliza_transporte",
+          });
+        }
         if (Object.keys(patch).length > 0) {
           const merged = serializeImportacion({ ...existingImp, ...patch });
           await admin

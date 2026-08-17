@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type Dispatch,
@@ -28,6 +29,7 @@ import {
   savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
+  syncCertificadoOrigenNumeroAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
@@ -50,8 +52,6 @@ import {
   docsDesaduanamientoPorRegimen,
   getRegimenConfig,
   origenDocDesaduanamiento,
-  REGIMENES_IMPORTACION,
-  REGIMEN_IMPORTACION_LABELS,
   type RegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import {
@@ -1077,7 +1077,11 @@ function Fase2Embarque({
   onComplete: (datos: EmbarqueDatosForm, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const [datos, setDatos] = useState<EmbarqueDatosForm>(initial);
+  const [datos, setDatos] = useState<EmbarqueDatosForm>({
+    ...initial,
+    regimen: "puerto_libre",
+  });
+  const certSyncStarted = useRef(false);
 
   useEffect(() => {
     setDatos((prev) => ({
@@ -1088,12 +1092,27 @@ function Fase2Embarque({
       aduana: initial.aduana || prev.aduana,
       numeroBl: initial.numeroBl || prev.numeroBl,
       paisOrigen: initial.paisOrigen || prev.paisOrigen,
-      regimen: initial.regimen || prev.regimen,
+      regimen: "puerto_libre",
       numeroCertificadoOrigen:
         initial.numeroCertificadoOrigen || prev.numeroCertificadoOrigen,
       observaciones: initial.observaciones || prev.observaciones,
     }));
   }, [initial]);
+
+  useEffect(() => {
+    if (certSyncStarted.current) return;
+    if (datos.numeroCertificadoOrigen.trim()) return;
+    if (!docs.certificado_origen?.url) return;
+    certSyncStarted.current = true;
+    void syncCertificadoOrigenNumeroAction(vehiculoId).then((result) => {
+      if (result.success && result.numeroCertificadoOrigen) {
+        setDatos((prev) => ({
+          ...prev,
+          numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
+        }));
+      }
+    });
+  }, [vehiculoId, docs.certificado_origen?.url, datos.numeroCertificadoOrigen]);
 
   function patch<K extends keyof EmbarqueDatosForm>(
     key: K,
@@ -1158,44 +1177,47 @@ function Fase2Embarque({
           <Ship className="h-5 w-5 text-cyan-400" />
           Datos de embarque
         </h2>
+        <input type="hidden" name="regimen" value="puerto_libre" />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="min-w-0 sm:col-span-2">
-            <label className="block min-w-0 space-y-1.5">
-              <span className="text-sm text-slate-400">
-                Régimen de importación *
-              </span>
-              <select
-                name="regimen"
-                required
-                value={datos.regimen}
+          {datos.numeroCertificadoOrigen.trim() ? (
+            <div className="min-w-0 sm:col-span-2">
+              <input
+                type="hidden"
+                name="numeroCertificadoOrigen"
+                value={datos.numeroCertificadoOrigen}
+              />
+              <p className="text-sm text-slate-400">Nº certificado de origen</p>
+              <p className="mt-1 font-mono text-sm uppercase text-cyan-200">
+                {datos.numeroCertificadoOrigen}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Extraído del certificado escaneado en Registro
+              </p>
+            </div>
+          ) : (
+            <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+              <span className="text-sm text-slate-400">Nº certificado de origen</span>
+              <input
+                name="numeroCertificadoOrigen"
+                value={datos.numeroCertificadoOrigen}
                 onChange={(e) =>
-                  patch("regimen", e.target.value as RegimenImportacion)
+                  patch("numeroCertificadoOrigen", e.target.value.toUpperCase())
                 }
-                className={inputClass}
-              >
-                {REGIMENES_IMPORTACION.map((codigo) => (
-                  <option key={codigo} value={codigo}>
-                    {REGIMEN_IMPORTACION_LABELS[codigo]}
-                  </option>
-                ))}
-              </select>
+                placeholder={
+                  docs.certificado_origen?.url
+                    ? "Leyendo certificado…"
+                    : "Del certificado de origen (Registro)"
+                }
+                className={`${inputClass} font-mono uppercase`}
+              />
+              {docs.certificado_origen?.url ? (
+                <p className="text-xs text-slate-500">
+                  Se intenta leer del certificado cargado en Registro. Si no aparece,
+                  complétalo a mano.
+                </p>
+              ) : null}
             </label>
-            <p className="mt-1.5 text-xs text-slate-500">
-              {getRegimenConfig(datos.regimen).descripcion}
-            </p>
-          </div>
-          <label className="block min-w-0 space-y-1.5">
-            <span className="text-sm text-slate-400">Nº certificado de origen</span>
-            <input
-              name="numeroCertificadoOrigen"
-              value={datos.numeroCertificadoOrigen}
-              onChange={(e) =>
-                patch("numeroCertificadoOrigen", e.target.value.toUpperCase())
-              }
-              placeholder="Del certificado de origen"
-              className={`${inputClass} font-mono uppercase`}
-            />
-          </label>
+          )}
           <label className="block min-w-0 space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Observaciones</span>
             <textarea
