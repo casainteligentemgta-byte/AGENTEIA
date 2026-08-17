@@ -20,6 +20,7 @@ import {
   CEDULA_FORMAT_HINT,
   CEDULA_PLACEHOLDER,
   cedulaFromRifNatural,
+  formatCedulaDisplay,
   normalizeCedula,
   RIF_CEDULA_COINCIDEN_HINT,
 } from "@/lib/validations/cedula";
@@ -133,7 +134,9 @@ export function ImportadorForm({
     initial?.nombresApellidos ?? ""
   );
   const [rif, setRif] = useState(initial?.rif ?? "");
-  const [cedula, setCedula] = useState(initial?.cedula ?? "");
+  const [cedula, setCedula] = useState(
+    initial?.cedula ? formatCedulaDisplay(initial.cedula) : ""
+  );
   const [email, setEmail] = useState(initial?.email ?? "");
   const [telefono, setTelefono] = useState(initial?.telefono ?? "");
   const [direccion, setDireccion] = useState(initial?.direccion ?? "");
@@ -147,7 +150,7 @@ export function ImportadorForm({
     initial?.repLegalNombre ?? ""
   );
   const [repLegalCedula, setRepLegalCedula] = useState(
-    initial?.repLegalCedula ?? ""
+    initial?.repLegalCedula ? formatCedulaDisplay(initial.repLegalCedula) : ""
   );
   const [repLegalEmail, setRepLegalEmail] = useState(
     initial?.repLegalEmail ?? ""
@@ -177,7 +180,7 @@ export function ImportadorForm({
     if (fields.tipo) setTipo(fields.tipo);
     applyIfPresent(fields.nombresApellidos, setNombresApellidos);
     applyIfPresent(fields.rif, setRif);
-    if (fields.cedula?.trim()) setCedula(normalizeCedula(fields.cedula));
+    if (fields.cedula?.trim()) setCedula(formatCedulaDisplay(fields.cedula));
     applyIfPresent(fields.email, setEmail);
     applyIfPresent(fields.telefono, setTelefono);
     applyIfPresent(fields.direccion, setDireccion);
@@ -185,7 +188,7 @@ export function ImportadorForm({
     applyIfPresent(fields.razonSocial, setRazonSocial);
     applyIfPresent(fields.repLegalNombre, setRepLegalNombre);
     if (fields.repLegalCedula?.trim()) {
-      setRepLegalCedula(normalizeCedula(fields.repLegalCedula));
+      setRepLegalCedula(formatCedulaDisplay(fields.repLegalCedula));
     }
     applyIfPresent(fields.repLegalEmail, setRepLegalEmail);
     applyIfPresent(fields.repLegalTelefono, setRepLegalTelefono);
@@ -295,19 +298,18 @@ export function ImportadorForm({
         </p>
       ) : null}
 
-      <Field label="Tipo *">
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value as ImportadorTipo)}
-          className={inputClass}
-        >
-          {IMPORTADOR_TIPOS.map((t) => (
-            <option key={t} value={t}>
-              {IMPORTADOR_TIPO_LABELS[t]}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <select
+        value={tipo}
+        onChange={(e) => setTipo(e.target.value as ImportadorTipo)}
+        aria-label="Tipo de cliente"
+        className={inputClass}
+      >
+        {IMPORTADOR_TIPOS.map((t) => (
+          <option key={t} value={t}>
+            {IMPORTADOR_TIPO_LABELS[t]}
+          </option>
+        ))}
+      </select>
 
       <ImportadorDocScan
         tipoCliente={tipo}
@@ -340,12 +342,10 @@ export function ImportadorForm({
                   const derived = cedulaFromRifNatural(next);
                   if (!derived) return;
                   setCedula((prev) => {
-                    if (!prev.trim()) return derived;
-                    // Si ya coincide (aunque tenga puntos), unifica al formato limpio.
+                    if (!prev.trim()) return formatCedulaDisplay(derived);
                     const normalizedPrev = normalizeCedula(prev);
-                    return normalizedPrev === derived ||
-                      normalizeCedula(prev.replace(/\./g, "")) === derived
-                      ? derived
+                    return normalizedPrev === derived
+                      ? formatCedulaDisplay(derived)
                       : prev;
                   });
                 }}
@@ -356,13 +356,13 @@ export function ImportadorForm({
             </Field>
             <Field
               label="Cédula *"
-              hint={`Se toma del RIF sin el último dígito (V-13848186-3 → V-13848186). Acepta puntos. ${RIF_CEDULA_COINCIDEN_HINT}`}
+              hint={`Se toma del RIF sin el último dígito. ${RIF_CEDULA_COINCIDEN_HINT}`}
             >
               <input
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value.toUpperCase())}
                 onBlur={() =>
-                  setCedula((v) => (v.trim() ? normalizeCedula(v) : v))
+                  setCedula((v) => (v.trim() ? formatCedulaDisplay(v) : v))
                 }
                 required
                 placeholder={CEDULA_PLACEHOLDER}
@@ -450,7 +450,9 @@ export function ImportadorForm({
                   setRepLegalCedula(e.target.value.toUpperCase())
                 }
                 onBlur={() =>
-                  setRepLegalCedula((v) => (v.trim() ? normalizeCedula(v) : v))
+                  setRepLegalCedula((v) =>
+                    v.trim() ? formatCedulaDisplay(v) : v
+                  )
                 }
                 required
                 placeholder={CEDULA_PLACEHOLDER}

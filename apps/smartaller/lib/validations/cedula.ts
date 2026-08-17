@@ -1,7 +1,7 @@
 /** Cédula venezolana: V|E + 6–9 dígitos (con o sin guion / puntos). */
-export const CEDULA_PLACEHOLDER = "V-12345678";
+export const CEDULA_PLACEHOLDER = "V-12.345.678";
 
-export const CEDULA_FORMAT_HINT = "Formato: V-######## o E-########";
+export const CEDULA_FORMAT_HINT = "Formato: V-XX.XXX.XXX";
 
 export const RIF_CEDULA_COINCIDEN_HINT =
   "Deben coincidir letra y números (el RIF solo agrega el dígito final)";
@@ -48,6 +48,15 @@ function stripLeadingZeros(digits: string): string {
 
 export function isValidCedula(raw: string): boolean {
   return /^[VE]-\d{6,9}$/.test(normalizeCedula(raw));
+}
+
+/** Presentación: V-12.345.678 (miles con punto, desde la derecha). */
+export function formatCedulaDisplay(raw: string): string {
+  const normalized = normalizeCedula(raw);
+  const m = normalized.match(/^([VE])-(\d{6,9})$/);
+  if (!m) return raw.trim().toUpperCase();
+  const grouped = m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${m[1]}-${grouped}`;
 }
 
 /** Deriva cédula desde un RIF V/E (cuerpo sin dígito verificador).
