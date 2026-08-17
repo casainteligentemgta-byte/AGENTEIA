@@ -1,8 +1,10 @@
 # CONTEXTO: Módulo Importación / Puerto Libre — Smartaller (`apps/smartaller`)
 
-Documento de referencia para agentes/IA. Toda respuesta sobre importación, SENIAT, aduana, planilla o expedientes PL debe basarse aquí. Stack: Next.js 14 App Router, Server Actions, Supabase (JSONB), Zod, Tailwind. Base path: `/importacion`. No inventar rutas, columnas ni campos que no estén aquí.
+> **App independiente:** el producto canónico es `apps/importacion`. Este módulo en SmartTaller se mantiene hasta definir `IMPORTACION_APP_URL` (redirect). Ver `apps/importacion/README.md`.
 
-**Instructivo operativo (humano):** `docs/INSTRUCTIVO-IMPORTACION.md` · UI: `/importacion/instructivo`.
+Documento de referencia para agentes/IA. Toda respuesta sobre importación, SENIAT, aduana, planilla o expedientes PL debe basarse aquí. Stack: Next.js 14 App Router, Server Actions, Supabase (JSONB), Zod, Tailwind. Base path: `/smartimport`. No inventar rutas, columnas ni campos que no estén aquí.
+
+**Instructivo operativo (humano):** `docs/INSTRUCTIVO-IMPORTACION.md` · UI: `/smartimport/instructivo`.
 
 ---
 
@@ -84,7 +86,7 @@ Carpeta vía Agente de Aduanas (`agenteAduanal` obligatorio). Docs (`PL_DESADUAN
 10. `pase_salida_levante`  
 11. `cancelacion_gastos_portuarios` (portuarios, almacén y manipulación)
 
-PDF: `GET /importacion/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`) — botón «Generar / descargar Expediente PDF SENIAT».  
+PDF: `GET /smartimport/[id]/desaduanamiento.pdf` (`buildDesaduanamientoPdf`) — botón «Generar / descargar Expediente PDF SENIAT».  
 `completePuertoLibreFase3Action({ vehiculoId, agenteAduanal })` → fase 5.
 
 ### Fase 5 — Propietario
@@ -111,7 +113,7 @@ Al completar → **fase 8** y `fechaLimiteNacionalizacion` = fechaIngreso + 3 a�
 
 ### Fase 8 — Planilla completa
 
-Habilita wizard `/importacion/[id]/nacionalizar`.
+Habilita wizard `/smartimport/[id]/nacionalizar`.
 
 ---
 
@@ -160,7 +162,7 @@ Alertas email (Vercel Cron `/api/cron/alertas-vencimiento`, 13:00 UTC ≈ 09:00 
 
 ---
 
-## 4. Dashboard `/importacion` — buckets reales (UI)
+## 4. Dashboard `/smartimport` — buckets reales (UI)
 
 El dashboard **ya está conectado** a `planillaFase` (1–7). Labels y filtros exactos en `app/importacion/(modulo)/page.tsx`:
 
@@ -170,7 +172,7 @@ El dashboard **ya está conectado** a `planillaFase` (1–7). Labels y filtros e
 | **Por recibir en puerto** | `porRecibir` | sin `fechaIngreso` && (`planillaFase` null \|\| `=== 2`) | `?fase=2` |
 | **Pendiente a completar** | `pendientes` | `planillaFase` null \|\| `< 7` | `completarHref` → `?fase=1`…`6` según fase |
 | **Por presentación SENIAT** | `porSeniat` | `proximoSeniat` / `esProximoSeniat` | `/nacionalizar` |
-| **Rechazados SENIAT** | `rechazadosSeniat` | `estadoSeniat === "rechazada"` (ordenado por `fechaRechazoSeniat` desc) | ficha `/importacion/[id]` |
+| **Rechazados SENIAT** | `rechazadosSeniat` | `estadoSeniat === "rechazada"` (ordenado por `fechaRechazoSeniat` desc) | ficha `/smartimport/[id]` |
 | **Por nacionalizar** | `porNacionalizar` | `proximoNacionalizar` / `esProximoNacionalizar` | `/nacionalizar` |
 
 Notas:
@@ -236,24 +238,24 @@ Grupos:
 
 | Ruta | Uso |
 |------|-----|
-| `/importacion/login` | Login del módulo |
-| `/importacion` | Dashboard (buckets de la sección 4) |
-| `/importacion/importaciones/nueva` | Alta de importación (cliente → vehículo) |
-| `/importacion/vehiculos/nuevo` | Redirect a `/importacion/importaciones/nueva` |
-| `/importacion/clientes` | Tabla de clientes importadores |
-| `/importacion/nuevo` | Nuevo sticker NFC (no es el alta PL) |
-| `/importacion/carga-masiva` | Excel/CSV + OCR multi |
-| `/importacion/carga-masiva/[formato]` | Plantilla csv/xlsx |
-| `/importacion/biblioteca-legal` | Biblioteca legal + reglas de cumplimiento |
-| `/importacion/[vehiculoId]` | Ficha / expediente |
-| `/importacion/[vehiculoId]/desaduanamiento.pdf` | PDF carpeta desaduanamiento |
-| `/importacion/[vehiculoId]/planilla?fase=` | Planilla por fases |
-| `/importacion/[vehiculoId]/nacionalizar` | Wizard M2/M3 |
-| `/importacion/[vehiculoId]/propietario` | Plantilla comprador |
-| `/importacion/[vehiculoId]/inspeccion` | Acta transportista |
-| `/importacion/[vehiculoId]/expediente.pdf` | PDF |
-| `/importacion/hoja-inspeccion` | Hoja inspección |
-| `/importacion/admin/ingresos` | Logs login (solo master) |
+| `/smartimport/login` | Login del módulo |
+| `/smartimport` | Dashboard (buckets de la sección 4) |
+| `/smartimport/importaciones/nueva` | Alta de importación (cliente → vehículo) |
+| `/smartimport/vehiculos/nuevo` | Redirect a `/smartimport/importaciones/nueva` |
+| `/smartimport/clientes` | Tabla de clientes importadores |
+| `/smartimport/nuevo` | Nuevo sticker NFC (no es el alta PL) |
+| `/smartimport/carga-masiva` | Excel/CSV + OCR multi |
+| `/smartimport/carga-masiva/[formato]` | Plantilla csv/xlsx |
+| `/smartimport/biblioteca-legal` | Biblioteca legal + reglas de cumplimiento |
+| `/smartimport/[vehiculoId]` | Ficha / expediente |
+| `/smartimport/[vehiculoId]/desaduanamiento.pdf` | PDF carpeta desaduanamiento |
+| `/smartimport/[vehiculoId]/planilla?fase=` | Planilla por fases |
+| `/smartimport/[vehiculoId]/nacionalizar` | Wizard M2/M3 |
+| `/smartimport/[vehiculoId]/propietario` | Plantilla comprador |
+| `/smartimport/[vehiculoId]/inspeccion` | Acta transportista |
+| `/smartimport/[vehiculoId]/expediente.pdf` | PDF |
+| `/smartimport/hoja-inspeccion` | Hoja inspección |
+| `/smartimport/admin/ingresos` | Logs login (solo master) |
 | `/v/[token]` | Sticker NFC público |
 
 ---
@@ -295,7 +297,7 @@ Preferencias taller: último importador prellenado (`talleres.preferencias.ultim
 4. **PDF:** `buildExpedientePdf` + `buildDesaduanamientoPdf`.
 5. **NFC:** `nfc_stickers`, PIN en `pin_hash`, `/v/{token}`.
 6. **Inspección transportista:** `inspeccion_transportista`; puede sync docs/placa/km.
-7. **Cumplimiento (MVP):** `evaluarCupoPersonaNatural` en alta, fase 1 y carga masiva. RIF V/E = persona natural → máx. 1 vehículo en &lt; 3 años (mismo taller). Catálogo: `lib/importacion/normas-legales.ts` + UI `/importacion/biblioteca-legal`.
+7. **Cumplimiento (MVP):** `evaluarCupoPersonaNatural` en alta, fase 1 y carga masiva. RIF V/E = persona natural → máx. 1 vehículo en &lt; 3 años (mismo taller). Catálogo: `lib/importacion/normas-legales.ts` + UI `/smartimport/biblioteca-legal`.
 
 ---
 

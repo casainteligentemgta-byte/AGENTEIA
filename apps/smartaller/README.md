@@ -266,3 +266,12 @@ npm run dev
 ```
 
 Puerto: http://localhost:3003
+
+## Importación Puerto Libre (SmartImport)
+
+URL pública: **https://smarttaller.xyz/smartimport** (`/importacion` redirige).
+
+El módulo también existe como app independiente: `apps/importacion` (puerto 3004). Hasta que despliegues ese proyecto, `/smartimport` sigue funcionando aquí.
+
+Cuando la app nueva esté en producción, define `IMPORTACION_APP_URL` en Vercel (SmartTaller) y `/smartimport` redirigirá al otro dominio. Guía: `apps/importacion/README.md`.
+

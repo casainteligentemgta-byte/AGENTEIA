@@ -20,13 +20,23 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/importacion",
+        destination: "/smartimport",
+        permanent: false,
+      },
+      {
+        source: "/importacion/:path*",
+        destination: "/smartimport/:path*",
+        permanent: false,
+      },
+      {
         source: "/puerto-libre",
-        destination: "/importacion",
+        destination: "/smartimport",
         permanent: false,
       },
       {
         source: "/puerto-libre/:path*",
-        destination: "/importacion/:path*",
+        destination: "/smartimport/:path*",
         permanent: false,
       },
     ];

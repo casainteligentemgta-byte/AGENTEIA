@@ -53,7 +53,7 @@ export default async function PortalAduaneraPage() {
               <tr key={v.id} className="border-t border-zinc-800/80">
                 <td className="px-3 py-2">
                   <Link
-                    href={`/importacion/${v.id}`}
+                    href={`/smartimport/${v.id}`}
                     className="font-mono text-xs text-cyan-300 hover:underline"
                   >
                     {v.codigoExpediente ?? v.id.slice(0, 8)}

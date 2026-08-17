@@ -1,9 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  canonicalizeImportacionPath,
+  IMPORTACION_BASE,
+  isImportacionAppPath,
+} from "@/lib/importacion/paths";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function isImportacionLogin(pathname: string): boolean {
-  return pathname === "/importacion/login";
+  return pathname === `${IMPORTACION_BASE}/login`;
 }
 
 function isProtectedPath(pathname: string): boolean {
@@ -11,7 +16,7 @@ function isProtectedPath(pathname: string): boolean {
   return (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/app") ||
-    pathname.startsWith("/importacion") ||
+    isImportacionAppPath(pathname) ||
     pathname.startsWith("/portales")
   );
 }
@@ -20,7 +25,7 @@ function isAllowedRedirect(redirectTo: string): boolean {
   return (
     redirectTo.startsWith("/dashboard") ||
     redirectTo.startsWith("/app") ||
-    redirectTo.startsWith("/importacion") ||
+    isImportacionAppPath(redirectTo) ||
     redirectTo.startsWith("/portales")
   );
 }
@@ -33,7 +38,7 @@ export async function updateSession(request: NextRequest) {
     if (isProtectedPath(request.nextUrl.pathname) || isImportacionLogin(request.nextUrl.pathname)) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = isImportacionLogin(request.nextUrl.pathname)
-        ? "/importacion/login"
+        ? `${IMPORTACION_BASE}/login`
         : "/login";
       loginUrl.searchParams.set("error", "config");
       return NextResponse.redirect(loginUrl);
@@ -66,9 +71,12 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();
-    const importacionFlow = pathname.startsWith("/importacion");
-    loginUrl.pathname = importacionFlow ? "/importacion/login" : "/login";
-    loginUrl.searchParams.set("redirectTo", pathname);
+    const importacionFlow = isImportacionAppPath(pathname);
+    loginUrl.pathname = importacionFlow ? `${IMPORTACION_BASE}/login` : "/login";
+    loginUrl.searchParams.set(
+      "redirectTo",
+      importacionFlow ? canonicalizeImportacionPath(pathname) : pathname
+    );
     return NextResponse.redirect(loginUrl);
   }
 
@@ -77,7 +85,9 @@ export async function updateSession(request: NextRequest) {
     const target = request.nextUrl.clone();
     const allowedRedirect = redirectTo && isAllowedRedirect(redirectTo);
     if (isImportacionLogin(pathname)) {
-      target.pathname = allowedRedirect ? redirectTo : "/importacion";
+      target.pathname = allowedRedirect
+        ? canonicalizeImportacionPath(redirectTo)
+        : IMPORTACION_BASE;
     } else {
       target.pathname = allowedRedirect ? redirectTo : "/portales";
     }

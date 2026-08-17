@@ -1,0 +1,19 @@
+{
+  "name": "Puerto Libre",
+  "short_name": "Puerto Libre",
+  "description": "Importación vehicular, desaduanamiento y nacionalización",
+  "start_url": "/smartimport",
+  "display": "standalone",
+  "background_color": "#070b12",
+  "theme_color": "#0891b2",
+  "lang": "es",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
