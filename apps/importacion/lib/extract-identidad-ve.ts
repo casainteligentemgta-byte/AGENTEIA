@@ -225,3 +225,28 @@ export function countFilledScanFields(fields: ImportadorScanFields): number {
     (v) => typeof v === "string" && v.trim().length > 0
   ).length;
 }
+
+/** Campos del formulario de propietario/comprador que puede rellenar el OCR de cédula. */
+export type PropietarioScanFields = {
+  nombreCliente?: string;
+  cedulaPropietario?: string;
+  fechaNacimientoPropietario?: string;
+};
+
+export function cedulaToPropietarioFields(
+  data: CedulaExtraidaVe
+): PropietarioScanFields {
+  const fields: PropietarioScanFields = {};
+  if (data.cedula) fields.cedulaPropietario = data.cedula;
+  if (data.nombreCompleto) fields.nombreCliente = data.nombreCompleto;
+  if (data.fechaNacimiento) {
+    fields.fechaNacimientoPropietario = data.fechaNacimiento;
+  }
+  return fields;
+}
+
+export function countFilledPropietarioFields(fields: PropietarioScanFields): number {
+  return Object.values(fields).filter(
+    (v) => typeof v === "string" && v.trim().length > 0
+  ).length;
+}

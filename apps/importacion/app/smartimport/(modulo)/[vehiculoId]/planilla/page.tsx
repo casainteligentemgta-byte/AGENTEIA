@@ -121,6 +121,7 @@ export default async function PlanillaRegistroImportacionPage({
           compradorTelefono={ficha.telefono_cliente}
           compradorCedula={ficha.cedula_propietario}
           compradorEmail={ficha.email_propietario}
+          compradorFechaNacimiento={ficha.fecha_nacimiento_propietario}
           initialImportacion={ficha.importacion}
           initialSeguro={ficha.seguro}
           initialDocumentos={ficha.documentos}
