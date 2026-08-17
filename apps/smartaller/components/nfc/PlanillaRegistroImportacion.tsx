@@ -158,7 +158,7 @@ function resolveFase(
 }
 
 function countDocs(docs: VehiculosDocumentos, tipos: DocumentoTipo[]) {
-  return tipos.filter((t) => Boolean(docs[t])).length;
+  return tipos.filter((t) => Boolean(docs[t]?.url)).length;
 }
 
 export function PlanillaRegistroImportacion({
@@ -189,6 +189,14 @@ export function PlanillaRegistroImportacion({
   const [docs, setDocs] = useState(initialDocumentos);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!error) return;
+    document.getElementById("planilla-flash")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [error]);
   const [checklist, setChecklist] = useState<LlegadaChecklistState>(() => {
     const raw = initialImportacion.checklistLlegada ?? {};
     const next: LlegadaChecklistState = {};
@@ -381,6 +389,7 @@ export function PlanillaRegistroImportacion({
 
       {(message || error) && (
         <div
+          id="planilla-flash"
           className={`rounded-xl border px-4 py-3 text-sm ${
             error
               ? "border-red-900/50 bg-red-950/30 text-red-200"
@@ -598,16 +607,24 @@ export function PlanillaRegistroImportacion({
             setError(null);
             setMessage(null);
             startTransition(async () => {
-              const result = await completePuertoLibreFase3Action({
-                vehiculoId,
-                agenteAduanal,
-              });
-              if (!result.success) {
-                setError(result.error);
-                return;
+              try {
+                const result = await completePuertoLibreFase3Action({
+                  vehiculoId,
+                  agenteAduanal,
+                });
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                setMessage("Desaduanamiento guardado");
+                navigateAfterSave(after, 5);
+              } catch (err) {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "No se pudo guardar el desaduanamiento"
+                );
               }
-              setMessage("Desaduanamiento guardado");
-              navigateAfterSave(after, 5);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -764,6 +781,7 @@ function PlanillaFaseActions({
   continueLabel,
   onAction,
   asFormSubmit = false,
+  blockedReason,
 }: {
   pending: boolean;
   disabled?: boolean;
@@ -771,17 +789,23 @@ function PlanillaFaseActions({
   onAction?: (after: PlanillaAfterSave) => void;
   /** Botones submit con name=after (next|ficha) para formularios. */
   asFormSubmit?: boolean;
+  blockedReason?: string | null;
 }) {
   const isDisabled = pending || Boolean(disabled);
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      {blockedReason && !pending ? (
+        <p className="w-full rounded-xl border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
+          {blockedReason}
+        </p>
+      ) : null}
       <button
         type={asFormSubmit ? "submit" : "button"}
         name={asFormSubmit ? "after" : undefined}
         value={asFormSubmit ? "next" : undefined}
         disabled={isDisabled}
         onClick={asFormSubmit ? undefined : () => onAction?.("next")}
-        className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-5 py-3.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Guardando…" : continueLabel}
       </button>
@@ -791,7 +815,7 @@ function PlanillaFaseActions({
         value={asFormSubmit ? "ficha" : undefined}
         disabled={isDisabled}
         onClick={asFormSubmit ? undefined : () => onAction?.("ficha")}
-        className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-5 py-3.5 text-sm font-medium text-slate-200 hover:border-slate-500 disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-5 py-3.5 text-sm font-medium text-slate-200 hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Guardando…" : "Guardar e ir a la ficha"}
       </button>
@@ -1799,6 +1823,7 @@ function Fase3Aduana({
             Nombre del agente de aduanas *
           </span>
           <input
+            id="agente-aduanal"
             value={agenteAduanal}
             onChange={(e) => setAgenteAduanal(e.target.value)}
             placeholder="Nombre del agente / agencia"
@@ -1861,9 +1886,28 @@ function Fase3Aduana({
         </p>
       </section>
 
+      <label className="block space-y-1.5 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+        <span className="text-sm font-medium text-slate-200">
+          Nombre del agente de aduanas *
+        </span>
+        <input
+          value={agenteAduanal}
+          onChange={(e) => setAgenteAduanal(e.target.value)}
+          placeholder="Nombre del agente / agencia"
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
+        />
+      </label>
+
       <PlanillaFaseActions
         pending={pending}
         disabled={!canComplete || !agenteOk}
+        blockedReason={
+          !canComplete
+            ? `Faltan documentos (${docsCount}/${docTipos.length})`
+            : !agenteOk
+              ? "Escribe el nombre del agente de aduanas para continuar"
+              : null
+        }
         continueLabel="Continuar a Propietario"
         onAction={(after) => onComplete(agenteAduanal.trim(), after)}
       />
