@@ -1158,10 +1158,6 @@ function Fase2Embarque({
           <Ship className="h-5 w-5 text-cyan-400" />
           Datos de embarque
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Fecha de llegada del buque, puerto, tránsito/USO24, aduana, nº BL, país
-          de origen, régimen y certificado.
-        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="min-w-0 sm:col-span-2">
             <label className="block min-w-0 space-y-1.5">
