@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { IMPORTACION_BASE } from "@/lib/importacion/paths";
+import {
+  canonicalizeImportacionPath,
+  IMPORTACION_BASE,
+  isImportacionAppPath,
+} from "@/lib/importacion/paths";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function isImportacionLogin(pathname: string): boolean {
@@ -9,14 +13,11 @@ function isImportacionLogin(pathname: string): boolean {
 
 function isProtectedPath(pathname: string): boolean {
   if (isImportacionLogin(pathname)) return false;
-  return pathname === IMPORTACION_BASE || pathname.startsWith(`${IMPORTACION_BASE}/`);
+  return isImportacionAppPath(pathname);
 }
 
 function isAllowedRedirect(redirectTo: string): boolean {
-  return (
-    redirectTo === IMPORTACION_BASE ||
-    redirectTo.startsWith(`${IMPORTACION_BASE}/`)
-  );
+  return isImportacionAppPath(redirectTo);
 }
 
 export async function updateSession(request: NextRequest) {
@@ -60,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = loginPath;
-    loginUrl.searchParams.set("redirectTo", pathname);
+    loginUrl.searchParams.set("redirectTo", canonicalizeImportacionPath(pathname));
     return NextResponse.redirect(loginUrl);
   }
 
@@ -68,7 +69,9 @@ export async function updateSession(request: NextRequest) {
     const redirectTo = request.nextUrl.searchParams.get("redirectTo");
     const target = request.nextUrl.clone();
     target.pathname =
-      redirectTo && isAllowedRedirect(redirectTo) ? redirectTo : IMPORTACION_BASE;
+      redirectTo && isAllowedRedirect(redirectTo)
+        ? canonicalizeImportacionPath(redirectTo)
+        : IMPORTACION_BASE;
     target.search = "";
     return NextResponse.redirect(target);
   }

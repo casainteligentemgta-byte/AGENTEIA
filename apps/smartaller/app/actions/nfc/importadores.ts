@@ -201,8 +201,8 @@ export async function upsertImportadorAction(
     }
     if (!updated) return { success: false, error: "Cliente no encontrado" };
 
-    revalidatePath("/importacion/clientes");
-    revalidatePath("/importacion/importaciones/nueva");
+    revalidatePath("/smartimport/clientes");
+    revalidatePath("/smartimport/importaciones/nueva");
     return { success: true, importador: mapRow(updated as ImportadorRow) };
   }
 
@@ -222,8 +222,8 @@ export async function upsertImportadorAction(
     return { success: false, error: error?.message ?? "No se pudo guardar" };
   }
 
-  revalidatePath("/importacion/clientes");
-  revalidatePath("/importacion/importaciones/nueva");
+  revalidatePath("/smartimport/clientes");
+  revalidatePath("/smartimport/importaciones/nueva");
   return { success: true, importador: mapRow(created as ImportadorRow) };
 }
 
@@ -373,7 +373,7 @@ export async function setImportadorActivoAction(raw: unknown): Promise<
   if (error) return { success: false, error: error.message };
   if (!data) return { success: false, error: "Cliente no encontrado" };
 
-  revalidatePath("/importacion/clientes");
+  revalidatePath("/smartimport/clientes");
   return { success: true, importador: mapRow(data as ImportadorRow) };
 }
 
@@ -407,9 +407,9 @@ export async function deleteImportadorAction(raw: unknown): Promise<
   if (error) return { success: false, error: error.message };
   if (!data) return { success: false, error: "Cliente no encontrado" };
 
-  revalidatePath("/importacion/clientes");
-  revalidatePath("/importacion/importaciones/nueva");
-  revalidatePath("/importacion/carga-masiva");
+  revalidatePath("/smartimport/clientes");
+  revalidatePath("/smartimport/importaciones/nueva");
+  revalidatePath("/smartimport/carga-masiva");
   return { success: true, importadorId: data.id as string };
 }
 
@@ -485,8 +485,8 @@ export async function attachImportadorDocumentoAction(
       };
     }
 
-    revalidatePath("/importacion/clientes");
-    revalidatePath("/importacion/importaciones/nueva");
+    revalidatePath("/smartimport/clientes");
+    revalidatePath("/smartimport/importaciones/nueva");
     return { success: true, documentos: next, tipoDoc };
   } catch (err) {
     return {

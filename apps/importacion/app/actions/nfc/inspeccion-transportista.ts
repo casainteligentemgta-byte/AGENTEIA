@@ -130,8 +130,8 @@ export async function saveInspeccionTransportistaAction(
     return { success: false, error: error.message };
   }
 
-  revalidatePath(`/importacion/${parsed.data.vehiculoId}`);
-  revalidatePath(`/importacion/${parsed.data.vehiculoId}/inspeccion`);
-  revalidatePath("/importacion");
+  revalidatePath(`/smartimport/${parsed.data.vehiculoId}`);
+  revalidatePath(`/smartimport/${parsed.data.vehiculoId}/inspeccion`);
+  revalidatePath("/smartimport");
   return { success: true };
 }

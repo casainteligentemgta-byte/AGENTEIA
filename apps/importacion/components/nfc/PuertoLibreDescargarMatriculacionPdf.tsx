@@ -22,7 +22,7 @@ export function PuertoLibreDescargarMatriculacionPdf({
     startTransition(async () => {
       try {
         const res = await fetch(
-          `/importacion/${vehiculoId}/matriculacion.pdf`,
+          `/smartimport/${vehiculoId}/matriculacion.pdf`,
           {
             method: "GET",
             credentials: "same-origin",

@@ -21,7 +21,7 @@ export function PuertoLibreDescargarPdf({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await fetch(`/importacion/${vehiculoId}/expediente.pdf`, {
+        const res = await fetch(`/smartimport/${vehiculoId}/expediente.pdf`, {
           method: "GET",
           credentials: "same-origin",
         });

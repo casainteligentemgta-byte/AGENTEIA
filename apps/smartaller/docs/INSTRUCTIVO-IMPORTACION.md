@@ -2,8 +2,8 @@
 
 Guía operativa de la planilla de importación vehicular (Puerto Libre / SENIAT).
 
-**Ruta en la app:** [/importacion/instructivo](/importacion/instructivo)  
-**Dashboard:** [/importacion](/importacion)
+**Ruta en la app:** [/smartimport/instructivo](/smartimport/instructivo)  
+**Dashboard:** [/smartimport](/smartimport)
 
 Flujo: **Registro → Embarque → Llegada → Desaduanamiento → Propietario → Seguro → Matriculación**.
 
@@ -148,7 +148,7 @@ Al cerrar: planilla completa (`fase 8`) y, en Puerto Libre, suele fijarse la **f
 
 ## Después de la planilla (Puerto Libre)
 
-En `/importacion/[id]/nacionalizar`:
+En `/smartimport/[id]/nacionalizar`:
 
 - **M2 (cambio de régimen)** si aún no cumplen 3 años.
 - **M3 (permanencia)** si ya cumplieron 3 años.
@@ -164,8 +164,8 @@ Sigue el wizard de docs y liquidación hasta marcar nacionalizado.
 | **Guarda avance por fase** | Cada “Continuar” persiste. En la planilla, toca el chip de una fase anterior para revisar o corregir sin perder el progreso. |
 | **VIN ≠ serial carrocería** | Ambos son obligatorios en Registro. El VIN es internacional; el serial carrocería es el dato SENIAT y se verifica en la impronta. |
 | **Formato RIF** | Usa `V\|J\|E\|G\|P\|C-########-#` (ej. `V-12345678-9`). Persona natural (V/E): cupo máx. 1 vehículo en menos de 3 años. |
-| **Carga masiva** | Si tienes muchas facturas, usa [/importacion/carga-masiva](/importacion/carga-masiva) o el acceso desde “Nueva importación”. Comparte aduana, BL y fecha de llegada. |
-| **Dashboard por estado** | En [/importacion](/importacion) los buckets te llevan directo a la fase pendiente (registro, embarque, recibir en puerto, SENIAT, nacionalizar, etc.). |
+| **Carga masiva** | Si tienes muchas facturas, usa [/smartimport/carga-masiva](/smartimport/carga-masiva) o el acceso desde “Nueva importación”. Comparte aduana, BL y fecha de llegada. |
+| **Dashboard por estado** | En [/smartimport](/smartimport) los buckets te llevan directo a la fase pendiente (registro, embarque, recibir en puerto, SENIAT, nacionalizar, etc.). |
 
 ---
 

@@ -205,13 +205,13 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
 }
 
 function revalidateFicha(vehiculoId: string) {
-  revalidatePath("/importacion");
-  revalidatePath(`/importacion/${vehiculoId}`);
-  revalidatePath(`/importacion/${vehiculoId}/planilla`);
-  revalidatePath(`/importacion/${vehiculoId}/nacionalizar`);
-  revalidatePath(`/importacion/${vehiculoId}/propietario`);
-  revalidatePath(`/importacion/${vehiculoId}/inspeccion`);
-  revalidatePath(`/importacion/hoja-inspeccion`);
+  revalidatePath("/smartimport");
+  revalidatePath(`/smartimport/${vehiculoId}`);
+  revalidatePath(`/smartimport/${vehiculoId}/planilla`);
+  revalidatePath(`/smartimport/${vehiculoId}/nacionalizar`);
+  revalidatePath(`/smartimport/${vehiculoId}/propietario`);
+  revalidatePath(`/smartimport/${vehiculoId}/inspeccion`);
+  revalidatePath(`/smartimport/hoja-inspeccion`);
 }
 
 export type CreatePuertoLibreResult =
@@ -469,8 +469,8 @@ export async function createPuertoLibreVehiculoAction(
     return { success: false, error: error?.message ?? "No se pudo registrar el vehículo" };
   }
 
-  revalidatePath("/importacion");
-  revalidatePath(`/importacion/${created.id}/planilla`);
+  revalidatePath("/smartimport");
+  revalidatePath(`/smartimport/${created.id}/planilla`);
 
   const importadorGuardar = ultimoImportadorFromAlta({
     importadorNombre: snapNombre,
@@ -1780,9 +1780,9 @@ export async function deletePuertoLibreVehiculoAction(
     };
   }
 
-  revalidatePath("/importacion");
-  revalidatePath(`/importacion/${vehiculoId}`);
-  revalidatePath(`/importacion/${vehiculoId}/planilla`);
+  revalidatePath("/smartimport");
+  revalidatePath(`/smartimport/${vehiculoId}`);
+  revalidatePath(`/smartimport/${vehiculoId}/planilla`);
   return { success: true };
 }
 

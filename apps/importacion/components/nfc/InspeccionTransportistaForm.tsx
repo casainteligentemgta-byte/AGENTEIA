@@ -158,7 +158,7 @@ export function InspeccionTransportistaForm({
           }
           setOk(true);
           router.refresh();
-          router.push(`/importacion/${vehiculoId}`);
+          router.push(`/smartimport/${vehiculoId}`);
         });
       }}
     >

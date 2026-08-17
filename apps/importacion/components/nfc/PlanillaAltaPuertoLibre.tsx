@@ -123,12 +123,12 @@ export function PlanillaAltaPuertoLibre({
         setError(
           `Importación registrada, pero no se pudo guardar un documento: ${attachError}`
         );
-        router.push(`/importacion/${result.vehiculoId}/planilla?fase=1`);
+        router.push(`/smartimport/${result.vehiculoId}/planilla?fase=1`);
         router.refresh();
         return;
       }
 
-      router.push(`/importacion/${result.vehiculoId}/planilla?fase=1`);
+      router.push(`/smartimport/${result.vehiculoId}/planilla?fase=1`);
       router.refresh();
     });
   }

@@ -30,7 +30,7 @@ export function PuertoLibreDeleteExpediente({
         setError(result.error);
         return;
       }
-      router.push("/importacion");
+      router.push("/smartimport");
       router.refresh();
     });
   }

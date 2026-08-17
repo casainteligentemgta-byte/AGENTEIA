@@ -28,7 +28,7 @@ const links = [
   { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
   { href: "/dashboard/smartbike", label: "SmartBike", icon: Bike },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
-  { href: "/importacion", label: "Importación (Puerto Libre)", icon: ShieldCheck },
+  { href: "/smartimport", label: "SmartImport", icon: ShieldCheck },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
 
@@ -49,7 +49,7 @@ function NavLinks({
       {links.map(({ href, label, icon: Icon }) => {
         const active =
           pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-        const isPuertoLibre = href === "/importacion";
+        const isPuertoLibre = href === "/smartimport";
         return (
           <Link
             key={href}

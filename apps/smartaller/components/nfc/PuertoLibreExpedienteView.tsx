@@ -122,7 +122,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href={`/importacion/${ficha.id}?edit=1`}
+            href={`/smartimport/${ficha.id}?edit=1`}
             aria-label="Editar expediente"
             title="Editar"
             className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-600 text-white transition hover:bg-cyan-500"
@@ -226,7 +226,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           !imp.paisOrigen?.trim() ||
           imp.valorCif == null ? (
             <Link
-              href={`/importacion/${ficha.id}?edit=1`}
+              href={`/smartimport/${ficha.id}?edit=1`}
               className="shrink-0 text-xs font-medium text-cyan-400 hover:text-cyan-300"
             >
               Completar datos
@@ -353,7 +353,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
       <Link
-        href={`/importacion/${ficha.id}?edit=1`}
+        href={`/smartimport/${ficha.id}?edit=1`}
         className="flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-cyan-500"
       >
         Editar
@@ -364,7 +364,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       imp.estadoNacionalizacion !== "nacionalizado" &&
       imp.estadoNacionalizacion !== "no_aplica" ? (
         <Link
-          href={`/importacion/${ficha.id}/nacionalizar`}
+          href={`/smartimport/${ficha.id}/nacionalizar`}
           className="flex w-full items-center justify-center rounded-xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-100 transition hover:border-amber-500/60"
         >
           Nacionalizar (Tierra Firme)

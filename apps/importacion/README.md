@@ -14,7 +14,13 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:3004 → redirige a `/importacion`.
+Abre http://localhost:3004 → redirige a `/smartimport`.
+
+En producción, la URL pública en el mismo dominio de SmartTaller es:
+
+**https://smarttaller.xyz/smartimport**
+
+`/importacion` y `/puerto-libre` redirigen ahí. Un dominio propio (ej. `smartimport.smarttaller.xyz`) se puede añadir después en Vercel sin cambiar código.
 
 ## Deploy en Vercel
 
@@ -29,7 +35,7 @@ Abre http://localhost:3004 → redirige a `/importacion`.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Idem |
 | `SUPABASE_URL` | Idem |
 | `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor |
-| `NEXT_PUBLIC_APP_URL` | URL de este proyecto (ej. `https://importacion-xxx.vercel.app`) |
+| `NEXT_PUBLIC_APP_URL` | URL de este proyecto (ej. `https://smartimport-xxx.vercel.app`) |
 | `OPENAI_API_KEY` o `GEMINI_API_KEY` | OCR |
 | `CRON_SECRET` | Cron de alertas |
 | `RESEND_API_KEY` / `RESEND_FROM` | Opcional, emails de vencimiento |
@@ -41,7 +47,7 @@ Abre http://localhost:3004 → redirige a `/importacion`.
 
 ## Corte desde SmartTaller
 
-Hasta que exista este deploy, `/importacion` sigue vivo en SmartTaller.
+Hasta que exista este deploy, `/smartimport` sigue vivo en SmartTaller.
 
 Cuando la app nueva esté en producción, en el proyecto Vercel de **SmartTaller** añade:
 
@@ -49,7 +55,7 @@ Cuando la app nueva esté en producción, en el proyecto Vercel de **SmartTaller
 IMPORTACION_APP_URL=https://TU-DOMINIO-PL
 ```
 
-Redeploy SmartTaller. A partir de ahí, `/importacion` y `/importacion/*` redirigen a la app nueva (el usuario entra de nuevo: las cookies de auth no se comparten entre dominios).
+Redeploy SmartTaller. A partir de ahí, `/smartimport` y `/smartimport/*` redirigen a la app nueva (el usuario entra de nuevo: las cookies de auth no se comparten entre dominios).
 
 ## Auth y roles
 
@@ -60,12 +66,12 @@ Mismos roles de portal (`master`, `admin`, `aduanera`, `taller`, `concesionario`
 | Ruta | Descripción |
 |------|-------------|
 | `/` | Redirige al dashboard |
-| `/importacion/login` | Login propio |
-| `/importacion` | Listado de expedientes |
-| `/importacion/clientes` | Importadores |
-| `/importacion/importaciones/nueva` | Alta |
-| `/importacion/carga-masiva` | Carga masiva |
-| `/importacion/[id]` | Ficha / expediente |
+| `/smartimport/login` | Login propio |
+| `/smartimport` | Listado de expedientes |
+| `/smartimport/clientes` | Importadores |
+| `/smartimport/importaciones/nueva` | Alta |
+| `/smartimport/carga-masiva` | Carga masiva |
+| `/smartimport/[id]` | Ficha / expediente |
 | `/v/[token]` | Sticker NFC público |
 | `/api/cron/alertas-vencimiento` | Cron diario |
 | `/api/health` | Health check |

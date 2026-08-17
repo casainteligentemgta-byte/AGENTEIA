@@ -7,8 +7,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/importacion",
-    "/importacion/:path*",
+    "/smartimport",
+    "/smartimport/:path*",
     "/login",
     "/auth/:path*",
   ],

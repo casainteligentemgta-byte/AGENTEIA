@@ -1354,7 +1354,7 @@ export async function createPuertoLibreCargaMasivaAction(input: {
     nextNumero += 1;
   }
 
-  revalidatePath("/importacion");
+  revalidatePath("/smartimport");
 
   if (created.length > 0) {
     const fromRow = ultimoImportadorFromAlta({

@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
-import { IMPORTACION_BASE } from "@/lib/importacion/paths";
+import {
+  canonicalizeImportacionPath,
+  IMPORTACION_BASE,
+  isImportacionAppPath,
+} from "@/lib/importacion/paths";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -17,10 +21,9 @@ export async function GET(request: Request) {
       if (logLogin) {
         await recordPortalLoginAction(next);
       }
-      const safeNext =
-        next === IMPORTACION_BASE || next.startsWith(`${IMPORTACION_BASE}/`)
-          ? next
-          : IMPORTACION_BASE;
+      const safeNext = isImportacionAppPath(next)
+        ? canonicalizeImportacionPath(next)
+        : IMPORTACION_BASE;
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
   }

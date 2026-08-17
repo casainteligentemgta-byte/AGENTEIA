@@ -22,7 +22,7 @@ export default async function PublicNfcStickerPage({ params }: Props) {
         <div className="max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
           <p className="text-lg font-medium">Sticker no disponible</p>
           <p className="mt-2 text-sm text-slate-400">{result.error}</p>
-          <Link href="/importacion" className="mt-6 inline-block text-sm text-cyan-400 hover:text-cyan-300">
+          <Link href="/smartimport" className="mt-6 inline-block text-sm text-cyan-400 hover:text-cyan-300">
             Ir a Puerto Libre
           </Link>
         </div>

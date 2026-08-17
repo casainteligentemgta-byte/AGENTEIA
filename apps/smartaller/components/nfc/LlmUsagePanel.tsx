@@ -66,7 +66,7 @@ export function LlmUsagePanel({ summary, compact }: Props) {
         </div>
         {!compact ? (
           <Link
-            href="/importacion/uso-ia"
+            href="/smartimport/uso-ia"
             className="shrink-0 text-xs font-medium text-cyan-400 hover:text-cyan-300"
           >
             Detalle

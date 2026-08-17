@@ -17,7 +17,7 @@ export function buildAlertaVencimientoSeguroEmail(
     params.codigoExpediente?.trim() ||
     params.placa?.trim() ||
     params.vehiculoId.slice(0, 8);
-  const link = `${getAppBaseUrl()}/importacion/${params.vehiculoId}`;
+  const link = `${getAppBaseUrl()}/smartimport/${params.vehiculoId}`;
   const diasTxt =
     params.diasRestantes < 0
       ? `venció hace ${Math.abs(params.diasRestantes)} día(s)`

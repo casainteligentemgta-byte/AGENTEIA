@@ -307,17 +307,17 @@ export function PlanillaRegistroImportacion({
 
   function goFase(next: PlanillaFaseUi) {
     setFase(next);
-    router.replace(`/importacion/${vehiculoId}/planilla?fase=${String(next)}`);
+    router.replace(`/smartimport/${vehiculoId}/planilla?fase=${String(next)}`);
   }
 
   function navigateAfterSave(after: PlanillaAfterSave, nextFase: PlanillaFaseUi) {
     if (after === "ficha") {
-      router.push(`/importacion/${vehiculoId}`);
+      router.push(`/smartimport/${vehiculoId}`);
       router.refresh();
       return;
     }
     setFase(nextFase);
-    router.replace(`/importacion/${vehiculoId}/planilla?fase=${nextFase}`);
+    router.replace(`/smartimport/${vehiculoId}/planilla?fase=${nextFase}`);
     router.refresh();
   }
 
@@ -327,7 +327,7 @@ export function PlanillaRegistroImportacion({
 
       <div className="flex justify-end">
         <Link
-          href="/importacion/instructivo"
+          href="/smartimport/instructivo"
           className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-cyan-300"
         >
           <BookOpen className="h-3.5 w-3.5" />
@@ -718,9 +718,9 @@ export function PlanillaRegistroImportacion({
               }
               setMessage("Matriculación completa · puedes nacionalizar");
               if (after === "ficha") {
-                router.push(`/importacion/${vehiculoId}`);
+                router.push(`/smartimport/${vehiculoId}`);
               } else {
-                router.push(`/importacion/${vehiculoId}/nacionalizar`);
+                router.push(`/smartimport/${vehiculoId}/nacionalizar`);
               }
               router.refresh();
             });

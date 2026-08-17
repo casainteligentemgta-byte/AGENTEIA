@@ -4,7 +4,7 @@ import {
   type PortalRole,
 } from "@/lib/portal/roles";
 
-/** Roles con acceso al módulo /importacion. */
+/** Roles con acceso al módulo /smartimport. */
 export const IMPORTACION_ROLES: PortalRole[] = [
   "master",
   "admin",

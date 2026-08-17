@@ -124,7 +124,7 @@ export function PuertoLibreCargaMasiva({
       "Revisa VIN, motor y color de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor / nº cert.",
       "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
-    router.replace("/importacion/carga-masiva", { scroll: false });
+    router.replace("/smartimport/carga-masiva", { scroll: false });
   }, [router]);
 
   const filtrados = useMemo(() => {
@@ -619,7 +619,7 @@ export function PuertoLibreCargaMasiva({
               <p className="py-4 text-center text-sm text-zinc-500">
                 No hay clientes.{" "}
                 <Link
-                  href="/importacion/clientes"
+                  href="/smartimport/clientes"
                   className="text-cyan-400 hover:underline"
                 >
                   Registrar uno
@@ -700,14 +700,14 @@ export function PuertoLibreCargaMasiva({
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a
-            href="/importacion/carga-masiva/plantilla.xlsx"
+            href="/smartimport/carga-masiva/plantilla.xlsx"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4 shrink-0" />
             <span className="leading-tight">Plantilla Excel (.xlsx)</span>
           </a>
           <a
-            href="/importacion/carga-masiva/plantilla.csv"
+            href="/smartimport/carga-masiva/plantilla.csv"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
           >
             <Download className="h-4 w-4 shrink-0" />
@@ -950,7 +950,7 @@ export function PuertoLibreCargaMasiva({
         <p className="flex items-center gap-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {resultMsg}{" "}
-          <Link href="/importacion" className="underline hover:text-emerald-100">
+          <Link href="/smartimport" className="underline hover:text-emerald-100">
             Ver listado
           </Link>
         </p>

@@ -125,7 +125,7 @@ function ScanButton({
             setDoneMsg(
               `${result.vehicleCount} vehículos detectados → carga masiva`
             );
-            router.push("/importacion/carga-masiva?seed=1");
+            router.push("/smartimport/carga-masiva?seed=1");
             return;
           }
 
@@ -244,7 +244,7 @@ export function PuertoLibreDocScan({
           Autorellenar con documentos
         </h2>
         <Link
-          href="/importacion/carga-masiva"
+          href="/smartimport/carga-masiva"
           className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
         >
           <FileSpreadsheet className="h-4 w-4" />

@@ -22,7 +22,7 @@ export function PuertoLibreDescargarDesaduanamientoPdf({ vehiculoId }: Props) {
       try {
         if (next === "print") {
           const opened = window.open(
-            `/importacion/${vehiculoId}/desaduanamiento.pdf?inline=1`,
+            `/smartimport/${vehiculoId}/desaduanamiento.pdf?inline=1`,
             "_blank",
             "noopener,noreferrer"
           );
@@ -33,7 +33,7 @@ export function PuertoLibreDescargarDesaduanamientoPdf({ vehiculoId }: Props) {
         }
 
         const res = await fetch(
-          `/importacion/${vehiculoId}/desaduanamiento.pdf`,
+          `/smartimport/${vehiculoId}/desaduanamiento.pdf`,
           { method: "GET", credentials: "same-origin" }
         );
         if (!res.ok) {

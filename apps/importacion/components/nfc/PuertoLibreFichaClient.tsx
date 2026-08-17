@@ -79,7 +79,7 @@ export function PuertoLibreFichaClient({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-slate-100">Documentos de importación</h2>
           <Link
-            href={`/importacion/${ficha.id}/planilla`}
+            href={`/smartimport/${ficha.id}/planilla`}
             className="inline-flex shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
           >
             Usar planilla

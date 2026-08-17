@@ -1,4 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  canonicalizeImportacionPath,
+  isImportacionAppPath,
+} from "@/lib/importacion/paths";
 import { updateSession } from "@/lib/supabase/middleware";
 
 function getImportacionAppOrigin(): string | null {
@@ -14,9 +18,12 @@ export async function middleware(request: NextRequest) {
   const importacionOrigin = getImportacionAppOrigin();
   if (
     importacionOrigin &&
-    (pathname === "/importacion" || pathname.startsWith("/importacion/"))
+    (isImportacionAppPath(pathname) ||
+      pathname === "/importacion" ||
+      pathname.startsWith("/importacion/"))
   ) {
-    const dest = `${importacionOrigin}${pathname}${request.nextUrl.search}`;
+    const destPath = canonicalizeImportacionPath(pathname);
+    const dest = `${importacionOrigin}${destPath}${request.nextUrl.search}`;
     return NextResponse.redirect(dest);
   }
 
@@ -27,6 +34,8 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/app/:path*",
+    "/smartimport",
+    "/smartimport/:path*",
     "/importacion",
     "/importacion/:path*",
     "/portales",

@@ -53,7 +53,7 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
     setOpen(false);
     setQ("");
     if (id === current.id) return;
-    router.push(`/importacion/${id}/planilla`);
+    router.push(`/smartimport/${id}/planilla`);
   }
 
   return (

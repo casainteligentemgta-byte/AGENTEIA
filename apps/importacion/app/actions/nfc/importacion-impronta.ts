@@ -137,8 +137,8 @@ export async function verifyPuertoLibreImprontaAction(
       .eq("id", vehiculoId)
       .eq("taller_id", taller.id);
 
-    revalidatePath(`/importacion/${vehiculoId}`);
-    revalidatePath(`/importacion/${vehiculoId}/planilla`);
+    revalidatePath(`/smartimport/${vehiculoId}`);
+    revalidatePath(`/smartimport/${vehiculoId}/planilla`);
 
     return {
       success: true,
