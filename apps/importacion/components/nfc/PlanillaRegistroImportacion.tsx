@@ -2085,20 +2085,6 @@ function Fase4Propietario({
             />
           </label>
 
-          <div className="grid gap-3 sm:col-span-2">
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="foto_comprador"
-              existingUrl={docs.foto_comprador?.url}
-              hint=""
-              actionLabel="Tomar / subir foto propietario"
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Foto del propietario guardada");
-              }}
-            />
-          </div>
-
           <div className="sm:col-span-2">
             <PlanillaFaseActions
               pending={pending}

@@ -194,22 +194,6 @@ export function PuertoLibrePropietarioPlantilla({
             </button>
           </div>
         </form>
-
-        <div className="mt-6 grid gap-3">
-          <ImportDocumentoUpload
-            vehiculoId={vehiculoId}
-            tipo="foto_comprador"
-            existingUrl={docs.foto_comprador?.url}
-            hint=""
-            actionLabel="Tomar / subir foto propietario"
-            onUploaded={(next) => {
-              setDocs(next);
-              setMessage("Foto del propietario guardada");
-              setError(null);
-              router.refresh();
-            }}
-          />
-        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
