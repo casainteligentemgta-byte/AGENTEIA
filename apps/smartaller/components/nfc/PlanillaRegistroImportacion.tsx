@@ -976,6 +976,7 @@ function Fase1Registro({
   return (
     <PuertoLibreFase1Form
       variant="planilla"
+      lockImportador
       vehiculoId={vehiculoId}
       existingDocumentos={docs}
       onDocumentosChange={setDocs}
