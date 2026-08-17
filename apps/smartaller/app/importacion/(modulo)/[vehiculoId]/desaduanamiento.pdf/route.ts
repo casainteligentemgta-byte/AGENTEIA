@@ -11,7 +11,7 @@ export const maxDuration = 60;
 type Params = { params: { vehiculoId: string } };
 
 /** GET — PDF de carpeta física de desaduanamiento SENIAT. */
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   const result = await getPuertoLibreFicha(params.vehiculoId);
   if (!result.success) {
     const status =
@@ -22,6 +22,9 @@ export async function GET(_request: Request, { params }: Params) {
           : 400;
     return NextResponse.json({ error: result.error }, { status });
   }
+
+  const inline =
+    new URL(request.url).searchParams.get("inline") === "1";
 
   try {
     const bytes = await buildDesaduanamientoPdf(result.ficha);
@@ -34,7 +37,7 @@ export async function GET(_request: Request, { params }: Params) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${fileName}"`,
         "Cache-Control": "no-store",
       },
     });
