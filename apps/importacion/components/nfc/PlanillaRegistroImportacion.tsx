@@ -1179,8 +1179,17 @@ function Fase2Embarque({
         </h2>
         <input type="hidden" name="regimen" value="puerto_libre" />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <PlanillaFechaField
+              label="Fecha de llegada del buque *"
+              value={datos.fechaLlegadaBuque}
+              onChange={(v) => patch("fechaLlegadaBuque", v)}
+              required
+              name="fechaLlegadaBuque"
+            />
+          </div>
           {datos.numeroCertificadoOrigen.trim() ? (
-            <div className="min-w-0 sm:col-span-2">
+            <div className="min-w-0">
               <input
                 type="hidden"
                 name="numeroCertificadoOrigen"
@@ -1195,7 +1204,7 @@ function Fase2Embarque({
               </p>
             </div>
           ) : (
-            <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <label className="block min-w-0 space-y-1.5">
               <span className="text-sm text-slate-400">Nº certificado de origen</span>
               <input
                 name="numeroCertificadoOrigen"
@@ -1218,26 +1227,6 @@ function Fase2Embarque({
               ) : null}
             </label>
           )}
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Observaciones</span>
-            <textarea
-              name="observaciones"
-              rows={3}
-              value={datos.observaciones}
-              onChange={(e) => patch("observaciones", e.target.value)}
-              placeholder="Notas de la unidad / llave…"
-              className={inputClass}
-            />
-          </label>
-          <div className="min-w-0">
-            <PlanillaFechaField
-              label="Fecha de llegada del buque *"
-              value={datos.fechaLlegadaBuque}
-              onChange={(v) => patch("fechaLlegadaBuque", v)}
-              required
-              name="fechaLlegadaBuque"
-            />
-          </div>
           <label className="block min-w-0 space-y-1.5">
             <span className="text-sm text-slate-400">Puerto *</span>
             <input
@@ -1334,6 +1323,17 @@ function Fase2Embarque({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Observaciones</span>
+            <textarea
+              name="observaciones"
+              rows={3}
+              value={datos.observaciones}
+              onChange={(e) => patch("observaciones", e.target.value)}
+              placeholder="Notas de la unidad / llave…"
+              className={inputClass}
+            />
           </label>
         </div>
       </section>
