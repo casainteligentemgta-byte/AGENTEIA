@@ -2413,11 +2413,6 @@ function Fase6Matriculacion({
             {stats.listos}/{stats.total}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Carga aquí inspección PNB, PUT, homologación (si aplica) y liquidación
-          u oficio SENIAT. Abajo verás la referencia de los recaudos ya cargados
-          en fases anteriores para armar la carpeta PDF.
-        </p>
 
         <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
           Cargar en esta fase
