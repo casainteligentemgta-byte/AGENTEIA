@@ -7,6 +7,7 @@ import {
   type ImportadorListItem,
 } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
+import { formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 
 type Props = {
   initialImportadores: ImportadorListItem[];
@@ -200,8 +201,7 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
                       {c.nombre}
                     </p>
                     <p className="mt-0.5 font-mono text-xs text-zinc-400">
-                      RIF {c.documento}
-                      {c.cedula ? ` · CI ${c.cedula}` : ""}
+                      {formatImportadorDocumentoLine(c)}
                     </p>
                     <p className="mt-0.5 text-[11px] text-zinc-500">
                       {c.tipoLabel}
