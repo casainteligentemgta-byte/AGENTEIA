@@ -1128,11 +1128,6 @@ function Fase2Embarque({
             {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Al escanear el BL / guía o la póliza de transporte se intentan rellenar
-          fecha de llegada del buque, puerto, tránsito, aduana, nº BL y país de
-          origen. Puedes completarlos o corregirlos a mano abajo.
-        </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
