@@ -76,6 +76,7 @@ type Props = {
   initialRows?: CargaMasivaRow[];
   initialMode?: Mode;
   initialMessage?: string | null;
+  certMergeRequest?: { file: File; requestId: number } | null;
   onSwitchToIndividual?: () => void;
 };
 
@@ -88,6 +89,7 @@ export function PuertoLibreCargaMasiva({
   initialRows,
   initialMode,
   initialMessage = null,
+  certMergeRequest = null,
   onSwitchToIndividual,
 }: Props) {
   const router = useRouter();
@@ -120,6 +122,7 @@ export function PuertoLibreCargaMasiva({
   const certsRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
   const initialRowsApplied = useRef(false);
+  const certMergeHandled = useRef<number | null>(null);
 
   useEffect(() => {
     if (initialRowsApplied.current || !initialRows?.length) return;
@@ -158,6 +161,55 @@ export function PuertoLibreCargaMasiva({
     const nextUrl = "/smartimport/importaciones/nueva?masiva=1";
     router.replace(nextUrl, { scroll: false });
   }, [router]);
+
+  useEffect(() => {
+    if (!certMergeRequest) return;
+    if (certMergeHandled.current === certMergeRequest.requestId) return;
+    if (rows.length === 0) return;
+    certMergeHandled.current = certMergeRequest.requestId;
+
+    const certDocs: DocItem[] = [
+      {
+        id: `cert-merge-${certMergeRequest.requestId}`,
+        file: certMergeRequest.file,
+        tipo: "certificado_origen",
+      },
+    ];
+    setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
+    setError(null);
+    setResultMsg(null);
+
+    startTransition(async () => {
+      try {
+        if (!tallerId) {
+          setError("No se pudo identificar el taller para subir documentos");
+          return;
+        }
+        const batchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}`;
+        const storageDocs = await uploadDocsToStorage(certDocs, batchId);
+        const fd = new FormData();
+        fd.set("storageDocs", JSON.stringify(storageDocs));
+        fd.set("rowsJson", JSON.stringify(rows));
+        const result = await completarCargaMasivaConCertificadosAction(fd);
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        ingestExtracted(result.rows, result.certMatches);
+        setWarnings(result.warnings);
+        setResultMsg(
+          `Certificado emparejado inline. ${
+            result.rows.filter((r) => vehicleCompleteness(r).complete).length
+          }/${result.rows.length} filas con datos completos.`
+        );
+      } catch (err) {
+        setError(formatCargaMasivaClientError(err));
+      }
+    });
+  }, [certMergeRequest, rows.length, tallerId]);
 
   const filtrados = useMemo(() => {
     const q = clienteQuery.trim().toLowerCase();
@@ -1143,6 +1195,22 @@ export function PuertoLibreCargaMasiva({
                             {sem.criticos.length > 2 ? "…" : ""}
                           </span>
                         )}
+                        {(() => {
+                          const serial = normalizeSerialKey(
+                            row.serialCarroceria || row.vin
+                          );
+                          const certMatch = serial
+                            ? certMatches.find((m) => m.serial === serial)
+                            : undefined;
+                          return certMatch ? (
+                            <p
+                              className="mt-1 max-w-[9rem] truncate text-[10px] text-cyan-300"
+                              title={`Certificado emparejado: ${certMatch.fileName}`}
+                            >
+                              Cert. ✓ {certMatch.fileName}
+                            </p>
+                          ) : null;
+                        })()}
                       </td>
                       {VEHICLE_FIELD_COLS.map((c) => (
                         <td key={c.key} className="px-1 py-1 align-top">

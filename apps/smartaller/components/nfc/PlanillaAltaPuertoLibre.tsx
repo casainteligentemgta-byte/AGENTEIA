@@ -11,8 +11,8 @@ import {
   type PuertoLibreFase1FormValues,
   type PuertoLibreScanFiles,
 } from "@/components/nfc/PuertoLibreFase1Form";
+import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
 import type { UltimoImportador } from "@/lib/taller-preferencias";
-import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 
 type Props = {
   /** Cliente importador seleccionado (obligatorio en alta). */
@@ -21,7 +21,7 @@ type Props = {
   initialImportador?: UltimoImportador | null;
   /** Si true, no se editan datos del importador (vienen del paso cliente). */
   lockImportador?: boolean;
-  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
+  onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {

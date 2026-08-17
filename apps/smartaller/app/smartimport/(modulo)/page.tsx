@@ -779,7 +779,7 @@ export default async function PuertoLibrePage() {
             {vehiculos.length === 0 ? (
               <p className="px-1 py-3 text-center text-sm text-zinc-500">
                 {puedeMutar
-                  ? "No hay importaciones. Usa Importación o carga masiva desde el alta."
+                  ? "No hay importaciones. Usa «Importación» en el dashboard para registrar una o varias unidades."
                   : "Cuando te asignen o compartan un vehículo, aparecerá aquí."}
               </p>
             ) : (

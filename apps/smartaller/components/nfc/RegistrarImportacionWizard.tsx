@@ -12,6 +12,7 @@ import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
 import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
 import { PuertoLibreCargaMasiva } from "@/components/nfc/PuertoLibreCargaMasiva";
+import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import {
   IMPORTADOR_TIPO_LABELS,
@@ -50,6 +51,10 @@ export function RegistrarImportacionWizard({
   const [masivaMessage, setMasivaMessage] = useState<string | null>(null);
   const [masivaTabMode, setMasivaTabMode] = useState<MasivaTabMode>("documentos");
   const [masivaInstance, setMasivaInstance] = useState(0);
+  const [certMergeRequest, setCertMergeRequest] = useState<{
+    file: File;
+    requestId: number;
+  } | null>(null);
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,7 +77,21 @@ export function RegistrarImportacionWizard({
     setMasivaInstance((n) => n + 1);
   }
 
-  function handleMultiDetected(rows: CargaMasivaRow[], message: string) {
+  function handleMultiDetected(payload: MultiDocDetectedPayload) {
+    const { rows, message, docTipo, file } = payload;
+    if (
+      docTipo === "certificado_origen" &&
+      masivaRows &&
+      masivaRows.length > 0
+    ) {
+      setCertMergeRequest({ file, requestId: Date.now() });
+      setMasivaMessage(
+        "Certificado con varios VIN detectado. Emparejando con las filas de la factura…"
+      );
+      setImportModo("masiva");
+      return;
+    }
+    setCertMergeRequest(null);
     setMasivaRows(rows);
     setMasivaMessage(message);
     setMasivaTabMode("documentos");
@@ -127,6 +146,7 @@ export function RegistrarImportacionWizard({
               initialRows={masivaRows}
               initialMode={masivaTabMode}
               initialMessage={masivaMessage}
+              certMergeRequest={certMergeRequest}
               onSwitchToIndividual={switchToIndividual}
               initialImportadores={clientes}
               tallerId={tallerId}

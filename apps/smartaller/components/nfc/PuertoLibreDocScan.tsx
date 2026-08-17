@@ -30,6 +30,14 @@ const OCR_TIPOS = new Set<PuertoLibreScanTipo>([
   "certificado_origen",
 ]);
 
+/** Factura o certificado con varios VIN: revisión masiva inline. */
+export type MultiDocDetectedPayload = {
+  rows: CargaMasivaRow[];
+  message: string;
+  docTipo: PuertoLibreScanTipo;
+  file: File;
+};
+
 type Props = {
   /** Si hay vehículo, el archivo se guarda en vehiculos.documentos. */
   vehiculoId?: string;
@@ -42,8 +50,8 @@ type Props = {
   ) => void;
   /** Se llama cuando el archivo queda persistido en la BD del vehículo. */
   onDocumentUploaded?: (documentos: VehiculosDocumentos, tipo: PuertoLibreScanTipo) => void;
-  /** Factura con varios VIN: abre revisión masiva inline (sin navegar a otra ruta). */
-  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
+  /** Factura o certificado multi-VIN: abre revisión masiva inline (sin navegar a otra ruta). */
+  onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
 };
 
 async function prepareFile(file: File): Promise<File> {
@@ -107,14 +115,24 @@ function ScanButton({
           }
 
           if (
-            result.tipo === "factura_comercial" &&
+            (result.tipo === "factura_comercial" ||
+              result.tipo === "certificado_origen") &&
             result.multi === true &&
             result.rows.length > 1
           ) {
-            const message = `Se detectaron ${result.vehicleCount} vehículos en la hoja anexa / factura. Revisa la tabla y registra un expediente por unidad.`;
+            const docLabel =
+              result.tipo === "certificado_origen"
+                ? "certificado de origen"
+                : "hoja anexa / factura";
+            const message = `Se detectaron ${result.vehicleCount} vehículos en el ${docLabel}. Revisa la tabla y registra un expediente por unidad.`;
             if (onMultiDetected) {
               setDoneMsg(`${result.vehicleCount} vehículos detectados`);
-              onMultiDetected(result.rows, message);
+              onMultiDetected({
+                rows: result.rows,
+                message,
+                docTipo: result.tipo,
+                file: prepared,
+              });
               return;
             }
             try {

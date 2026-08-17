@@ -111,11 +111,11 @@ const TIPS = [
   },
   {
     icon: Upload,
-    titulo: "Carga masiva",
+    titulo: "Varios vehículos",
     texto:
-      "Si tienes muchas facturas, usa carga masiva y comparte aduana, BL y fecha de llegada entre unidades.",
-    href: "/smartimport/carga-masiva",
-    cta: "Abrir carga masiva",
+      "En Nueva importación usa «Excel / CSV (varios vehículos)» o sube una factura con hoja anexa. Comparte aduana, BL y fecha de llegada entre unidades.",
+    href: "/smartimport/importaciones/nueva?masiva=1",
+    cta: "Nueva importación (varios)",
   },
   {
     icon: LayoutDashboard,
@@ -204,7 +204,7 @@ export default function InstructivoImportacionPage() {
               >
                 nueva importación
               </Link>{" "}
-              o carga masiva.
+              (un vehículo o varios con Excel / factura multi-VIN).
             </span>
           </p>
         </section>

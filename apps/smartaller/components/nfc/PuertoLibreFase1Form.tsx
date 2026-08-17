@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Car, Ship } from "lucide-react";
 import {
   PuertoLibreDocScan,
+  type MultiDocDetectedPayload,
   type PuertoLibreScanTipo,
 } from "@/components/nfc/PuertoLibreDocScan";
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
@@ -14,7 +15,6 @@ import {
   type TipoCombustible,
 } from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
-import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import type { RegimenImportacion } from "@/lib/importacion/regimenes";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 import {
@@ -174,7 +174,7 @@ type Props = {
   /** Documentos ya persistidos (mismo JSONB que Embarque). */
   existingDocumentos?: VehiculosDocumentos;
   onDocumentosChange?: (documentos: VehiculosDocumentos) => void;
-  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
+  onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
 };
 
 /**
