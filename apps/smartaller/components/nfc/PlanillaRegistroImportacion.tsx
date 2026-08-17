@@ -1776,6 +1776,10 @@ function Fase3Aduana({
           .
         </p>
 
+        <div className="mt-4">
+          <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
+        </div>
+
         {(importadorNombre.trim() || importadorDocumento.trim()) && (
           <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300">
             <p className="text-xs uppercase tracking-wide text-slate-500">
@@ -1818,16 +1822,8 @@ function Fase3Aduana({
           ))}
         </ul>
 
-        <div className="mt-6 space-y-3">
-          <PuertoLibreDescargarDesaduanamientoPdf
-            vehiculoId={vehiculoId}
-            variant="compact"
-          />
-          <p className="text-xs text-slate-500">
-            El Expediente PDF SENIAT incluye portada (con el nombre del agente),
-            índice y los documentos de esta sección. El pase de salida no se
-            incluye.
-          </p>
+        <div className="mt-6">
+          <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
       </section>
 
