@@ -7,10 +7,18 @@ import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 
 export const dynamic = "force-dynamic";
+/** OCR multi-VIN puede necesitar varias pasadas de visión. */
+export const maxDuration = 300;
 
-export default async function NuevaImportacionPage() {
+type Props = {
+  searchParams: Promise<{ masiva?: string; seed?: string }>;
+};
+
+export default async function NuevaImportacionPage({ searchParams }: Props) {
   const user = await getUser();
   if (!user) redirect("/login?next=/smartimport/importaciones/nueva");
+
+  const params = await searchParams;
 
   const { taller, error } = await ensureTallerForUser(user.id);
   if (!taller) {
@@ -28,7 +36,7 @@ export default async function NuevaImportacionPage() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-center gap-2">
           <Link
             href="/smartimport"
@@ -48,7 +56,11 @@ export default async function NuevaImportacionPage() {
           </p>
         ) : null}
 
-        <RegistrarImportacionWizard initialImportadores={importadores} />
+        <RegistrarImportacionWizard
+          initialImportadores={importadores}
+          tallerId={taller.id}
+          startInMasiva={params.masiva === "1"}
+        />
       </div>
     </main>
   );

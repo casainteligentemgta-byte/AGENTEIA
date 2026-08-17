@@ -12,6 +12,7 @@ import {
   type PuertoLibreScanFiles,
 } from "@/components/nfc/PuertoLibreFase1Form";
 import type { UltimoImportador } from "@/lib/taller-preferencias";
+import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 
 type Props = {
   /** Cliente importador seleccionado (obligatorio en alta). */
@@ -20,6 +21,7 @@ type Props = {
   initialImportador?: UltimoImportador | null;
   /** Si true, no se editan datos del importador (vienen del paso cliente). */
   lockImportador?: boolean;
+  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
@@ -94,6 +96,7 @@ export function PlanillaAltaPuertoLibre({
   importadorId,
   initialImportador,
   lockImportador = false,
+  onMultiDetected,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -145,6 +148,7 @@ export function PlanillaAltaPuertoLibre({
         importadorDireccion: initialImportador?.importadorDireccion ?? "",
       }}
       onSubmit={handleSubmit}
+      onMultiDetected={onMultiDetected}
       actions={
         <>
           {error ? (

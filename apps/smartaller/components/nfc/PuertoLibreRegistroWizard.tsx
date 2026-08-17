@@ -5,11 +5,18 @@ import { RegistrarImportacionWizard } from "@/components/nfc/RegistrarImportacio
 
 type Props = {
   initialImportadores?: ImportadorListItem[];
+  tallerId: string;
 };
 
 /** Wizard de alta: cliente importador → datos de la importación. */
 export function PuertoLibreRegistroWizard({
   initialImportadores = [],
+  tallerId,
 }: Props) {
-  return <RegistrarImportacionWizard initialImportadores={initialImportadores} />;
+  return (
+    <RegistrarImportacionWizard
+      initialImportadores={initialImportadores}
+      tallerId={tallerId}
+    />
+  );
 }

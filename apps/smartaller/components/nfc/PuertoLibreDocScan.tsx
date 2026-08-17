@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Camera,
   CheckCircle2,
   ClipboardList,
-  FileSpreadsheet,
   FileText,
   Loader2,
 } from "lucide-react";
+import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
@@ -43,6 +42,8 @@ type Props = {
   ) => void;
   /** Se llama cuando el archivo queda persistido en la BD del vehículo. */
   onDocumentUploaded?: (documentos: VehiculosDocumentos, tipo: PuertoLibreScanTipo) => void;
+  /** Factura con varios VIN: abre revisión masiva inline (sin navegar a otra ruta). */
+  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
 };
 
 async function prepareFile(file: File): Promise<File> {
@@ -60,6 +61,7 @@ function ScanButton({
   existingUrl,
   onExtracted,
   onDocumentUploaded,
+  onMultiDetected,
   ocr,
 }: {
   tipo: PuertoLibreScanTipo;
@@ -69,6 +71,7 @@ function ScanButton({
   existingUrl?: string | null;
   onExtracted: Props["onExtracted"];
   onDocumentUploaded?: Props["onDocumentUploaded"];
+  onMultiDetected?: Props["onMultiDetected"];
   ocr: boolean;
 }) {
   const router = useRouter();
@@ -108,24 +111,25 @@ function ScanButton({
             result.multi === true &&
             result.rows.length > 1
           ) {
+            const message = `Se detectaron ${result.vehicleCount} vehículos en la hoja anexa / factura. Revisa la tabla y registra un expediente por unidad.`;
+            if (onMultiDetected) {
+              setDoneMsg(`${result.vehicleCount} vehículos detectados`);
+              onMultiDetected(result.rows, message);
+              return;
+            }
             try {
               sessionStorage.setItem(
                 PL_CARGA_MASIVA_SEED_KEY,
-                JSON.stringify({
-                  rows: result.rows,
-                  message: `Se detectaron ${result.vehicleCount} vehículos en la hoja anexa / factura. Revisa la tabla y registra un expediente por unidad.`,
-                })
+                JSON.stringify({ rows: result.rows, message })
               );
             } catch {
               setError(
-                `Se detectaron ${result.vehicleCount} vehículos. Abre Carga masiva y sube de nuevo la hoja anexa.`
+                `Se detectaron ${result.vehicleCount} vehículos. Usa Excel / CSV (varios vehículos) en Nueva importación.`
               );
               return;
             }
-            setDoneMsg(
-              `${result.vehicleCount} vehículos detectados → carga masiva`
-            );
-            router.push("/smartimport/carga-masiva?seed=1");
+            setDoneMsg(`${result.vehicleCount} vehículos detectados → revisión masiva`);
+            router.push("/smartimport/importaciones/nueva?masiva=1&seed=1");
             return;
           }
 
@@ -235,22 +239,14 @@ export function PuertoLibreDocScan({
   existingUrls,
   onExtracted,
   onDocumentUploaded,
+  onMultiDetected,
 }: Props) {
   return (
     <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
-          <ClipboardList className="h-4 w-4 text-cyan-400" />
-          Autorellenar con documentos
-        </h2>
-        <Link
-          href="/smartimport/carga-masiva"
-          className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          Carga masiva
-        </Link>
-      </div>
+      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
+        <ClipboardList className="h-4 w-4 text-cyan-400" />
+        Autorellenar con documentos
+      </h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
           tipo="factura_comercial"
@@ -260,6 +256,7 @@ export function PuertoLibreDocScan({
           existingUrl={existingUrls?.factura_comercial}
           onExtracted={onExtracted}
           onDocumentUploaded={onDocumentUploaded}
+          onMultiDetected={onMultiDetected}
           ocr={OCR_TIPOS.has("factura_comercial")}
         />
         <ScanButton
@@ -270,6 +267,7 @@ export function PuertoLibreDocScan({
           existingUrl={existingUrls?.certificado_origen}
           onExtracted={onExtracted}
           onDocumentUploaded={onDocumentUploaded}
+          onMultiDetected={onMultiDetected}
           ocr={OCR_TIPOS.has("certificado_origen")}
         />
       </div>

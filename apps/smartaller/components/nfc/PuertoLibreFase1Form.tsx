@@ -14,6 +14,7 @@ import {
   type TipoCombustible,
 } from "@/lib/schemas/importacion-alta";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import type { RegimenImportacion } from "@/lib/importacion/regimenes";
 import { RIF_FORMAT_HINT, RIF_PLACEHOLDER } from "@/lib/validations/rif";
 import {
@@ -173,6 +174,7 @@ type Props = {
   /** Documentos ya persistidos (mismo JSONB que Embarque). */
   existingDocumentos?: VehiculosDocumentos;
   onDocumentosChange?: (documentos: VehiculosDocumentos) => void;
+  onMultiDetected?: (rows: CargaMasivaRow[], message: string) => void;
 };
 
 /**
@@ -188,6 +190,7 @@ export function PuertoLibreFase1Form({
   vehiculoId,
   existingDocumentos,
   onDocumentosChange,
+  onMultiDetected,
 }: Props) {
   const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => {
     const merged = { ...emptyPuertoLibreFase1Values(), ...initial };
@@ -272,6 +275,7 @@ export function PuertoLibreFase1Form({
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
+        onMultiDetected={onMultiDetected}
       />
 
       <section className={sectionClass}>

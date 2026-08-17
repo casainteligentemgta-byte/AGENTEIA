@@ -24,7 +24,6 @@ import {
 } from "@/app/actions/nfc/importacion-carga-masiva";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import {
-  CARGA_MASIVA_MAX_ROWS,
   type CargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
 import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
@@ -71,15 +70,29 @@ type DocItem = {
 type Props = {
   initialImportadores: ImportadorListItem[];
   tallerId: string;
+  embedded?: boolean;
+  hideClienteSection?: boolean;
+  initialSelectedImportador?: ImportadorListItem | null;
+  initialRows?: CargaMasivaRow[];
+  initialMode?: Mode;
+  initialMessage?: string | null;
+  onSwitchToIndividual?: () => void;
 };
 
 export function PuertoLibreCargaMasiva({
   initialImportadores,
   tallerId,
+  embedded = false,
+  hideClienteSection = false,
+  initialSelectedImportador = null,
+  initialRows,
+  initialMode,
+  initialMessage = null,
+  onSwitchToIndividual,
 }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("documentos");
-  const [rows, setRows] = useState<CargaMasivaRow[]>([]);
+  const [mode, setMode] = useState<Mode>(initialMode ?? "documentos");
+  const [rows, setRows] = useState<CargaMasivaRow[]>(initialRows ?? []);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [shared, setShared] = useState<SharedShipmentFields>({
     ...EMPTY_SHARED_SHIPMENT,
@@ -88,13 +101,15 @@ export function PuertoLibreCargaMasiva({
     { ...EMPTY_DETECTED_IMPORTADOR }
   );
   const [importadores] = useState(initialImportadores);
-  const [selected, setSelected] = useState<ImportadorListItem | null>(null);
+  const [selected, setSelected] = useState<ImportadorListItem | null>(
+    initialSelectedImportador
+  );
   const [clienteQuery, setClienteQuery] = useState("");
   const [certMatches, setCertMatches] = useState<CertMatch[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
   const [extractProgress, setExtractProgress] =
     useState<CargaMasivaEtapaProgress | null>(null);
   const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
@@ -104,6 +119,22 @@ export function PuertoLibreCargaMasiva({
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
+  const initialRowsApplied = useRef(false);
+
+  useEffect(() => {
+    if (initialRowsApplied.current || !initialRows?.length) return;
+    initialRowsApplied.current = true;
+    setRows(initialRows);
+    setShared(sharedShipmentFromRows(initialRows));
+    setDetectedImportador(detectedImportadorFromRows(initialRows));
+    if (initialMessage) {
+      setResultMsg(initialMessage);
+    }
+    setWarnings([
+      "Revisa VIN, motor y color de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor / nº cert.",
+      "Aduana, BL y fecha de llegada se completan al cargar el BL.",
+    ]);
+  }, [initialRows, initialMessage]);
 
   useEffect(() => {
     if (seedApplied.current) return;
@@ -124,7 +155,8 @@ export function PuertoLibreCargaMasiva({
       "Revisa VIN, motor y color de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor / nº cert.",
       "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
-    router.replace("/smartimport/carga-masiva", { scroll: false });
+    const nextUrl = "/smartimport/importaciones/nueva?masiva=1";
+    router.replace(nextUrl, { scroll: false });
   }, [router]);
 
   const filtrados = useMemo(() => {
@@ -571,6 +603,19 @@ export function PuertoLibreCargaMasiva({
 
   return (
     <div className="space-y-6">
+      {onSwitchToIndividual ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onSwitchToIndividual}
+            className="text-sm text-cyan-400 hover:underline"
+          >
+            Registrar un solo vehículo
+          </button>
+        </div>
+      ) : null}
+
+      {!hideClienteSection ? (
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
           <UserRound className="h-4 w-4 text-cyan-400" />
@@ -679,10 +724,11 @@ export function PuertoLibreCargaMasiva({
           </div>
         ) : null}
       </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 space-y-4">
         <h2 className="text-base font-semibold text-slate-100">
-          2.- Factura con varios vehículos
+          {hideClienteSection ? "1.- Factura con varios vehículos" : "2.- Factura con varios vehículos"}
         </h2>
 
         <div className="grid grid-cols-2 gap-2">
@@ -934,7 +980,7 @@ export function PuertoLibreCargaMasiva({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold text-slate-100">
-                3. Revisa y registra ({rows.length})
+                {hideClienteSection ? "2. Revisa y registra" : "3. Revisa y registra"} ({rows.length})
               </h2>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
@@ -988,7 +1034,7 @@ export function PuertoLibreCargaMasiva({
             </p>
           ) : null}
 
-          {!selected ? (
+          {!selected && !hideClienteSection ? (
             <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
               Selecciona el cliente importador (paso 1) para habilitar el registro.
             </p>
