@@ -3,6 +3,7 @@ import {
   inferCheryModelo,
   isModeloFragmentInColor,
 } from "@/lib/importacion/chery-modelo";
+import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 import { repairCheryWmi } from "@/lib/importacion/vin-text";
 
 /** Columnas de la plantilla (orden fijo para Excel). */
@@ -340,6 +341,53 @@ export function emptyCargaMasivaRow(
     error: null,
     ...partial,
   };
+}
+
+/** Convierte campos OCR / formulario a una fila de la planilla masiva. */
+export function cargaMasivaRowFromScanFields(
+  fields: PuertoLibreRegistroScanFields,
+  fuente: string
+): CargaMasivaRow {
+  const serial = fields.serialCarroceria ?? fields.vin ?? "";
+  const vin = fields.vin ?? serial;
+  return emptyCargaMasivaRow({
+    marca: fields.marca ?? "",
+    modelo: fields.modelo ?? "",
+    color: fields.color ?? "",
+    anio: fields.anio ?? "",
+    serialMotor: fields.serialMotor ?? "",
+    vin,
+    serialCarroceria: serial || vin,
+    kilometraje: fields.kilometraje ?? "0",
+    condicion: fields.condicion ?? "nuevo",
+    esSubasta:
+      fields.esSubasta === "true" ? "si" : fields.esSubasta === "false" ? "no" : "",
+    partidaArancelaria: fields.partidaArancelaria ?? "",
+    cilindradaCc: fields.cilindradaCc ?? "",
+    tipoCombustible: fields.tipoCombustible ?? "",
+    fechaLlegadaBuque: fields.fechaLlegadaBuque ?? "",
+    importadorNombre: fields.importadorNombre ?? "",
+    importadorDocumento: fields.importadorDocumento ?? "",
+    importadorTelefono: fields.importadorTelefono ?? "",
+    importadorEmail: fields.importadorEmail ?? "",
+    importadorDireccion: fields.importadorDireccion ?? "",
+    aduana: fields.aduana ?? "",
+    numeroBl: fields.numeroBl ?? "",
+    paisOrigen: fields.paisOrigen ?? "",
+    valorCif: fields.valorCif ?? "",
+    tasaCambioBcv: fields.tasaCambioBcv ?? "",
+    costosArancelariosUsd: fields.costosArancelariosUsd ?? "",
+    gastosPuertoUsd: fields.gastosPuertoUsd ?? "",
+    fleteInternacionalUsd: fields.fleteInternacionalUsd ?? "",
+    costoTotalLandedUsd: fields.costoTotalLandedUsd ?? "",
+    numeroExpedienteSeniat: fields.numeroExpedienteSeniat ?? "",
+    numeroDav: fields.numeroDav ?? "",
+    numeroCertificadoOrigen: fields.numeroCertificadoOrigen ?? "",
+    numeroListaEmpaque: fields.numeroListaEmpaque ?? "",
+    numeroPolizaTransporte: fields.numeroPolizaTransporte ?? "",
+    observaciones: fields.observaciones ?? "",
+    fuente,
+  });
 }
 
 function cryptoRandomId(): string {

@@ -25,18 +25,29 @@ type Props = {
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
-  const tipos = Object.keys(scanFiles) as (keyof PuertoLibreScanFiles)[];
-  for (const tipo of tipos) {
-    const file = scanFiles[tipo];
-    if (!file) continue;
+  async function uploadOne(tipo: "factura_comercial" | "certificado_origen", file: File) {
     const fd = new FormData();
     fd.set("vehiculoId", vehiculoId);
     fd.set("tipo", tipo);
     fd.set("file", file);
     const uploaded = await uploadPuertoLibreDocumentoAction(fd);
-    if (!uploaded.success) {
-      return uploaded.error;
-    }
+    if (!uploaded.success) return uploaded.error;
+    return null;
+  }
+
+  if (scanFiles.factura_comercial) {
+    const error = await uploadOne("factura_comercial", scanFiles.factura_comercial);
+    if (error) return error;
+  }
+
+  const certs = scanFiles.certificadosOrigen?.length
+    ? scanFiles.certificadosOrigen
+    : scanFiles.certificado_origen
+      ? [scanFiles.certificado_origen]
+      : [];
+  if (certs.length > 0) {
+    const error = await uploadOne("certificado_origen", certs[certs.length - 1]!);
+    if (error) return error;
   }
   return null;
 }

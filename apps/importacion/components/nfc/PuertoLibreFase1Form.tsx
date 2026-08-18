@@ -21,7 +21,9 @@ import {
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
 
-export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
+export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>> & {
+  certificadosOrigen?: File[];
+};
 
 export type PuertoLibreFase1FormValues = {
   marca: string;
@@ -198,6 +200,7 @@ export function PuertoLibreFase1Form({
     };
   });
   const [scanFiles, setScanFiles] = useState<PuertoLibreScanFiles>({});
+  const [certFiles, setCertFiles] = useState<File[]>([]);
   const [catalogKey, setCatalogKey] = useState(0);
   const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
 
@@ -261,7 +264,10 @@ export function PuertoLibreFase1Form({
             values.fechaLlegadaBuque ||
             String(fd.get("fechaLlegadaBuque") ?? ""),
         };
-        onSubmit(synced, fd, scanFiles);
+        onSubmit(synced, fd, {
+          ...scanFiles,
+          certificadosOrigen: certFiles,
+        });
       }}
     >
       <PuertoLibreDocScan
@@ -272,6 +278,8 @@ export function PuertoLibreFase1Form({
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
+        currentVin={values.vin || values.serialCarroceria}
+        onCertFilesChange={setCertFiles}
       />
 
       <section className={sectionClass}>

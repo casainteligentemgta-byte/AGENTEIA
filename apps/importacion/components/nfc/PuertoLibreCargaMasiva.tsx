@@ -364,10 +364,6 @@ export function PuertoLibreCargaMasiva({
 
   function completarConCertificados(list: FileList | null) {
     if (!list?.length) return;
-    if (rows.length === 0) {
-      setError("Primero extrae o carga los vehículos");
-      return;
-    }
     if (!tallerId) {
       setError("No se pudo identificar el taller para subir documentos");
       return;
@@ -780,6 +776,15 @@ export function PuertoLibreCargaMasiva({
                 )}
                 {pending ? "Extrayendo…" : "Extraer vehículos"}
               </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => certsRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                Añadir certificados
+              </button>
             </div>
             <input
               ref={docsRef}
@@ -789,6 +794,17 @@ export function PuertoLibreCargaMasiva({
               className="hidden"
               onChange={(e) => {
                 handleDocsFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={certsRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                completarConCertificados(e.target.files);
                 e.target.value = "";
               }}
             />
@@ -1016,17 +1032,6 @@ export function PuertoLibreCargaMasiva({
               )}
               Subir certificados
             </button>
-            <input
-              ref={certsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                completarConCertificados(e.target.files);
-                e.target.value = "";
-              }}
-            />
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-800">

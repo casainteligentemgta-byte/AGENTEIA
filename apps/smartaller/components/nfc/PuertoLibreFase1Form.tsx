@@ -10,6 +10,8 @@ import {
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
 import { estimarArancelAdValoremUsd } from "@/lib/arancel/partida-utils";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
+import { cargaMasivaRowFromScanFields } from "@/lib/importacion/carga-masiva-template";
+import { mergeCargaMasivaRowsByVin } from "@/lib/importacion/carga-masiva-ui";
 import {
   TIPOS_COMBUSTIBLE,
   TIPO_COMBUSTIBLE_LABELS,
@@ -23,7 +25,9 @@ import {
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
 
-export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>>;
+export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>> & {
+  certificadosOrigen?: File[];
+};
 
 export type PuertoLibreFase1FormValues = {
   marca: string;
@@ -183,6 +187,64 @@ function mergeScanFields(
   return next;
 }
 
+function valuesToMasivaRow(values: PuertoLibreFase1FormValues) {
+  return cargaMasivaRowFromScanFields(
+    {
+      marca: values.marca || undefined,
+      modelo: values.modelo || undefined,
+      color: values.color || undefined,
+      anio: values.anio || undefined,
+      serialMotor: values.serialMotor || undefined,
+      vin: values.vin || undefined,
+      serialCarroceria: values.serialCarroceria || undefined,
+      kilometraje: values.kilometraje || undefined,
+      condicion:
+        values.condicion === "nuevo" || values.condicion === "usado"
+          ? values.condicion
+          : undefined,
+      esSubasta:
+        values.esSubasta === "true" || values.esSubasta === "false"
+          ? values.esSubasta
+          : undefined,
+      partidaArancelaria: values.partidaArancelaria || undefined,
+      cilindradaCc: values.cilindradaCc || undefined,
+      tipoCombustible:
+        values.tipoCombustible === "" ? undefined : values.tipoCombustible,
+      fechaLlegadaBuque: values.fechaLlegadaBuque || undefined,
+      importadorNombre: values.importadorNombre || undefined,
+      importadorDocumento: values.importadorDocumento || undefined,
+      importadorTelefono: values.importadorTelefono || undefined,
+      importadorEmail: values.importadorEmail || undefined,
+      importadorDireccion: values.importadorDireccion || undefined,
+      aduana: values.aduana || undefined,
+      numeroBl: values.numeroBl || undefined,
+      paisOrigen: values.paisOrigen || undefined,
+      valorCif: values.valorCif || undefined,
+      tasaCambioBcv: values.tasaCambioBcv || undefined,
+      costosArancelariosUsd: values.costosArancelariosUsd || undefined,
+      gastosPuertoUsd: values.gastosPuertoUsd || undefined,
+      fleteInternacionalUsd: values.fleteInternacionalUsd || undefined,
+      costoTotalLandedUsd: values.costoTotalLandedUsd || undefined,
+      numeroExpedienteSeniat: values.numeroExpedienteSeniat || undefined,
+      numeroDav: values.numeroDav || undefined,
+      numeroCertificadoOrigen: values.numeroCertificadoOrigen || undefined,
+      numeroListaEmpaque: values.numeroListaEmpaque || undefined,
+      numeroPolizaTransporte: values.numeroPolizaTransporte || undefined,
+      observaciones: values.observaciones || undefined,
+    },
+    "Formulario individual"
+  );
+}
+
+function formHasVehicleData(values: PuertoLibreFase1FormValues): boolean {
+  return Boolean(
+    values.vin.trim() ||
+      values.serialCarroceria.trim() ||
+      values.marca.trim() ||
+      values.modelo.trim()
+  );
+}
+
 type Props = {
   initial?: Partial<PuertoLibreFase1FormValues>;
   /** Contenido tras el formulario (botones de acción). */
@@ -231,6 +293,7 @@ export function PuertoLibreFase1Form({
     };
   });
   const [scanFiles, setScanFiles] = useState<PuertoLibreScanFiles>({});
+  const [certFiles, setCertFiles] = useState<File[]>([]);
   const [catalogKey, setCatalogKey] = useState(0);
   const importadorPrellenado = Boolean(initial?.importadorNombre?.trim());
 
@@ -253,6 +316,42 @@ export function PuertoLibreFase1Form({
     setValues((prev) => mergeScanFields(prev, fields));
     setScanFiles((prev) => ({ ...prev, [tipo]: file }));
     setCatalogKey((k) => k + 1);
+  }
+
+  function handleMultiFromScan(payload: MultiDocDetectedPayload) {
+    if (!onMultiDetected) return;
+    const formRow = formHasVehicleData(values) ? valuesToMasivaRow(values) : null;
+    const merged = mergeCargaMasivaRowsByVin(
+      formRow ? [formRow] : [],
+      payload.rows
+    );
+    const extraCertFiles = [
+      ...certFiles.filter((file) => file !== payload.file),
+      ...(payload.extraCertFiles ?? []),
+    ];
+    onMultiDetected({
+      ...payload,
+      rows: merged,
+      extraCertFiles,
+      facturaFile: payload.facturaFile ?? scanFiles.factura_comercial,
+      mergeCerts:
+        payload.mergeCerts ??
+        (payload.docTipo === "factura_comercial" && extraCertFiles.length > 0),
+    });
+  }
+
+  function handleOpenVariosVehiculos() {
+    if (!onMultiDetected) return;
+    onMultiDetected({
+      rows: formHasVehicleData(values) ? [valuesToMasivaRow(values)] : [],
+      message:
+        "Planilla de varios vehículos: un expediente por VIN. Añade certificados para emparejar.",
+      docTipo: "factura_comercial",
+      file: scanFiles.factura_comercial,
+      facturaFile: scanFiles.factura_comercial,
+      extraCertFiles: certFiles,
+      mergeCerts: certFiles.length > 0,
+    });
   }
 
   function setField<K extends keyof PuertoLibreFase1FormValues>(
@@ -307,7 +406,10 @@ export function PuertoLibreFase1Form({
             values.fechaLlegadaBuque ||
             String(fd.get("fechaLlegadaBuque") ?? ""),
         };
-        onSubmit(synced, fd, scanFiles);
+        onSubmit(synced, fd, {
+          ...scanFiles,
+          certificadosOrigen: certFiles,
+        });
       }}
     >
       <PuertoLibreDocScan
@@ -318,7 +420,12 @@ export function PuertoLibreFase1Form({
         }}
         onExtracted={patchFromScan}
         onDocumentUploaded={(docs) => onDocumentosChange?.(docs)}
-        onMultiDetected={onMultiDetected}
+        onMultiDetected={onMultiDetected ? handleMultiFromScan : undefined}
+        currentVin={values.vin || values.serialCarroceria}
+        onCertFilesChange={setCertFiles}
+        onOpenVariosVehiculos={
+          onMultiDetected ? handleOpenVariosVehiculos : undefined
+        }
       />
 
       <section className={sectionClass}>

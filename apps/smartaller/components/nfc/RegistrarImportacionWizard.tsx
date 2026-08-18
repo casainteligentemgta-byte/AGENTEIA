@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   CheckCircle2,
+  ClipboardList,
   FileSpreadsheet,
   Plus,
   Search,
@@ -29,6 +30,11 @@ type Step = "cliente" | "importacion";
 type ImportModo = "individual" | "masiva";
 type MasivaTabMode = "plantilla" | "documentos";
 
+type MasivaDocSeed = {
+  file: File;
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+};
+
 /**
  * Alta de importación: 1) cliente importador → 2) datos del vehículo / carga masiva inline.
  */
@@ -52,9 +58,12 @@ export function RegistrarImportacionWizard({
   const [masivaTabMode, setMasivaTabMode] = useState<MasivaTabMode>("documentos");
   const [masivaInstance, setMasivaInstance] = useState(0);
   const [certMergeRequest, setCertMergeRequest] = useState<{
-    file: File;
+    files: File[];
     requestId: number;
   } | null>(null);
+  const [masivaInitialDocs, setMasivaInitialDocs] = useState<MasivaDocSeed[]>(
+    []
+  );
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,9 +78,21 @@ export function RegistrarImportacionWizard({
     );
   }, [clientes, query]);
 
+  function openMasivaDocumentos() {
+    setMasivaRows(undefined);
+    setMasivaMessage(null);
+    setMasivaInitialDocs([]);
+    setCertMergeRequest(null);
+    setMasivaTabMode("documentos");
+    setImportModo("masiva");
+    setMasivaInstance((n) => n + 1);
+  }
+
   function openMasivaPlantilla() {
     setMasivaRows(undefined);
     setMasivaMessage(null);
+    setMasivaInitialDocs([]);
+    setCertMergeRequest(null);
     setMasivaTabMode("plantilla");
     setImportModo("masiva");
     setMasivaInstance((n) => n + 1);
@@ -79,24 +100,41 @@ export function RegistrarImportacionWizard({
 
   function handleMultiDetected(payload: MultiDocDetectedPayload) {
     const { rows, message, docTipo, file } = payload;
-    if (
-      docTipo === "certificado_origen" &&
-      masivaRows &&
-      masivaRows.length > 0
-    ) {
-      setCertMergeRequest({ file, requestId: Date.now() });
+    const certFiles = [
+      ...(docTipo === "certificado_origen" && file ? [file] : []),
+      ...(payload.extraCertFiles ?? []),
+    ].filter((item, index, all) => all.indexOf(item) === index);
+    const docs: MasivaDocSeed[] = [];
+    const factura =
+      payload.facturaFile ??
+      (docTipo === "factura_comercial" ? file : undefined);
+    if (factura) {
+      docs.push({ file: factura, tipo: "factura_comercial" });
+    }
+    for (const cert of certFiles) {
+      docs.push({ file: cert, tipo: "certificado_origen" });
+    }
+
+    if (docTipo === "certificado_origen" && masivaRows && masivaRows.length > 0) {
+      setCertMergeRequest({ files: certFiles, requestId: Date.now() });
       setMasivaMessage(
-        "Certificado con varios VIN detectado. Emparejando con las filas de la factura…"
+        "Certificado detectado. Emparejando con las filas por VIN…"
       );
       setImportModo("masiva");
       return;
     }
-    setCertMergeRequest(null);
-    setMasivaRows(rows);
+
+    setMasivaInitialDocs(docs);
+    setMasivaRows(rows.length > 0 ? rows : undefined);
     setMasivaMessage(message);
     setMasivaTabMode("documentos");
     setImportModo("masiva");
     setMasivaInstance((n) => n + 1);
+    if (payload.mergeCerts && certFiles.length > 0) {
+      setCertMergeRequest({ files: certFiles, requestId: Date.now() });
+    } else {
+      setCertMergeRequest(null);
+    }
   }
 
   function switchToIndividual() {
@@ -146,6 +184,7 @@ export function RegistrarImportacionWizard({
               initialRows={masivaRows}
               initialMode={masivaTabMode}
               initialMessage={masivaMessage}
+              initialDocs={masivaInitialDocs}
               certMergeRequest={certMergeRequest}
               onSwitchToIndividual={switchToIndividual}
               initialImportadores={clientes}
@@ -160,14 +199,22 @@ export function RegistrarImportacionWizard({
       <div className="space-y-4">
         {clienteBanner}
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={openMasivaDocumentos}
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Varios vehículos
+          </button>
           <button
             type="button"
             onClick={openMasivaPlantilla}
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
           >
             <FileSpreadsheet className="h-4 w-4" />
-            Excel / CSV (varios vehículos)
+            Excel / CSV
           </button>
         </div>
 
