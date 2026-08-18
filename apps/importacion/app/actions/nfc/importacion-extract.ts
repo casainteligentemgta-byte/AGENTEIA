@@ -13,7 +13,7 @@ import {
   countFilledFields,
   extractBlFromDocument,
   extractCertificadoOrigenMultiFromDocument,
-  extractFacturaMultiFromDocument,
+  extractFacturaRapidoFromDocument,
   extractPolizaTransporteFromDocument,
   mergeScanFields,
   polizaToFormFields,
@@ -180,7 +180,7 @@ export async function extractPuertoLibreDocumentoAction(
     const mimeType = resolveDocMime(file, buffer);
 
     if (tipoRaw === "factura_comercial") {
-      const extracted = await extractFacturaMultiFromDocument(buffer, mimeType);
+      const extracted = await extractFacturaRapidoFromDocument(buffer, mimeType);
       if (extracted.vehiculos.length > 1) {
         const rows = extracted.vehiculos.map((v, i) => {
           const merged = mergeScanFields(extracted.shared, v);
@@ -213,12 +213,8 @@ export async function extractPuertoLibreDocumentoAction(
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: true,
-          tipo: "factura_comercial",
-          fields,
-          filledCount: 0,
-          multi: false,
-          warning:
+          success: false,
+          error:
             "No se pudieron leer VIN ni datos de la factura. Reintenta con una foto más nítida o abre carga masiva.",
         };
       }
@@ -234,7 +230,8 @@ export async function extractPuertoLibreDocumentoAction(
     if (tipoRaw === "certificado_origen") {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
         buffer,
-        mimeType
+        mimeType,
+        { rapido: true }
       );
       if (extracted.vehiculos.length > 1) {
         const rows = extracted.vehiculos.map((v, i) => {
@@ -264,12 +261,8 @@ export async function extractPuertoLibreDocumentoAction(
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: true,
-          tipo: "certificado_origen",
-          fields,
-          filledCount: 0,
-          multi: false,
-          warning:
+          success: false,
+          error:
             "No se pudieron leer datos del certificado. El archivo se guarda igual: reintenta o ábrelo en carga masiva.",
         };
       }

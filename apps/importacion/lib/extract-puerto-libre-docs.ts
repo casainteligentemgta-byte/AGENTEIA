@@ -675,6 +675,40 @@ Responde SOLO JSON:
   ]
 }`;
 
+/** Una sola pasada: factura de 1 vehículo o tabla multi. */
+const FACTURA_RAPIDA_PROMPT = `Extrae datos de una FACTURA DE COMPRA / commercial invoice de vehículo(s).
+Copia SOLO lo escrito. No inventes VIN ni motor.
+
+- Si hay UNA unidad: rellena marca, modelo, color, anio, serial_motor, serial_carroceria (VIN de 17), valor_cif, pais_origen, importador_nombre, importador_documento, y el mismo vehículo en vehiculos[0].
+- Si hay VARIAS unidades (tabla, hoja anexa, Marks and numbers / Code): un objeto por VIN en vehiculos.
+- VIN = 17 caracteres. Code de fábrica corto NO es VIN.
+- El consignatario / buyer NO es la marca.
+
+JSON:
+{
+  "marca": string|null,
+  "modelo": string|null,
+  "color": string|null,
+  "anio": number|null,
+  "serial_motor": string|null,
+  "serial_carroceria": string|null,
+  "valor_cif": number|null,
+  "pais_origen": string|null,
+  "importador_nombre": string|null,
+  "importador_documento": string|null,
+  "vehiculos": [
+    {
+      "marca": string|null,
+      "modelo": string|null,
+      "color": string|null,
+      "anio": number|null,
+      "serial_motor": string|null,
+      "serial_carroceria": string|null,
+      "valor_cif": number|null
+    }
+  ]
+}`;
+
 /** Segunda pasada: solo tabla, máxima fidelidad de celdas. */
 const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa / commercial invoice.
 Chery / Intercontinental: Marks and numbers = modelo, Code = VIN (17), Description = color, Unit Price = valor.
@@ -1097,6 +1131,46 @@ function pickBestFacturaMulti(
     merged = mergeFacturaMultiByVin(merged, c);
   }
   return sanitizeFacturaMulti(merged);
+}
+
+export async function extractFacturaRapidoFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+
+  if (isPdf) {
+    try {
+      const plain = await getPdfPlainText(buffer);
+      if (countValidVinsInText(plain) >= 2) {
+        const deterministic = parseMavHojaAnexaFromText(plain);
+        if (deterministic && deterministic.vehiculos.length >= 2) {
+          return sanitizeFacturaMulti(deterministic);
+        }
+      }
+    } catch {
+      // visión
+    }
+  }
+
+  // 1 LLM: texto del PDF o página 1 / foto. maxTokens < 4000 → timeout 45–90s
+  // (extractFacturaMultiOnce usa 12000 tokens y 2 páginas; Vercel corta a ~60s).
+  try {
+    const parsed = await createDocumentJsonCompletion({
+      prompt: FACTURA_RAPIDA_PROMPT,
+      buffer,
+      mimeType,
+      maxTokens: 3500,
+      maxTextChars: 16000,
+      maxPdfPages: 1,
+      preferHighDetail: true,
+      renderScale: 2.2,
+    });
+    const extracted = sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
+    return enrichWithSalvagedVins(extracted, parsed);
+  } catch {
+    return { shared: {}, vehiculos: [] };
+  }
 }
 
 export async function extractFacturaMultiFromDocument(
@@ -1688,15 +1762,16 @@ export async function extractBlMultiFromDocument(
 
 export async function extractCertificadoOrigenMultiFromDocument(
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  options?: { rapido?: boolean }
 ): Promise<DocMultiExtracted> {
   const parsed = await createDocumentJsonCompletion({
     prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 4500,
-    maxTextChars: 32000,
-    maxPdfPages: 6,
+    maxTokens: options?.rapido ? 3500 : 4500,
+    maxTextChars: options?.rapido ? 16000 : 32000,
+    maxPdfPages: options?.rapido ? 1 : 6,
     preferHighDetail: true,
   });
 

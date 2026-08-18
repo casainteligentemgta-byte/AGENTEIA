@@ -1,5 +1,5 @@
 /** Si el OCR no responde, se desbloquea la UI y la lectura sigue en segundo plano. */
-export const OCR_UI_UNLOCK_MS = 12_000;
+export const OCR_UI_UNLOCK_MS = 40_000;
 
 /** Errores de red típicos (Safari iOS: "Load failed") al llamar Server Actions. */
 export function isCargaMasivaNetworkError(err: unknown): boolean {
