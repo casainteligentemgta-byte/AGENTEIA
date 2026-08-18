@@ -605,6 +605,15 @@ export type RechazoSeniatHistorialItem = z.infer<
   typeof rechazoSeniatHistorialItemSchema
 >;
 
+export const presentacionAnualSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+  fechaPresentacion: z.string().trim().max(32),
+  nroActaInspeccion: z.string().trim().max(80).optional().nullable(),
+  observaciones: z.string().trim().max(500).optional().nullable(),
+});
+
+export type PresentacionAnual = z.infer<typeof presentacionAnualSchema>;
+
 export const importacionSchema = z.object({
   /** FK lógica a public.importadores (cliente del taller). */
   importadorId: z.string().uuid().optional().nullable(),
@@ -618,6 +627,14 @@ export const importacionSchema = z.object({
   aduanaTransito: z.string().trim().max(120).optional().nullable(),
   /** Fecha de ingreso al régimen PL / aduana (distinta de la llegada del buque). */
   fechaIngreso: z.string().trim().max(32).optional().nullable(),
+  /** Fecha de liquidación SENIAT (fallback = ingreso). */
+  fechaLiquidacion: z.string().trim().max(32).optional().nullable(),
+  /** Actas de presentación anual (control de permanencia). */
+  historialPresentaciones: z
+    .array(presentacionAnualSchema)
+    .max(40)
+    .optional()
+    .nullable(),
   /** Fecha estimada/real de llegada del buque al puerto. */
   fechaLlegadaBuque: z.string().trim().max(32).optional().nullable(),
   numeroBl: z.string().trim().max(80).optional().nullable(),
@@ -625,6 +642,10 @@ export const importacionSchema = z.object({
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tasa BCV del día de la declaración (Bs por USD). */
   tasaCambioBcv: z.union([z.number(), z.nan()]).optional().nullable(),
+  costosArancelariosUsd: z.union([z.number(), z.nan()]).optional().nullable(),
+  gastosPuertoUsd: z.union([z.number(), z.nan()]).optional().nullable(),
+  fleteInternacionalUsd: z.union([z.number(), z.nan()]).optional().nullable(),
+  costoTotalLandedUsd: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Nº de expediente asignado por SENIAT (distinto del PL interno). */
   numeroExpedienteSeniat: z.string().trim().max(64).optional().nullable(),
   numeroDav: z.string().trim().max(80).optional().nullable(),
@@ -668,6 +689,13 @@ export const importacionSchema = z.object({
   vin: z.string().trim().max(32).optional().nullable(),
   /** Partida / código arancelario. */
   partidaArancelaria: z.string().trim().max(32).optional().nullable(),
+  partidaArancelariaFuente: z
+    .enum(["manual", "reglas", "ocr"])
+    .optional()
+    .nullable(),
+  partidaArancelariaFundamento: z.string().trim().max(500).optional().nullable(),
+  /** % Ad-Valorem indicado por el operador (el anexo FH no lo trae). */
+  tarifaAdValoremPct: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Cilindrada del motor en cc. */
   cilindradaCc: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tipo de combustible del vehículo. */
@@ -737,6 +765,34 @@ function asOptionalEnum<T extends string>(
     : null;
 }
 
+function asOptionalMoney(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value.trim());
+    return Number.isFinite(n) && !Number.isNaN(n) ? n : null;
+  }
+  return null;
+}
+
+function parseHistorialPresentaciones(raw: unknown): PresentacionAnual[] {
+  if (!Array.isArray(raw)) return [];
+  const items: PresentacionAnual[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    const parsed = presentacionAnualSchema.safeParse({
+      id: row.id,
+      fechaPresentacion: row.fechaPresentacion ?? row.fecha_presentacion,
+      nroActaInspeccion: row.nroActaInspeccion ?? row.nro_acta_inspeccion,
+      observaciones: row.observaciones,
+    });
+    if (parsed.success) items.push(parsed.data);
+  }
+  return items;
+}
+
 function asOptionalAnio(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
   if (typeof value === "string" && value.trim()) {
@@ -760,6 +816,10 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     aduanaTransito: row.aduanaTransito ?? row.aduana_transito,
     fechaIngreso: row.fechaIngreso ?? row.fecha_ingreso,
+    fechaLiquidacion: row.fechaLiquidacion ?? row.fecha_liquidacion,
+    historialPresentaciones: parseHistorialPresentaciones(
+      row.historialPresentaciones ?? row.historial_presentaciones
+    ),
     fechaLlegadaBuque: row.fechaLlegadaBuque ?? row.fecha_llegada_buque,
     numeroBl: row.numeroBl ?? row.numero_bl,
     paisOrigen: row.paisOrigen ?? row.pais_origen,
@@ -775,6 +835,16 @@ export function parseImportacion(raw: unknown): ImportacionData {
         : typeof row.tasa_cambio_bcv === "number"
           ? row.tasa_cambio_bcv
           : row.tasaCambioBcv ?? row.tasa_cambio_bcv,
+    costosArancelariosUsd: asOptionalMoney(
+      row.costosArancelariosUsd ?? row.costos_arancelarios_usd
+    ),
+    gastosPuertoUsd: asOptionalMoney(row.gastosPuertoUsd ?? row.gastos_puerto_usd),
+    fleteInternacionalUsd: asOptionalMoney(
+      row.fleteInternacionalUsd ?? row.flete_internacional_usd
+    ),
+    costoTotalLandedUsd: asOptionalMoney(
+      row.costoTotalLandedUsd ?? row.costo_total_landed_usd
+    ),
     numeroExpedienteSeniat:
       row.numeroExpedienteSeniat ?? row.numero_expediente_seniat,
     numeroDav: row.numeroDav ?? row.numero_dav,
@@ -842,6 +912,15 @@ export function parseImportacion(raw: unknown): ImportacionData {
     })(),
     vin: row.vin,
     partidaArancelaria: row.partidaArancelaria ?? row.partida_arancelaria,
+    partidaArancelariaFuente: asOptionalEnum(
+      row.partidaArancelariaFuente ?? row.partida_arancelaria_fuente,
+      ["manual", "reglas", "ocr"] as const
+    ),
+    partidaArancelariaFundamento:
+      row.partidaArancelariaFundamento ?? row.partida_arancelaria_fundamento,
+    tarifaAdValoremPct: asOptionalMoney(
+      row.tarifaAdValoremPct ?? row.tarifa_ad_valorem_pct
+    ),
     cilindradaCc:
       typeof row.cilindradaCc === "number"
         ? row.cilindradaCc
@@ -917,6 +996,13 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
         ? data.aduanaTransito?.trim() || null
         : null,
     fecha_ingreso: data.fechaIngreso?.trim() || null,
+    fecha_liquidacion: data.fechaLiquidacion?.trim() || null,
+    historial_presentaciones: (data.historialPresentaciones ?? []).map((item) => ({
+      id: item.id,
+      fecha_presentacion: item.fechaPresentacion,
+      nro_acta_inspeccion: item.nroActaInspeccion?.trim() || null,
+      observaciones: item.observaciones?.trim() || null,
+    })),
     fecha_llegada_buque: data.fechaLlegadaBuque?.trim() || null,
     numero_bl: data.numeroBl?.trim() || null,
     pais_origen: data.paisOrigen?.trim() || null,
@@ -925,6 +1011,22 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     tasa_cambio_bcv:
       data.tasaCambioBcv != null && !Number.isNaN(data.tasaCambioBcv)
         ? data.tasaCambioBcv
+        : null,
+    costos_arancelarios_usd:
+      data.costosArancelariosUsd != null && !Number.isNaN(data.costosArancelariosUsd)
+        ? data.costosArancelariosUsd
+        : null,
+    gastos_puerto_usd:
+      data.gastosPuertoUsd != null && !Number.isNaN(data.gastosPuertoUsd)
+        ? data.gastosPuertoUsd
+        : null,
+    flete_internacional_usd:
+      data.fleteInternacionalUsd != null && !Number.isNaN(data.fleteInternacionalUsd)
+        ? data.fleteInternacionalUsd
+        : null,
+    costo_total_landed_usd:
+      data.costoTotalLandedUsd != null && !Number.isNaN(data.costoTotalLandedUsd)
+        ? data.costoTotalLandedUsd
         : null,
     numero_expediente_seniat: data.numeroExpedienteSeniat?.trim() || null,
     numero_dav: data.numeroDav?.trim() || null,
@@ -968,6 +1070,13 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
             : null,
     vin: data.vin?.trim() || null,
     partida_arancelaria: data.partidaArancelaria?.trim() || null,
+    partida_arancelaria_fuente: data.partidaArancelariaFuente || null,
+    partida_arancelaria_fundamento:
+      data.partidaArancelariaFundamento?.trim() || null,
+    tarifa_ad_valorem_pct:
+      data.tarifaAdValoremPct != null && !Number.isNaN(data.tarifaAdValoremPct)
+        ? data.tarifaAdValoremPct
+        : null,
     cilindrada_cc:
       data.cilindradaCc != null && !Number.isNaN(data.cilindradaCc)
         ? data.cilindradaCc

@@ -102,6 +102,30 @@ export const CARGA_MASIVA_COLUMNS = [
     hint: "Bs/USD",
   },
   {
+    key: "costos_arancelarios_usd",
+    header: "costos_arancelarios_usd",
+    required: false,
+    hint: "USD",
+  },
+  {
+    key: "gastos_puerto_usd",
+    header: "gastos_puerto_usd",
+    required: false,
+    hint: "USD",
+  },
+  {
+    key: "flete_internacional_usd",
+    header: "flete_internacional_usd",
+    required: false,
+    hint: "USD",
+  },
+  {
+    key: "costo_total_landed_usd",
+    header: "costo_total_landed_usd",
+    required: false,
+    hint: "CIF+aranceles+flete+gastos",
+  },
+  {
     key: "numero_expediente_seniat",
     header: "numero_expediente_seniat",
     required: false,
@@ -163,6 +187,10 @@ export type CargaMasivaRow = {
   paisOrigen: string;
   valorCif: string;
   tasaCambioBcv: string;
+  costosArancelariosUsd: string;
+  gastosPuertoUsd: string;
+  fleteInternacionalUsd: string;
+  costoTotalLandedUsd: string;
   numeroExpedienteSeniat: string;
   numeroDav: string;
   numeroCertificadoOrigen: string;
@@ -245,6 +273,14 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   tasa_cambio_bcv: "tasa_cambio_bcv",
   tasa_bcv: "tasa_cambio_bcv",
   bcv: "tasa_cambio_bcv",
+  costos_arancelarios_usd: "costos_arancelarios_usd",
+  aranceles: "costos_arancelarios_usd",
+  gastos_puerto_usd: "gastos_puerto_usd",
+  gastos_puerto: "gastos_puerto_usd",
+  flete_internacional_usd: "flete_internacional_usd",
+  flete: "flete_internacional_usd",
+  costo_total_landed_usd: "costo_total_landed_usd",
+  landed: "costo_total_landed_usd",
   numero_expediente_seniat: "numero_expediente_seniat",
   expediente_seniat: "numero_expediente_seniat",
   numero_dav: "numero_dav",
@@ -290,6 +326,10 @@ export function emptyCargaMasivaRow(
     paisOrigen: "",
     valorCif: "",
     tasaCambioBcv: "",
+    costosArancelariosUsd: "",
+    gastosPuertoUsd: "",
+    fleteInternacionalUsd: "",
+    costoTotalLandedUsd: "",
     numeroExpedienteSeniat: "",
     numeroDav: "",
     numeroCertificadoOrigen: "",
@@ -402,6 +442,10 @@ export function rowFromSpreadsheetRecord(
     paisOrigen: get("pais_origen"),
     valorCif: get("valor_cif"),
     tasaCambioBcv: get("tasa_cambio_bcv"),
+    costosArancelariosUsd: get("costos_arancelarios_usd"),
+    gastosPuertoUsd: get("gastos_puerto_usd"),
+    fleteInternacionalUsd: get("flete_internacional_usd"),
+    costoTotalLandedUsd: get("costo_total_landed_usd"),
     numeroExpedienteSeniat: get("numero_expediente_seniat"),
     numeroDav: get("numero_dav"),
     numeroCertificadoOrigen: get("numero_certificado_origen"),
@@ -480,6 +524,15 @@ export function cargaMasivaRowToAltaInput(
     condicion,
     esSubasta,
     partidaArancelaria: row.partidaArancelaria,
+    partidaArancelariaFuente: row.partidaArancelaria.trim()
+      ? /ocr|factura|documento/i.test(row.fuente ?? "")
+        ? "ocr"
+        : "manual"
+      : undefined,
+    partidaArancelariaFundamento:
+      row.partidaArancelaria.trim() && /ocr|factura|documento/i.test(row.fuente ?? "")
+        ? "Leída del documento (OCR)."
+        : undefined,
     cilindradaCc: row.cilindradaCc,
     tipoCombustible: row.tipoCombustible || null,
     fechaLlegadaBuque: row.fechaLlegadaBuque,
@@ -494,6 +547,10 @@ export function cargaMasivaRowToAltaInput(
     paisOrigen: row.paisOrigen,
     valorCif: row.valorCif,
     tasaCambioBcv: row.tasaCambioBcv,
+    costosArancelariosUsd: row.costosArancelariosUsd,
+    gastosPuertoUsd: row.gastosPuertoUsd,
+    fleteInternacionalUsd: row.fleteInternacionalUsd,
+    costoTotalLandedUsd: row.costoTotalLandedUsd,
     numeroExpedienteSeniat: row.numeroExpedienteSeniat,
     numeroDav: row.numeroDav,
     numeroCertificadoOrigen: row.numeroCertificadoOrigen,

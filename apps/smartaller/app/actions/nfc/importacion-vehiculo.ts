@@ -55,6 +55,7 @@ import {
   docsFaltantesNacionalizacion,
   fechaLimitePermanencia3Anios,
 } from "@/lib/importacion/nacionalizacion";
+import { addYearsIso } from "@/lib/importacion/plazos";
 import {
   docsDesaduanamientoPorRegimen,
   REGIMENES_IMPORTACION,
@@ -432,6 +433,9 @@ export async function createPuertoLibreVehiculoAction(
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
     vin: data.vin || null,
     partidaArancelaria: data.partidaArancelaria || null,
+    partidaArancelariaFuente: data.partidaArancelariaFuente,
+    partidaArancelariaFundamento: data.partidaArancelariaFundamento || null,
+    tarifaAdValoremPct: data.tarifaAdValoremPct,
     cilindradaCc: data.cilindradaCc,
     tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
@@ -598,6 +602,14 @@ export async function savePuertoLibreFase1RegistroAction(
     esSubasta: data.condicion === "usado" ? data.esSubasta : false,
     vin: data.vin || null,
     partidaArancelaria: data.partidaArancelaria || null,
+    partidaArancelariaFuente:
+      data.partidaArancelariaFuente ?? existing.partidaArancelariaFuente ?? null,
+    partidaArancelariaFundamento:
+      data.partidaArancelariaFundamento ||
+      (data.partidaArancelariaFuente === "manual"
+        ? null
+        : existing.partidaArancelariaFundamento || null),
+    tarifaAdValoremPct: data.tarifaAdValoremPct,
     cilindradaCc: data.cilindradaCc,
     tipoCombustible: data.tipoCombustible,
     fechaLlegadaBuque: data.fechaLlegadaBuque,
@@ -675,7 +687,10 @@ export async function updatePuertoLibreImportacionAction(
 
   const { vehiculoId, ...importacion } = parsed.data;
   const existing = parseImportacion(row.importacion);
-  const mergedImport = { ...existing, ...importacion };
+  const patch = Object.fromEntries(
+    Object.entries(importacion).filter(([, value]) => value !== undefined)
+  ) as ImportacionData;
+  const mergedImport = { ...existing, ...patch };
   const completitud = computeCompletitudDatos({
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
@@ -1164,6 +1179,14 @@ export async function savePuertoLibreFase2LlegadaAction(
     ...existingImportacion,
     fechaIngreso: parsed.data.fechaIngreso,
     partidaArancelaria: parsed.data.partidaArancelaria.trim(),
+    fechaLiquidacion:
+      existingImportacion.fechaLiquidacion?.trim() || parsed.data.fechaIngreso,
+    fechaLimiteNacionalizacion:
+      existingImportacion.fechaLimiteNacionalizacion?.trim() ||
+      fechaLimitePermanencia3Anios(parsed.data.fechaIngreso),
+    fechaPresentacionSeniat:
+      existingImportacion.fechaPresentacionSeniat?.trim() ||
+      addYearsIso(parsed.data.fechaIngreso, 1),
     checklistLlegada: checklist,
     checklistLlegadaNotas: checklistNotas,
     otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
@@ -1809,6 +1832,85 @@ export async function resolverRechazoSeniatAction(
 
   if (error) return { success: false, error: error.message };
   revalidateFicha(idParsed.data.vehiculoId);
+  return { success: true };
+}
+
+const registrarPresentacionSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  fechaPresentacion: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de presentación inválida"),
+  nroActaInspeccion: z.string().trim().max(80).optional().nullable(),
+  observaciones: z.string().trim().max(500).optional().nullable(),
+});
+
+/** Registra una presentación anual SENIAT y recorre el plazo +1 año. */
+export async function registrarPresentacionAnualAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = registrarPresentacionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  if (
+    existing.estadoNacionalizacion === "nacionalizado" ||
+    existing.estadoNacionalizacion === "no_aplica"
+  ) {
+    return {
+      success: false,
+      error: "Este expediente ya no requiere presentación anual",
+    };
+  }
+
+  const historial = [...(existing.historialPresentaciones ?? [])];
+  const duplicada = historial.some(
+    (item) => item.fechaPresentacion.slice(0, 10) === parsed.data.fechaPresentacion
+  );
+  if (duplicada) {
+    return {
+      success: false,
+      error: "Ya existe una presentación registrada en esa fecha",
+    };
+  }
+
+  historial.push({
+    id: crypto.randomUUID(),
+    fechaPresentacion: parsed.data.fechaPresentacion,
+    nroActaInspeccion: parsed.data.nroActaInspeccion?.trim() || null,
+    observaciones: parsed.data.observaciones?.trim() || null,
+  });
+
+  const proxima = addYearsIso(parsed.data.fechaPresentacion, 1);
+  const importacion = serializeImportacion({
+    ...existing,
+    historialPresentaciones: historial,
+    fechaPresentacionSeniat: proxima,
+    estadoSeniat: "presentada",
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
 

@@ -44,7 +44,7 @@ Alta → fase 1 (Registro: datos + factura de compra + certificado de origen)
 
 Formulario: vehículo + importador + datos importación. Docs obligatorios: factura de compra, certificado de origen.
 
-Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria, kilometraje, condicion (`nuevo`|`usado`), esSubasta (si usado), partidaArancelaria, cilindradaCc, tipoCombustible, régimen, aduana, país origen, **puerto**, **modalidadTransito** (`ninguno|transito|uso24`), **aduanaTransito**, numeroBl, fechaLlegadaBuque, importador (nombre, RIF, tel, email, **dirección fiscal**), valorCif, **tasaCambioBcv**, **numeroExpedienteSeniat**, numeroDav, numeroCertificadoOrigen, numeroListaEmpaque, numeroPolizaTransporte, observaciones.
+Campos clave: marca, modelo, color, año, serialMotor, **vin**, serialCarroceria, kilometraje, condicion (`nuevo`|`usado`), esSubasta (si usado), cilindradaCc, tipoCombustible, régimen, aduana, país origen, **puerto**, **modalidadTransito** (`ninguno|transito|uso24`), **aduanaTransito**, numeroBl, fechaLlegadaBuque, importador (nombre, RIF, tel, email, **dirección fiscal**), valorCif, **tasaCambioBcv**, **tarifaAdValoremPct** (lo indica el operador; no hay AEC en el anexo FH), **numeroExpedienteSeniat**, numeroDav, numeroCertificadoOrigen, numeroListaEmpaque, numeroPolizaTransporte, observaciones. La partida arancelaria se confirma en Llegada (OCR en Fase 1 puede precargarla).
 
 Reglas: usado → esSubasta obligatorio y km > 0; nuevo → km puede ser 0; RIF formato `J|V|E|G|P|C-########-#` si se llena.
 
@@ -62,7 +62,7 @@ Action: `completePuertoLibreFase2EmbarqueAction` → fase 3.
 
 ### Fase 3 — Llegada
 
-`fechaIngreso`, documentos de llegada (`acta_recepcion_mercancia` AR + `constancia_edi_reconocimiento`), memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
+`fechaIngreso`, `partidaArancelaria` (obligatoria; fuente `manual|reglas|ocr` + fundamento), documentos de llegada (`acta_recepcion_mercancia` AR + `constancia_edi_reconocimiento`), memoria fotográfica (7), checklist (14 ítems), verificación OCR de `foto_impronta` vs `serial_carroceria`.
 
 Estados impronta: `coincide | no_coincide | no_leido`. Sin `coincide` no avanza, salvo **forzar** si OCR quedó en `no_leido`.
 
@@ -191,7 +191,9 @@ Notas:
 
 ### JSONB `importacion` (TS camelCase ↔ snake en serialize)
 
-`regimen`, `aduana`, `puerto`, `modalidadTransito`, `aduanaTransito`, `fechaIngreso`, `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat`, `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `requiereHomologacion`, `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+`regimen`, `aduana`, `puerto`, `modalidadTransito`, `aduanaTransito`, `fechaIngreso`, `fechaLiquidacion` (SENIAT; fallback = ingreso), `historialPresentaciones` (actas anuales), `fechaLlegadaBuque`, `numeroBl`, `paisOrigen`, `valorCif`, `tasaCambioBcv`, `tarifaAdValoremPct`, `numeroExpedienteSeniat`, `numeroDav`, `numeroCertificadoOrigen`, `numeroListaEmpaque`, `numeroPolizaTransporte`, `agenteAduanal`, `observaciones`, `estadoNacionalizacion`, `fechaLimiteNacionalizacion`, `viaNacionalizacion`, `nacionalizacionPaso` (1–4), `estadoSeniat`, `fechaPresentacionSeniat` (próxima anual calculada), `anio`, `condicionVehiculo`, `esSubasta`, `vin`, `partidaArancelaria`, `partidaArancelariaFuente` (`manual|reglas|ocr`), `partidaArancelariaFundamento`, `cilindradaCc`, `tipoCombustible` (`gasolina|diesel|electrico|hibrido|gnv|otro`), `importadorId` (FK lógica a `importadores`), `importadorNombre` / `Documento` / `Telefono` / `Email` / `Direccion` (snapshot), `planillaFase` (1–8), `matriculacionPaso` (1–2), `requiereHomologacion`, `codigoExpediente`, `checklistLlegada`, `checklistLlegadaNotas`, `otrosDispositivosNotas`, `serialImprontaEstado` / `Leido` / `VerificadoAt`, `compradorDireccion`.
+
+**Plazos aduaneros** (`lib/importacion/plazos.ts` + `computePlazosAduaneros`): presentación anual = última acta o liquidación + 1 año (verde >30 d, ámbar 1–30, rojo vencido). Nacionalización TAN = liquidación + 3 años (barra 0–100%, badge elegible). Action: `registrarPresentacionAnualAction`. No hay tabla `VehiculoAduanero`; vive en el JSONB.
 
 ### Tabla `importadores` (clientes)
 
@@ -227,8 +229,8 @@ Grupos:
 | Capa | Qué hace |
 |------|----------|
 | RLS `authenticated` | SELECT/INSERT/UPDATE/DELETE de `vehiculos` solo si `taller_id = get_my_taller_id()`. Migración `20260810120000_vehiculos_rls_taller_mutations.sql` (antes solo había SELECT por taller). `nfc_stickers` ya tenía CRUD por taller. |
-| Service role | Las Server Actions de PL usan `createAdminClient()` → **saltan RLS**. Obligatorias: `requireTallerAuth` (o `getUser`+`getMyTaller`) y, en mutaciones por id, `assertVehiculoTaller` / filtro `taller_id`. |
-| Audit estático | `npm run audit:importacion-auth` (también en `npm run qa`) falla si una action exportada en `app/actions/nfc` olvida el gate o muta `vehiculos` con admin sin ownership. Exentos: `verify-nfc` (público), `extractPuertoLibreDocumentoAction` (solo OCR). |
+| Service role | Las Server Actions de PL usan `createAdminClient()` → **saltan RLS**. Obligatorias: `requireTallerAuth` + (si hay `vehiculoId`) `assertVehiculoTaller` desde `@/lib/importacion/taller-auth`. |
+| Audit estático | `npm run audit:importacion-auth` (también en `npm run qa`) falla si una action exportada en `app/actions/nfc` olvida el gate o muta `vehiculos` con admin sin ownership. Exentos: `verify-nfc` (público), `extractPuertoLibreDocumentoAction` (solo OCR; usa `requireTallerAuth`, no escribe JSONB). |
 
 **Riesgo residual:** un endpoint nuevo con service role y sin el gate sigue pudiendo filtrar datos entre talleres. No sustituir el audit ni el checklist de PR por “ya hay RLS”. A medio plazo, preferir migrar mutaciones PL al cliente de usuario (RLS aplica) y reservar admin para webhooks/NFC públicos/portales multi-taller.
 
@@ -264,11 +266,11 @@ Grupos:
 
 **Schemas:** `lib/schemas/vehiculo-documentos.ts`, `lib/schemas/importacion-alta.ts`, `lib/schemas/importador.ts`, `lib/validations/rif.ts`, `lib/schemas/inspeccion-transportista.ts`
 
-**Actions:** `app/actions/nfc/importacion-vehiculo.ts`, `importadores.ts`, `importacion-extract.ts`, `importacion-impronta.ts`, `importacion-carga-masiva.ts`, `inspeccion-transportista.ts`, `nfc-management.ts`, `verify-nfc.ts`
+**Actions:** `app/actions/nfc/importacion-vehiculo.ts`, `importadores.ts`, `importacion-extract.ts`, `importacion-impronta.ts`, `importacion-carga-masiva.ts`, `importacion-arancel.ts` (`sugerirPartidaArancelariaAction`), `inspeccion-transportista.ts`, `nfc-management.ts`, `verify-nfc.ts`
 
-**UI:** `RegistrarImportacionWizard.tsx`, `ImportadorForm.tsx`, `ImportadoresClientesPanel.tsx`, `PuertoLibreFase1Form.tsx`, `PuertoLibreDocScan.tsx`, `PlanillaRegistroImportacion.tsx`, `PlanillaAltaPuertoLibre.tsx`, `PuertoLibreRegistroWizard.tsx`, `PuertoLibreCargaMasiva.tsx`, `PuertoLibreNacionalizarWizard.tsx`, `PuertoLibreExpedienteView.tsx`, `PuertoLibreFichaClient.tsx`, `PuertoLibreExpedienteNfc.tsx`, `ImportDocumentoUpload.tsx`
+**UI:** `RegistrarImportacionWizard.tsx`, `ImportadorForm.tsx`, `ImportadoresClientesPanel.tsx`, `PuertoLibreFase1Form.tsx`, `PartidaArancelariaSugerir.tsx`, `PuertoLibreDocScan.tsx`, `PlanillaRegistroImportacion.tsx`, `PlanillaAltaPuertoLibre.tsx`, `PuertoLibreRegistroWizard.tsx`, `PuertoLibreCargaMasiva.tsx`, `PuertoLibreNacionalizarWizard.tsx`, `PuertoLibreExpedienteView.tsx`, `PuertoLibreFichaClient.tsx`, `PuertoLibrePlazosPanel.tsx`, `PuertoLibreExpedienteNfc.tsx`, `ImportDocumentoUpload.tsx`
 
-**Lib:** `lib/importacion/expediente.ts`, `nacionalizacion.ts`, `normas-legales.ts`, `cumplimiento-importador.ts`, `access.ts`, `paths.ts`, `carga-masiva-template.ts`, `expediente-pdf.ts`, `llegada-catalog.ts`, `lib/extract-puerto-libre-docs.ts`, `lib/extract-impronta.ts`, `lib/taller-preferencias.ts`
+**Lib:** `lib/importacion/expediente.ts`, `nacionalizacion.ts`, `plazos.ts`, `normas-legales.ts`, `cumplimiento-importador.ts`, `taller-auth.ts`, `access.ts`, `paths.ts`, `carga-masiva-template.ts`, `expediente-pdf.ts`, `llegada-catalog.ts`, `lib/arancel/vehiculos-seed.ts`, `lib/arancel/clasificar-vehiculo.ts`, `lib/arancel/partida-utils.ts`, `lib/extract-puerto-libre-docs.ts`, `lib/extract-impronta.ts`, `lib/taller-preferencias.ts`
 
 **Dashboard:** `app/importacion/(modulo)/page.tsx`
 
@@ -291,13 +293,14 @@ Preferencias taller: último importador prellenado (`talleres.preferencias.ultim
 
 ## 9. Automatizaciones
 
-1. **DocScan (Fase 1):** OCR (OpenAI) solo en `factura_comercial` y `bl_guia`. Certificado origen, lista empaque, DAV, póliza transporte = adjunto sin OCR.
+1. **DocScan (Fase 1):** OCR (OpenAI) solo en `factura_comercial` y `bl_guia`. Extrae partida HS (normalizada a 10 dígitos), cilindrada y combustible si aparecen. Certificado origen, lista empaque, DAV, póliza transporte = adjunto sin OCR.
 2. **Carga masiva:** CSV/XLSX (máx 80) o OCR multi-doc; dedupe por serial carrocería; crea fase 1 + códigos PL secuenciales.
 3. **Impronta:** OCR vs `serial_carroceria`; bloquea fase 2 si no coincide.
 4. **PDF:** `buildExpedientePdf` + `buildDesaduanamientoPdf`.
 5. **NFC:** `nfc_stickers`, PIN en `pin_hash`, `/v/{token}`.
 6. **Inspección transportista:** `inspeccion_transportista`; puede sync docs/placa/km.
 7. **Cumplimiento (MVP):** `evaluarCupoPersonaNatural` en alta, fase 1 y carga masiva. RIF V/E = persona natural → máx. 1 vehículo en &lt; 3 años (mismo taller). Catálogo: `lib/importacion/normas-legales.ts` + UI `/smartimport/biblioteca-legal`.
+8. **Partida arancelaria:** reglas Cap. 87 (`lib/arancel`) + `sugerirPartidaArancelariaAction`. OCR en DocScan (Fase 1) puede precargar el HS; se confirma en Llegada. No persiste la sugerencia hasta “Aplicar”. Fuente: `reglas` / `ocr` / `manual`. El anexo FH no incluye AEC SENIAT; `tarifaAdValoremPct` lo carga el operador y, con CIF, estima `costosArancelariosUsd`.
 
 ---
 
@@ -312,5 +315,5 @@ Preferencias taller: último importador prellenado (`talleres.preferencias.ultim
 7. Unicidad: `serial_carroceria` por taller.
 8. Nacionalización: `pendiente` → `en_proceso` (elegir vía) → `nacionalizado` (completar). No documentar un salto directo pendiente→nacionalizado.
 9. Dashboard: usar los **labels y condiciones de la sección 4**, no parafrasearlos.
-10. Seguridad: toda Server Action nueva de Importación que use `createAdminClient` debe llamar `requireTallerAuth` (o `getUser`+`getMyTaller`) y filtrar por `taller_id` / `assertVehiculoTaller`. Correr `npm run audit:importacion-auth` antes de merge.
+10. Seguridad: toda Server Action nueva de Importación que use `createAdminClient` debe importar `requireTallerAuth` / `assertVehiculoTaller` desde `@/lib/importacion/taller-auth` (o filtrar por `taller_id`). Correr `npm run audit:importacion-auth` antes de merge.
 11. Responder en español; KISS y tipado estricto.

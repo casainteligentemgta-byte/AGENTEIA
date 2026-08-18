@@ -44,7 +44,9 @@ export function fechaLimitePermanencia3Anios(
 export function sugerirViaNacionalizacion(
   importacion: ImportacionData
 ): ViaNacionalizacion {
-  const anios = aniosDesdeFecha(importacion.fechaIngreso);
+  const anios = aniosDesdeFecha(
+    importacion.fechaLiquidacion ?? importacion.fechaIngreso
+  );
   if (anios != null && anios >= 3) return "permanencia";
   return "cambio_regimen";
 }

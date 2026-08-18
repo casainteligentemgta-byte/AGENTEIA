@@ -54,7 +54,7 @@ export function PuertoLibreNacionalizarWizard({ ficha }: Props) {
 
   const via = imp.viaNacionalizacion;
   const paso = imp.nacionalizacionPaso ?? 1;
-  const anios = aniosDesdeFecha(imp.fechaIngreso);
+  const anios = aniosDesdeFecha(imp.fechaLiquidacion ?? imp.fechaIngreso);
   const yaNacionalizado = imp.estadoNacionalizacion === "nacionalizado";
   const placa = placaRealVisible(ficha.placa, ficha.codigoExpediente);
 

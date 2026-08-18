@@ -27,6 +27,8 @@ import {
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
+import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
+import { PuertoLibrePlazosPanel } from "@/components/nfc/PuertoLibrePlazosPanel";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -158,6 +160,14 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Serial carrocería" value={ficha.serial_carroceria} mono />
           <Dato label="Kilometraje" value={ficha.kilometraje_ultimo} />
           <Dato label="Partida arancelaria" value={imp.partidaArancelaria} mono />
+          <Dato
+            label="Origen de la partida"
+            value={formatPartidaFuente(
+              imp.partidaArancelariaFuente,
+              imp.partidaArancelariaFundamento
+            )}
+            wide
+          />
           <Dato label="Cilindrada (cc)" value={imp.cilindradaCc} />
           <Dato
             label="Combustible"
@@ -254,8 +264,14 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Nº BL / Guía" value={imp.numeroBl} />
           <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
+          <Dato label="Fecha liquidación SENIAT" value={imp.fechaLiquidacion} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
+          <Dato label="Ad-Valorem (%)" value={imp.tarifaAdValoremPct} />
+          <Dato label="Aranceles (USD)" value={imp.costosArancelariosUsd} />
+          <Dato label="Gastos puerto (USD)" value={imp.gastosPuertoUsd} />
+          <Dato label="Flete internacional (USD)" value={imp.fleteInternacionalUsd} />
+          <Dato label="Costo total landed (USD)" value={imp.costoTotalLandedUsd} />
           <Dato label="Nº expediente SENIAT" value={imp.numeroExpedienteSeniat} mono />
           <Dato label="Nº DAV" value={imp.numeroDav} mono />
           <Dato
@@ -289,6 +305,8 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <AlertaDiasNacionalizacion importacion={imp} />
         </div>
       </section>
+
+      <PuertoLibrePlazosPanel vehiculoId={ficha.id} importacion={imp} />
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
         <div className="flex items-center justify-between gap-2">

@@ -24,6 +24,18 @@ export const TIPO_COMBUSTIBLE_LABELS: Record<TipoCombustible, string> = {
   otro: "Otro",
 };
 
+export const PARTIDA_ARANCELARIA_FUENTES = ["manual", "reglas", "ocr"] as const;
+export type PartidaArancelariaFuente = (typeof PARTIDA_ARANCELARIA_FUENTES)[number];
+
+export const PARTIDA_ARANCELARIA_FUENTE_LABELS: Record<
+  PartidaArancelariaFuente,
+  string
+> = {
+  manual: "Manual",
+  reglas: "Reglas Cap. 87",
+  ocr: "OCR documento",
+};
+
 const optionalTrimmed = (max: number) =>
   z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -79,6 +91,20 @@ export const puertoLibreAltaSchema = z
       }),
     /** Código arancelario (partida) — SENIAT / aduana. */
     partidaArancelaria: optionalTrimmed(32),
+    partidaArancelariaFuente: z
+      .union([
+        z.enum(PARTIDA_ARANCELARIA_FUENTES),
+        z.literal(""),
+        z.null(),
+        z.undefined(),
+      ])
+      .optional()
+      .transform((v): PartidaArancelariaFuente | null => {
+        if (v == null || v === "") return null;
+        return v;
+      }),
+    partidaArancelariaFundamento: optionalTrimmed(500),
+    tarifaAdValoremPct: optionalNonNegNumber,
     /** Cilindrada del motor en cc. */
     cilindradaCc: optionalNonNegNumber,
     tipoCombustible: z
@@ -157,6 +183,11 @@ export const puertoLibreAltaSchema = z
     valorCif: optionalNonNegNumber,
     /** Tasa de cambio BCV del día de la declaración (Bs/USD). */
     tasaCambioBcv: optionalNonNegNumber,
+    costosArancelariosUsd: optionalNonNegNumber,
+    gastosPuertoUsd: optionalNonNegNumber,
+    fleteInternacionalUsd: optionalNonNegNumber,
+    /** Landed = CIF + aranceles + flete + gastos (opcional; se calcula si falta). */
+    costoTotalLandedUsd: optionalNonNegNumber,
     /** Nº de expediente SENIAT (distinto del código interno PL-…). */
     numeroExpedienteSeniat: optionalTrimmed(64),
     numeroDav: optionalTrimmed(80),

@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUser } from "@/lib/supabase/server";
-import { getMyTaller } from "@/lib/taller";
+import { requireTallerAuth } from "@/lib/importacion/taller-auth";
 import { formatLlmAuthError, isLlmConfigured } from "@/lib/ai/openai-config";
 import {
   assertLlmBudgetAllows,
@@ -31,14 +30,18 @@ export type ImprontaVerifyResult =
     }
   | { success: false; error: string };
 
+/**
+ * OCR de foto_impronta → persiste `serial_impronta_*` en JSONB importacion.
+ * El avance a fase 3 es `savePuertoLibreFase2LlegadaAction` (importacion-vehiculo.ts),
+ * que bloquea `no_coincide` y exige forzar + rol si es `no_leido`.
+ */
 export async function verifyPuertoLibreImprontaAction(
   formData: FormData
 ): Promise<ImprontaVerifyResult> {
-  const user = await getUser();
-  if (!user) return { success: false, error: "No autenticado" };
-
-  const taller = await getMyTaller();
-  if (!taller) return { success: false, error: "No se encontró tu taller" };
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
 
   if (!isLlmConfigured()) {
     return {
@@ -76,9 +79,10 @@ export async function verifyPuertoLibreImprontaAction(
     .from("vehiculos")
     .select("id, taller_id, serial_carroceria, importacion")
     .eq("id", vehiculoId)
+    .eq("taller_id", auth.taller.id)
     .maybeSingle();
 
-  if (!row || row.taller_id !== taller.id) {
+  if (!row) {
     return { success: false, error: "Vehículo no encontrado" };
   }
 
@@ -135,7 +139,7 @@ export async function verifyPuertoLibreImprontaAction(
         updated_at: new Date().toISOString(),
       })
       .eq("id", vehiculoId)
-      .eq("taller_id", taller.id);
+      .eq("taller_id", auth.taller.id);
 
     revalidatePath(`/smartimport/${vehiculoId}`);
     revalidatePath(`/smartimport/${vehiculoId}/planilla`);

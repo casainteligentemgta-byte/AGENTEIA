@@ -124,7 +124,10 @@ export function PuertoLibreFichaClient({
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
             startTransition(async () => {
-              const valorRaw = String(fd.get("valorCif") ?? "").trim();
+              const money = (key: string) => {
+                const raw = String(fd.get(key) ?? "").trim();
+                return raw ? Number(raw) : null;
+              };
               const result = await updatePuertoLibreImportacionAction({
                 vehiculoId: ficha.id,
                 regimen: String(fd.get("regimen") ?? "") || "puerto_libre",
@@ -139,9 +142,14 @@ export function PuertoLibreFichaClient({
                 aduanaTransito: String(fd.get("aduanaTransito") ?? "") || null,
                 fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? "") || null,
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
+                fechaLiquidacion: String(fd.get("fechaLiquidacion") ?? "") || null,
                 numeroBl: String(fd.get("numeroBl") ?? "") || null,
                 paisOrigen: String(fd.get("paisOrigen") ?? "") || null,
-                valorCif: valorRaw ? Number(valorRaw) : null,
+                valorCif: money("valorCif"),
+                costosArancelariosUsd: money("costosArancelariosUsd"),
+                gastosPuertoUsd: money("gastosPuertoUsd"),
+                fleteInternacionalUsd: money("fleteInternacionalUsd"),
+                costoTotalLandedUsd: money("costoTotalLandedUsd"),
                 agenteAduanal: String(fd.get("agenteAduanal") ?? "") || null,
                 observaciones: String(fd.get("observaciones") ?? "") || null,
                 estadoNacionalizacion:
@@ -232,11 +240,57 @@ export function PuertoLibreFichaClient({
             defaultValue={ficha.importacion.fechaIngreso ?? ""}
           />
           <Field
+            label="Fecha liquidación SENIAT"
+            name="fechaLiquidacion"
+            type="date"
+            defaultValue={ficha.importacion.fechaLiquidacion ?? ""}
+          />
+          <Field
             label="Valor CIF (USD)"
             name="valorCif"
             type="number"
             defaultValue={
               ficha.importacion.valorCif != null ? String(ficha.importacion.valorCif) : ""
+            }
+          />
+          <Field
+            label="Aranceles (USD)"
+            name="costosArancelariosUsd"
+            type="number"
+            defaultValue={
+              ficha.importacion.costosArancelariosUsd != null
+                ? String(ficha.importacion.costosArancelariosUsd)
+                : ""
+            }
+          />
+          <Field
+            label="Gastos de puerto (USD)"
+            name="gastosPuertoUsd"
+            type="number"
+            defaultValue={
+              ficha.importacion.gastosPuertoUsd != null
+                ? String(ficha.importacion.gastosPuertoUsd)
+                : ""
+            }
+          />
+          <Field
+            label="Flete internacional (USD)"
+            name="fleteInternacionalUsd"
+            type="number"
+            defaultValue={
+              ficha.importacion.fleteInternacionalUsd != null
+                ? String(ficha.importacion.fleteInternacionalUsd)
+                : ""
+            }
+          />
+          <Field
+            label="Costo total landed (USD)"
+            name="costoTotalLandedUsd"
+            type="number"
+            defaultValue={
+              ficha.importacion.costoTotalLandedUsd != null
+                ? String(ficha.importacion.costoTotalLandedUsd)
+                : ""
             }
           />
           <Field

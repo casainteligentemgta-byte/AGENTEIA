@@ -1,5 +1,10 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { placaRealVisible } from "@/lib/importacion/expediente";
+import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
+import {
+  ESTADO_PRESENTACION_LABELS,
+  computePlazosAduaneros,
+} from "@/lib/importacion/plazos";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsDesaduanamientoPdfPorRegimen,
@@ -445,6 +450,15 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Serial carrocería", value: txt(ficha.serial_carroceria) },
     { label: "Kilometraje", value: txt(ficha.kilometraje_ultimo) },
     { label: "Partida arancelaria", value: txt(imp.partidaArancelaria) },
+    {
+      label: "Origen de la partida",
+      value: txt(
+        formatPartidaFuente(
+          imp.partidaArancelariaFuente,
+          imp.partidaArancelariaFundamento
+        )
+      ),
+    },
     { label: "Cilindrada (cc)", value: txt(imp.cilindradaCc) },
     { label: "Combustible", value: txt(imp.tipoCombustible) },
     {
@@ -493,6 +507,7 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     y = A4_H - MARGIN;
   }
   y = drawSectionTitle(page, bold, "Importación", y);
+  const plazos = computePlazosAduaneros(imp);
   ({ page, y } = drawPairs(pdf, page, font, bold, [
     { label: "Régimen", value: txt(labelRegimenImportacion(imp.regimen)) },
     { label: "Aduana", value: txt(imp.aduana) },
@@ -514,8 +529,11 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Nº BL / Guía", value: txt(imp.numeroBl) },
     { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
     { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
+    { label: "Fecha liquidación SENIAT", value: txt(imp.fechaLiquidacion) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
     { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
+    { label: "Ad-Valorem (%)", value: txt(imp.tarifaAdValoremPct) },
+    { label: "Aranceles (USD)", value: txt(imp.costosArancelariosUsd) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
     { label: "Nº DAV", value: txt(imp.numeroDav) },
     { label: "Nº certificado origen", value: txt(imp.numeroCertificadoOrigen) },
@@ -531,6 +549,16 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     {
       label: "SENIAT",
       value: ESTADO_SENIAT_LABELS[(imp.estadoSeniat as EstadoSeniat) ?? "pendiente"],
+    },
+    {
+      label: "Próxima presentación",
+      value: txt(plazos.proximaFechaPresentacion),
+    },
+    {
+      label: "Estado presentación",
+      value: plazos.estadoPresentacion
+        ? ESTADO_PRESENTACION_LABELS[plazos.estadoPresentacion]
+        : "-",
     },
     { label: "Observaciones", value: txt(imp.observaciones) },
   ], y));

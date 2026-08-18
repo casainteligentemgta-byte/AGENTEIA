@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
+import {
+  assertVehiculoTaller,
+  requireTallerAuth,
+} from "@/lib/importacion/taller-auth";
 import { generateNfcToken, hashPin } from "@/lib/nfc/crypto";
 import type { NfcStickerListItem } from "@/lib/nfc/types";
 import {
   createNfcStickerSchema,
+  nfcTokenSchema,
   updateNfcStickerSchema,
 } from "@/lib/validations/nfc";
 
@@ -255,4 +261,88 @@ export async function deactivateNfcStickerAction(id: string): Promise<NfcActionR
 
 export async function activateNfcStickerAction(id: string): Promise<NfcActionResult> {
   return updateNfcStickerAction({ id, activo: true });
+}
+
+/**
+ * Vincula un sticker existente (por token) a un vehículo del taller.
+ * No existe columna `linked_at`; se usa `updated_at`.
+ * Alternativa por id: `updateNfcStickerAction({ id, vehiculoId })`.
+ */
+export async function linkNfcStickerToVehiculoAction(
+  raw: unknown
+): Promise<NfcActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z
+    .object({
+      token: nfcTokenSchema,
+      vehiculoId: z.string().uuid(),
+    })
+    .safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const { token, vehiculoId } = parsed.data;
+  const vehiculo = await assertVehiculoTaller(vehiculoId, auth.taller.id);
+  if (!vehiculo) {
+    return { success: false, error: "Vehículo no encontrado" };
+  }
+
+  const admin = createAdminClient();
+  const { data: sticker } = await admin
+    .from("nfc_stickers")
+    .select("id, vehiculo_id, activo")
+    .eq("token", token)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  if (!sticker) {
+    return { success: false, error: "Sticker no encontrado en tu taller" };
+  }
+  if (!sticker.activo) {
+    return { success: false, error: "El sticker está inactivo" };
+  }
+  if (sticker.vehiculo_id && sticker.vehiculo_id !== vehiculoId) {
+    return {
+      success: false,
+      error: "El sticker ya está vinculado a otro vehículo",
+    };
+  }
+
+  const { data: meta } = await admin
+    .from("vehiculos")
+    .select("placa, marca, modelo, color, nombre_cliente")
+    .eq("id", vehiculoId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("nfc_stickers")
+    .update({
+      vehiculo_id: vehiculoId,
+      placa: meta?.placa ?? vehiculo.placa ?? null,
+      marca: meta?.marca ?? null,
+      modelo: meta?.modelo ?? null,
+      color: meta?.color ?? null,
+      nombre_titular: meta?.nombre_cliente ?? null,
+      updated_at: now,
+    })
+    .eq("id", sticker.id)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/importacion");
+  revalidatePath(`/importacion/${vehiculoId}`);
+  return { success: true };
 }

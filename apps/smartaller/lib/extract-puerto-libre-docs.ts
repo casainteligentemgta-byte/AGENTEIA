@@ -20,6 +20,7 @@ import {
 } from "@/lib/importacion/factura-row-fidelity";
 import { extractVinsWithTesseract, extractVinsWithTesseractOriented, isPlausibleOcrVin } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
+import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -35,6 +36,9 @@ export type FacturaComercialExtraida = {
   es_subasta: boolean | null;
   valor_cif: number | null;
   pais_origen: string | null;
+  partida_arancelaria: string | null;
+  cilindrada_cc: number | null;
+  tipo_combustible: "gasolina" | "diesel" | "electrico" | "hibrido" | "gnv" | "otro" | null;
   importador_nombre: string | null;
   importador_documento: string | null;
   importador_telefono: string | null;
@@ -97,6 +101,9 @@ Extrae en JSON con estas claves exactas:
 - es_subasta (boolean si indica subasta/auction; null si no aparece)
 - valor_cif (number: valor CIF, unit price o total en USD si aparece un solo vehículo)
 - pais_origen (string)
+- partida_arancelaria (string: HS / NANDINA / subpartida a 6–10 dígitos si aparece)
+- cilindrada_cc (number: cilindrada en cm3 / cc si aparece)
+- tipo_combustible ("gasolina"|"diesel"|"electrico"|"hibrido"|"gnv"|"otro"|null)
 - importador_nombre (string: buyer / consignee / importador / comprador)
 - importador_documento (string: RIF/NIT/tax id / cédula del importador si aparece)
 - importador_telefono (string)
@@ -176,6 +183,23 @@ function parseCondicion(value: unknown): "nuevo" | "usado" | null {
   if (/nuevo|new|0\s*km|zero/.test(raw)) return "nuevo";
   if (/usado|used|pre-?owned|second/.test(raw)) return "usado";
   if (raw === "nuevo" || raw === "usado") return raw;
+  return null;
+}
+
+function parseTipoCombustible(
+  value: unknown
+): "gasolina" | "diesel" | "electrico" | "hibrido" | "gnv" | "otro" | null {
+  const raw = parseString(value)
+    ?.toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  if (!raw) return null;
+  if (/elect/.test(raw)) return "electrico";
+  if (/hibr/.test(raw) || /hybrid/.test(raw)) return "hibrido";
+  if (/gnv|gas\s*natural|cng/.test(raw)) return "gnv";
+  if (/diesel|gasoil/.test(raw)) return "diesel";
+  if (/gasolina|gasoline|petrol/.test(raw)) return "gasolina";
+  if (/otro|other/.test(raw)) return "otro";
   return null;
 }
 
@@ -275,6 +299,13 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
     es_subasta: parseBool(parsed.es_subasta ?? parsed.subasta ?? parsed.auction),
     valor_cif: parseNumber(parsed.valor_cif ?? parsed.cif ?? parsed.total ?? parsed.precio),
     pais_origen: parseString(parsed.pais_origen ?? parsed.country_of_origin),
+    partida_arancelaria: parseString(
+      parsed.partida_arancelaria ?? parsed.hs_code ?? parsed.nandina
+    ),
+    cilindrada_cc: parseIntSafe(parsed.cilindrada_cc ?? parsed.cc ?? parsed.cilindrada),
+    tipo_combustible: parseTipoCombustible(
+      parsed.tipo_combustible ?? parsed.combustible ?? parsed.fuel
+    ),
     importador_nombre: parseString(
       parsed.importador_nombre ?? parsed.buyer ?? parsed.consignee
     ),
@@ -538,6 +569,14 @@ export function facturaToFormFields(
   if (data.es_subasta != null) fields.esSubasta = data.es_subasta ? "true" : "false";
   if (data.valor_cif != null) fields.valorCif = String(data.valor_cif);
   if (data.pais_origen) fields.paisOrigen = data.pais_origen;
+  if (data.partida_arancelaria) {
+    fields.partidaArancelaria =
+      normalizePartida10(data.partida_arancelaria) ??
+      data.partida_arancelaria.replace(/\D/g, "") ||
+      data.partida_arancelaria;
+  }
+  if (data.cilindrada_cc != null) fields.cilindradaCc = String(data.cilindrada_cc);
+  if (data.tipo_combustible) fields.tipoCombustible = data.tipo_combustible;
   if (data.importador_nombre) fields.importadorNombre = data.importador_nombre;
   if (data.importador_documento) fields.importadorDocumento = data.importador_documento;
   if (data.importador_telefono) fields.importadorTelefono = data.importador_telefono;

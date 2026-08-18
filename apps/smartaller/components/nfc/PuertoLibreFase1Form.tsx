@@ -8,6 +8,7 @@ import {
   type PuertoLibreScanTipo,
 } from "@/components/nfc/PuertoLibreDocScan";
 import { VehiculoCatalogoFields } from "@/components/nfc/VehiculoCatalogoFields";
+import { estimarArancelAdValoremUsd } from "@/lib/arancel/partida-utils";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import {
   TIPOS_COMBUSTIBLE,
@@ -36,6 +37,9 @@ export type PuertoLibreFase1FormValues = {
   condicion: "nuevo" | "usado" | "";
   esSubasta: "true" | "false" | "";
   partidaArancelaria: string;
+  partidaArancelariaFuente: "" | "manual" | "reglas" | "ocr";
+  partidaArancelariaFundamento: string;
+  tarifaAdValoremPct: string;
   cilindradaCc: string;
   tipoCombustible: TipoCombustible | "";
   fechaLlegadaBuque: string;
@@ -53,6 +57,10 @@ export type PuertoLibreFase1FormValues = {
   paisOrigen: string;
   valorCif: string;
   tasaCambioBcv: string;
+  costosArancelariosUsd: string;
+  gastosPuertoUsd: string;
+  fleteInternacionalUsd: string;
+  costoTotalLandedUsd: string;
   numeroExpedienteSeniat: string;
   numeroDav: string;
   numeroCertificadoOrigen: string;
@@ -73,6 +81,9 @@ export const emptyPuertoLibreFase1Values = (): PuertoLibreFase1FormValues => ({
   condicion: "",
   esSubasta: "",
   partidaArancelaria: "",
+  partidaArancelariaFuente: "",
+  partidaArancelariaFundamento: "",
+  tarifaAdValoremPct: "",
   cilindradaCc: "",
   tipoCombustible: "",
   fechaLlegadaBuque: "",
@@ -90,6 +101,10 @@ export const emptyPuertoLibreFase1Values = (): PuertoLibreFase1FormValues => ({
   paisOrigen: "",
   valorCif: "",
   tasaCambioBcv: "",
+  costosArancelariosUsd: "",
+  gastosPuertoUsd: "",
+  fleteInternacionalUsd: "",
+  costoTotalLandedUsd: "",
   numeroExpedienteSeniat: "",
   numeroDav: "",
   numeroCertificadoOrigen: "",
@@ -131,6 +146,10 @@ function mergeScanFields(
   if (patch.condicion) next.condicion = patch.condicion;
   if (patch.esSubasta) next.esSubasta = patch.esSubasta;
   assign("partidaArancelaria", patch.partidaArancelaria);
+  if (patch.partidaArancelaria) {
+    next.partidaArancelariaFuente = "ocr";
+    next.partidaArancelariaFundamento = "Leída del documento (OCR).";
+  }
   assign("cilindradaCc", patch.cilindradaCc);
   if (patch.tipoCombustible) next.tipoCombustible = patch.tipoCombustible;
   assign("fechaLlegadaBuque", patch.fechaLlegadaBuque);
@@ -144,12 +163,23 @@ function mergeScanFields(
   assign("paisOrigen", resolvePais(patch.paisOrigen) || undefined);
   assign("valorCif", patch.valorCif);
   assign("tasaCambioBcv", patch.tasaCambioBcv);
+  assign("costosArancelariosUsd", patch.costosArancelariosUsd);
+  assign("gastosPuertoUsd", patch.gastosPuertoUsd);
+  assign("fleteInternacionalUsd", patch.fleteInternacionalUsd);
+  assign("costoTotalLandedUsd", patch.costoTotalLandedUsd);
   assign("numeroExpedienteSeniat", patch.numeroExpedienteSeniat);
   assign("numeroDav", patch.numeroDav);
   assign("numeroCertificadoOrigen", patch.numeroCertificadoOrigen);
   assign("numeroListaEmpaque", patch.numeroListaEmpaque);
   assign("numeroPolizaTransporte", patch.numeroPolizaTransporte);
   assign("observaciones", patch.observaciones);
+  if (!next.costosArancelariosUsd.trim()) {
+    const estimado = estimarArancelAdValoremUsd(
+      Number(next.valorCif),
+      Number(next.tarifaAdValoremPct)
+    );
+    if (estimado != null) next.costosArancelariosUsd = String(estimado);
+  }
   return next;
 }
 
@@ -229,7 +259,20 @@ export function PuertoLibreFase1Form({
     key: K,
     value: PuertoLibreFase1FormValues[K]
   ) {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+      if (
+        (key === "valorCif" || key === "tarifaAdValoremPct") &&
+        !prev.costosArancelariosUsd.trim()
+      ) {
+        const estimado = estimarArancelAdValoremUsd(
+          Number(next.valorCif),
+          Number(next.tarifaAdValoremPct)
+        );
+        if (estimado != null) next.costosArancelariosUsd = String(estimado);
+      }
+      return next;
+    });
   }
 
   return (

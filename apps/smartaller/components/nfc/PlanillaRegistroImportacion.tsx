@@ -47,6 +47,7 @@ import {
 } from "@/lib/importacion/llegada-catalog";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
 import { PuertoLibreDescargarMatriculacionPdf } from "@/components/nfc/PuertoLibreDescargarMatriculacionPdf";
+import { PartidaArancelariaSugerir } from "@/components/nfc/PartidaArancelariaSugerir";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
   docsDesaduanamientoPorRegimen,
@@ -423,6 +424,18 @@ export function PlanillaRegistroImportacion({
                   ? "false"
                   : "",
             partidaArancelaria: initialImportacion.partidaArancelaria ?? "",
+            partidaArancelariaFuente:
+              initialImportacion.partidaArancelariaFuente === "manual" ||
+              initialImportacion.partidaArancelariaFuente === "reglas" ||
+              initialImportacion.partidaArancelariaFuente === "ocr"
+                ? initialImportacion.partidaArancelariaFuente
+                : "",
+            partidaArancelariaFundamento:
+              initialImportacion.partidaArancelariaFundamento ?? "",
+            tarifaAdValoremPct:
+              initialImportacion.tarifaAdValoremPct != null
+                ? String(initialImportacion.tarifaAdValoremPct)
+                : "",
             cilindradaCc:
               initialImportacion.cilindradaCc != null
                 ? String(initialImportacion.cilindradaCc)
@@ -455,6 +468,22 @@ export function PlanillaRegistroImportacion({
             tasaCambioBcv:
               initialImportacion.tasaCambioBcv != null
                 ? String(initialImportacion.tasaCambioBcv)
+                : "",
+            costosArancelariosUsd:
+              initialImportacion.costosArancelariosUsd != null
+                ? String(initialImportacion.costosArancelariosUsd)
+                : "",
+            gastosPuertoUsd:
+              initialImportacion.gastosPuertoUsd != null
+                ? String(initialImportacion.gastosPuertoUsd)
+                : "",
+            fleteInternacionalUsd:
+              initialImportacion.fleteInternacionalUsd != null
+                ? String(initialImportacion.fleteInternacionalUsd)
+                : "",
+            costoTotalLandedUsd:
+              initialImportacion.costoTotalLandedUsd != null
+                ? String(initialImportacion.costoTotalLandedUsd)
                 : "",
             numeroExpedienteSeniat:
               initialImportacion.numeroExpedienteSeniat ?? "",
@@ -549,6 +578,12 @@ export function PlanillaRegistroImportacion({
           fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
           partidaArancelariaInicial={
             initialImportacion.partidaArancelaria?.trim() ?? ""
+          }
+          tipoCombustibleInicial={initialImportacion.tipoCombustible ?? ""}
+          cilindradaCcInicial={
+            initialImportacion.cilindradaCc != null
+              ? String(initialImportacion.cilindradaCc)
+              : ""
           }
           initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
           initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
@@ -839,6 +874,9 @@ type Fase1RegistroPayload = {
   condicion: "nuevo" | "usado";
   esSubasta: boolean | null;
   partidaArancelaria: string;
+  partidaArancelariaFuente: "" | "manual" | "reglas" | "ocr";
+  partidaArancelariaFundamento: string;
+  tarifaAdValoremPct: string;
   cilindradaCc: string;
   tipoCombustible: string;
   fechaLlegadaBuque: string;
@@ -857,6 +895,10 @@ type Fase1RegistroPayload = {
   paisOrigen: string;
   valorCif: string;
   tasaCambioBcv: string;
+  costosArancelariosUsd: string;
+  gastosPuertoUsd: string;
+  fleteInternacionalUsd: string;
+  costoTotalLandedUsd: string;
   numeroExpedienteSeniat: string;
   numeroDav: string;
   numeroCertificadoOrigen: string;
@@ -889,6 +931,9 @@ function Fase1Registro({
     condicion: string;
     esSubasta: string;
     partidaArancelaria: string;
+    partidaArancelariaFuente: "" | "manual" | "reglas" | "ocr";
+    partidaArancelariaFundamento: string;
+    tarifaAdValoremPct: string;
     cilindradaCc: string;
     tipoCombustible: string;
     fechaLlegadaBuque: string;
@@ -907,6 +952,10 @@ function Fase1Registro({
     paisOrigen: string;
     valorCif: string;
     tasaCambioBcv: string;
+    costosArancelariosUsd: string;
+    gastosPuertoUsd: string;
+    fleteInternacionalUsd: string;
+    costoTotalLandedUsd: string;
     numeroExpedienteSeniat: string;
     numeroDav: string;
     numeroCertificadoOrigen: string;
@@ -935,6 +984,9 @@ function Fase1Registro({
         ? initial.esSubasta
         : "",
     partidaArancelaria: initial.partidaArancelaria,
+    partidaArancelariaFuente: initial.partidaArancelariaFuente,
+    partidaArancelariaFundamento: initial.partidaArancelariaFundamento,
+    tarifaAdValoremPct: initial.tarifaAdValoremPct,
     cilindradaCc: initial.cilindradaCc,
     tipoCombustible:
       initial.tipoCombustible === "gasolina" ||
@@ -965,6 +1017,10 @@ function Fase1Registro({
     paisOrigen: initial.paisOrigen,
     valorCif: initial.valorCif,
     tasaCambioBcv: initial.tasaCambioBcv,
+    costosArancelariosUsd: initial.costosArancelariosUsd,
+    gastosPuertoUsd: initial.gastosPuertoUsd,
+    fleteInternacionalUsd: initial.fleteInternacionalUsd,
+    costoTotalLandedUsd: initial.costoTotalLandedUsd,
     numeroExpedienteSeniat: initial.numeroExpedienteSeniat,
     numeroDav: initial.numeroDav,
     numeroCertificadoOrigen: initial.numeroCertificadoOrigen,
@@ -1004,6 +1060,9 @@ function Fase1Registro({
                     : null
                 : false,
             partidaArancelaria: values.partidaArancelaria,
+            partidaArancelariaFuente: values.partidaArancelariaFuente,
+            partidaArancelariaFundamento: values.partidaArancelariaFundamento,
+            tarifaAdValoremPct: values.tarifaAdValoremPct,
             cilindradaCc: values.cilindradaCc,
             tipoCombustible: values.tipoCombustible,
             fechaLlegadaBuque: values.fechaLlegadaBuque,
@@ -1022,6 +1081,10 @@ function Fase1Registro({
             paisOrigen: values.paisOrigen,
             valorCif: values.valorCif,
             tasaCambioBcv: values.tasaCambioBcv,
+            costosArancelariosUsd: values.costosArancelariosUsd,
+            gastosPuertoUsd: values.gastosPuertoUsd,
+            fleteInternacionalUsd: values.fleteInternacionalUsd,
+            costoTotalLandedUsd: values.costoTotalLandedUsd,
             numeroExpedienteSeniat: values.numeroExpedienteSeniat,
             numeroDav: values.numeroDav,
             numeroCertificadoOrigen: values.numeroCertificadoOrigen,
@@ -1356,6 +1419,8 @@ function Fase2Llegada({
   fotosCount,
   fechaIngresoInicial,
   partidaArancelariaInicial,
+  tipoCombustibleInicial,
+  cilindradaCcInicial,
   initialImprontaEstado,
   initialImprontaLeido,
   checklist,
@@ -1377,6 +1442,8 @@ function Fase2Llegada({
   fotosCount: number;
   fechaIngresoInicial: string;
   partidaArancelariaInicial: string;
+  tipoCombustibleInicial: string;
+  cilindradaCcInicial: string;
   initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
   initialImprontaLeido: string | null;
   checklist: LlegadaChecklistState;
@@ -1468,6 +1535,22 @@ function Fase2Llegada({
             Código arancelario del vehículo (SENIAT).
           </span>
         </label>
+        <div className="mt-3">
+          <PartidaArancelariaSugerir
+            tipoCombustible={
+              tipoCombustibleInicial === "gasolina" ||
+              tipoCombustibleInicial === "diesel" ||
+              tipoCombustibleInicial === "electrico" ||
+              tipoCombustibleInicial === "hibrido" ||
+              tipoCombustibleInicial === "gnv" ||
+              tipoCombustibleInicial === "otro"
+                ? tipoCombustibleInicial
+                : ""
+            }
+            cilindradaCc={cilindradaCcInicial}
+            onApply={(codigo) => setPartidaArancelaria(codigo)}
+          />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
