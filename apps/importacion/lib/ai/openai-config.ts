@@ -48,15 +48,8 @@ export function isGeminiProvider(): boolean {
   return getLlmProvider() === "gemini";
 }
 
-/** gemini-2.0-flash ya no está para claves nuevas de AI Studio (404). */
-export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
-
-const GEMINI_MODEL_FALLBACKS = [
-  GEMINI_DEFAULT_MODEL,
-  "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
-  "gemini-2.0-flash",
-] as const;
+/** Preferencia si ListModels no responde; las claves nuevas suelen exigir Gemini 3. */
+export const GEMINI_DEFAULT_MODEL = "gemini-3-flash-preview";
 
 export function isModelNotFoundError(err: unknown): boolean {
   const status = err instanceof OpenAI.APIError ? err.status : undefined;
@@ -76,25 +69,11 @@ export async function createChatCompletion(
   openai: OpenAI,
   params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
-  if (!isGeminiProvider()) {
-    return openai.chat.completions.create(params);
+  if (isGeminiProvider()) {
+    const { geminiChatCompletion } = await import("@/lib/ai/gemini-native");
+    return geminiChatCompletion(params);
   }
-  const seen = new Set<string>();
-  const models = [params.model, ...GEMINI_MODEL_FALLBACKS].filter(
-    (m): m is string => Boolean(m)
-  );
-  let lastError: unknown;
-  for (const model of models) {
-    if (seen.has(model)) continue;
-    seen.add(model);
-    try {
-      return await openai.chat.completions.create({ ...params, model });
-    } catch (err) {
-      lastError = err;
-      if (!isModelNotFoundError(err)) throw err;
-    }
-  }
-  throw lastError ?? new Error("Gemini no reconoció ningún modelo disponible");
+  return openai.chat.completions.create(params);
 }
 
 export function getOpenAIBaseURL(): string | undefined {
@@ -199,7 +178,7 @@ export function formatLlmAuthError(err: unknown): string {
     (err instanceof OpenAI.APIError && err.status === 404)
   ) {
     if (isGeminiProvider()) {
-      return "Gemini no reconoce el modelo (404). En Vercel deja GEMINI_CHAT_MODEL y GEMINI_VISION_MODEL vacíos, o pon gemini-2.5-flash. gemini-2.0-flash ya no está disponible para claves nuevas.";
+      return "Gemini no encontró un modelo disponible (404). En Vercel borra GEMINI_CHAT_MODEL y GEMINI_VISION_MODEL (el código elige uno con ListModels). Si las definiste, usa el id de AI Studio, p. ej. gemini-3-flash-preview.";
     }
     return "La API de IA no encontró el modelo (404). Revisa GEMINI_CHAT_MODEL / OPENAI_CHAT_MODEL en Vercel.";
   }
