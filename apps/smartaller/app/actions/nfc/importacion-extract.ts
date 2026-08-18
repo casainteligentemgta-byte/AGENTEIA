@@ -25,8 +25,6 @@ import {
 } from "@/lib/importacion/carga-masiva-template";
 import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
 
-export const maxDuration = 300;
-
 export type ExtractPuertoLibreDocResult =
   | {
       success: true;
