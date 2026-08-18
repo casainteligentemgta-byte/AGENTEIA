@@ -48,6 +48,8 @@ import {
   vehicleCompleteness,
   vehicleSemaforo,
   VEHICLE_FIELD_COLS,
+  VIN_VISIBLE_CHARS,
+  vehicleFieldInputClass,
   type CertMatch,
   type DetectedImportador,
   type SharedShipmentFields,
@@ -122,6 +124,9 @@ export function PuertoLibreCargaMasiva({
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
+  const [createdExpedientes, setCreatedExpedientes] = useState<
+    { vehiculoId: string; codigoExpediente: string; serial: string }[]
+  >([]);
   const [extractProgress, setExtractProgress] =
     useState<CargaMasivaEtapaProgress | null>(null);
   const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
@@ -649,6 +654,7 @@ export function PuertoLibreCargaMasiva({
           : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${semNote}${attachNote}`
       );
       if (ok > 0) {
+        setCreatedExpedientes((prev) => [...result.created, ...prev]);
         setRows((prev) =>
           prev.filter(
             (r) =>
@@ -1083,18 +1089,45 @@ export function PuertoLibreCargaMasiva({
         </p>
       ) : null}
 
-      {resultMsg ? (
-        <p className="flex items-center gap-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {resultMsg}{" "}
-          <Link href="/smartimport" className="underline hover:text-emerald-100">
-            Ver listado
-          </Link>
-        </p>
+      {resultMsg || createdExpedientes.length > 0 ? (
+        <div className="space-y-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
+          {resultMsg ? (
+            <p className="flex flex-wrap items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">{resultMsg}</span>
+              {rows.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={scrollToCargaMasivaListado}
+                  className="shrink-0 underline hover:text-emerald-100"
+                >
+                  Ver listado
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {createdExpedientes.length > 0 ? (
+            <ul className="space-y-1 border-t border-emerald-900/30 pt-2 font-mono text-xs">
+              {createdExpedientes.map((c) => (
+                <li key={c.vehiculoId}>
+                  <Link
+                    href={`/smartimport/${c.vehiculoId}`}
+                    className="underline hover:text-emerald-100"
+                  >
+                    {c.codigoExpediente || "Expediente"} · {c.serial}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
 
       {rows.length > 0 || mode === "documentos" ? (
-        <section className="space-y-3">
+        <section
+          id={CARGA_MASIVA_LISTADO_ID}
+          className="scroll-mt-4 space-y-3"
+        >
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold text-slate-100">
@@ -1182,7 +1215,10 @@ export function PuertoLibreCargaMasiva({
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
-            <table className="min-w-[900px] w-full border-collapse text-left text-xs">
+            <p className="px-3 pt-2 text-[11px] text-slate-500 md:hidden">
+              VIN y seriales completos: desliza la tabla en horizontal.
+            </p>
+            <table className="w-max min-w-full border-collapse text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
                   <th className="px-2 py-2 font-medium">#</th>
@@ -1190,7 +1226,9 @@ export function PuertoLibreCargaMasiva({
                   {VEHICLE_FIELD_COLS.map((c) => (
                     <th
                       key={c.key}
-                      className="whitespace-nowrap px-2 py-2 font-medium"
+                      className={`whitespace-nowrap px-2 py-2 font-medium ${
+                        c.code ? "min-w-[18ch]" : ""
+                      }`}
                     >
                       {c.label}
                     </th>
@@ -1267,15 +1305,21 @@ export function PuertoLibreCargaMasiva({
                         })()}
                       </td>
                       {VEHICLE_FIELD_COLS.map((c) => (
-                        <td key={c.key} className="px-1 py-1 align-top">
+                        <td
+                          key={c.key}
+                          className={`px-1 py-1 align-top ${
+                            c.code ? "whitespace-nowrap" : ""
+                          }`}
+                        >
                           <input
                             value={String(row[c.key] ?? "")}
                             onChange={(e) =>
                               updateRow(row.id, c.key, e.target.value)
                             }
-                            className={`w-full min-w-[4.5rem] rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-100 outline-none focus:border-cyan-500/50 ${
-                              c.wide ? "min-w-[8rem]" : ""
-                            }`}
+                            size={c.code ? VIN_VISIBLE_CHARS : undefined}
+                            spellCheck={c.code ? false : undefined}
+                            autoComplete="off"
+                            className={vehicleFieldInputClass(c)}
                           />
                         </td>
                       ))}
@@ -1299,6 +1343,14 @@ export function PuertoLibreCargaMasiva({
       ) : null}
     </div>
   );
+}
+
+const CARGA_MASIVA_LISTADO_ID = "carga-masiva-listado";
+
+function scrollToCargaMasivaListado() {
+  document
+    .getElementById(CARGA_MASIVA_LISTADO_ID)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function guessTipo(name: string): DocItem["tipo"] {
