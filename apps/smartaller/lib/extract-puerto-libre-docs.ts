@@ -24,7 +24,7 @@ import {
   extractVinsWithTesseractOriented,
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
-import { isLlmConfigured } from "@/lib/ai/openai-config";
+import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
@@ -1480,7 +1480,10 @@ export async function extractFacturaVinsStageFromDocument(
   const noteVisionError = (label: string, err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     diagnostics.push(`${label}: ERROR ${msg.slice(0, 160)}`);
-    if (/402|insufficient credits|purchase more/i.test(msg)) {
+    if (
+      /402|insufficient credits|purchase more/i.test(msg) ||
+      isModelNotFoundError(err)
+    ) {
       visionCreditsBlocked = true;
     }
   };

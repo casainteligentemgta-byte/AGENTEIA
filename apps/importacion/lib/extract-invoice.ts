@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import {
+  createChatCompletion,
   createOpenAIClient,
   formatLlmAuthError,
   getVisionModelId,
@@ -64,7 +65,7 @@ export async function extractMantenimientoFromUrl(fileUrl: string): Promise<Fact
   const model = getVisionModelId();
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await createChatCompletion(openai, {
       model,
       response_format: { type: "json_object" },
       messages: [
