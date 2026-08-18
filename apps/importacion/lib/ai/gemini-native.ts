@@ -320,9 +320,11 @@ export async function geminiChatCompletion(
     typeof params.model === "string" ? params.model : undefined;
 
   const first = await resolveGeminiModelId(preferred);
-  const extras = listedIds && listedIds.length > 0 ? listedIds : [...GEMINI_PREFERRED_MODELS];
+  const fromPreferred = listedIds?.length
+    ? GEMINI_PREFERRED_MODELS.filter((id) => listedIds!.includes(id))
+    : [...GEMINI_PREFERRED_MODELS];
+  const queue = [...new Set([first, ...fromPreferred])].slice(0, 3);
   const seen = new Set<string>();
-  const queue = [first, ...extras];
   let lastError: unknown;
   for (const model of queue) {
     if (!model || seen.has(model)) continue;

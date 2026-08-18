@@ -54,6 +54,7 @@ import {
 } from "@/lib/importacion/carga-masiva-ui";
 import {
   formatCargaMasivaClientError,
+  postSmartimportOcr,
   safeStorageFileName,
   type CargaMasivaStorageDocRef,
 } from "@/lib/importacion/carga-masiva-client";
@@ -436,7 +437,11 @@ export function PuertoLibreCargaMasiva({
             fd.set("rowsJson", JSON.stringify(currentRows));
           }
 
-          const result = await extractCargaMasivaEtapaAction(fd);
+          const result = await postSmartimportOcr(
+            "/api/smartimport/ocr-carga-masiva",
+            fd,
+            extractCargaMasivaEtapaAction
+          );
           if (!result.success) {
             setError(result.error);
             setActiveEtapa(null);

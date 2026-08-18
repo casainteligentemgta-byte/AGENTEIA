@@ -16,7 +16,7 @@ import {
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { cargaMasivaRowFromScanFields } from "@/lib/importacion/carga-masiva-template";
 import { normalizeSerialKey } from "@/lib/importacion/carga-masiva-ui";
-import { OCR_UI_UNLOCK_MS } from "@/lib/importacion/carga-masiva-client";
+import { OCR_UI_UNLOCK_MS, postSmartimportOcr } from "@/lib/importacion/carga-masiva-client";
 import {
   extractPuertoLibreDocumentoAction,
   type ExtractPuertoLibreDocResult,
@@ -78,23 +78,11 @@ type Props = {
 async function extractDocumentoClient(
   fd: FormData
 ): Promise<ExtractPuertoLibreDocResult> {
-  try {
-    const res = await fetch("/api/smartimport/ocr-documento", {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-    });
-    const data = (await res.json()) as ExtractPuertoLibreDocResult;
-    if (!res.ok && !("success" in data)) {
-      return {
-        success: false,
-        error: `No se pudo leer el documento (${res.status})`,
-      };
-    }
-    return data;
-  } catch {
-    return extractPuertoLibreDocumentoAction(fd);
-  }
+  return postSmartimportOcr(
+    "/api/smartimport/ocr-documento",
+    fd,
+    extractPuertoLibreDocumentoAction
+  );
 }
 
 async function prepareFile(file: File): Promise<File> {
