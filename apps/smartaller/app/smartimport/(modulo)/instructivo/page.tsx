@@ -113,7 +113,7 @@ const TIPS = [
     icon: Upload,
     titulo: "Varios vehículos",
     texto:
-      "En Nueva importación usa «Excel / CSV (varios vehículos)» o sube una factura con hoja anexa. Comparte aduana, BL y fecha de llegada entre unidades.",
+      "En Nueva importación sube la factura (1 o N vehículos) o usa «Varios vehículos». Cada VIN es un expediente. Los certificados de origen se añaden y se emparejan por serial. Excel/CSV queda como atajo.",
     href: "/smartimport/importaciones/nueva?masiva=1",
     cta: "Nueva importación (varios)",
   },

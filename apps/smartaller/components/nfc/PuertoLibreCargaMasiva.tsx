@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileUp,
   Loader2,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -25,6 +26,7 @@ import {
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import {
   type CargaMasivaRow,
+  emptyCargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
 import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
 import {
@@ -67,6 +69,11 @@ type DocItem = {
   tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
 };
 
+export type CargaMasivaInitialDoc = {
+  file: File;
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+};
+
 type Props = {
   initialImportadores: ImportadorListItem[];
   tallerId: string;
@@ -76,7 +83,8 @@ type Props = {
   initialRows?: CargaMasivaRow[];
   initialMode?: Mode;
   initialMessage?: string | null;
-  certMergeRequest?: { file: File; requestId: number } | null;
+  initialDocs?: CargaMasivaInitialDoc[];
+  certMergeRequest?: { files: File[]; requestId: number } | null;
   onSwitchToIndividual?: () => void;
 };
 
@@ -89,6 +97,7 @@ export function PuertoLibreCargaMasiva({
   initialRows,
   initialMode,
   initialMessage = null,
+  initialDocs = [],
   certMergeRequest = null,
   onSwitchToIndividual,
 }: Props) {
@@ -122,7 +131,10 @@ export function PuertoLibreCargaMasiva({
   const certsRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
   const initialRowsApplied = useRef(false);
+  const initialDocsApplied = useRef(false);
   const certMergeHandled = useRef<number | null>(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   useEffect(() => {
     if (initialRowsApplied.current || !initialRows?.length) return;
@@ -163,19 +175,34 @@ export function PuertoLibreCargaMasiva({
   }, [router]);
 
   useEffect(() => {
-    if (!certMergeRequest) return;
+    if (initialDocsApplied.current || !initialDocs.length) return;
+    initialDocsApplied.current = true;
+    setDocs(
+      initialDocs.map((d) => ({
+        id: `${d.file.name}-${d.file.size}-${Math.random().toString(36).slice(2, 7)}`,
+        file: d.file,
+        tipo: d.tipo,
+      }))
+    );
+  }, [initialDocs]);
+
+  useEffect(() => {
+    if (!certMergeRequest?.files.length) return;
     if (certMergeHandled.current === certMergeRequest.requestId) return;
-    if (rows.length === 0) return;
     certMergeHandled.current = certMergeRequest.requestId;
 
-    const certDocs: DocItem[] = [
-      {
-        id: `cert-merge-${certMergeRequest.requestId}`,
-        file: certMergeRequest.file,
-        tipo: "certificado_origen",
-      },
-    ];
-    setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
+    const certDocs: DocItem[] = certMergeRequest.files.map((file, index) => ({
+      id: `cert-merge-${certMergeRequest.requestId}-${index}`,
+      file,
+      tipo: "certificado_origen",
+    }));
+    setDocs((prev) => {
+      const seen = new Set(prev.map((d) => `${d.file.name}-${d.file.size}`));
+      const extra = certDocs.filter(
+        (d) => !seen.has(`${d.file.name}-${d.file.size}`)
+      );
+      return [...prev, ...extra].slice(0, 20);
+    });
     setError(null);
     setResultMsg(null);
 
@@ -192,7 +219,7 @@ export function PuertoLibreCargaMasiva({
         const storageDocs = await uploadDocsToStorage(certDocs, batchId);
         const fd = new FormData();
         fd.set("storageDocs", JSON.stringify(storageDocs));
-        fd.set("rowsJson", JSON.stringify(rows));
+        fd.set("rowsJson", JSON.stringify(rowsRef.current));
         const result = await completarCargaMasivaConCertificadosAction(fd);
         if (!result.success) {
           setError(result.error);
@@ -201,7 +228,7 @@ export function PuertoLibreCargaMasiva({
         ingestExtracted(result.rows, result.certMatches);
         setWarnings(result.warnings);
         setResultMsg(
-          `Certificado emparejado inline. ${
+          `Certificado emparejado. ${
             result.rows.filter((r) => vehicleCompleteness(r).complete).length
           }/${result.rows.length} filas con datos completos.`
         );
@@ -209,7 +236,7 @@ export function PuertoLibreCargaMasiva({
         setError(formatCargaMasivaClientError(err));
       }
     });
-  }, [certMergeRequest, rows.length, tallerId]);
+  }, [certMergeRequest, tallerId]);
 
   const filtrados = useMemo(() => {
     const q = clienteQuery.trim().toLowerCase();
@@ -448,10 +475,6 @@ export function PuertoLibreCargaMasiva({
 
   function completarConCertificados(list: FileList | null) {
     if (!list?.length) return;
-    if (rows.length === 0) {
-      setError("Primero extrae o carga los vehículos");
-      return;
-    }
     if (!tallerId) {
       setError("No se pudo identificar el taller para subir documentos");
       return;
@@ -878,6 +901,33 @@ export function PuertoLibreCargaMasiva({
                 )}
                 {pending ? "Extrayendo…" : "Extraer vehículos"}
               </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => certsRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Añadir certificados
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  setRows((prev) => [
+                    ...prev,
+                    emptyCargaMasivaRow({ fuente: "Manual" }),
+                  ])
+                }
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                Añadir fila
+              </button>
             </div>
             <input
               ref={docsRef}
@@ -887,6 +937,17 @@ export function PuertoLibreCargaMasiva({
               className="hidden"
               onChange={(e) => {
                 handleDocsFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={certsRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                completarConCertificados(e.target.files);
                 e.target.value = "";
               }}
             />
@@ -1027,7 +1088,7 @@ export function PuertoLibreCargaMasiva({
         </p>
       ) : null}
 
-      {rows.length > 0 ? (
+      {rows.length > 0 || mode === "documentos" ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
@@ -1097,9 +1158,8 @@ export function PuertoLibreCargaMasiva({
               Completar con certificados de origen
             </h3>
             <p className="mt-1 text-xs text-slate-400">
-              Si ya tienes las filas de la factura, sube aquí los certificados
-              (uno por vehículo o un PDF multi). Se emparejan por VIN y rellenan
-              motor, marca, color, año y nº de certificado.
+              Añade uno o varios PDF (un certificado por vehículo o un PDF con
+              varios VIN). Se emparejan por serial y, si no hay fila, se crea.
             </p>
             <button
               type="button"
@@ -1114,17 +1174,6 @@ export function PuertoLibreCargaMasiva({
               )}
               Subir certificados
             </button>
-            <input
-              ref={certsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                completarConCertificados(e.target.files);
-                e.target.value = "";
-              }}
-            />
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-800">

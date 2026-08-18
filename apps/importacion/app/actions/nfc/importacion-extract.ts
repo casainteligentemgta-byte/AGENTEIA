@@ -37,6 +37,7 @@ export type ExtractPuertoLibreDocResult =
       filledCount: number;
       /** Factura con varias unidades (hoja anexa / carátula multi). */
       multi?: false;
+      warning?: string;
     }
   | {
       success: true;
@@ -46,6 +47,25 @@ export type ExtractPuertoLibreDocResult =
       multi: true;
       rows: CargaMasivaRow[];
       vehicleCount: number;
+      warning?: string;
+    }
+  | {
+      success: true;
+      tipo: "certificado_origen";
+      fields: PuertoLibreRegistroScanFields;
+      filledCount: number;
+      multi?: false;
+      warning?: string;
+    }
+  | {
+      success: true;
+      tipo: "certificado_origen";
+      fields: PuertoLibreRegistroScanFields;
+      filledCount: number;
+      multi: true;
+      rows: CargaMasivaRow[];
+      vehicleCount: number;
+      warning?: string;
     }
   | { success: false; error: string };
 
@@ -193,9 +213,13 @@ export async function extractPuertoLibreDocumentoAction(
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: false,
-          error:
-            "No se pudieron leer datos de la factura. Si es una hoja anexa con varios VIN, usa Carga masiva o prueba una foto más nítida (sin rotar).",
+          success: true,
+          tipo: "factura_comercial",
+          fields,
+          filledCount: 0,
+          multi: false,
+          warning:
+            "No se pudieron leer VIN ni datos de la factura. Reintenta con una foto más nítida o abre carga masiva.",
         };
       }
       return {
@@ -212,17 +236,50 @@ export async function extractPuertoLibreDocumentoAction(
         buffer,
         mimeType
       );
+      if (extracted.vehiculos.length > 1) {
+        const rows = extracted.vehiculos.map((v, i) => {
+          const merged = mergeScanFields(extracted.shared, v);
+          return scanFieldsToRow(
+            merged,
+            `Certificado origen · unidad ${i + 1} · ${file.name}`
+          );
+        });
+        const first = mergeScanFields(
+          extracted.shared,
+          extracted.vehiculos[0] ?? {}
+        );
+        return {
+          success: true,
+          tipo: "certificado_origen",
+          multi: true,
+          rows,
+          vehicleCount: rows.length,
+          fields: first,
+          filledCount: rows.length,
+        };
+      }
+
       const first = extracted.vehiculos[0] ?? {};
       const fields = mergeScanFields(extracted.shared, first);
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: false,
-          error:
-            "No se pudieron leer datos del certificado de origen. Prueba con una foto más nítida o completa los campos a mano.",
+          success: true,
+          tipo: "certificado_origen",
+          fields,
+          filledCount: 0,
+          multi: false,
+          warning:
+            "No se pudieron leer datos del certificado. El archivo se guarda igual: reintenta o ábrelo en carga masiva.",
         };
       }
-      return { success: true, tipo: "certificado_origen", fields, filledCount };
+      return {
+        success: true,
+        tipo: "certificado_origen",
+        fields,
+        filledCount,
+        multi: false,
+      };
     }
 
     if (tipoRaw === "poliza_transporte") {

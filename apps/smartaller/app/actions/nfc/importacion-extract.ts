@@ -37,6 +37,7 @@ export type ExtractPuertoLibreDocResult =
       filledCount: number;
       /** Factura con varias unidades (hoja anexa / carátula multi). */
       multi?: false;
+      warning?: string;
     }
   | {
       success: true;
@@ -46,6 +47,7 @@ export type ExtractPuertoLibreDocResult =
       multi: true;
       rows: CargaMasivaRow[];
       vehicleCount: number;
+      warning?: string;
     }
   | {
       success: true;
@@ -53,6 +55,7 @@ export type ExtractPuertoLibreDocResult =
       fields: PuertoLibreRegistroScanFields;
       filledCount: number;
       multi?: false;
+      warning?: string;
     }
   | {
       success: true;
@@ -62,6 +65,7 @@ export type ExtractPuertoLibreDocResult =
       multi: true;
       rows: CargaMasivaRow[];
       vehicleCount: number;
+      warning?: string;
     }
   | { success: false; error: string };
 
@@ -209,9 +213,13 @@ export async function extractPuertoLibreDocumentoAction(
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: false,
-          error:
-            "No se pudieron leer datos de la factura. Si es una hoja anexa con varios VIN, usa «Excel / CSV (varios vehículos)» en Nueva importación o prueba una foto más nítida (sin rotar).",
+          success: true,
+          tipo: "factura_comercial",
+          fields,
+          filledCount: 0,
+          multi: false,
+          warning:
+            "No se pudieron leer VIN ni datos de la factura. Reintenta con una foto más nítida o abre la planilla de varios vehículos.",
         };
       }
       return {
@@ -256,9 +264,13 @@ export async function extractPuertoLibreDocumentoAction(
       const filledCount = countFilledFields(fields);
       if (filledCount === 0) {
         return {
-          success: false,
-          error:
-            "No se pudieron leer datos del certificado de origen. Prueba con una foto más nítida o completa los campos a mano.",
+          success: true,
+          tipo: "certificado_origen",
+          fields,
+          filledCount: 0,
+          multi: false,
+          warning:
+            "No se pudieron leer datos del certificado. El archivo se guarda igual: reintenta o ábrelo en la planilla de varios vehículos.",
         };
       }
       return {

@@ -113,7 +113,7 @@ const TIPS = [
     icon: Upload,
     titulo: "Carga masiva",
     texto:
-      "Si tienes muchas facturas, usa carga masiva y comparte aduana, BL y fecha de llegada entre unidades.",
+      "Sube la factura (1 o N vehículos) o varios certificados de origen. Cada VIN es un expediente; los certificados se emparejan por serial. Excel/CSV queda como atajo.",
     href: "/smartimport/carga-masiva",
     cta: "Abrir carga masiva",
   },

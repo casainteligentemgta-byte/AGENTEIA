@@ -17,6 +17,49 @@ export function normalizeSerialKey(serial: string): string {
   );
 }
 
+const ROW_MERGE_SKIP = new Set(["id", "error", "fuente"]);
+
+function fillEmptyRowFields(
+  base: CargaMasivaRow,
+  incoming: CargaMasivaRow
+): CargaMasivaRow {
+  const next: CargaMasivaRow = { ...base };
+  (Object.keys(incoming) as (keyof CargaMasivaRow)[]).forEach((key) => {
+    if (ROW_MERGE_SKIP.has(key)) return;
+    const incomingVal = incoming[key];
+    const currentVal = next[key];
+    if (typeof incomingVal !== "string" || !incomingVal.trim()) return;
+    if (typeof currentVal === "string" && currentVal.trim()) return;
+    (next[key] as string) = incomingVal;
+  });
+  if (!next.fuente && incoming.fuente) next.fuente = incoming.fuente;
+  return next;
+}
+
+/** Une filas por VIN/serial: completa huecos y añade vehículos nuevos. */
+export function mergeCargaMasivaRowsByVin(
+  existing: CargaMasivaRow[],
+  incoming: CargaMasivaRow[]
+): CargaMasivaRow[] {
+  const result = [...existing];
+  const indexBySerial = new Map<string, number>();
+  result.forEach((row, index) => {
+    const key = normalizeSerialKey(row.serialCarroceria || row.vin);
+    if (key) indexBySerial.set(key, index);
+  });
+  for (const row of incoming) {
+    const key = normalizeSerialKey(row.serialCarroceria || row.vin);
+    if (key && indexBySerial.has(key)) {
+      const index = indexBySerial.get(key)!;
+      result[index] = fillEmptyRowFields(result[index]!, row);
+      continue;
+    }
+    if (key) indexBySerial.set(key, result.length);
+    result.push(row);
+  }
+  return result;
+}
+
 /** Corrige filas Chery ya en UI: marca, modelo desde «PRO MAX», limpia VIN. */
 export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
   const anyChery = rows.some((r) => {

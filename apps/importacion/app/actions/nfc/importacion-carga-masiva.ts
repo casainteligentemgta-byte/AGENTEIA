@@ -1036,8 +1036,8 @@ export async function completarCargaMasivaConCertificadosAction(
   try {
     const raw = String(formData.get("rowsJson") ?? "");
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return { success: false, error: "No hay filas para completar" };
+    if (!Array.isArray(parsed)) {
+      return { success: false, error: "Filas inválidas" };
     }
     existingRows = parsed as CargaMasivaRow[];
   } catch {
@@ -1140,11 +1140,44 @@ export async function completarCargaMasivaConCertificadosAction(
       );
     }
 
-    warnings.push(
-      matched > 0
-        ? `Se completaron ${matched} fila(s) con certificado emparejado por VIN`
-        : "No hubo match por VIN; se aplicaron solo datos compartidos del certificado (origen/nº)"
+    const existingSerials = new Set(
+      vehicleRows
+        .map((r) =>
+          normalizarSerialCarroceria(r.serialCarroceria || r.vin || "")
+        )
+        .filter(Boolean)
     );
+    let appended = 0;
+    for (const { fields, fileName } of certVehicles) {
+      const serial = normalizarSerialCarroceria(
+        fields.serialCarroceria ?? fields.vin ?? ""
+      );
+      if (!serial || existingSerials.has(serial)) continue;
+      vehicleRows.push(
+        scanFieldsToRow(
+          mergeScanFields(sharedFromCert, fields),
+          `Certificado origen · ${fileName}`
+        )
+      );
+      existingSerials.add(serial);
+      appended += 1;
+    }
+
+    if (matched > 0) {
+      warnings.push(
+        `Se completaron ${matched} fila(s) con certificado emparejado por VIN`
+      );
+    }
+    if (appended > 0) {
+      warnings.push(
+        `Se añadieron ${appended} vehículo(s) desde certificado(s) sin fila previa`
+      );
+    }
+    if (matched === 0 && appended === 0) {
+      warnings.push(
+        "No hubo match por VIN; se aplicaron solo datos compartidos del certificado (origen/nº)"
+      );
+    }
 
     return {
       success: true,
