@@ -5,6 +5,10 @@ export const dynamic = "force-dynamic";
 /** Una pasada de visión + PDF; las Server Actions no pueden exportar maxDuration. */
 export const maxDuration = 120;
 
+export async function GET() {
+  return NextResponse.json({ ok: true, service: "ocr-documento" });
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
