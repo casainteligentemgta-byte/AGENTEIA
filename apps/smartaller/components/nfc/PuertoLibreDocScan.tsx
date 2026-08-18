@@ -16,6 +16,7 @@ import { cargaMasivaRowFromScanFields } from "@/lib/importacion/carga-masiva-tem
 import { normalizeSerialKey } from "@/lib/importacion/carga-masiva-ui";
 import { OCR_UI_UNLOCK_MS } from "@/lib/importacion/carga-masiva-client";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
+import type { ExtractPuertoLibreDocResult } from "@/app/actions/nfc/importacion-extract";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
@@ -68,6 +69,28 @@ type Props = {
   /** Abre la planilla de varios vehículos (un expediente por VIN). */
   onOpenVariosVehiculos?: () => void;
 };
+
+async function extractDocumentoClient(
+  fd: FormData
+): Promise<ExtractPuertoLibreDocResult> {
+  try {
+    const res = await fetch("/api/smartimport/ocr-documento", {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+    const data = (await res.json()) as ExtractPuertoLibreDocResult;
+    if (!res.ok && !("success" in data)) {
+      return {
+        success: false,
+        error: `No se pudo leer el documento (${res.status})`,
+      };
+    }
+    return data;
+  } catch {
+    return extractPuertoLibreDocumentoAction(fd);
+  }
+}
 
 async function prepareFile(file: File): Promise<File> {
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
@@ -181,7 +204,7 @@ function ScanButton({
           const fd = new FormData();
           fd.set("tipo", tipo);
           fd.set("file", prepared);
-          const result = await extractPuertoLibreDocumentoAction(fd);
+          const result = await extractDocumentoClient(fd);
           if (gen !== runId.current) return;
           if (!result.success) {
             setWarning(result.error);
@@ -449,7 +472,7 @@ function CertScanPanel({
           const fd = new FormData();
           fd.set("tipo", "certificado_origen");
           fd.set("file", file);
-          const result = await extractPuertoLibreDocumentoAction(fd);
+          const result = await extractDocumentoClient(fd);
           if (gen !== runId.current) return;
           if (!result.success) {
             lastWarning = result.error;

@@ -1,4 +1,5 @@
 import {
+  createChatCompletion,
   createOpenAIClient,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
@@ -39,7 +40,7 @@ async function requestVisionCompletion(params: {
   const timeoutMs = params.maxTokens >= 4000 ? 120_000 : 45_000;
   const openai = createOpenAIClient({ timeoutMs });
   const model = getVisionModelId();
-  const response = await openai.chat.completions.create({
+  const response = await createChatCompletion(openai, {
     model,
     ...(params.jsonMode
       ? { response_format: { type: "json_object" as const } }

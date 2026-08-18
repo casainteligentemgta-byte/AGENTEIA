@@ -1,4 +1,5 @@
 import {
+  createChatCompletion,
   createOpenAIClient,
   getVisionModelId,
 } from "@/lib/ai/openai-config";
@@ -45,7 +46,7 @@ async function extractJsonFromImage(
   const openai = createOpenAIClient();
   const model = getVisionModelId();
 
-  const response = await openai.chat.completions.create({
+  const response = await createChatCompletion(openai, {
     model,
     response_format: { type: "json_object" },
     messages: [

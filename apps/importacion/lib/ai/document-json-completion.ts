@@ -1,5 +1,6 @@
 import type OpenAI from "openai";
 import {
+  createChatCompletion,
   createOpenAIClient,
   getChatModelId,
   getVisionModelId,
@@ -107,7 +108,7 @@ async function jsonFromTextPrompt(
 ): Promise<Record<string, unknown>> {
   const openai = createOpenAIClient({ timeoutMs: 45_000 });
   const model = getChatModelId();
-  const response = await openai.chat.completions.create({
+  const response = await createChatCompletion(openai, {
     model,
     response_format: { type: "json_object" },
     temperature: 0,
@@ -160,7 +161,7 @@ async function jsonFromPdfPageImages(
 
   try {
     const model = getVisionModelId();
-    const response = await openai.chat.completions.create({
+    const response = await createChatCompletion(openai, {
       model,
       response_format: { type: "json_object" },
       temperature: 0,
@@ -192,7 +193,7 @@ async function jsonFromPdfPageImages(
       });
     }
     const model = getVisionModelId();
-    const response = await openai.chat.completions.create({
+    const response = await createChatCompletion(openai, {
       model,
       response_format: { type: "json_object" },
       temperature: 0,
@@ -316,7 +317,7 @@ export async function createDocumentJsonCompletion(params: {
 
   try {
     const model = getVisionModelId();
-    const response = await openai.chat.completions.create({
+    const response = await createChatCompletion(openai, {
       model,
       response_format: { type: "json_object" },
       temperature: 0,

@@ -220,8 +220,18 @@ export function PuertoLibreFase1Form({
     tipo: PuertoLibreScanTipo,
     file: File
   ) {
-    setValues((prev) => mergeScanFields(prev, fields));
     setScanFiles((prev) => ({ ...prev, [tipo]: file }));
+    const hasVehicleData = Boolean(
+      fields.marca?.trim() ||
+        fields.modelo?.trim() ||
+        fields.vin?.trim() ||
+        fields.serialCarroceria?.trim() ||
+        fields.serialMotor?.trim() ||
+        fields.color?.trim() ||
+        fields.numeroCertificadoOrigen?.trim()
+    );
+    if (!hasVehicleData) return;
+    setValues((prev) => mergeScanFields(prev, fields));
     setCatalogKey((k) => k + 1);
   }
 

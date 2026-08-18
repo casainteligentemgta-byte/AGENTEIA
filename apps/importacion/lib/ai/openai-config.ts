@@ -48,6 +48,55 @@ export function isGeminiProvider(): boolean {
   return getLlmProvider() === "gemini";
 }
 
+/** gemini-2.0-flash ya no está para claves nuevas de AI Studio (404). */
+export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
+
+const GEMINI_MODEL_FALLBACKS = [
+  GEMINI_DEFAULT_MODEL,
+  "gemini-2.5-flash-lite",
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+] as const;
+
+export function isModelNotFoundError(err: unknown): boolean {
+  const status = err instanceof OpenAI.APIError ? err.status : undefined;
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    status === 404 ||
+    /404|NOT_FOUND|no longer available|model .+ not found|status code \(no body\)/i.test(
+      msg
+    )
+  );
+}
+
+/**
+ * chat.completions.create con reintento de modelo Gemini si el alias está deprecado.
+ */
+export async function createChatCompletion(
+  openai: OpenAI,
+  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  if (!isGeminiProvider()) {
+    return openai.chat.completions.create(params);
+  }
+  const seen = new Set<string>();
+  const models = [params.model, ...GEMINI_MODEL_FALLBACKS].filter(
+    (m): m is string => Boolean(m)
+  );
+  let lastError: unknown;
+  for (const model of models) {
+    if (seen.has(model)) continue;
+    seen.add(model);
+    try {
+      return await openai.chat.completions.create({ ...params, model });
+    } catch (err) {
+      lastError = err;
+      if (!isModelNotFoundError(err)) throw err;
+    }
+  }
+  throw lastError ?? new Error("Gemini no reconoció ningún modelo disponible");
+}
+
 export function getOpenAIBaseURL(): string | undefined {
   const provider = getLlmProvider();
   if (provider === "gemini") return GEMINI_OPENAI_BASE_URL;
@@ -62,7 +111,7 @@ export function getChatModelId(): string {
     process.env.GEMINI_CHAT_MODEL?.trim();
   if (custom) return custom;
   const provider = getLlmProvider();
-  if (provider === "gemini") return "gemini-2.0-flash";
+  if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
   if (provider === "openrouter") return "openai/gpt-4o-mini";
   return "gpt-4o-mini";
 }
@@ -74,7 +123,7 @@ export function getVisionModelId(): string {
     process.env.GEMINI_VISION_MODEL?.trim();
   if (custom) return custom;
   const provider = getLlmProvider();
-  if (provider === "gemini") return "gemini-2.0-flash";
+  if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
   if (provider === "openrouter") return "openai/gpt-4o-mini";
   return "gpt-4o-mini";
 }
@@ -129,7 +178,7 @@ export function formatLlmAuthError(err: unknown): string {
     )
   ) {
     if (isGeminiProvider()) {
-      return "Cuota gratuita de Gemini agotada o modelo de pago. Prueba más tarde o usa gemini-2.0-flash.";
+      return "Cuota gratuita de Gemini agotada o modelo de pago. Prueba más tarde o usa gemini-2.5-flash.";
     }
     if (isOpenRouterKey()) {
       return "OpenRouter sin créditos. Añade GEMINI_API_KEY (gratis en Google AI Studio) en Vercel, o recarga OpenRouter. El OCR local (Tesseract) sigue intentando leer VIN sin créditos.";
@@ -144,6 +193,15 @@ export function formatLlmAuthError(err: unknown): string {
       return "Clave OpenRouter inválida o expirada. Revisa OPENAI_API_KEY en Vercel (debe ser sk-or-v1-...).";
     }
     return "Clave OpenAI inválida. Usa sk-proj-... de OpenAI, sk-or-v1-... de OpenRouter, o GEMINI_API_KEY gratis.";
+  }
+  if (
+    /404|NOT_FOUND|no longer available|status code \(no body\)/i.test(msg) ||
+    (err instanceof OpenAI.APIError && err.status === 404)
+  ) {
+    if (isGeminiProvider()) {
+      return "Gemini no reconoce el modelo (404). En Vercel deja GEMINI_CHAT_MODEL y GEMINI_VISION_MODEL vacíos, o pon gemini-2.5-flash. gemini-2.0-flash ya no está disponible para claves nuevas.";
+    }
+    return "La API de IA no encontró el modelo (404). Revisa GEMINI_CHAT_MODEL / OPENAI_CHAT_MODEL en Vercel.";
   }
   if (/429|rate limit|quota|RESOURCE_EXHAUSTED/i.test(msg)) {
     if (isGeminiProvider()) {
