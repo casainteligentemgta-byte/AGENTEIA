@@ -13,6 +13,11 @@ import {
   ShieldAlert,
   ShieldBan,
 } from "lucide-react";
+import { BibliotecaLegalDocumentos } from "@/components/nfc/BibliotecaLegalDocumentos";
+import {
+  BIBLIOTECA_LEGAL_CATEGORIA_LABELS,
+  type BibliotecaLegalDocumento,
+} from "@/lib/importacion/biblioteca-legal-docs";
 import {
   NORMA_PROCESO_LABELS,
   NORMA_TIPO_LABELS,
@@ -51,6 +56,7 @@ function tieneAlertaLapso(n: NormaLegal): boolean {
 
 export default function BibliotecaLegalPage() {
   const [filter, setFilter] = useState<FilterId>("todas");
+  const [pdfs, setPdfs] = useState<BibliotecaLegalDocumento[]>([]);
   const normas = listNormasLegales();
   const vigilancia = listVigilanciaActiva();
   const lapsosCount = countLapsosCatalogados();
@@ -130,6 +136,8 @@ export default function BibliotecaLegalPage() {
           );
         })}
       </div>
+
+      <BibliotecaLegalDocumentos normas={normas} onDocumentosChange={setPdfs} />
 
       <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/90">
         <p className="flex items-start gap-2">
@@ -290,6 +298,25 @@ export default function BibliotecaLegalPage() {
                   </span>
                 ))}
               </div>
+            )}
+
+            {pdfs.filter((d) => d.normaId === n.id).length > 0 && (
+              <ul className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
+                {pdfs
+                  .filter((d) => d.normaId === n.id)
+                  .map((d) => (
+                    <li key={d.id}>
+                      <a
+                        href={d.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-cyan-300 underline hover:text-cyan-100"
+                      >
+                        {BIBLIOTECA_LEGAL_CATEGORIA_LABELS[d.categoria]} · {d.titulo}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
             )}
           </li>
         ))}
