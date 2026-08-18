@@ -54,25 +54,42 @@ export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow
   });
 }
 
-/** Columnas editables por vehículo (no se repiten aduana/BL/importador). */
-export const VEHICLE_FIELD_COLS: {
+/** VIN ISO: 17 caracteres visibles sin recortar el input. */
+export const VIN_VISIBLE_CHARS = 17;
+
+export type VehicleFieldCol = {
   key: keyof CargaMasivaRow;
   label: string;
   wide?: boolean;
-}[] = [
+  /** Identificador (VIN/serial): ancho fijo para ver el valor completo. */
+  code?: boolean;
+};
+
+/** Columnas editables por vehículo (no se repiten aduana/BL/importador). */
+export const VEHICLE_FIELD_COLS: VehicleFieldCol[] = [
   { key: "marca", label: "Marca" },
   { key: "modelo", label: "Modelo" },
   { key: "color", label: "Color" },
   { key: "anio", label: "Año" },
-  { key: "serialMotor", label: "Serial motor", wide: true },
-  { key: "vin", label: "VIN", wide: true },
-  { key: "serialCarroceria", label: "Serial carrocería", wide: true },
+  { key: "serialMotor", label: "Serial motor", wide: true, code: true },
+  { key: "vin", label: "VIN", wide: true, code: true },
+  { key: "serialCarroceria", label: "Serial carrocería", wide: true, code: true },
   { key: "kilometraje", label: "Km" },
   { key: "condicion", label: "Condición" },
   { key: "esSubasta", label: "Subasta" },
   { key: "numeroCertificadoOrigen", label: "Nº cert. origen" },
   { key: "observaciones", label: "Obs. (unidad/llave)", wide: true },
 ];
+
+const FIELD_INPUT_BASE =
+  "rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-100 outline-none focus:border-cyan-500/50";
+
+export function vehicleFieldInputClass(col: VehicleFieldCol): string {
+  if (col.code) {
+    return `${FIELD_INPUT_BASE} box-content w-[18ch] min-w-[18ch] max-w-none font-mono text-[13px] tracking-tight`;
+  }
+  return `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
+}
 
 export type SharedShipmentFields = {
   fechaLlegadaBuque: string;

@@ -48,6 +48,8 @@ import {
   vehicleCompleteness,
   vehicleSemaforo,
   VEHICLE_FIELD_COLS,
+  VIN_VISIBLE_CHARS,
+  vehicleFieldInputClass,
   type CertMatch,
   type DetectedImportador,
   type SharedShipmentFields,
@@ -1182,7 +1184,10 @@ export function PuertoLibreCargaMasiva({
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
-            <table className="min-w-[900px] w-full border-collapse text-left text-xs">
+            <p className="px-3 pt-2 text-[11px] text-slate-500 md:hidden">
+              VIN y seriales completos: desliza la tabla en horizontal.
+            </p>
+            <table className="w-max min-w-full border-collapse text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
                   <th className="px-2 py-2 font-medium">#</th>
@@ -1190,7 +1195,9 @@ export function PuertoLibreCargaMasiva({
                   {VEHICLE_FIELD_COLS.map((c) => (
                     <th
                       key={c.key}
-                      className="whitespace-nowrap px-2 py-2 font-medium"
+                      className={`whitespace-nowrap px-2 py-2 font-medium ${
+                        c.code ? "min-w-[18ch]" : ""
+                      }`}
                     >
                       {c.label}
                     </th>
@@ -1267,15 +1274,21 @@ export function PuertoLibreCargaMasiva({
                         })()}
                       </td>
                       {VEHICLE_FIELD_COLS.map((c) => (
-                        <td key={c.key} className="px-1 py-1 align-top">
+                        <td
+                          key={c.key}
+                          className={`px-1 py-1 align-top ${
+                            c.code ? "whitespace-nowrap" : ""
+                          }`}
+                        >
                           <input
                             value={String(row[c.key] ?? "")}
                             onChange={(e) =>
                               updateRow(row.id, c.key, e.target.value)
                             }
-                            className={`w-full min-w-[4.5rem] rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-100 outline-none focus:border-cyan-500/50 ${
-                              c.wide ? "min-w-[8rem]" : ""
-                            }`}
+                            size={c.code ? VIN_VISIBLE_CHARS : undefined}
+                            spellCheck={c.code ? false : undefined}
+                            autoComplete="off"
+                            className={vehicleFieldInputClass(c)}
                           />
                         </td>
                       ))}
