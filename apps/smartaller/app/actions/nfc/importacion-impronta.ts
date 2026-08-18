@@ -50,12 +50,12 @@ export async function verifyPuertoLibreImprontaAction(
     };
   }
 
-  const budget = await assertLlmBudgetAllows(taller.id);
+  const budget = await assertLlmBudgetAllows(auth.taller.id);
   if (!budget.ok) return { success: false, error: budget.error };
   bindLlmUsageContext({
     action: "ocr_impronta",
-    tallerId: taller.id,
-    userId: user.id,
+    tallerId: auth.taller.id,
+    userId: auth.user.id,
   });
 
   const vehiculoId = String(formData.get("vehiculoId") ?? "").trim();
