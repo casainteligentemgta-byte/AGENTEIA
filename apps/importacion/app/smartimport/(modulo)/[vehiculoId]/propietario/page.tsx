@@ -59,6 +59,7 @@ export default async function PuertoLibrePropietarioPage({ params }: Props) {
           compradorTelefono={ficha.telefono_cliente}
           compradorCedula={ficha.cedula_propietario}
           compradorEmail={ficha.email_propietario}
+          compradorFechaNacimiento={ficha.fecha_nacimiento_propietario}
           compradorDireccion={ficha.importacion.compradorDireccion ?? null}
           initialSeguro={ficha.seguro}
           initialDocumentos={ficha.documentos}

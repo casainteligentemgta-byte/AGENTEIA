@@ -32,6 +32,7 @@ import {
   syncCertificadoOrigenNumeroAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { PropietarioCedulaScan } from "@/components/nfc/PropietarioCedulaScan";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import {
   OPCIONES_OK_DANO,
@@ -116,6 +117,7 @@ type Props = {
   compradorTelefono: string | null;
   compradorCedula: string | null;
   compradorEmail: string | null;
+  compradorFechaNacimiento: string | null;
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
@@ -175,6 +177,7 @@ export function PlanillaRegistroImportacion({
   compradorTelefono,
   compradorCedula,
   compradorEmail,
+  compradorFechaNacimiento,
   initialImportacion,
   initialSeguro,
   initialDocumentos,
@@ -677,6 +680,7 @@ export function PlanillaRegistroImportacion({
           compradorTelefono={compradorTelefono}
           compradorCedula={compradorCedula}
           compradorEmail={compradorEmail}
+          compradorFechaNacimiento={compradorFechaNacimiento}
           compradorDireccion={initialImportacion.compradorDireccion ?? null}
           pending={pending}
           onComplete={(payload, after) => {
@@ -2016,6 +2020,7 @@ function Fase4Propietario({
   compradorTelefono,
   compradorCedula,
   compradorEmail,
+  compradorFechaNacimiento,
   compradorDireccion,
   pending,
   onComplete,
@@ -2028,6 +2033,7 @@ function Fase4Propietario({
   compradorTelefono: string | null;
   compradorCedula: string | null;
   compradorEmail: string | null;
+  compradorFechaNacimiento: string | null;
   compradorDireccion: string | null;
   pending: boolean;
   onComplete: (
@@ -2037,11 +2043,38 @@ function Fase4Propietario({
       cedulaPropietario: string;
       emailPropietario: string;
       direccion: string;
+      fechaNacimientoPropietario: string;
     },
     after: PlanillaAfterSave
   ) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
+  const [nombreCliente, setNombreCliente] = useState(compradorNombre ?? "");
+  const [cedulaPropietario, setCedulaPropietario] = useState(
+    compradorCedula ?? ""
+  );
+  const [telefonoCliente, setTelefonoCliente] = useState(
+    compradorTelefono ?? ""
+  );
+  const [direccion, setDireccion] = useState(compradorDireccion ?? "");
+  const [emailPropietario, setEmailPropietario] = useState(
+    compradorEmail ?? ""
+  );
+  const [fechaNacimientoPropietario, setFechaNacimientoPropietario] =
+    useState(compradorFechaNacimiento ?? "");
+
+  function applyScanned(fields: {
+    nombreCliente?: string;
+    cedulaPropietario?: string;
+    fechaNacimientoPropietario?: string;
+  }) {
+    if (fields.nombreCliente) setNombreCliente(fields.nombreCliente);
+    if (fields.cedulaPropietario) setCedulaPropietario(fields.cedulaPropietario);
+    if (fields.fechaNacimientoPropietario) {
+      setFechaNacimientoPropietario(fields.fechaNacimientoPropietario);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
@@ -2049,6 +2082,19 @@ function Fase4Propietario({
           <User className="h-5 w-5 text-cyan-400" />
           Datos del comprador / propietario
         </h2>
+
+        <div className="mt-4">
+          <PropietarioCedulaScan
+            vehiculoId={vehiculoId}
+            existingUrl={docs.cedula?.url}
+            onExtracted={applyScanned}
+            onDocumentUploaded={(next) => {
+              setDocs(next);
+              onUploadedMessage("Cédula leída y guardada");
+            }}
+          />
+        </div>
+
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           action={(fd) => {
@@ -2059,6 +2105,9 @@ function Fase4Propietario({
                 cedulaPropietario: String(fd.get("cedulaPropietario") ?? ""),
                 emailPropietario: String(fd.get("emailPropietario") ?? ""),
                 direccion: String(fd.get("direccion") ?? ""),
+                fechaNacimientoPropietario: String(
+                  fd.get("fechaNacimientoPropietario") ?? ""
+                ),
               },
               afterFromFormData(fd)
             );
@@ -2069,7 +2118,8 @@ function Fase4Propietario({
             <input
               name="nombreCliente"
               required
-              defaultValue={compradorNombre ?? ""}
+              value={nombreCliente}
+              onChange={(e) => setNombreCliente(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
@@ -2077,15 +2127,24 @@ function Fase4Propietario({
             <span className="text-sm text-slate-400">Cédula</span>
             <input
               name="cedulaPropietario"
-              defaultValue={compradorCedula ?? ""}
+              value={cedulaPropietario}
+              onChange={(e) => setCedulaPropietario(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
+          <PlanillaFechaField
+            label="Fecha de nacimiento"
+            name="fechaNacimientoPropietario"
+            value={fechaNacimientoPropietario}
+            onChange={setFechaNacimientoPropietario}
+            className="sm:col-span-1"
+          />
           <label className="block space-y-1.5">
             <span className="text-sm text-slate-400">WhatsApp</span>
             <input
               name="telefonoCliente"
-              defaultValue={compradorTelefono ?? ""}
+              value={telefonoCliente}
+              onChange={(e) => setTelefonoCliente(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
@@ -2093,7 +2152,8 @@ function Fase4Propietario({
             <span className="text-sm text-slate-400">Dirección</span>
             <input
               name="direccion"
-              defaultValue={compradorDireccion ?? ""}
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
@@ -2102,35 +2162,11 @@ function Fase4Propietario({
             <input
               name="emailPropietario"
               type="email"
-              defaultValue={compradorEmail ?? ""}
+              value={emailPropietario}
+              onChange={(e) => setEmailPropietario(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
             />
           </label>
-
-          <div className="grid gap-3 sm:col-span-2">
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="cedula"
-              existingUrl={docs.cedula?.url}
-              hint=""
-              actionLabel="Tomar / subir foto cédula"
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Foto de cédula guardada");
-              }}
-            />
-            <ImportDocumentoUpload
-              vehiculoId={vehiculoId}
-              tipo="foto_comprador"
-              existingUrl={docs.foto_comprador?.url}
-              hint=""
-              actionLabel="Tomar / subir foto propietario"
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Foto del propietario guardada");
-              }}
-            />
-          </div>
 
           <div className="sm:col-span-2">
             <PlanillaFaseActions
@@ -2460,11 +2496,6 @@ function Fase6Matriculacion({
             {stats.listos}/{stats.total}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Carga aquí inspección PNB, PUT, homologación (si aplica) y liquidación
-          u oficio SENIAT. Abajo verás la referencia de los recaudos ya cargados
-          en fases anteriores para armar la carpeta PDF.
-        </p>
 
         <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
           Cargar en esta fase
