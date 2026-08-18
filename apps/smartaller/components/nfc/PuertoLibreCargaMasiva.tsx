@@ -124,6 +124,9 @@ export function PuertoLibreCargaMasiva({
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
+  const [createdExpedientes, setCreatedExpedientes] = useState<
+    { vehiculoId: string; codigoExpediente: string; serial: string }[]
+  >([]);
   const [extractProgress, setExtractProgress] =
     useState<CargaMasivaEtapaProgress | null>(null);
   const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
@@ -651,6 +654,7 @@ export function PuertoLibreCargaMasiva({
           : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${semNote}${attachNote}`
       );
       if (ok > 0) {
+        setCreatedExpedientes((prev) => [...result.created, ...prev]);
         setRows((prev) =>
           prev.filter(
             (r) =>
@@ -1085,18 +1089,45 @@ export function PuertoLibreCargaMasiva({
         </p>
       ) : null}
 
-      {resultMsg ? (
-        <p className="flex items-center gap-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {resultMsg}{" "}
-          <Link href="/smartimport" className="underline hover:text-emerald-100">
-            Ver listado
-          </Link>
-        </p>
+      {resultMsg || createdExpedientes.length > 0 ? (
+        <div className="space-y-2 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">
+          {resultMsg ? (
+            <p className="flex flex-wrap items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">{resultMsg}</span>
+              {rows.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={scrollToCargaMasivaListado}
+                  className="shrink-0 underline hover:text-emerald-100"
+                >
+                  Ver listado
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {createdExpedientes.length > 0 ? (
+            <ul className="space-y-1 border-t border-emerald-900/30 pt-2 font-mono text-xs">
+              {createdExpedientes.map((c) => (
+                <li key={c.vehiculoId}>
+                  <Link
+                    href={`/smartimport/${c.vehiculoId}`}
+                    className="underline hover:text-emerald-100"
+                  >
+                    {c.codigoExpediente || "Expediente"} · {c.serial}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
 
       {rows.length > 0 || mode === "documentos" ? (
-        <section className="space-y-3">
+        <section
+          id={CARGA_MASIVA_LISTADO_ID}
+          className="scroll-mt-4 space-y-3"
+        >
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold text-slate-100">
@@ -1312,6 +1343,14 @@ export function PuertoLibreCargaMasiva({
       ) : null}
     </div>
   );
+}
+
+const CARGA_MASIVA_LISTADO_ID = "carga-masiva-listado";
+
+function scrollToCargaMasivaListado() {
+  document
+    .getElementById(CARGA_MASIVA_LISTADO_ID)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function guessTipo(name: string): DocItem["tipo"] {
