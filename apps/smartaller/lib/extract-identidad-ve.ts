@@ -89,16 +89,9 @@ function parseTipoPersona(value: unknown, rif: string | null): ImportadorTipo | 
 function parseRifValue(value: unknown): string | null {
   const raw = parseString(value);
   if (!raw) return null;
-  // Intentar normalizar variantes comunes: J123456789, J-12345678-9, etc.
-  let cleaned = raw.toUpperCase().replace(/\s+/g, "");
-  const compact = cleaned.match(/^([JVEGPC])-?(\d{7,9})-?(\d)?$/);
-  if (compact) {
-    const [, letra, body, check] = compact;
-    const digits = body.padStart(8, "0").slice(-8);
-    cleaned = check != null ? `${letra}-${digits}-${check}` : `${letra}-${digits}-0`;
-  }
-  const normalized = normalizeRif(cleaned);
-  return isValidRif(normalized) ? normalized : normalized || null;
+  const normalized = normalizeRif(raw);
+  if (isValidRif(normalized)) return normalized;
+  return normalized || null;
 }
 
 function parseCedulaValue(value: unknown): string | null {
