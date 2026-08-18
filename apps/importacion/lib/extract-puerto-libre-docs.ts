@@ -18,7 +18,12 @@ import {
   sanitizeFacturaMulti,
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
-import { extractVinsWithTesseract, extractVinsWithTesseractOriented, isPlausibleOcrVin } from "@/lib/importacion/ocr-vin-tesseract";
+import {
+  extractVinsFromOcrText,
+  extractVinsWithTesseract,
+  extractVinsWithTesseractOriented,
+  isPlausibleOcrVin,
+} from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
@@ -1133,44 +1138,128 @@ function pickBestFacturaMulti(
   return sanitizeFacturaMulti(merged);
 }
 
+function localExtractHasData(doc: DocMultiExtracted): boolean {
+  return doc.vehiculos.length > 0 || countFilledFields(doc.shared) > 0;
+}
+
+function docFromLocalVins(vins: string[]): DocMultiExtracted {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of vins) {
+    const vin = compactSerial(raw)?.toUpperCase() ?? "";
+    if (vin.length !== 17 || !isPlausibleOcrVin(vin) || seen.has(vin)) continue;
+    seen.add(vin);
+    unique.push(vin);
+  }
+  const looksChery = unique.some(
+    (v) => v.startsWith("LVV") || v.startsWith("LVT") || v.startsWith("LVD")
+  );
+  return sanitizeFacturaMulti({
+    shared: looksChery ? { marca: "Chery" } : {},
+    vehiculos: unique.map((vin) =>
+      sanitizeVehiculoRowLocal({
+        serialCarroceria: vin,
+        vin,
+        serialMotor: "POR-COMPLETAR",
+        condicion: "nuevo",
+        kilometraje: "0",
+        anio: anioFromVin(vin)?.toString(),
+        ...(looksChery ? { marca: "Chery" } : {}),
+      })
+    ),
+  });
+}
+
+function extractFacturaFromPlainText(plain: string): DocMultiExtracted {
+  const mav = parseMavHojaAnexaFromText(plain);
+  if (mav && mav.vehiculos.length >= 1) {
+    return sanitizeFacturaMulti(mav);
+  }
+  const vins = extractVinsFromOcrText(plain);
+  if (vins.length >= 1) return docFromLocalVins(vins);
+  return { shared: {}, vehiculos: [] };
+}
+
+/** Tesseract / texto PDF: VIN sin créditos de OpenRouter. */
+async function extractFacturaLocalFromDocument(
+  buffer: Buffer,
+  mimeType: string
+): Promise<DocMultiExtracted> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  try {
+    const page = isPdf
+      ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]
+      : buffer;
+    if (!page) return { shared: {}, vehiculos: [] };
+    const tess = isPdf
+      ? await extractVinsWithTesseract(page)
+      : await extractVinsWithTesseractOriented(page);
+    const mav = parseMavHojaAnexaFromText(tess.fullText);
+    if (mav && mav.vehiculos.length >= 1) {
+      return sanitizeFacturaMulti(mav);
+    }
+    if (tess.vins.length >= 1) return docFromLocalVins(tess.vins);
+  } catch {
+    // vacío
+  }
+  return { shared: {}, vehiculos: [] };
+}
+
+/**
+ * OCR de factura para el alta. Texto PDF → IA (si hay créditos) → Tesseract.
+ */
 export async function extractFacturaRapidoFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  let fromText: DocMultiExtracted = { shared: {}, vehiculos: [] };
 
   if (isPdf) {
     try {
-      const plain = await getPdfPlainText(buffer);
-      if (countValidVinsInText(plain) >= 2) {
-        const deterministic = parseMavHojaAnexaFromText(plain);
-        if (deterministic && deterministic.vehiculos.length >= 2) {
-          return sanitizeFacturaMulti(deterministic);
-        }
-      }
+      fromText = extractFacturaFromPlainText(await getPdfPlainText(buffer));
     } catch {
-      // visión
+      // visión / tesseract
     }
   }
 
-  // 1 LLM: texto del PDF o página 1 / foto. maxTokens < 4000 → timeout 45–90s
-  // (extractFacturaMultiOnce usa 12000 tokens y 2 páginas; Vercel corta a ~60s).
-  try {
-    const parsed = await createDocumentJsonCompletion({
-      prompt: FACTURA_RAPIDA_PROMPT,
-      buffer,
-      mimeType,
-      maxTokens: 3500,
-      maxTextChars: 16000,
-      maxPdfPages: 1,
-      preferHighDetail: true,
-      renderScale: 2.2,
-    });
-    const extracted = sanitizeFacturaMulti(parseFacturaMultiResult(parsed));
-    return enrichWithSalvagedVins(extracted, parsed);
-  } catch {
-    return { shared: {}, vehiculos: [] };
+  if (localExtractHasData(fromText) && !isLlmConfigured()) {
+    return fromText;
   }
+
+  let llmError: unknown = null;
+  if (isLlmConfigured()) {
+    try {
+      const parsed = await createDocumentJsonCompletion({
+        prompt: FACTURA_RAPIDA_PROMPT,
+        buffer,
+        mimeType,
+        maxTokens: 3500,
+        maxTextChars: 16000,
+        maxPdfPages: 1,
+        preferHighDetail: true,
+        renderScale: 2.2,
+      });
+      const extracted = enrichWithSalvagedVins(
+        sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
+        parsed
+      );
+      if (localExtractHasData(fromText) && localExtractHasData(extracted)) {
+        return pickBestFacturaMulti([fromText, extracted]);
+      }
+      if (localExtractHasData(extracted)) return extracted;
+    } catch (err) {
+      llmError = err;
+    }
+  }
+
+  if (localExtractHasData(fromText)) return fromText;
+
+  const fromTess = await extractFacturaLocalFromDocument(buffer, mimeType);
+  if (localExtractHasData(fromTess)) return fromTess;
+
+  if (llmError) throw llmError;
+  return { shared: {}, vehiculos: [] };
 }
 
 export async function extractFacturaMultiFromDocument(
@@ -1765,15 +1854,23 @@ export async function extractCertificadoOrigenMultiFromDocument(
   mimeType: string,
   options?: { rapido?: boolean }
 ): Promise<DocMultiExtracted> {
-  const parsed = await createDocumentJsonCompletion({
-    prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
-    buffer,
-    mimeType,
-    maxTokens: options?.rapido ? 3500 : 4500,
-    maxTextChars: options?.rapido ? 16000 : 32000,
-    maxPdfPages: options?.rapido ? 1 : 6,
-    preferHighDetail: true,
-  });
+  let parsed: Record<string, unknown> = {};
+  let llmError: unknown = null;
+  if (isLlmConfigured()) {
+    try {
+      parsed = await createDocumentJsonCompletion({
+        prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+        buffer,
+        mimeType,
+        maxTokens: options?.rapido ? 3500 : 4500,
+        maxTextChars: options?.rapido ? 16000 : 32000,
+        maxPdfPages: options?.rapido ? 1 : 6,
+        preferHighDetail: true,
+      });
+    } catch (err) {
+      llmError = err;
+    }
+  }
 
   const shared: PuertoLibreRegistroScanFields = {};
   const pais = parseString(parsed.pais_origen ?? parsed.country_of_origin);
@@ -1830,6 +1927,20 @@ export async function extractCertificadoOrigenMultiFromDocument(
   }
 
   vehiculos = dedupeVehiculosBySerial(vehiculos);
+  if (vehiculos.length === 0) {
+    const local = await extractFacturaLocalFromDocument(buffer, mimeType);
+    if (local.vehiculos.length > 0) {
+      return {
+        shared: { ...local.shared, ...shared },
+        vehiculos: local.vehiculos.map((v) => ({
+          ...v,
+          numeroCertificadoOrigen:
+            shared.numeroCertificadoOrigen ?? v.numeroCertificadoOrigen,
+        })),
+      };
+    }
+    if (llmError) throw llmError;
+  }
   return { shared, vehiculos };
 }
 
