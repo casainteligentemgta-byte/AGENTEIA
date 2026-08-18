@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Camera,
@@ -14,6 +14,7 @@ import {
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { cargaMasivaRowFromScanFields } from "@/lib/importacion/carga-masiva-template";
 import { normalizeSerialKey } from "@/lib/importacion/carga-masiva-ui";
+import { OCR_UI_UNLOCK_MS } from "@/lib/importacion/carga-masiva-client";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
@@ -111,7 +112,8 @@ function ScanButton({
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, startTransition] = useTransition();
+  const runId = useRef(0);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -150,13 +152,29 @@ function ScanButton({
 
   function handleFile(file: File | null) {
     if (!file) return;
+    const gen = ++runId.current;
     setError(null);
     setDoneMsg(null);
     setWarning(null);
+    setPending(true);
 
-    startTransition(async () => {
+    void (async () => {
+      const unlockTimer = window.setTimeout(() => {
+        if (gen !== runId.current) return;
+        setPending(false);
+        setWarning(
+          "La lectura sigue en segundo plano. El PDF ya queda adjunto: reintenta o abre la planilla de varios vehículos."
+        );
+      }, OCR_UI_UNLOCK_MS);
+
       try {
         const prepared = await prepareFile(file);
+        if (gen !== runId.current) return;
+        onExtracted({}, tipo, prepared);
+        setPendingFile(prepared);
+        setUrl("pending");
+        setDoneMsg("Leyendo datos…");
+
         let filledCount = 0;
 
         if (ocr) {
@@ -164,8 +182,10 @@ function ScanButton({
           fd.set("tipo", tipo);
           fd.set("file", prepared);
           const result = await extractPuertoLibreDocumentoAction(fd);
+          if (gen !== runId.current) return;
           if (!result.success) {
-            setError(result.error);
+            setWarning(result.error);
+            setDoneMsg("Archivo adjunto. Completa a mano o reintenta.");
             return;
           }
 
@@ -181,19 +201,18 @@ function ScanButton({
                 : "hoja anexa / factura";
             const message = `Se detectaron ${result.vehicleCount} vehículos en el ${docLabel}. Revisa la tabla y registra un expediente por unidad.`;
             setDoneMsg(`${result.vehicleCount} vehículos detectados`);
+            setWarning(null);
             openMasivaFallback(result.rows, message, prepared);
             return;
           }
 
           filledCount = result.filledCount;
+          onExtracted(result.fields, tipo, prepared);
           if (result.warning) {
             setWarning(result.warning);
+          } else {
+            setWarning(null);
           }
-          onExtracted(result.fields, tipo, prepared);
-          setPendingFile(prepared);
-        } else {
-          onExtracted({}, tipo, prepared);
-          setPendingFile(prepared);
         }
 
         if (vehiculoId) {
@@ -202,6 +221,7 @@ function ScanButton({
           uploadFd.set("tipo", tipo);
           uploadFd.set("file", prepared);
           const uploaded = await uploadPuertoLibreDocumentoAction(uploadFd);
+          if (gen !== runId.current) return;
           if (!uploaded.success) {
             setError(uploaded.error);
             setDoneMsg(
@@ -216,19 +236,27 @@ function ScanButton({
           onDocumentUploaded?.(uploaded.documentos, tipo);
           setDoneMsg("Documento guardado en el expediente");
         } else {
-          setUrl("pending");
           setDoneMsg(
             ocr
               ? filledCount > 0
                 ? `${filledCount} campo${filledCount === 1 ? "" : "s"} rellenado${filledCount === 1 ? "" : "s"}. Se adjuntará al registrar`
-                : "Archivo listo. Se adjuntará al registrar"
+                : "Archivo adjunto. Si no aparecen VIN, abre la planilla de varios vehículos."
               : "Se adjuntará al registrar"
           );
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo leer el documento");
+        if (gen !== runId.current) return;
+        setWarning(
+          err instanceof Error
+            ? err.message
+            : "No se pudo leer el documento. El archivo queda adjunto."
+        );
+        setDoneMsg("Archivo adjunto. Reintenta o completa a mano.");
+      } finally {
+        window.clearTimeout(unlockTimer);
+        if (gen === runId.current) setPending(false);
       }
-    });
+    })();
   }
 
   const showVariosCta = Boolean(
@@ -249,7 +277,12 @@ function ScanButton({
             <Icon className="h-4 w-4 shrink-0 text-cyan-400" />
             <span className="truncate">{label}</span>
           </p>
-          {loaded ? (
+          {pending ? (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Leyendo datos (puede tardar un minuto)…
+            </p>
+          ) : loaded ? (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Cargado
@@ -297,7 +330,6 @@ function ScanButton({
       {showVariosCta ? (
         <button
           type="button"
-          disabled={pending}
           onClick={() => {
             if (onOpenVariosVehiculos) {
               onOpenVariosVehiculos();
@@ -346,7 +378,8 @@ function CertScanPanel({
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, startTransition] = useTransition();
+  const runId = useRef(0);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -372,16 +405,37 @@ function CertScanPanel({
 
   function handleFiles(list: File[]) {
     if (list.length === 0) return;
+    const gen = ++runId.current;
     setError(null);
     setDoneMsg(null);
     setWarning(null);
+    setPending(true);
 
-    startTransition(async () => {
+    void (async () => {
+      const unlockTimer = window.setTimeout(() => {
+        if (gen !== runId.current) return;
+        setPending(false);
+        setWarning(
+          "La lectura sigue en segundo plano. Los PDF ya quedan adjuntos: reintenta o abre la planilla."
+        );
+      }, OCR_UI_UNLOCK_MS);
+
       try {
         const prepared: File[] = [];
         for (const file of list) {
           prepared.push(await prepareFile(file));
         }
+        if (gen !== runId.current) return;
+
+        setFiles((prev) => {
+          const next = [...prev, ...prepared];
+          onCertFilesChange?.(next);
+          return next;
+        });
+        if (prepared[0]) {
+          onExtracted({}, "certificado_origen", prepared[0]);
+        }
+        setDoneMsg("Leyendo datos…");
 
         const collectedRows: CargaMasivaRow[] = [];
         let lastFields: PuertoLibreRegistroScanFields = {};
@@ -390,11 +444,13 @@ function CertScanPanel({
 
         for (let i = 0; i < prepared.length; i++) {
           const file = prepared[i]!;
+          if (gen !== runId.current) return;
           setDoneMsg(`Leyendo certificado ${i + 1}/${prepared.length}…`);
           const fd = new FormData();
           fd.set("tipo", "certificado_origen");
           fd.set("file", file);
           const result = await extractPuertoLibreDocumentoAction(fd);
+          if (gen !== runId.current) return;
           if (!result.success) {
             lastWarning = result.error;
             continue;
@@ -414,13 +470,6 @@ function CertScanPanel({
           if (result.warning) lastWarning = result.warning;
         }
 
-        const kept = prepared;
-        setFiles((prev) => {
-          const next = [...prev, ...kept];
-          onCertFilesChange?.(next);
-          return next;
-        });
-
         const vins = uniqueSerials(collectedRows);
         const formVin = normalizeSerialKey(currentVin ?? "");
         const otherVins = vins.filter((v) => v !== formVin);
@@ -428,26 +477,28 @@ function CertScanPanel({
         if (vins.length > 1 || (formVin && otherVins.length > 0)) {
           const message = `Se detectaron ${vins.length || otherVins.length} VIN en certificado(s). Un expediente por vehículo.`;
           setDoneMsg(`${vins.length} VIN detectados`);
+          setWarning(null);
           openMasiva({
             rows: collectedRows,
             message,
             docTipo: "certificado_origen",
-            file: kept[0],
-            extraCertFiles: kept.slice(1),
+            file: prepared[0],
+            extraCertFiles: prepared.slice(1),
           });
           return;
         }
 
-        if (kept[0]) {
-          onExtracted(lastFields, "certificado_origen", kept[0]);
+        if (prepared[0]) {
+          onExtracted(lastFields, "certificado_origen", prepared[0]);
         }
 
-        if (vehiculoId && kept[0]) {
+        if (vehiculoId && prepared[0]) {
           const uploadFd = new FormData();
           uploadFd.set("vehiculoId", vehiculoId);
           uploadFd.set("tipo", "certificado_origen");
-          uploadFd.set("file", kept[kept.length - 1]!);
+          uploadFd.set("file", prepared[prepared.length - 1]!);
           const uploaded = await uploadPuertoLibreDocumentoAction(uploadFd);
+          if (gen !== runId.current) return;
           if (!uploaded.success) {
             setError(uploaded.error);
             return;
@@ -459,14 +510,23 @@ function CertScanPanel({
         setDoneMsg(
           lastFilled > 0
             ? `${lastFilled} campo${lastFilled === 1 ? "" : "s"} leído${lastFilled === 1 ? "" : "s"}. Puedes añadir más certificados.`
-            : kept.length > 0
+            : prepared.length > 0
               ? "Certificado añadido. Puedes agregar otros o abrir la planilla de varios vehículos."
               : null
         );
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo leer el certificado");
+        if (gen !== runId.current) return;
+        setWarning(
+          err instanceof Error
+            ? err.message
+            : "No se pudo leer el certificado. El archivo queda adjunto."
+        );
+        setDoneMsg("Certificado adjunto. Reintenta o completa a mano.");
+      } finally {
+        window.clearTimeout(unlockTimer);
+        if (gen === runId.current) setPending(false);
       }
-    });
+    })();
   }
 
   function removeFile(index: number) {
@@ -494,6 +554,12 @@ function CertScanPanel({
           <p className="mt-1 text-xs text-slate-500">
             Puedes añadir varios PDF. Se emparejan por VIN (un expediente por vehículo).
           </p>
+          {pending ? (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Leyendo datos (puede tardar un minuto)…
+            </p>
+          ) : null}
         </div>
         <input
           ref={inputRef}
