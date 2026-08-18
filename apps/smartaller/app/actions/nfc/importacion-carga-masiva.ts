@@ -1,5 +1,7 @@
 "use server";
 
+export const maxDuration = 300;
+
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
