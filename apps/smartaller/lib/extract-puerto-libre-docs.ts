@@ -570,10 +570,9 @@ export function facturaToFormFields(
   if (data.valor_cif != null) fields.valorCif = String(data.valor_cif);
   if (data.pais_origen) fields.paisOrigen = data.pais_origen;
   if (data.partida_arancelaria) {
-    fields.partidaArancelaria =
-      normalizePartida10(data.partida_arancelaria) ??
-      data.partida_arancelaria.replace(/\D/g, "") ||
-      data.partida_arancelaria;
+        fields.partidaArancelaria =
+          normalizePartida10(data.partida_arancelaria) ??
+          (data.partida_arancelaria.replace(/\D/g, "") || data.partida_arancelaria);
   }
   if (data.cilindrada_cc != null) fields.cilindradaCc = String(data.cilindrada_cc);
   if (data.tipo_combustible) fields.tipoCombustible = data.tipo_combustible;
