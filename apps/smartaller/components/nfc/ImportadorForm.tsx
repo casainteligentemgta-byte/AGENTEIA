@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import {
-  attachImportadorDocumentoAction,
+  attachImportadorDocumentosBatchAction,
   upsertImportadorAction,
 } from "@/app/actions/nfc/importadores";
 import {
@@ -14,6 +14,7 @@ import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import {
   IMPORTADOR_TIPO_LABELS,
   IMPORTADOR_TIPOS,
+  importadorUpsertSchema,
   type ImportadorTipo,
 } from "@/lib/schemas/importador";
 import {
@@ -121,6 +122,7 @@ export function ImportadorForm({
   onSaved,
 }: Props) {
   const [pending, startTransition] = useTransition();
+  const [savingDocs, setSavingDocs] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tipo, setTipo] = useState<ImportadorTipo>(initial?.tipo ?? "natural");
   const [documentos, setDocumentos] = useState<ImportadorDocumentos>(
@@ -202,68 +204,75 @@ export function ImportadorForm({
     documentos: ImportadorDocumentos;
     attachError: string | null;
   }> {
-    let nextDocs = { ...documentos };
-    let attachError: string | null = null;
+    const fd = new FormData();
+    fd.set("importadorId", importadorId);
+    let hasFile = false;
     for (const tipoDoc of ["rif", "cedula"] as const) {
       const file = pendingFiles[tipoDoc];
       if (!file) continue;
-      const fd = new FormData();
-      fd.set("importadorId", importadorId);
-      fd.set("tipoDoc", tipoDoc);
-      fd.set("file", file);
-      const up = await attachImportadorDocumentoAction(fd);
-      if (!up.success) {
-        attachError = up.error;
-        continue;
-      }
-      nextDocs = up.documentos;
+      fd.set(`file_${tipoDoc}`, file);
+      hasFile = true;
     }
-    return { documentos: nextDocs, attachError };
+    if (!hasFile) {
+      return { documentos, attachError: null };
+    }
+    const up = await attachImportadorDocumentosBatchAction(fd);
+    if (!up.success) {
+      return { documentos, attachError: up.error };
+    }
+    return { documentos: up.documentos, attachError: null };
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const rifNorm = rif.trim() ? normalizeRif(rif) : rif;
+    const cedulaNorm =
+      cedula.trim()
+        ? normalizeCedula(cedula)
+        : cedulaFromRifNatural(rifNorm) ?? "";
+
+    const payload =
+      tipo === "natural"
+        ? {
+            id: initial?.id,
+            tipo: "natural" as const,
+            nombresApellidos,
+            rif: rifNorm,
+            cedula: cedulaNorm,
+            email,
+            telefono,
+            direccion,
+            instagram,
+          }
+        : {
+            id: initial?.id,
+            tipo: "juridica" as const,
+            denominacionComercial,
+            razonSocial,
+            rif: rifNorm,
+            repLegalNombre,
+            repLegalCedula: repLegalCedula.trim()
+              ? normalizeCedula(repLegalCedula)
+              : repLegalCedula,
+            repLegalEmail,
+            repLegalTelefono,
+            empresaTelefono,
+            empresaEmail,
+            empresaDomicilio,
+            registroPuertoLibre,
+            registroPlVence,
+          };
+
+    const parsed = importadorUpsertSchema.safeParse(payload);
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? "Datos inválidos");
+      return;
+    }
+
     startTransition(async () => {
-      const rifNorm = rif.trim() ? normalizeRif(rif) : rif;
-      const cedulaNorm =
-        cedula.trim()
-          ? normalizeCedula(cedula)
-          : cedulaFromRifNatural(rifNorm) ?? "";
-
-      const payload =
-        tipo === "natural"
-          ? {
-              id: initial?.id,
-              tipo: "natural" as const,
-              nombresApellidos,
-              rif: rifNorm,
-              cedula: cedulaNorm,
-              email,
-              telefono,
-              direccion,
-              instagram,
-            }
-          : {
-              id: initial?.id,
-              tipo: "juridica" as const,
-              denominacionComercial,
-              razonSocial,
-              rif: rifNorm,
-              repLegalNombre,
-              repLegalCedula: repLegalCedula.trim()
-                ? normalizeCedula(repLegalCedula)
-                : repLegalCedula,
-              repLegalEmail,
-              repLegalTelefono,
-              empresaTelefono,
-              empresaEmail,
-              empresaDomicilio,
-              registroPuertoLibre,
-              registroPlVence,
-            };
-
-      const result = await upsertImportadorAction(payload);
+      const result = await upsertImportadorAction(parsed.data);
       if (!result.success) {
         setError(result.error);
         return;
@@ -271,9 +280,11 @@ export function ImportadorForm({
 
       let saved: SavedImportador = result.importador;
       if (Object.keys(pendingFiles).length > 0) {
+        setSavingDocs(true);
         const { documentos: nextDocs, attachError } = await uploadPendingDocs(
           saved.id
         );
+        setSavingDocs(false);
         setDocumentos(nextDocs);
         setPendingFiles({});
         saved = { ...saved, documentos: nextDocs };
@@ -534,7 +545,11 @@ export function ImportadorForm({
         disabled={pending}
         className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
       >
-        {pending ? "Guardando…" : submitLabel}
+        {savingDocs
+          ? "Adjuntando fotos…"
+          : pending
+            ? "Guardando…"
+            : submitLabel}
       </button>
     </form>
   );
