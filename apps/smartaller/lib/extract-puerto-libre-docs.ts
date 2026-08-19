@@ -274,13 +274,44 @@ function resolveVinCandidate(v: Record<string, unknown>): string | null {
   return null;
 }
 
+/** Año desde factura/COO (columna year/model year) o dígito 10 del VIN. */
+function resolveAnioFromSources(
+  parsed: Record<string, unknown>,
+  vin?: string | null
+): number | null {
+  const direct = parseIntSafe(
+    parsed.anio ??
+      parsed.año ??
+      parsed.year ??
+      parsed.model_year ??
+      parsed.modelYear ??
+      parsed.manufacture_year ??
+      parsed.manufacturing_year ??
+      parsed.yom
+  );
+  const maxYear = new Date().getFullYear() + 2;
+  if (direct != null && direct >= 1950 && direct <= maxYear) return direct;
+  return anioFromVin(vin ?? null);
+}
+
 function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
   const vinFromCode = resolveVinCandidate(parsed);
+  const serial_carroceria =
+    compactSerial(
+      parseString(
+        parsed.serial_carroceria ??
+          parsed.vin ??
+          parsed.vin_number ??
+          parsed.chasis ??
+          parsed.no_de_chasis ??
+          parsed.numero_chasis
+      )
+    ) ?? vinFromCode;
   return {
     marca: parseString(parsed.marca),
     modelo: parseString(parsed.modelo),
     color: parseString(parsed.color),
-    anio: parseIntSafe(parsed.anio ?? parsed.año ?? parsed.year),
+    anio: resolveAnioFromSources(parsed, serial_carroceria),
     serial_motor: compactSerial(
       parseString(
         parsed.serial_motor ??
@@ -291,17 +322,7 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
           parsed.numero_motor
       )
     ),
-    serial_carroceria:
-      compactSerial(
-        parseString(
-          parsed.serial_carroceria ??
-            parsed.vin ??
-            parsed.vin_number ??
-            parsed.chasis ??
-            parsed.no_de_chasis ??
-            parsed.numero_chasis
-        )
-      ) ?? vinFromCode,
+    serial_carroceria,
     kilometraje: parseIntSafe(parsed.kilometraje ?? parsed.odometro ?? parsed.odometer),
     condicion: parseCondicion(parsed.condicion ?? parsed.condition),
     es_subasta: parseBool(parsed.es_subasta ?? parsed.subasta ?? parsed.auction),
@@ -839,8 +860,8 @@ const CERTIFICADO_ORIGEN_MULTI_PROMPT = `Analiza este CERTIFICADO DE ORIGEN / Ce
 Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
 
 Extrae datos que suelen faltar en la factura comercial:
-- serial_motor / engine number (muy frecuente aquí)
-- marca, modelo, color, año
+- serial_motor / ENGINE NO / engine number (columna del motor)
+- marca, modelo, color, anio (año / year / model year del vehículo)
 - serial_carroceria / VIN / chasis
 - país de origen (country of origin)
 - número del certificado
@@ -926,11 +947,10 @@ function mapFacturaMultiVehiculo(
     if (marcaShared) fields.marca = marcaShared;
   }
   if (!fields.anio) {
-    const anioShared = parseIntSafe(sharedParsed.anio);
-    if (anioShared != null) fields.anio = String(anioShared);
-  }
-  if (!fields.anio && fields.serialCarroceria) {
-    const y = anioFromVin(fields.serialCarroceria);
+    const y = resolveAnioFromSources(
+      merged,
+      fields.serialCarroceria || fields.vin
+    );
     if (y != null) fields.anio = String(y);
   }
   const obs = buildHojaAnexaObservaciones({
@@ -1994,6 +2014,13 @@ export async function extractCertificadoOrigenMultiFromDocument(
     if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
     if (!fields.marca && marca) fields.marca = marca;
     if (!fields.anio && anio != null) fields.anio = String(anio);
+    if (!fields.anio) {
+      const y = resolveAnioFromSources(
+        { ...parsed, ...v },
+        fields.serialCarroceria || fields.vin
+      );
+      if (y != null) fields.anio = String(y);
+    }
     if (!fields.condicion) fields.condicion = "nuevo";
     if (fields.kilometraje == null) fields.kilometraje = "0";
     const llave = parseString(v.numero_llave ?? v.key_number);

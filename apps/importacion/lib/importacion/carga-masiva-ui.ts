@@ -249,7 +249,7 @@ export type VehicleSemaforo = {
 /**
  * Semáforo = completitud (no es un candado de registro):
  * - rojo: faltan datos fuertes (marca/modelo) o VIN inválido
- * - ámbar: faltan motor/color/año/cert → se crea y se completa después
+ * - ámbar: faltan motor/color/año → se crea y se completa después
  * - verde: sin pendientes
  * Registrable = VIN 17 chars (rojo/ámbar/verde con VIN válido se registran).
  */
