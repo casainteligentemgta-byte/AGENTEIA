@@ -21,7 +21,7 @@ import {
 } from "@/lib/importadores/upload-documento";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
-import { getMyTaller } from "@/lib/taller";
+import { ensureTallerForUser } from "@/lib/taller";
 
 export type ImportadorListItem = {
   id: string;
@@ -56,7 +56,7 @@ type ActionErr = { success: false; error: string };
 async function requireTallerAuth() {
   const user = await getUser();
   if (!user) return { error: "Debes iniciar sesión" as const, taller: null };
-  const taller = await getMyTaller();
+  const { taller } = await ensureTallerForUser(user.id);
   if (!taller) return { error: "No se encontró tu taller" as const, taller: null };
   return { error: null, taller };
 }
@@ -202,7 +202,6 @@ export async function upsertImportadorAction(
     if (!updated) return { success: false, error: "Cliente no encontrado" };
 
     revalidatePath("/smartimport/clientes");
-    revalidatePath("/smartimport/importaciones/nueva");
     return { success: true, importador: mapRow(updated as ImportadorRow) };
   }
 
@@ -223,7 +222,6 @@ export async function upsertImportadorAction(
   }
 
   revalidatePath("/smartimport/clientes");
-  revalidatePath("/smartimport/importaciones/nueva");
   return { success: true, importador: mapRow(created as ImportadorRow) };
 }
 
@@ -486,8 +484,93 @@ export async function attachImportadorDocumentoAction(
     }
 
     revalidatePath("/smartimport/clientes");
-    revalidatePath("/smartimport/importaciones/nueva");
     return { success: true, documentos: next, tipoDoc };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo subir el documento",
+    };
+  }
+}
+
+/** Sube RIF y/o cédula en paralelo y persiste ambos en un solo update. */
+export async function attachImportadorDocumentosBatchAction(
+  formData: FormData
+): Promise<ActionOk<{ documentos: ImportadorDocumentos }> | ActionErr> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const importadorId = String(formData.get("importadorId") ?? "").trim();
+  if (!z.string().uuid().safeParse(importadorId).success) {
+    return { success: false, error: "Cliente inválido" };
+  }
+
+  const files: Array<{ tipo: ImportadorDocTipo; file: File }> = [];
+  for (const tipo of ["rif", "cedula"] as const) {
+    const file = formData.get(`file_${tipo}`);
+    if (file instanceof File && file.size > 0) {
+      const validationError = validateImportadorDocumentoFile(file);
+      if (validationError) {
+        return { success: false, error: `${tipo}: ${validationError}` };
+      }
+      files.push({ tipo, file });
+    }
+  }
+
+  if (files.length === 0) {
+    return { success: false, error: "Selecciona una foto o un PDF" };
+  }
+
+  const admin = createAdminClient();
+  const { data: row, error: fetchError } = await admin
+    .from("importadores")
+    .select("id, documentos")
+    .eq("id", importadorId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+
+  if (fetchError) return { success: false, error: fetchError.message };
+  if (!row) return { success: false, error: "Cliente no encontrado" };
+
+  try {
+    const uploaded = await Promise.all(
+      files.map((item) =>
+        uploadImportadorDocumento(admin, {
+          tallerId: auth.taller.id,
+          importadorId,
+          tipo: item.tipo,
+          file: item.file,
+        }).then((documento) => ({ tipo: item.tipo, documento }))
+      )
+    );
+
+    const next: ImportadorDocumentos = {
+      ...parseImportadorDocumentos(row.documentos),
+    };
+    for (const item of uploaded) {
+      next[item.tipo] = item.documento;
+    }
+
+    const { error: updateError } = await admin
+      .from("importadores")
+      .update({
+        documentos: next,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", importadorId)
+      .eq("taller_id", auth.taller.id);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: `Archivo subido pero no se guardó en el cliente: ${updateError.message}`,
+      };
+    }
+
+    revalidatePath("/smartimport/clientes");
+    return { success: true, documentos: next };
   } catch (err) {
     return {
       success: false,

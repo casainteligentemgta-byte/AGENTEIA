@@ -4,7 +4,6 @@ import {
   resolveImageMimeType,
   validateImageMimeResolved,
 } from "@/lib/mime-image";
-import { imageBufferToPdf, pdfFileNameFromOriginal } from "@/lib/vehiculos/image-to-pdf";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 
 export type ImportadorDocTipo = "rif" | "cedula";
@@ -88,17 +87,15 @@ export async function uploadImportadorDocumento(
   const id = crypto.randomUUID();
   const folder = `importadores/${params.importadorId}`;
 
-  let uploadBuffer: Buffer;
   let contentType: string;
   let fileName: string;
   let path: string;
 
   if (params.file.type === "application/pdf" || /\.pdf$/i.test(params.file.name)) {
-    uploadBuffer = originalBuffer;
     contentType = "application/pdf";
     fileName = params.file.name?.toLowerCase().endsWith(".pdf")
       ? params.file.name
-      : pdfFileNameFromOriginal(params.file.name, params.tipo);
+      : `${params.tipo}.pdf`;
     path = `${params.tallerId}/${folder}/${params.tipo}-${id}.pdf`;
   } else {
     const mimeType =
@@ -107,36 +104,22 @@ export async function uploadImportadorDocumento(
         fileName: params.file.name,
         buffer: originalBuffer,
       }) ?? "image/jpeg";
-
-    const canEmbedInPdf = mimeType === "image/jpeg" || mimeType === "image/png";
-    if (canEmbedInPdf) {
-      try {
-        uploadBuffer = await imageBufferToPdf(originalBuffer, mimeType);
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "No se pudo convertir la foto a PDF";
-        throw new Error(msg);
-      }
-      contentType = "application/pdf";
-      fileName = pdfFileNameFromOriginal(params.file.name, params.tipo);
-      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.pdf`;
-    } else {
-      uploadBuffer = originalBuffer;
-      contentType = mimeType;
-      const ext =
-        mimeType === "image/webp"
+    contentType = mimeType;
+    const ext =
+      mimeType === "image/png"
+        ? "png"
+        : mimeType === "image/webp"
           ? "webp"
           : mimeType === "image/heic" || mimeType === "image/heif"
             ? "heic"
             : "jpg";
-      fileName = params.file.name || `${params.tipo}.${ext}`;
-      path = `${params.tallerId}/${folder}/${params.tipo}-${id}.${ext}`;
-    }
+    fileName = params.file.name || `${params.tipo}.${ext}`;
+    path = `${params.tallerId}/${folder}/${params.tipo}-${id}.${ext}`;
   }
 
   const { error } = await supabase.storage
     .from(VEHICULO_DOCS_BUCKET)
-    .upload(path, uploadBuffer, { contentType, upsert: false });
+    .upload(path, originalBuffer, { contentType, upsert: false });
 
   if (error) throw new Error(error.message);
 

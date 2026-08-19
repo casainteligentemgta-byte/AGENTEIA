@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
-import { getMyTaller, type Taller } from "@/lib/taller";
+import { ensureTallerForUser, type Taller } from "@/lib/taller";
 import type { User } from "@supabase/supabase-js";
 
 export type TallerAuthOk = {
@@ -26,7 +26,7 @@ export async function requireTallerAuth(): Promise<TallerAuthResult> {
   if (!user) {
     return { error: "Debes iniciar sesión", taller: null, user: null };
   }
-  const taller = await getMyTaller();
+  const { taller } = await ensureTallerForUser(user.id);
   if (!taller) {
     return { error: "No se encontró tu taller", taller: null, user };
   }
