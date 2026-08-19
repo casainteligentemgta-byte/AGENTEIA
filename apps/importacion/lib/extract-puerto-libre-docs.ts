@@ -14,6 +14,7 @@ import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-field
 import {
   countValidVinsInText,
   extractMarcaFromFacturaText,
+  finalizeFacturaMarcaModelo,
   isPlausibleMarcaFabricante,
   mergeFacturaMultiByVin,
   normalizeMarcaFabricante,
@@ -934,7 +935,6 @@ function mapFacturaMultiVehiculo(
       fields.modelo =
         inferCheryModelo(fields.marca, modelo || null) || fields.marca;
     }
-    fields.marca = "";
   }
   if (
     looksLikeCheryVin(fields.serialCarroceria || fields.vin) ||
@@ -1046,12 +1046,6 @@ function parseFacturaMultiResult(
 
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
     const fields = mapFacturaMultiVehiculo(parsed, v);
-    if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
-      if (looksLikeCheryModelName(fields.marca) && !fields.modelo?.trim()) {
-        fields.modelo = inferCheryModelo(fields.marca) || fields.modelo;
-      }
-      delete fields.marca;
-    }
     const extras = [
       facturaLabel,
       cifTotal != null ? `CIF total factura ${cifTotal}` : null,
@@ -1077,7 +1071,8 @@ function parseFacturaMultiResult(
   }
 
   vehiculos = dedupeVehiculosBySerial(vehiculos);
-  return { shared, vehiculos };
+  const finalized = finalizeFacturaMarcaModelo(shared, vehiculos);
+  return { shared: finalized.shared, vehiculos: finalized.vehiculos };
 }
 
 function salvageVinsFromUnknown(
@@ -1147,6 +1142,13 @@ function sanitizeVehiculoRowLocal(
   if (!next.anio && vin) {
     const y = anioFromVin(vin);
     if (y != null) next.anio = String(y);
+  }
+  if (
+    !next.marca?.trim() &&
+    vin &&
+    /^LVV|^LVT|^LVD/.test(vin)
+  ) {
+    next.marca = "Chery";
   }
   return next;
 }
@@ -1251,7 +1253,36 @@ function docFromLocalVins(vins: string[]): DocMultiExtracted {
   });
 }
 
+function docFromCheryPlainText(plain: string): DocMultiExtracted | null {
+  const vins = extractVinsFromOcrText(plain).filter((v) =>
+    /^LVV|^LVT|^LVD/.test(v)
+  );
+  if (vins.length === 0) return null;
+  const marca = extractMarcaFromFacturaText(plain) ?? "Chery";
+  return sanitizeFacturaMulti(
+    {
+      shared: { marca },
+      vehiculos: vins.map((vin) =>
+        sanitizeVehiculoRowLocal({
+          serialCarroceria: vin,
+          vin,
+          marca,
+          serialMotor: "POR-COMPLETAR",
+          condicion: "nuevo",
+          kilometraje: "0",
+          anio: anioFromVin(vin)?.toString(),
+        })
+      ),
+    },
+    plain
+  );
+}
+
 function extractFacturaFromPlainText(plain: string): DocMultiExtracted {
+  const chery = docFromCheryPlainText(plain);
+  if (chery && chery.vehiculos.length >= 1) {
+    return chery;
+  }
   const marcaHeader = extractMarcaFromFacturaText(plain);
   const mav = parseMavHojaAnexaFromText(plain);
   if (mav && mav.vehiculos.length >= 1) {
@@ -1369,6 +1400,10 @@ export async function extractFacturaMultiFromDocument(
     try {
       const plain = await getPdfPlainText(buffer);
       facturaPlainText = plain;
+      const chery = docFromCheryPlainText(plain);
+      if (chery && chery.vehiculos.length >= 1) {
+        candidates.push(chery);
+      }
       const marcaHeader = extractMarcaFromFacturaText(plain);
       if (countValidVinsInText(plain) >= 2) {
         const deterministic = parseMavHojaAnexaFromText(plain);
@@ -1506,9 +1541,7 @@ export async function extractFacturaMultiFromDocument(
   }
 
   const best = pickBestFacturaMulti(candidates);
-  return facturaPlainText
-    ? sanitizeFacturaMulti(best, facturaPlainText)
-    : best;
+  return sanitizeFacturaMulti(best, facturaPlainText);
 }
 
 /**
@@ -1605,6 +1638,7 @@ export async function extractFacturaVinsStageFromDocument(
         .toUpperCase()
         .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
       if (fromPlain?.length) addVins(fromPlain, "texto-pdf");
+      addVins(extractVinsFromOcrText(plain), "texto-pdf-chery");
       tryMavFromText(plain, "parser-mav");
     } catch (err) {
       diagnostics.push(
@@ -1876,16 +1910,19 @@ export async function enrichFacturaRowsStageFromDocument(
     // Devolver esqueletos por VIN conocidos
     return {
       shared: {},
-      vehiculos: knownVins.map((vin) =>
-        sanitizeVehiculoRowLocal({
+      vehiculos: knownVins.map((vin) => {
+        const key = compactSerial(vin);
+        const looksChery = /^LVV|^LVT|^LVD/.test(key ?? "");
+        return sanitizeVehiculoRowLocal({
           serialCarroceria: vin,
           vin,
           serialMotor: "POR-COMPLETAR",
           condicion: "nuevo",
           kilometraje: "0",
           anio: anioFromVin(vin)?.toString(),
-        })
-      ),
+          ...(looksChery ? { marca: "Chery" } : {}),
+        });
+      }),
     };
   }
 
@@ -1913,6 +1950,7 @@ export async function enrichFacturaRowsStageFromDocument(
         condicion: "nuevo",
         kilometraje: "0",
         anio: anioFromVin(key)?.toString(),
+        ...(/^LVV|^LVT|^LVD/.test(key) ? { marca: "Chery" } : {}),
       })
     );
   }

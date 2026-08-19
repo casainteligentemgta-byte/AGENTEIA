@@ -203,6 +203,52 @@ export function applyFacturaHeaderMarca(
   return { shared, vehiculos };
 }
 
+/** Tras mapear filas OCR: marca desde cabecera/VIN; modelo desde Marks and numbers. */
+export function finalizeFacturaMarcaModelo(
+  shared: PuertoLibreRegistroScanFields,
+  vehiculos: PuertoLibreRegistroScanFields[]
+): { shared: PuertoLibreRegistroScanFields; vehiculos: PuertoLibreRegistroScanFields[] } {
+  const sampleVin =
+    vehiculos.find((v) => v.serialCarroceria?.trim())?.serialCarroceria ??
+    vehiculos.find((v) => v.vin?.trim())?.vin;
+  const headerMarca = resolveMarcaFromFacturaSources(
+    shared.marca,
+    null,
+    undefined,
+    sampleVin ?? null
+  );
+  const sharedOut = headerMarca ? { ...shared, marca: headerMarca } : { ...shared };
+
+  const vehiculosOut = vehiculos.map((v) => {
+    const rawMarca = v.marca?.trim() ?? "";
+    const marcaInvalida = rawMarca && !isPlausibleMarcaFabricante(rawMarca);
+    const fixed = repairCheryMarcaModelo(
+      marcaInvalida ? null : v.marca,
+      v.modelo || (marcaInvalida && looksLikeCheryModelName(rawMarca) ? rawMarca : null)
+    );
+    const marca =
+      (rawMarca && isPlausibleMarcaFabricante(rawMarca)
+        ? normalizeMarcaFabricante(rawMarca)
+        : null) ||
+      headerMarca ||
+      fixed.marca ||
+      (looksLikeCheryVin(v.serialCarroceria ?? v.vin) ? "Chery" : null);
+    const modelo =
+      fixed.modelo ||
+      v.modelo ||
+      (marcaInvalida && looksLikeCheryModelName(rawMarca)
+        ? inferCheryModelo(rawMarca, v.modelo)
+        : null);
+    return sanitizeVehiculoRow({
+      ...v,
+      ...(marca ? { marca } : {}),
+      ...(modelo ? { modelo } : {}),
+    });
+  });
+
+  return { shared: sharedOut, vehiculos: vehiculosOut };
+}
+
 /**
  * Puntuación de fidelidad: prioriza filas con VIN válido + motor + color.
  */
@@ -328,9 +374,7 @@ export function healCheryFacturaRows(
 
   return {
     shared,
-    vehiculos: healed.filter((v) =>
-      Boolean(normalizeVin(v.serialCarroceria ?? v.vin, { strict: false }))
-    ),
+    vehiculos: healed,
   };
 }
 
