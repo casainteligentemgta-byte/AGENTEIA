@@ -53,6 +53,7 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
+import { repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
   VEHICULO_DOCS_BUCKET,
@@ -200,7 +201,11 @@ function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[]
   const without: CargaMasivaRow[] = [];
 
   for (const row of rows) {
-    const serial = normalizarSerialCarroceria(row.serialCarroceria);
+    // En Chery el OCR a menudo lee WMI como LWV/LVW/LYV. Antes de deduplicar,
+    // normalizamos a la convención LVV para que el mismo carro no aparezca
+    // repetido en la planilla.
+    const compact = normalizarSerialCarroceria(row.serialCarroceria);
+    const serial = compact ? repairCheryWmi(compact) : "";
     if (!serial) {
       without.push(row);
       continue;
