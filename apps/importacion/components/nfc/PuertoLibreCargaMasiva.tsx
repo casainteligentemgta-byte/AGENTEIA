@@ -97,7 +97,10 @@ export function PuertoLibreCargaMasiva({
   const [selected, setSelected] = useState<ImportadorListItem | null>(null);
   const [clienteQuery, setClienteQuery] = useState("");
   const [certMatches, setCertMatches] = useState<CertMatch[]>([]);
-  const [pending, startTransition] = useTransition();
+  const [sheetPending, startSheetTransition] = useTransition();
+  const [extractPending, startExtractTransition] = useTransition();
+  const [importPending, startImportTransition] = useTransition();
+  const pending = sheetPending || extractPending || importPending;
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(null);
@@ -177,13 +180,17 @@ export function PuertoLibreCargaMasiva({
   /** Se registran todos con VIN válido (rojo/ámbar/verde). Sin VIN = omitidos. */
   const canImport =
     semaforo.aptos.length > 0 &&
-    !pending &&
+    !importPending &&
+    !extractPending &&
     Boolean(selected) &&
     rifOk &&
     !avisoCupoNatural;
 
   const importBlockReason = useMemo(() => {
-    if (pending) return null;
+    if (extractPending) {
+      return "Espera a que termine la extracción de documentos.";
+    }
+    if (importPending) return "Registrando vehículos…";
     if (semaforo.aptos.length === 0) {
       if (semaforo.bloqueados.length > 0) {
         return `Ningún vehículo tiene VIN válido (${semaforo.bloqueados.length} fila(s) sin VIN). Corrige o elimina esas filas.`;
@@ -200,7 +207,8 @@ export function PuertoLibreCargaMasiva({
     }
     return null;
   }, [
-    pending,
+    extractPending,
+    importPending,
     semaforo.aptos.length,
     semaforo.bloqueados.length,
     selected,
@@ -272,7 +280,7 @@ export function PuertoLibreCargaMasiva({
       if (!result.success) {
         setError(
           currentRows.length > 0
-            ? `Certificado «${ref.fileName}»: ${result.error}. Las filas ya extraídas se mantienen; reintenta con «Subir certificados».`
+            ? `Certificado «${ref.fileName}»: ${result.error}. Las filas ya extraídas se mantienen; reintenta con «Añadir certificados».`
             : result.error
         );
         ingestExtracted(currentRows, lastMatches);
@@ -302,7 +310,7 @@ export function PuertoLibreCargaMasiva({
     setError(null);
     setResultMsg(null);
     setWarnings([]);
-    startTransition(async () => {
+    startSheetTransition(async () => {
       const fd = new FormData();
       fd.set("file", file);
       const result = await parseCargaMasivaSpreadsheetAction(fd);
@@ -381,7 +389,7 @@ export function PuertoLibreCargaMasiva({
       ? ["vins", "datos", "certs"]
       : ["vins", "datos"];
 
-    startTransition(async () => {
+    startExtractTransition(async () => {
         const batchId =
           typeof crypto !== "undefined" && "randomUUID" in crypto
             ? crypto.randomUUID()
@@ -509,7 +517,7 @@ export function PuertoLibreCargaMasiva({
     setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
     setError(null);
     setResultMsg(null);
-    startTransition(async () => {
+    startExtractTransition(async () => {
       try {
         const batchId =
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -550,6 +558,10 @@ export function PuertoLibreCargaMasiva({
       );
       return;
     }
+    if (avisoCupoNatural) {
+      setError(avisoCupoNatural);
+      return;
+    }
     const { aptos, bloqueados } = resumenSemaforo(rows);
     if (aptos.length === 0) {
       setError(
@@ -581,7 +593,7 @@ export function PuertoLibreCargaMasiva({
       return prev.map((r) => byId.get(r.id) ?? r);
     });
 
-    startTransition(async () => {
+    startImportTransition(async () => {
       try {
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: selected.id,
@@ -867,40 +879,49 @@ export function PuertoLibreCargaMasiva({
             />
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => docsRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
               >
-                <Upload className="h-4 w-4" />
+                <Upload className="h-4 w-4 shrink-0" />
                 Agregar PDF
-              </button>
-              <button
-                type="button"
-                disabled={pending || docs.length === 0}
-                onClick={extractDocs}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
-              >
-                {pending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <FileUp className="h-4 w-4" />
-                )}
-                {pending ? "Extrayendo…" : "Extraer vehículos"}
               </button>
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => certsRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
               >
-                <Upload className="h-4 w-4" />
+                <Upload className="h-4 w-4 shrink-0" />
                 Añadir certificados
               </button>
             </div>
+
+            {extractPending ? (
+              <div
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/15 px-4 py-2.5 text-sm font-medium text-cyan-100"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                {extractProgress?.label ?? "Extrayendo…"}
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={importPending || docs.length === 0}
+                onClick={extractDocs}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+              >
+                <FileUp className="h-4 w-4 shrink-0" />
+                Extraer vehículos
+              </button>
+            )}
+          </div>
             <input
               ref={docsRef}
               type="file"
@@ -968,7 +989,7 @@ export function PuertoLibreCargaMasiva({
               </ul>
             ) : null}
 
-            {(pending && extractProgress) || extractProgress ? (
+            {(extractPending || extractProgress) ? (
               <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
                   Extracción por etapas
@@ -1119,18 +1140,24 @@ export function PuertoLibreCargaMasiva({
               type="button"
               disabled={!canImport}
               onClick={importRows}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 sm:w-auto"
             >
-              {pending ? (
+              {importPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              {pending
+              {importPending
                 ? "Registrando…"
                 : `Registrar ${semaforo.aptos.length} vehículo${semaforo.aptos.length === 1 ? "" : "s"}`}
             </button>
           </div>
+
+          {!canImport && importBlockReason ? (
+            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+              {importBlockReason}
+            </p>
+          ) : null}
 
           {semaforo.bloqueados.length > 0 ? (
             <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
@@ -1145,36 +1172,6 @@ export function PuertoLibreCargaMasiva({
               en la ficha.
             </p>
           ) : null}
-
-          {!canImport && importBlockReason ? (
-            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              {importBlockReason}
-            </p>
-          ) : null}
-
-          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-4">
-            <h3 className="text-sm font-semibold text-slate-100">
-              Completar con certificados de origen
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              Si ya tienes las filas de la factura, sube aquí los certificados
-              (uno por vehículo o un PDF multi). Se emparejan por VIN y rellenan
-              motor, marca, color y año.
-            </p>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => certsRef.current?.click()}
-              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
-            >
-              {pending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              Subir certificados
-            </button>
-          </div>
 
           <div className="relative isolate overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-800 [-webkit-overflow-scrolling:touch]">
             <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500 md:hidden">
