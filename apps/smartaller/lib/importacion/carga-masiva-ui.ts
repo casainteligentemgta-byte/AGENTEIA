@@ -151,6 +151,8 @@ export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow
 
 /** VIN ISO: 17 caracteres visibles sin recortar el input. */
 export const VIN_VISIBLE_CHARS = 17;
+/** Serial motor: más ancho para ver valor completo en móvil. */
+export const SERIAL_MOTOR_VISIBLE_CHARS = 24;
 
 export type VehicleFieldCol = {
   key: keyof CargaMasivaRow;
@@ -181,6 +183,9 @@ const FIELD_INPUT_BASE =
 
 export function vehicleFieldInputClass(col: VehicleFieldCol): string {
   if (col.code) {
+    if (col.key === "serialMotor") {
+      return `${FIELD_INPUT_BASE} box-content w-[24ch] min-w-[24ch] max-w-none font-mono text-[13px] tracking-tight`;
+    }
     return `${FIELD_INPUT_BASE} box-content w-[18ch] min-w-[18ch] max-w-none font-mono text-[13px] tracking-tight`;
   }
   return `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
