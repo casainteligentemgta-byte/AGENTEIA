@@ -285,6 +285,8 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
       parseString(
         parsed.serial_motor ??
           parsed.engine_number ??
+          parsed.engine_no ??
+          parsed.engineNo ??
           parsed.no_de_motor ??
           parsed.numero_motor
       )
@@ -1915,6 +1917,41 @@ export async function extractCertificadoOrigenMultiFromDocument(
     } catch (err) {
       llmError = err;
     }
+
+    // Reintento: si el PDF es escaneado y el primer parse casi no detectó
+    // seriales/motor (los campos quedan null), fuerza raster+visión.
+    const isPdf = mimeType.toLowerCase().includes("pdf");
+    if (isPdf && !llmError) {
+      const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
+      const hasCritical = vehiculosRaw.some((v) => {
+        const vinOrChassis = parseString(
+          (v as Record<string, unknown>).serial_carroceria ??
+            (v as Record<string, unknown>).vin ??
+            (v as Record<string, unknown>).chasis ??
+            (v as Record<string, unknown>).code
+        );
+        const motor = parseString(
+          (v as Record<string, unknown>).serial_motor ??
+            (v as Record<string, unknown>).engine_number ??
+            (v as Record<string, unknown>).no_de_motor ??
+            (v as Record<string, unknown>).numero_motor
+        );
+        return Boolean(vinOrChassis || motor);
+      });
+
+      if (!hasCritical) {
+        parsed = await createDocumentJsonCompletion({
+          prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+          buffer,
+          mimeType,
+          maxTokens: options?.rapido ? 3500 : 4500,
+          maxTextChars: options?.rapido ? 16000 : 32000,
+          maxPdfPages: options?.rapido ? 1 : 6,
+          preferHighDetail: true,
+          forceRasterVision: true,
+        });
+      }
+    }
   }
 
   const shared: PuertoLibreRegistroScanFields = {};
@@ -1942,7 +1979,12 @@ export async function extractCertificadoOrigenMultiFromDocument(
         ...v,
         serial_carroceria:
           v.serial_carroceria ?? v.vin ?? v.chasis ?? parsed.serial_carroceria,
-        serial_motor: v.serial_motor ?? v.engine_number ?? parsed.serial_motor,
+        serial_motor:
+          v.serial_motor ??
+          v.engine_number ??
+          v.engine_no ??
+          v.engineNo ??
+          parsed.serial_motor,
         pais_origen: v.pais_origen ?? parsed.pais_origen,
       })
     );

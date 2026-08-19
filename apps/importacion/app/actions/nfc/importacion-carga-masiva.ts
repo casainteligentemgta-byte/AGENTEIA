@@ -424,12 +424,11 @@ export async function extractCargaMasivaDocumentosAction(
           for (const v of extracted.vehiculos) {
             const fields = mergeScanFields(extracted.shared, v);
             certVehicles.push({ fields, fileName: file.name });
-            const serial = normalizarSerialCarroceria(
+            const rawSerial = normalizarSerialCarroceria(
               fields.serialCarroceria ?? fields.vin ?? ""
             );
-            if (serial) {
-              certMatches.push({ serial, fileName: file.name });
-            }
+            const serial = rawSerial ? repairCheryWmi(rawSerial) : "";
+            if (serial) certMatches.push({ serial, fileName: file.name });
           }
         } else if (Object.keys(extracted.shared).length > 0) {
           warnings.push(
@@ -481,9 +480,10 @@ export async function extractCargaMasivaDocumentosAction(
         }
         for (let i = 0; i < vehicleRows.length; i++) {
           const row = vehicleRows[i]!;
-          const serial = normalizarSerialCarroceria(
-            row.serialCarroceria || row.vin || ""
-          );
+            const rawSerial = normalizarSerialCarroceria(
+              row.serialCarroceria || row.vin || ""
+            );
+            const serial = rawSerial ? repairCheryWmi(rawSerial) : "";
           const fromCert = serial ? bySerial.get(serial) : undefined;
           const patch = fromCert
             ? mergeScanFields(sharedFromCert, fromCert)
