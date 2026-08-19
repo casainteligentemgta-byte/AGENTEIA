@@ -13,8 +13,12 @@ import { createVisionJsonCompletion, createVisionVinListCompletion } from "@/lib
 import type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 import {
   countValidVinsInText,
+  extractMarcaFromFacturaText,
+  isPlausibleMarcaFabricante,
   mergeFacturaMultiByVin,
+  normalizeMarcaFabricante,
   parseMavHojaAnexaFromText,
+  resolveMarcaFromFacturaSources,
   sanitizeFacturaMulti,
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
@@ -26,6 +30,13 @@ import {
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
+import {
+  inferCheryModelo,
+  isModeloFragmentInColor,
+  looksLikeCheryModelName,
+  looksLikeCheryVin,
+  repairCheryMarcaModelo,
+} from "@/lib/importacion/chery-modelo";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -644,7 +655,9 @@ REGLA DE ORO: copia SOLO lo escrito en el documento. NO inventes, NO completes d
 
 Puede ser:
 A) Carátula multipágina Chery / Intercontinental: Marks and numbers | Code | Description | Qty | Unit Price | Amount.
-   - "Marks and numbers" = MODELO (ej. ARRIZO 5 PRO, TIGGO 7).
+   - MARCA (fabricante): solo del MEMBRETE / cabecera (ej. «CHERY AUTOMOBILE CO., LTD») → campo raíz "marca".
+   - "Marks and numbers" = MODELO (ej. ARRIZO 5 PRO, TIGGO 7) → vehiculos[].modelo. NO es marca.
+   - vehiculos[].marca = null en tablas Chery (la marca va en shared.marca del membrete).
    - "Code" = VIN de 17 caracteres (ej. LVVDC21B5VD713650). NO es un código de fábrica corto.
    - "Description of goods" = COLOR (ej. NASDAQ SILVER).
    - Cada fila con Qty=1 es UN vehículo. Si hay 15–20 filas, vehiculos.length debe ser 15–20.
@@ -708,10 +721,10 @@ Responde SOLO JSON:
 const FACTURA_RAPIDA_PROMPT = `Extrae datos de una FACTURA DE COMPRA / commercial invoice de vehículo(s).
 Copia SOLO lo escrito. No inventes VIN ni motor.
 
-- Si hay UNA unidad: rellena marca, modelo, color, anio, serial_motor, serial_carroceria (VIN de 17), valor_cif, pais_origen, importador_nombre, importador_documento, y el mismo vehículo en vehiculos[0].
-- Si hay VARIAS unidades (tabla, hoja anexa, Marks and numbers / Code): un objeto por VIN en vehiculos.
+- Si hay UNA unidad: rellena marca (solo membrete/cabecera), modelo, color, anio, serial_motor, serial_carroceria (VIN de 17), valor_cif, pais_origen, importador_nombre, importador_documento, y el mismo vehículo en vehiculos[0].
+- Si hay VARIAS unidades (tabla Chery Marks and numbers / Code, hoja anexa MAV): un objeto por VIN en vehiculos; modelo desde Marks and numbers, marca solo en raíz si está en membrete.
 - VIN = 17 caracteres. Code de fábrica corto NO es VIN.
-- El consignatario / buyer NO es la marca.
+- El consignatario / buyer NO es la marca. Marks and numbers NO es marca.
 
 JSON:
 {
@@ -740,7 +753,7 @@ JSON:
 
 /** Segunda pasada: solo tabla, máxima fidelidad de celdas. */
 const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa / commercial invoice.
-Chery / Intercontinental: Marks and numbers = modelo, Code = VIN (17), Description = color, Unit Price = valor.
+Chery / Intercontinental: Marks and numbers = modelo (NO marca), Code = VIN (17), Description = color, Unit Price = valor. marca=null en filas.
 MAV hoja anexa: No., Chasis/VIN (17), Motor, Llave, Color, Codigo.
 Incluye TODAS las filas con Qty=1 o con VIN. No te detengas en 2 filas. No inventes. Si está rotada, lee igual.
 Responde SOLO JSON:
@@ -823,7 +836,8 @@ Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
 
 Extrae datos que suelen faltar en la factura comercial:
 - serial_motor / ENGINE NO / engine number (columna del motor)
-- marca, modelo, color, anio (año / year / model year del vehículo)
+- marca (fabricante en membrete del certificado; NO confundir con modelo Tiggo/Arrizo)
+- modelo, color, anio (año / year / model year del vehículo)
 - serial_carroceria / VIN / chasis
 - país de origen (country of origin)
 - número del certificado
@@ -887,6 +901,9 @@ function mapFacturaMultiVehiculo(
     ...merged,
     modelo,
     color,
+    marca: isPlausibleMarcaFabricante(parseString(v.marca ?? merged.marca))
+      ? parseString(v.marca ?? merged.marca)
+      : parseString(sharedParsed.marca),
     serial_carroceria:
       vin ??
       v.serial_carroceria ??
@@ -904,8 +921,38 @@ function mapFacturaMultiVehiculo(
     valor_cif: v.valor_cif ?? v.unit_price ?? v.amount ?? null,
   });
   const fields = facturaToFormFields(data);
+  const headerMarca = resolveMarcaFromFacturaSources(
+    parseString(sharedParsed.marca),
+    isPlausibleMarcaFabricante(fields.marca) ? fields.marca : null,
+    undefined,
+    vin ?? fields.serialCarroceria ?? fields.vin
+  );
+  if (headerMarca) {
+    fields.marca = headerMarca;
+  } else if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
+    if (looksLikeCheryModelName(fields.marca) && !fields.modelo?.trim()) {
+      fields.modelo =
+        inferCheryModelo(fields.marca, modelo || null) || fields.marca;
+    }
+    fields.marca = "";
+  }
+  if (
+    looksLikeCheryVin(fields.serialCarroceria || fields.vin) ||
+    looksLikeCheryModelName(fields.marca) ||
+    /^cherr?y$/i.test(fields.marca ?? "")
+  ) {
+    const fixed = repairCheryMarcaModelo(fields.marca, fields.modelo);
+    fields.marca = fixed.marca || "Chery";
+    fields.modelo =
+      inferCheryModelo(
+        fixed.modelo,
+        isModeloFragmentInColor(color) ? color : null
+      ) ||
+      fixed.modelo ||
+      fields.modelo;
+  }
   if (!fields.marca) {
-    const marcaShared = parseString(sharedParsed.marca);
+    const marcaShared = normalizeMarcaFabricante(parseString(sharedParsed.marca));
     if (marcaShared) fields.marca = marcaShared;
   }
   if (!fields.anio) {
@@ -981,9 +1028,17 @@ function parseFacturaMultiResult(
   delete shared.valorCif;
 
   // Emisora MAV TRADE ≠ marca del vehículo.
-  if (shared.marca && /mav\s*trade|holdings\s*corp/i.test(shared.marca)) {
+  if (shared.marca && !isPlausibleMarcaFabricante(shared.marca)) {
     delete shared.marca;
   }
+
+  const headerMarca = resolveMarcaFromFacturaSources(
+    shared.marca,
+    null,
+    undefined,
+    undefined
+  );
+  if (headerMarca) shared.marca = headerMarca;
 
   const numeroFactura = parseString(parsed.numero_factura ?? parsed.invoice_no);
   const facturaLabel = numeroFactura ? `Factura ${numeroFactura}` : null;
@@ -991,7 +1046,10 @@ function parseFacturaMultiResult(
 
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
     const fields = mapFacturaMultiVehiculo(parsed, v);
-    if (fields.marca && /mav\s*trade|holdings\s*corp/i.test(fields.marca)) {
+    if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
+      if (looksLikeCheryModelName(fields.marca) && !fields.modelo?.trim()) {
+        fields.modelo = inferCheryModelo(fields.marca) || fields.modelo;
+      }
       delete fields.marca;
     }
     const extras = [
@@ -1194,12 +1252,25 @@ function docFromLocalVins(vins: string[]): DocMultiExtracted {
 }
 
 function extractFacturaFromPlainText(plain: string): DocMultiExtracted {
+  const marcaHeader = extractMarcaFromFacturaText(plain);
   const mav = parseMavHojaAnexaFromText(plain);
   if (mav && mav.vehiculos.length >= 1) {
-    return sanitizeFacturaMulti(mav);
+    const doc = marcaHeader
+      ? { ...mav, shared: { ...mav.shared, marca: marcaHeader } }
+      : mav;
+    return sanitizeFacturaMulti(doc, plain);
   }
   const vins = extractVinsFromOcrText(plain);
-  if (vins.length >= 1) return docFromLocalVins(vins);
+  if (vins.length >= 1 || countValidVinsInText(plain) >= 1) {
+    const doc = docFromLocalVins(vins.length >= 1 ? vins : extractVinsFromOcrText(plain));
+    if (marcaHeader && !doc.shared.marca) {
+      return sanitizeFacturaMulti({ ...doc, shared: { ...doc.shared, marca: marcaHeader } }, plain);
+    }
+    return sanitizeFacturaMulti(doc, plain);
+  }
+  if (marcaHeader) {
+    return sanitizeFacturaMulti({ shared: { marca: marcaHeader }, vehiculos: [] }, plain);
+  }
   return { shared: {}, vehiculos: [] };
 }
 
@@ -1291,15 +1362,21 @@ export async function extractFacturaMultiFromDocument(
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const candidates: DocMultiExtracted[] = [];
+  let facturaPlainText: string | null = null;
 
   // 1) Texto embebido (PDF digital).
   if (isPdf) {
     try {
       const plain = await getPdfPlainText(buffer);
+      facturaPlainText = plain;
+      const marcaHeader = extractMarcaFromFacturaText(plain);
       if (countValidVinsInText(plain) >= 2) {
         const deterministic = parseMavHojaAnexaFromText(plain);
         if (deterministic && deterministic.vehiculos.length >= 2) {
-          candidates.push(sanitizeFacturaMulti(deterministic));
+          const doc = marcaHeader
+            ? { ...deterministic, shared: { ...deterministic.shared, marca: marcaHeader } }
+            : deterministic;
+          candidates.push(sanitizeFacturaMulti(doc, plain));
         }
       }
     } catch {
@@ -1428,7 +1505,10 @@ export async function extractFacturaMultiFromDocument(
     return { shared: {}, vehiculos: [] };
   }
 
-  return pickBestFacturaMulti(candidates);
+  const best = pickBestFacturaMulti(candidates);
+  return facturaPlainText
+    ? sanitizeFacturaMulti(best, facturaPlainText)
+    : best;
 }
 
 /**
@@ -1936,8 +2016,8 @@ export async function extractCertificadoOrigenMultiFromDocument(
   const shared: PuertoLibreRegistroScanFields = {};
   const pais = parseString(parsed.pais_origen ?? parsed.country_of_origin);
   if (pais) shared.paisOrigen = pais;
-  const marca = parseString(parsed.marca);
-  if (marca) shared.marca = marca;
+  const marca = normalizeMarcaFabricante(parseString(parsed.marca));
+  if (marca && isPlausibleMarcaFabricante(marca)) shared.marca = marca;
   const anio = parseIntSafe(parsed.anio);
   if (anio != null) shared.anio = String(anio);
   const certNo = parseString(
@@ -1972,6 +2052,12 @@ export async function extractCertificadoOrigenMultiFromDocument(
     }
     if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
     if (!fields.marca && marca) fields.marca = marca;
+    else if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
+      if (looksLikeCheryModelName(fields.marca) && !fields.modelo?.trim()) {
+        fields.modelo = inferCheryModelo(fields.marca) || fields.modelo;
+      }
+      fields.marca = marca ?? "";
+    }
     if (!fields.anio && anio != null) fields.anio = String(anio);
     if (!fields.anio) {
       const y = resolveAnioFromSources(
@@ -2036,6 +2122,16 @@ export function mergeScanFields(
       else if (!b || a.includes(b)) out.observaciones = a;
       else if (b.includes(a)) out.observaciones = b;
       else out.observaciones = `${a} · ${b}`;
+      continue;
+    }
+    if (k === "marca") {
+      const patchMarca = normalizeMarcaFabricante(String(v));
+      if (!patchMarca || !isPlausibleMarcaFabricante(patchMarca)) continue;
+      const baseStr = current != null ? String(current).trim() : "";
+      const baseValid =
+        Boolean(baseStr) && isPlausibleMarcaFabricante(baseStr);
+      if (baseValid) continue;
+      out.marca = patchMarca;
       continue;
     }
     if (k === "vin" || k === "serialCarroceria") {

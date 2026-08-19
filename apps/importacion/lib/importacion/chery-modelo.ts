@@ -59,3 +59,39 @@ export function looksLikeCheryVin(vin: string | null | undefined): boolean {
   const v = compactAlnumVin(vin);
   return /^LVV|^LVT|^LVD/.test(v);
 }
+
+/** OCR suele poner Tiggo/Arrizo en la columna Marca en lugar de Chery. */
+export function looksLikeCheryModelName(
+  raw: string | null | undefined
+): boolean {
+  const t = (raw ?? "").trim().replace(/\s+/g, " ");
+  if (!t || /^chery$/i.test(t)) return false;
+  if (/^(TIGGO|ARRIZO|OMODA|QQ)\b/i.test(t)) return true;
+  return isModeloFragmentInColor(t);
+}
+
+/** Corrige marca=modelo Chery (ej. Marca «Tiggo» → Marca «Chery», Modelo «Tiggo 2»). */
+export function repairCheryMarcaModelo(
+  marcaRaw: string | null | undefined,
+  modeloRaw: string | null | undefined
+): { marca: string; modelo: string } {
+  const marca = (marcaRaw ?? "").trim();
+  const modelo = (modeloRaw ?? "").trim();
+
+  if (/^cherr?y$/i.test(marca)) {
+    return {
+      marca: "Chery",
+      modelo: inferCheryModelo(modelo, null) || modelo,
+    };
+  }
+
+  if (looksLikeCheryModelName(marca)) {
+    const inferred =
+      inferCheryModelo(marca, modelo || null) ||
+      inferCheryModelo(modelo, marca) ||
+      marca;
+    return { marca: "Chery", modelo: inferred || modelo || marca };
+  }
+
+  return { marca, modelo };
+}

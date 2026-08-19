@@ -3,6 +3,9 @@ import { normalizeRif } from "@/lib/validations/rif";
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
+  looksLikeCheryModelName,
+  looksLikeCheryVin,
+  repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
 import { repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
@@ -55,32 +58,41 @@ export function lookupBySerialPrefix<T>(
 export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
   const anyChery = rows.some((r) => {
     const vin = normalizeSerialKey(r.serialCarroceria || r.vin);
-    return /^LVV|^LVT|^LVD/.test(vin) || /^chery$/i.test(r.marca.trim());
+    return (
+      looksLikeCheryVin(vin) ||
+      /^cherr?y$/i.test(r.marca.trim()) ||
+      looksLikeCheryModelName(r.marca)
+    );
   });
   if (!anyChery) return rows;
 
   const bestModelo =
     rows
-      .map((r) =>
-        inferCheryModelo(
-          r.modelo,
+      .map((r) => {
+        const fixed = repairCheryMarcaModelo(r.marca, r.modelo);
+        return inferCheryModelo(
+          fixed.modelo,
           isModeloFragmentInColor(r.color) ? r.color : null
-        )
-      )
+        );
+      })
       .filter(Boolean)
       .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0))[0] ?? null;
 
   return rows.map((r) => {
     const vin = normalizeSerialKey(r.serialCarroceria || r.vin);
     const colorWasModelo = isModeloFragmentInColor(r.color);
+    const { marca: fixedMarca, modelo: fixedModeloBase } = repairCheryMarcaModelo(
+      r.marca,
+      r.modelo
+    );
     const modelo =
-      inferCheryModelo(r.modelo, colorWasModelo ? r.color : null) ||
+      inferCheryModelo(fixedModeloBase, colorWasModelo ? r.color : null) ||
       bestModelo ||
-      r.modelo;
+      fixedModeloBase;
     return {
       ...r,
-      marca: r.marca.trim() || "Chery",
-      modelo: modelo || r.modelo,
+      marca: fixedMarca || "Chery",
+      modelo: modelo || fixedModeloBase,
       color: colorWasModelo ? "" : r.color,
       vin: vin || r.vin,
       serialCarroceria: vin || r.serialCarroceria,

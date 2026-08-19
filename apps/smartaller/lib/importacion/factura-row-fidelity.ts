@@ -12,14 +12,18 @@ import {
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
+  looksLikeCheryModelName,
   looksLikeCheryVin,
+  repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
 
 export { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 export {
   inferCheryModelo,
   isModeloFragmentInColor,
+  looksLikeCheryModelName,
   looksLikeCheryVin,
+  repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
 
 const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/gi;
@@ -77,6 +81,128 @@ export function normalizeCodigoModelo(raw: string | null | undefined): string | 
   return t;
 }
 
+const MARCA_EMISORA_INVALIDA_RE =
+  /mav\s*trade|holdings\s*corp|intercontinental|consignee|buyer|importador|shipper\s*to|sold\s*to|notify\s*party/i;
+
+/** Marcas conocidas en membrete de factura (no modelo comercial). */
+const MARCA_MEMBRETE_RE =
+  /\b(CHERY(?:\s+AUTOMOBILE)?(?:\s+CO\.?,?\s*LTD\.?)?|NISSAN|TOYOTA|HYUNDAI|KIA|MITSUBISHI|CHEVROLET|FORD|HONDA|MAZDA|SUZUKI|RENAULT|PEUGEOT|FIAT|JEEP|GMC|BYD|GEELY|HAVAL|GREAT\s+WALL|DONGFENG|JAC|BAIC|FOTON|ISUZU|SUBARU|VOLKSWAGEN|VW|BMW|MERCEDES|AUDI)\b/i;
+
+/**
+ * Marca de fabricante válida (no modelo tipo Tiggo, no emisora MAV).
+ */
+export function isPlausibleMarcaFabricante(
+  raw: string | null | undefined
+): boolean {
+  const t = (raw ?? "").trim();
+  if (!t || t.length < 2 || t.length > 40) return false;
+  if (MARCA_EMISORA_INVALIDA_RE.test(t)) return false;
+  if (looksLikeCheryModelName(t)) return false;
+  if (/^(marks|description|qty|unit|amount|code|total)$/i.test(t)) return false;
+  return true;
+}
+
+/** Normaliza typo OCR y recorta ruido de membrete. */
+export function normalizeMarcaFabricante(
+  raw: string | null | undefined
+): string | null {
+  const t = (raw ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return null;
+  if (/^cherr?y\b/i.test(t)) return "Chery";
+  const m = t.match(MARCA_MEMBRETE_RE);
+  if (m) {
+    const brand = m[1]!.trim();
+    if (/^chery/i.test(brand)) return "Chery";
+    if (/^great\s+wall/i.test(brand)) return "Great Wall";
+    return brand.replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\s+/g, " ");
+  }
+  if (!isPlausibleMarcaFabricante(t)) return null;
+  return t;
+}
+
+/**
+ * En facturas Chery/Intercontinental la marca va en el MEMBRETE (cabecera),
+ * no en la columna «Marks and numbers» (modelo) ni en el consignatario.
+ */
+export function extractMarcaFromFacturaText(text: string): string | null {
+  if (!text.trim()) return null;
+  const tableStart = text.search(
+    /marks\s+and\s+numbers|description\s+of\s+goods|\bqty\b|\bunit\s+price\b|no\.\s*de\s+chasis|attached\s+sheet/i
+  );
+  const header =
+    tableStart > 80 ? text.slice(0, tableStart) : text.slice(0, 2800);
+
+  const labeled = header.match(
+    /\b(?:MANUFACTURER|EXPORTER|SELLER|SUPPLIER|SHIPPER|BRAND|MARCA|MAKE)[:\s]+([A-Z][A-Za-z0-9\s&.,\-]{2,40})/i
+  );
+  if (labeled?.[1]) {
+    const fromLabel = normalizeMarcaFabricante(labeled[1].split(/[,;|\n]/)[0]);
+    if (fromLabel) return fromLabel;
+  }
+
+  const fromMembrete = header.match(MARCA_MEMBRETE_RE);
+  if (fromMembrete) {
+    return normalizeMarcaFabricante(fromMembrete[1] ?? fromMembrete[0]);
+  }
+  return null;
+}
+
+/** Prioriza marca del membrete de factura sobre fila/COO mal leídos. */
+export function resolveMarcaFromFacturaSources(
+  sharedMarca: string | null | undefined,
+  rowMarca: string | null | undefined,
+  plainText?: string | null,
+  vin?: string | null
+): string | null {
+  const fromShared = normalizeMarcaFabricante(sharedMarca);
+  if (fromShared) return fromShared;
+
+  if (plainText) {
+    const fromText = extractMarcaFromFacturaText(plainText);
+    if (fromText) return fromText;
+  }
+
+  const fromRow = normalizeMarcaFabricante(rowMarca);
+  if (fromRow && isPlausibleMarcaFabricante(fromRow)) return fromRow;
+
+  if (looksLikeCheryVin(vin)) return "Chery";
+  return null;
+}
+
+/** Propaga marca de cabecera a todas las filas; «Marks and numbers» → modelo. */
+export function applyFacturaHeaderMarca(
+  extracted: FacturaMultiLike,
+  plainText?: string | null
+): FacturaMultiLike {
+  const sampleVin =
+    extracted.vehiculos.find((v) => v.serialCarroceria ?? v.vin)?.serialCarroceria ??
+    extracted.vehiculos.find((v) => v.vin)?.vin;
+  const headerMarca = resolveMarcaFromFacturaSources(
+    extracted.shared.marca,
+    null,
+    plainText,
+    sampleVin ?? null
+  );
+  if (!headerMarca) return extracted;
+
+  const shared = { ...extracted.shared, marca: headerMarca };
+  const vehiculos = extracted.vehiculos.map((v) => {
+    const rawMarca = v.marca?.trim() ?? "";
+    const wrongMarca =
+      rawMarca && (!isPlausibleMarcaFabricante(rawMarca) || looksLikeCheryModelName(rawMarca));
+    const modeloFromWrongMarca =
+      wrongMarca && looksLikeCheryModelName(rawMarca)
+        ? inferCheryModelo(rawMarca, v.modelo) || rawMarca
+        : null;
+    return {
+      ...v,
+      marca: headerMarca,
+      modelo: v.modelo?.trim() || modeloFromWrongMarca || v.modelo,
+    };
+  });
+  return { shared, vehiculos };
+}
+
 /**
  * Puntuación de fidelidad: prioriza filas con VIN válido + motor + color.
  */
@@ -129,14 +255,15 @@ export function sanitizeVehiculoRow(
 
   const isChery =
     looksLikeCheryVin(vin ?? next.serialCarroceria) ||
-    /^chery$/i.test(row.marca?.trim() ?? "");
+    /^cherr?y$/i.test(row.marca?.trim() ?? "") ||
+    looksLikeCheryModelName(row.marca);
 
   if (isChery) {
-    if (!next.marca?.trim()) next.marca = "Chery";
-    const inferred = inferCheryModelo(
-      row.modelo,
-      colorWasModelo ? rawColor : null
-    );
+    const fixed = repairCheryMarcaModelo(next.marca ?? row.marca, next.modelo ?? row.modelo);
+    next.marca = fixed.marca || "Chery";
+    const inferred =
+      inferCheryModelo(fixed.modelo, colorWasModelo ? rawColor : null) ||
+      fixed.modelo;
     if (inferred) next.modelo = inferred;
   } else if (colorWasModelo && !next.modelo?.trim()) {
     next.modelo = rawColor;
@@ -161,7 +288,8 @@ export function healCheryFacturaRows(
   const anyChery = vehiculos.some(
     (v) =>
       looksLikeCheryVin(v.serialCarroceria ?? v.vin) ||
-      /^chery$/i.test(v.marca ?? "")
+      /^cherr?y$/i.test(v.marca ?? "") ||
+      looksLikeCheryModelName(v.marca)
   );
   if (!anyChery) {
     return { shared: extracted.shared, vehiculos };
@@ -184,10 +312,14 @@ export function healCheryFacturaRows(
 
   const healed = vehiculos.map((v) => {
     const next = { ...v };
-    if (!next.marca?.trim()) next.marca = "Chery";
+    const fixed = repairCheryMarcaModelo(next.marca, next.modelo);
+    next.marca = fixed.marca || "Chery";
     if (!next.modelo?.trim() && bestModelo) next.modelo = bestModelo;
-    else if (next.modelo?.trim()) {
-      const inferred = inferCheryModelo(next.modelo);
+    else {
+      const inferred =
+        inferCheryModelo(fixed.modelo) ||
+        inferCheryModelo(next.modelo) ||
+        fixed.modelo;
       if (inferred) next.modelo = inferred;
     }
     if (isModeloFragmentInColor(next.color)) delete next.color;
@@ -202,8 +334,11 @@ export function healCheryFacturaRows(
   };
 }
 
-export function sanitizeFacturaMulti(extracted: FacturaMultiLike): FacturaMultiLike {
-  const healed = healCheryFacturaRows(extracted);
+export function sanitizeFacturaMulti(
+  extracted: FacturaMultiLike,
+  plainText?: string | null
+): FacturaMultiLike {
+  const healed = healCheryFacturaRows(applyFacturaHeaderMarca(extracted, plainText));
   const vehiculos = healed.vehiculos.filter((v) =>
     Boolean(normalizeVin(v.serialCarroceria ?? v.vin))
   );
@@ -241,7 +376,10 @@ export function mergeFacturaMultiByVin(
       byVin.set(vin, {
         ...prev,
         ...clean,
-        marca: preferField(prev.marca, clean.marca),
+        marca: preferField(
+          isPlausibleMarcaFabricante(prev.marca) ? prev.marca : undefined,
+          isPlausibleMarcaFabricante(clean.marca) ? clean.marca : undefined
+        ),
         modelo: preferField(prev.modelo, clean.modelo),
         color: preferField(prev.color, clean.color),
         anio: preferField(prev.anio, clean.anio),
