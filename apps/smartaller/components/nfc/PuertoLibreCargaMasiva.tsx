@@ -256,12 +256,23 @@ export function PuertoLibreCargaMasiva({
     [rows]
   );
 
+  const avisoCupoNatural = useMemo(() => {
+    if (!selected || selected.tipo !== "natural") return null;
+    if (semaforo.aptos.length <= 1) return null;
+    return (
+      `Importador persona natural: máximo 1 vehículo cada 3 años. ` +
+      `Tienes ${semaforo.aptos.length} filas — selecciona un importador jurídico (J/G/C/P) ` +
+      `para registrar el lote completo.`
+    );
+  }, [selected, semaforo.aptos.length]);
+
   /** Se registran todos con VIN válido (rojo/ámbar/verde). Sin VIN = omitidos. */
   const canImport =
     semaforo.aptos.length > 0 &&
     !pending &&
     Boolean(selected) &&
-    rifOk;
+    rifOk &&
+    !avisoCupoNatural;
 
   function updateRow(id: string, key: keyof CargaMasivaRow, value: string) {
     setRows((prev) =>
@@ -725,12 +736,7 @@ export function PuertoLibreCargaMasiva({
         router.refresh();
       }
       if (fail > 0) {
-        setError(
-          result.failed
-            .slice(0, 5)
-            .map((f) => `Fila ${f.index + 1} (${f.serial}): ${f.error}`)
-            .join(" · ")
-        );
+        setError(summarizeBulkRegisterFailures(result.failed));
       }
       } catch (err) {
         setError(formatCargaMasivaClientError(err));
@@ -1236,6 +1242,12 @@ export function PuertoLibreCargaMasiva({
             </p>
           ) : null}
 
+          {avisoCupoNatural ? (
+            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+              {avisoCupoNatural}
+            </p>
+          ) : null}
+
           {!selected && !hideClienteSection ? (
             <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
               Selecciona el cliente importador (paso 1) para habilitar el registro.
@@ -1451,4 +1463,24 @@ function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
+}
+
+function summarizeBulkRegisterFailures(
+  failed: { index: number; serial: string; error: string }[]
+): string {
+  if (failed.length === 0) return "";
+  const groups = new Map<string, { count: number; example: (typeof failed)[0] }>();
+  for (const f of failed) {
+    const g = groups.get(f.error);
+    if (g) g.count += 1;
+    else groups.set(f.error, { count: 1, example: f });
+  }
+  return [...groups.values()]
+    .slice(0, 3)
+    .map(({ count, example }) =>
+      count > 1
+        ? `${count} vehículos: ${example.error}`
+        : `Fila ${example.index + 1} (${example.serial}): ${example.error}`
+    )
+    .join(" · ");
 }
