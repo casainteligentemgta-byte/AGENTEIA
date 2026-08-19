@@ -171,8 +171,6 @@ export const VEHICLE_FIELD_COLS: VehicleFieldCol[] = [
   { key: "serialCarroceria", label: "Serial carrocería", wide: true, code: true },
   { key: "kilometraje", label: "Km" },
   { key: "condicion", label: "Condición" },
-  { key: "esSubasta", label: "Subasta" },
-  { key: "numeroCertificadoOrigen", label: "Nº cert. origen" },
   { key: "observaciones", label: "Obs. (unidad/llave)", wide: true },
 ];
 

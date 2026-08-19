@@ -1362,16 +1362,59 @@ export function PuertoLibreCargaMasiva({
                             c.code ? "whitespace-nowrap" : ""
                           }`}
                         >
-                          <input
-                            value={String(row[c.key] ?? "")}
-                            onChange={(e) =>
-                              updateRow(row.id, c.key, e.target.value)
-                            }
-                            size={c.code ? VIN_VISIBLE_CHARS : undefined}
-                            spellCheck={c.code ? false : undefined}
-                            autoComplete="off"
-                            className={vehicleFieldInputClass(c)}
-                          />
+                          {c.key === "condicion" ? (
+                            (() => {
+                              const esSub = (row.esSubasta ?? "")
+                                .toLowerCase()
+                                .trim() === "true";
+                              const currentValue = esSub
+                                ? "subasta"
+                                : (row.condicion ?? "").trim() === "usado"
+                                  ? "usado"
+                                  : "nuevo";
+
+                              return (
+                                <select
+                                  value={currentValue}
+                                  onChange={(e) => {
+                                    const next = e.target.value;
+                                    if (next === "nuevo") {
+                                      updateRow(row.id, "condicion", "nuevo");
+                                      updateRow(row.id, "esSubasta", "false");
+                                      return;
+                                    }
+                                    if (next === "usado") {
+                                      updateRow(row.id, "condicion", "usado");
+                                      updateRow(row.id, "esSubasta", "false");
+                                      return;
+                                    }
+                                    // subasta
+                                    updateRow(row.id, "condicion", "usado");
+                                    updateRow(row.id, "esSubasta", "true");
+                                  }}
+                                  className={`${vehicleFieldInputClass(
+                                    c
+                                  )} w-full`}
+                                  aria-label="Condición"
+                                >
+                                  <option value="nuevo">nuevo</option>
+                                  <option value="usado">usado</option>
+                                  <option value="subasta">subasta</option>
+                                </select>
+                              );
+                            })()
+                          ) : (
+                            <input
+                              value={String(row[c.key] ?? "")}
+                              onChange={(e) =>
+                                updateRow(row.id, c.key, e.target.value)
+                              }
+                              size={c.code ? VIN_VISIBLE_CHARS : undefined}
+                              spellCheck={c.code ? false : undefined}
+                              autoComplete="off"
+                              className={vehicleFieldInputClass(c)}
+                            />
+                          )}
                         </td>
                       ))}
                       <td className="px-1 py-1 align-top">
