@@ -36,6 +36,7 @@ import {
   type CargaMasivaEtapaProgress,
 } from "@/lib/importacion/carga-masiva-etapas";
 import {
+  applyImportadorToRows,
   applySharedShipmentToRows,
   detectedImportadorFromRows,
   EMPTY_DETECTED_IMPORTADOR,
@@ -243,13 +244,17 @@ export function PuertoLibreCargaMasiva({
     );
   }, [importadores, clienteQuery]);
 
+  /** En el wizard el importador ya se eligió en el paso 1; no bloquear por RIF del OCR. */
+  const trustWizardImportador = hideClienteSection && Boolean(selected);
+
   const rifOk = useMemo(() => {
     if (!selected) return false;
+    if (trustWizardImportador) return true;
     return rifCoincideConSeleccionado(
       detectedImportador.documento,
       selected.documento
     );
-  }, [detectedImportador.documento, selected]);
+  }, [detectedImportador.documento, selected, trustWizardImportador]);
 
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
   const incompleteCount = useMemo(
@@ -275,6 +280,36 @@ export function PuertoLibreCargaMasiva({
     rifOk &&
     !avisoCupoNatural;
 
+  const importBlockReason = useMemo(() => {
+    if (pending) return null;
+    if (semaforo.aptos.length === 0) {
+      if (semaforo.bloqueados.length > 0) {
+        return `Ningún vehículo tiene VIN válido (${semaforo.bloqueados.length} fila(s) sin VIN). Corrige o elimina esas filas.`;
+      }
+      return "No hay vehículos con VIN válido para registrar.";
+    }
+    if (!selected) {
+      return hideClienteSection
+        ? "No hay cliente importador asociado. Vuelve al paso 1 y selecciona uno."
+        : "Selecciona el cliente importador (paso 1) para habilitar el registro.";
+    }
+    if (avisoCupoNatural) return avisoCupoNatural;
+    if (!rifOk) {
+      const docOcr = detectedImportador.documento || "sin RIF en documentos";
+      return `El RIF de los documentos (${docOcr}) no coincide con el cliente seleccionado (${selected.documento}). Elige el importador correcto o sube documentos del mismo titular.`;
+    }
+    return null;
+  }, [
+    pending,
+    semaforo.aptos.length,
+    semaforo.bloqueados.length,
+    selected,
+    avisoCupoNatural,
+    rifOk,
+    detectedImportador.documento,
+    hideClienteSection,
+  ]);
+
   function updateRow(id: string, key: keyof CargaMasivaRow, value: string) {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [key]: value, error: null } : r))
@@ -286,13 +321,24 @@ export function PuertoLibreCargaMasiva({
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
-    const healed = healCargaMasivaCheryRows(nextRows);
+    let healed = healCargaMasivaCheryRows(nextRows);
+    if (selected) {
+      healed = applyImportadorToRows(healed, selected);
+    }
     rowsRef.current = healed;
     setRows(healed);
     setShared(sharedShipmentFromRows(healed));
-    const detected = detectedImportadorFromRows(healed);
-    if (detected.documento || detected.nombre) {
-      setDetectedImportador(detected);
+    if (trustWizardImportador && selected) {
+      setDetectedImportador({
+        nombre: selected.nombre,
+        documento: selected.documento,
+        direccion: selected.direccion ?? "",
+      });
+    } else {
+      const detected = detectedImportadorFromRows(healed);
+      if (detected.documento || detected.nombre) {
+        setDetectedImportador(detected);
+      }
     }
     if (matches?.length) {
       setCertMatches((prev) => {
@@ -652,7 +698,9 @@ export function PuertoLibreCargaMasiva({
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: selected.id,
         rows: rowsToImport,
-        detectedImportadorDocumento: detectedImportador.documento,
+        detectedImportadorDocumento: trustWizardImportador
+          ? selected.documento
+          : detectedImportador.documento,
       });
       if (!result.success) {
         setError(result.error);
@@ -1244,15 +1292,9 @@ export function PuertoLibreCargaMasiva({
             </p>
           ) : null}
 
-          {avisoCupoNatural ? (
+          {!canImport && importBlockReason ? (
             <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              {avisoCupoNatural}
-            </p>
-          ) : null}
-
-          {!selected && !hideClienteSection ? (
-            <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
-              Selecciona el cliente importador (paso 1) para habilitar el registro.
+              {importBlockReason}
             </p>
           ) : null}
 
