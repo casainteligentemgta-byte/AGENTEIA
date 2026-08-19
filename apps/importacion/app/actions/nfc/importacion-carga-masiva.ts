@@ -43,7 +43,10 @@ import {
   type CargaMasivaEtapaId,
   type CargaMasivaEtapaResult,
 } from "@/lib/importacion/carga-masiva-etapas";
-import { evaluarCupoPersonaNatural } from "@/lib/importacion/cumplimiento-importador";
+import {
+  clasificarTipoImportadorPorRif,
+  evaluarCupoPersonaNatural,
+} from "@/lib/importacion/cumplimiento-importador";
 import {
   ensureImportadorForTaller,
   getImportadorAction,
@@ -1352,8 +1355,36 @@ export async function createPuertoLibreCargaMasivaAction(input: {
     };
   }
 
+  const esPersonaNatural =
+    importador.tipo === "natural" ||
+    clasificarTipoImportadorPorRif(importador.documento) === "natural";
+
+  if (esPersonaNatural && aptos.length > 1) {
+    return {
+      success: false,
+      error:
+        `Persona natural (RIF V/E): máximo 1 vehículo cada 3 años. ` +
+        `Tienes ${aptos.length} filas listas. Para registrar un lote completo, ` +
+        `selecciona un importador jurídico (J/G/C/P).`,
+    };
+  }
+
   const admin = createAdminClient();
   const tallerId = auth.taller.id;
+
+  if (esPersonaNatural) {
+    const cupoPrevio = await evaluarCupoPersonaNatural({
+      admin,
+      tallerId,
+      importadorDocumento: importador.documento,
+      fechaReferenciaNueva: aptos[0]?.fechaLlegadaBuque || null,
+      regimen: "puerto_libre",
+    });
+    if (!cupoPrevio.ok) {
+      return { success: false, error: cupoPrevio.error };
+    }
+  }
+
   const { year, month } = partsFromDate();
   let nextNumero = await nextNumeroExpedienteMes(admin, tallerId, year, month);
 
