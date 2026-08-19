@@ -128,7 +128,7 @@ export function PuertoLibreCargaMasiva({
       seed.message ?? `Se cargaron ${seed.rows.length} vehículos desde la factura.`
     );
     setWarnings([
-      "Revisa VIN, motor y color de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor / nº cert.",
+      "Revisa VIN, motor, color y año de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor.",
       "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
     router.replace("/smartimport/carga-masiva", { scroll: false });
@@ -1070,10 +1070,10 @@ export function PuertoLibreCargaMasiva({
               <p className="mt-1 text-xs text-slate-500">
                 Semáforo = completitud. Con VIN válido se crea el expediente aunque
                 falten datos (se completan en la ficha). Verde = completo · Ámbar =
-                faltan motor/color/año/cert · Rojo = faltan marca/modelo (igual se
+                falten motor/color/año · Rojo = faltan marca/modelo (igual se
                 crea). Sin VIN no se registra.
                 {incompleteCount > 0
-                  ? " Sube certificados para rellenar motor y nº cert."
+                  ? " Sube certificados para rellenar motor, color y año."
                   : null}
               </p>
             </div>
@@ -1121,7 +1121,7 @@ export function PuertoLibreCargaMasiva({
             <p className="mt-1 text-xs text-slate-400">
               Si ya tienes las filas de la factura, sube aquí los certificados
               (uno por vehículo o un PDF multi). Se emparejan por VIN y rellenan
-              motor, marca, color, año y nº de certificado.
+              motor, marca, color y año.
             </p>
             <button
               type="button"

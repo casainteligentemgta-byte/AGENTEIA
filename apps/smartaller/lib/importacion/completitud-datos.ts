@@ -1,7 +1,7 @@
 /**
  * Semáforo de completitud de datos del vehículo (carga masiva + expediente).
  * - verde: nada pendiente
- * - ámbar: faltan datos medios (motor, color, año, cert.)
+ * - ámbar: faltan datos medios (motor, color, año)
  * - rojo: faltan datos fuertes (marca, modelo) o VIN inválido
  *
  * Registrable = VIN de 17 caracteres (el expediente se crea igual; lo pendiente se completa después).
@@ -15,7 +15,7 @@ export type CompletitudDatos = {
   pendientes: string[];
   /** Críticos (marca/modelo/VIN). */
   criticos: string[];
-  /** Medios (motor/color/año/cert). */
+  /** Medios (motor/color/año). */
   medios: string[];
   /** Se puede crear el expediente. */
   registrable: boolean;
@@ -88,7 +88,6 @@ export function computeCompletitudDatos(
       ? ""
       : String(input.anio).trim();
   if (!anioStr || PLACEHOLDER_RE.test(anioStr)) medios.push("año");
-  if (isPlaceholderDato(input.numeroCertificadoOrigen)) medios.push("nº cert.");
 
   const pendientes = [...criticos, ...medios];
 
