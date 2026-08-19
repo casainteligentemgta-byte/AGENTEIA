@@ -121,7 +121,7 @@ export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow
     const vin = normalizeSerialKey(r.serialCarroceria || r.vin);
     return (
       looksLikeCheryVin(vin) ||
-      /^chery$/i.test(r.marca.trim()) ||
+      /^cherr?y$/i.test(r.marca.trim()) ||
       looksLikeCheryModelName(r.marca)
     );
   });

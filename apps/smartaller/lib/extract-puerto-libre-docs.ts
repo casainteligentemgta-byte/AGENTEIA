@@ -952,7 +952,7 @@ function mapFacturaMultiVehiculo(
   if (
     looksLikeCheryVin(fields.serialCarroceria || fields.vin) ||
     looksLikeCheryModelName(fields.marca) ||
-    /^chery$/i.test(fields.marca ?? "")
+    /^cherr?y$/i.test(fields.marca ?? "")
   ) {
     const fixed = repairCheryMarcaModelo(fields.marca, fields.modelo);
     fields.marca = fixed.marca || "Chery";

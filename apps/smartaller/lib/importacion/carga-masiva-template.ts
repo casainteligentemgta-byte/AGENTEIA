@@ -625,7 +625,7 @@ function healCheryCargaMasivaRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
     );
     return (
       /^LVV|^LVT|^LVD/.test(vin) ||
-      /^chery$/i.test(r.marca.trim()) ||
+      /^cherr?y$/i.test(r.marca.trim()) ||
       looksLikeCheryModelName(r.marca)
     );
   });

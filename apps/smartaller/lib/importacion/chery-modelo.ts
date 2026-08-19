@@ -78,7 +78,7 @@ export function repairCheryMarcaModelo(
   const marca = (marcaRaw ?? "").trim();
   const modelo = (modeloRaw ?? "").trim();
 
-  if (/^chery$/i.test(marca)) {
+  if (/^cherr?y$/i.test(marca)) {
     return {
       marca: "Chery",
       modelo: inferCheryModelo(modelo, null) || modelo,

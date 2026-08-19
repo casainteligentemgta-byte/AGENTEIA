@@ -133,7 +133,7 @@ export function sanitizeVehiculoRow(
 
   const isChery =
     looksLikeCheryVin(vin ?? next.serialCarroceria) ||
-    /^chery$/i.test(row.marca?.trim() ?? "") ||
+    /^cherr?y$/i.test(row.marca?.trim() ?? "") ||
     looksLikeCheryModelName(row.marca);
 
   if (isChery) {
@@ -166,7 +166,7 @@ export function healCheryFacturaRows(
   const anyChery = vehiculos.some(
     (v) =>
       looksLikeCheryVin(v.serialCarroceria ?? v.vin) ||
-      /^chery$/i.test(v.marca ?? "") ||
+      /^cherr?y$/i.test(v.marca ?? "") ||
       looksLikeCheryModelName(v.marca)
   );
   if (!anyChery) {
