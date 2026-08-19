@@ -17,6 +17,40 @@ export function normalizeSerialKey(serial: string): string {
   );
 }
 
+const SERIAL_PREFIX_MIN = 11;
+
+/**
+ * Empareja VIN exacto o un prefijo único (≥11). Si el OCR recortó el chasis
+ * de la factura, el certificado con 17 caracteres puede completar la fila.
+ */
+export function matchSerialKeyAmong(
+  needle: string,
+  haystack: string[]
+): string | null {
+  const n = normalizeSerialKey(needle);
+  if (!n) return null;
+  const keys = [
+    ...new Set(haystack.map((h) => normalizeSerialKey(h)).filter(Boolean)),
+  ];
+  if (keys.includes(n)) return n;
+  if (n.length < SERIAL_PREFIX_MIN) return null;
+  const hits = keys.filter(
+    (k) =>
+      k.length >= SERIAL_PREFIX_MIN && (k.startsWith(n) || n.startsWith(k))
+  );
+  return hits.length === 1 ? hits[0]! : null;
+}
+
+export function lookupBySerialPrefix<T>(
+  map: Map<string, T>,
+  serial: string
+): T | undefined {
+  const n = normalizeSerialKey(serial);
+  if (!n) return undefined;
+  const matched = matchSerialKeyAmong(n, [...map.keys()]);
+  return matched ? map.get(matched) : undefined;
+}
+
 /** Corrige filas Chery ya en UI: marca, modelo desde «PRO MAX», limpia VIN. */
 export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow[] {
   const anyChery = rows.some((r) => {
