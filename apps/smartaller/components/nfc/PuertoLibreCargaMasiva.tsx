@@ -274,6 +274,7 @@ export function PuertoLibreCargaMasiva({
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
+    rowsRef.current = nextRows;
     setRows(nextRows);
     setShared(sharedShipmentFromRows(nextRows));
     const detected = detectedImportadorFromRows(nextRows);
@@ -291,9 +292,10 @@ export function PuertoLibreCargaMasiva({
 
   /** Un certificado por request (120s) para no cortar la conexión en el móvil. */
   async function applyCertsFromStorage(
-    storageDocs: CargaMasivaStorageDocRef[]
+    storageDocs: CargaMasivaStorageDocRef[],
+    seedRows?: CargaMasivaRow[]
   ): Promise<boolean> {
-    let currentRows = rowsRef.current;
+    let currentRows = seedRows ?? rowsRef.current;
     const allWarnings: string[] = [];
     const lastMatches: CertMatch[] = [];
     for (let i = 0; i < storageDocs.length; i++) {
@@ -466,9 +468,9 @@ export function PuertoLibreCargaMasiva({
           }
 
           if (etapa === "certs") {
-            const ok = await applyCertsFromStorage(storageDocs);
+            const ok = await applyCertsFromStorage(storageDocs, currentRows);
             if (!ok) return;
-            currentRows = rowsRef.current;
+            currentRows = rowsRef.current.length > 0 ? rowsRef.current : currentRows;
             continue;
           }
 

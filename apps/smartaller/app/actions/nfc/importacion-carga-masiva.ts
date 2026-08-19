@@ -897,14 +897,8 @@ export async function extractCargaMasivaEtapaAction(
       };
     }
 
-    // etapa === "certs"
-    const existing = parseRowsJson(formData.get("rowsJson"));
-    if (!existing || existing.length === 0) {
-      return {
-        success: false,
-        error: "No hay filas para aplicar certificados/BL",
-      };
-    }
+    // etapa === "certs" — sin filas previas se crean desde el certificado.
+    const existing = parseRowsJson(formData.get("rowsJson")) ?? [];
     if (!hasCertOrBl) {
       const validated = validateCargaMasivaRows(existing);
       return {
@@ -1023,6 +1017,13 @@ export async function extractCargaMasivaEtapaAction(
     const validated = validateCargaMasivaRows(
       rows.map((r) => applyImportadorDefaults(r, defaults))
     );
+    if (validated.length === 0) {
+      return {
+        success: false,
+        error:
+          "No se leyeron VIN en la factura ni en el certificado. Pulsa Extraer vehículos de nuevo o sube un certificado por unidad.",
+      };
+    }
     return {
       success: true,
       etapa,
