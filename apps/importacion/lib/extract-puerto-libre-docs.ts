@@ -261,6 +261,8 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
       parseString(
         parsed.serial_motor ??
           parsed.engine_number ??
+          parsed.engine_no ??
+          parsed.engineNo ??
           parsed.no_de_motor ??
           parsed.numero_motor
       )
@@ -1936,7 +1938,12 @@ export async function extractCertificadoOrigenMultiFromDocument(
         ...v,
         serial_carroceria:
           v.serial_carroceria ?? v.vin ?? v.chasis ?? parsed.serial_carroceria,
-        serial_motor: v.serial_motor ?? v.engine_number ?? parsed.serial_motor,
+        serial_motor:
+          v.serial_motor ??
+          v.engine_number ??
+          v.engine_no ??
+          v.engineNo ??
+          parsed.serial_motor,
         pais_origen: v.pais_origen ?? parsed.pais_origen,
       })
     );
