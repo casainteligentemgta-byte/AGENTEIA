@@ -47,8 +47,9 @@ import {
   vehicleCompleteness,
   vehicleSemaforo,
   VEHICLE_FIELD_COLS,
-  VIN_VISIBLE_CHARS,
+  vehicleFieldHeaderClass,
   vehicleFieldInputClass,
+  vehicleFieldInputSize,
   type CertMatch,
   type DetectedImportador,
   type SharedShipmentFields,
@@ -1180,14 +1181,14 @@ export function PuertoLibreCargaMasiva({
             <table className="w-max min-w-full border-collapse text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
-                  <th className="px-2 py-2 font-medium">#</th>
+                  <th className="sticky left-0 z-20 bg-slate-900 px-2 py-2 font-medium shadow-[2px_0_0_rgba(0,0,0,0.25)]">
+                    #
+                  </th>
                   <th className="px-2 py-2 font-medium">Estado</th>
                   {VEHICLE_FIELD_COLS.map((c) => (
                     <th
                       key={c.key}
-                      className={`whitespace-nowrap px-2 py-2 font-medium ${
-                        c.code ? "min-w-[18ch]" : ""
-                      }`}
+                      className={`whitespace-nowrap px-2 py-2 font-medium ${vehicleFieldHeaderClass(c)}`}
                     >
                       {c.label}
                     </th>
@@ -1206,7 +1207,7 @@ export function PuertoLibreCargaMasiva({
                         : "border-t border-slate-800/80";
                   return (
                     <tr key={row.id} className={rowTone}>
-                      <td className="px-2 py-1.5 align-top text-slate-500">
+                      <td className="sticky left-0 z-10 bg-slate-950/70 px-2 py-1.5 align-top text-slate-500 shadow-[2px_0_0_rgba(0,0,0,0.2)]">
                         {idx + 1}
                         {row.error ? (
                           <p className="mt-1 max-w-[7rem] text-[10px] text-red-300">
@@ -1301,7 +1302,9 @@ export function PuertoLibreCargaMasiva({
                               onChange={(e) =>
                                 updateRow(row.id, c.key, e.target.value)
                               }
-                              size={c.code ? VIN_VISIBLE_CHARS : undefined}
+                              size={vehicleFieldInputSize(c)}
+                              maxLength={c.key === "anio" ? 4 : undefined}
+                              inputMode={c.key === "anio" ? "numeric" : undefined}
                               spellCheck={c.code ? false : undefined}
                               autoComplete="off"
                               className={vehicleFieldInputClass(c)}
