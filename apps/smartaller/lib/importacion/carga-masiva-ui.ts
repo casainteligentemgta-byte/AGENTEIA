@@ -221,6 +221,24 @@ export function vehicleFieldInputClass(col: VehicleFieldCol): string {
   return `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
 }
 
+const STICKY_INDEX_SHADOW = "shadow-[2px_0_6px_rgba(0,0,0,0.45)]";
+
+/** Cabecera de la columna # fija al desplazar la tabla en horizontal (Safari/iOS). */
+export function cargaMasivaStickyIndexHeadClass(): string {
+  return `sticky left-0 z-30 min-w-[2.75rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
+}
+
+/** Celda # con fondo opaco según semáforo (sticky requiere color sólido). */
+export function cargaMasivaStickyIndexCellClass(
+  nivel: SemaforoNivel,
+  hasError: boolean
+): string {
+  const base = `sticky left-0 z-20 min-w-[2.75rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
+  if (hasError || nivel === "rojo") return `${base} bg-red-950 text-slate-200`;
+  if (nivel === "ambar") return `${base} bg-amber-950 text-slate-200`;
+  return `${base} bg-slate-950 text-slate-400`;
+}
+
 export type SharedShipmentFields = {
   fechaLlegadaBuque: string;
   aduana: string;

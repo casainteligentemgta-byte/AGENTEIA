@@ -38,6 +38,8 @@ import {
 import {
   applyImportadorToRows,
   applySharedShipmentToRows,
+  cargaMasivaStickyIndexCellClass,
+  cargaMasivaStickyIndexHeadClass,
   detectedImportadorFromRows,
   EMPTY_DETECTED_IMPORTADOR,
   EMPTY_SHARED_SHIPMENT,
@@ -1322,16 +1324,14 @@ export function PuertoLibreCargaMasiva({
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-800">
-            <p className="px-3 pt-2 text-[11px] text-slate-500 md:hidden">
-              VIN, serial motor y seriales completos: desliza la tabla en horizontal.
+          <div className="relative isolate overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-800 [-webkit-overflow-scrolling:touch]">
+            <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500 md:hidden">
+              Desliza → para ver más columnas. La columna # queda fija para ubicar cada vehículo.
             </p>
-            <table className="w-max min-w-full border-collapse text-left text-xs">
+            <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900 px-2 py-2 font-medium shadow-[2px_0_0_rgba(0,0,0,0.25)]">
-                    #
-                  </th>
+                  <th className={cargaMasivaStickyIndexHeadClass()}>#</th>
                   <th className="px-2 py-2 font-medium">Estado</th>
                   {VEHICLE_FIELD_COLS.map((c) => (
                     <th
@@ -1355,7 +1355,12 @@ export function PuertoLibreCargaMasiva({
                         : "border-t border-slate-800/80";
                   return (
                     <tr key={row.id} className={rowTone}>
-                      <td className="sticky left-0 z-10 bg-slate-950/70 px-2 py-1.5 align-top text-slate-500 shadow-[2px_0_0_rgba(0,0,0,0.2)]">
+                      <td
+                        className={cargaMasivaStickyIndexCellClass(
+                          sem.nivel,
+                          Boolean(row.error)
+                        )}
+                      >
                         {idx + 1}
                         {row.error ? (
                           <p className="mt-1 max-w-[7rem] text-[10px] text-red-300">
@@ -1417,7 +1422,7 @@ export function PuertoLibreCargaMasiva({
                           key={c.key}
                           className={`px-1 py-1 align-top ${
                             c.code ? "whitespace-nowrap" : ""
-                          }`}
+                          } ${vehicleFieldHeaderClass(c)}`}
                         >
                           {c.key === "condicion" ? (
                             (() => {
