@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import {
-  completarCargaMasivaConCertificadosAction,
   createPuertoLibreCargaMasivaAction,
   extractCargaMasivaEtapaAction,
   parseCargaMasivaSpreadsheetAction,
@@ -110,6 +109,8 @@ export function PuertoLibreCargaMasiva({
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   useEffect(() => {
     if (seedApplied.current) return;
@@ -190,6 +191,65 @@ export function PuertoLibreCargaMasiva({
         return Array.from(bySerial.values());
       });
     }
+  }
+
+  /** Un certificado por request (120s) para no cortar la conexión en el móvil. */
+  async function applyCertsFromStorage(
+    storageDocs: CargaMasivaStorageDocRef[]
+  ): Promise<boolean> {
+    let currentRows = rowsRef.current;
+    const allWarnings: string[] = [];
+    const lastMatches: CertMatch[] = [];
+    for (let i = 0; i < storageDocs.length; i++) {
+      const ref = storageDocs[i]!;
+      setActiveEtapa("certs");
+      setExtractProgress({
+        etapa: "certs",
+        label: `Certificado ${i + 1}/${storageDocs.length}`,
+        hint: ref.fileName,
+        vinsEncontrados: currentRows.filter(
+          (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
+        ).length,
+        filasCompletas: currentRows.filter((r) => vehicleCompleteness(r).complete)
+          .length,
+        totalFilas: currentRows.length,
+        pct: Math.round((i / Math.max(storageDocs.length, 1)) * 100),
+      });
+      const fd = new FormData();
+      fd.set("etapa", "certs");
+      fd.set("storageDocs", JSON.stringify([ref]));
+      fd.set("rowsJson", JSON.stringify(currentRows));
+      const result = await postSmartimportOcr(
+        "/api/smartimport/ocr-carga-masiva",
+        fd,
+        extractCargaMasivaEtapaAction
+      );
+      if (!result.success) {
+        setError(
+          currentRows.length > 0
+            ? `Certificado «${ref.fileName}»: ${result.error}. Las filas ya extraídas se mantienen; reintenta con «Subir certificados».`
+            : result.error
+        );
+        ingestExtracted(currentRows, lastMatches);
+        setWarnings(allWarnings);
+        setActiveEtapa(null);
+        setExtractProgress(null);
+        return false;
+      }
+      currentRows = result.rows;
+      allWarnings.push(...result.warnings);
+      lastMatches.push(...result.certMatches);
+      ingestExtracted(result.rows, result.certMatches);
+    }
+    setWarnings(allWarnings);
+    setResultMsg(
+      `Certificados aplicados. ${
+        currentRows.filter((r) => vehicleCompleteness(r).complete).length
+      }/${currentRows.length} filas con datos completos.`
+    );
+    setActiveEtapa(null);
+    setExtractProgress(null);
+    return true;
   }
 
   function handleSheetFile(file: File | null) {
@@ -277,7 +337,6 @@ export function PuertoLibreCargaMasiva({
       : ["vins", "datos"];
 
     startTransition(async () => {
-      try {
         const batchId =
           typeof crypto !== "undefined" && "randomUUID" in crypto
             ? crypto.randomUUID()
@@ -292,11 +351,12 @@ export function PuertoLibreCargaMasiva({
           pct: 5,
         });
 
-        const allStorageDocs = await uploadDocsToStorage(docs, batchId);
-
         let currentRows: CargaMasivaRow[] = [];
         const allWarnings: string[] = [];
         let lastCertMatches: CertMatch[] = [];
+
+        try {
+        const allStorageDocs = await uploadDocsToStorage(docs, batchId);
 
         for (let i = 0; i < etapas.length; i++) {
           const etapa = etapas[i]!;
@@ -307,6 +367,13 @@ export function PuertoLibreCargaMasiva({
             setActiveEtapa(null);
             setExtractProgress(null);
             return;
+          }
+
+          if (etapa === "certs") {
+            const ok = await applyCertsFromStorage(storageDocs);
+            if (!ok) return;
+            currentRows = rowsRef.current;
+            continue;
           }
 
           setActiveEtapa(etapa);
@@ -337,7 +404,12 @@ export function PuertoLibreCargaMasiva({
             extractCargaMasivaEtapaAction
           );
           if (!result.success) {
-            setError(result.error);
+            setError(
+              currentRows.length > 0
+                ? `${result.error} Las filas ya extraídas se mantienen.`
+                : result.error
+            );
+            if (currentRows.length > 0) ingestExtracted(currentRows);
             setActiveEtapa(null);
             setExtractProgress(null);
             setWarnings(allWarnings);
@@ -364,11 +436,17 @@ export function PuertoLibreCargaMasiva({
             currentRows.filter((r) => vehicleCompleteness(r).complete).length
           } con datos completos.`
         );
-      } catch (err) {
-        setActiveEtapa(null);
-        setExtractProgress(null);
-        setError(formatCargaMasivaClientError(err));
-      }
+        } catch (err) {
+          setActiveEtapa(null);
+          setExtractProgress(null);
+          const msg = formatCargaMasivaClientError(err);
+          if (currentRows.length > 0) {
+            ingestExtracted(currentRows, lastCertMatches);
+            setError(`${msg} Las filas ya extraídas se mantienen.`);
+          } else {
+            setError(msg);
+          }
+        }
     });
   }
 
@@ -393,21 +471,7 @@ export function PuertoLibreCargaMasiva({
             ? crypto.randomUUID()
             : `${Date.now()}`;
         const storageDocs = await uploadDocsToStorage(certDocs, batchId);
-        const fd = new FormData();
-        fd.set("storageDocs", JSON.stringify(storageDocs));
-        fd.set("rowsJson", JSON.stringify(rows));
-        const result = await completarCargaMasivaConCertificadosAction(fd);
-        if (!result.success) {
-          setError(result.error);
-          return;
-        }
-        ingestExtracted(result.rows, result.certMatches);
-        setWarnings(result.warnings);
-        setResultMsg(
-          `Certificados aplicados. ${
-            result.rows.filter((r) => vehicleCompleteness(r).complete).length
-          }/${result.rows.length} filas con datos completos.`
-        );
+        await applyCertsFromStorage(storageDocs);
       } catch (err) {
         setError(formatCargaMasivaClientError(err));
       }

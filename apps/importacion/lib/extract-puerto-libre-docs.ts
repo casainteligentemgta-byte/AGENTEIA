@@ -25,6 +25,7 @@ import {
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
+import { preferCompleteVin } from "@/lib/importacion/vin-text";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -1966,6 +1967,16 @@ export function mergeScanFields(
       else if (!b || a.includes(b)) out.observaciones = a;
       else if (b.includes(a)) out.observaciones = b;
       else out.observaciones = `${a} · ${b}`;
+      continue;
+    }
+    if (k === "vin" || k === "serialCarroceria") {
+      const preferred = preferCompleteVin(
+        current != null ? String(current) : "",
+        String(v)
+      );
+      if (preferred) {
+        (out as Record<string, unknown>)[k] = preferred;
+      }
       continue;
     }
     const currentBlank =

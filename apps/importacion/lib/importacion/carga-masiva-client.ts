@@ -22,14 +22,46 @@ export function formatCargaMasivaClientError(err: unknown): string {
     return "La página quedó desactualizada tras el deploy (404). Recarga sin caché (en el móvil: cerrar pestaña y abrir de nuevo) y vuelve a Extraer vehículos.";
   }
   if (isCargaMasivaNetworkError(err)) {
-    return "Falló la conexión al procesar el PDF (límite de red o archivo grande). Reintenta; si persiste, usa un PDF más liviano (< 8 MB) o Wi‑Fi estable.";
+    return "Se cortó la conexión al leer el PDF (en el móvil el OCR puede tardar). Reintenta con Wi‑Fi y sube los certificados de uno en uno; las filas ya extraídas se conservan.";
   }
   if (err instanceof Error && err.message.trim()) return err.message;
   return "Error inesperado al procesar la carga masiva";
 }
 
+async function postOcrOnce<T>(
+  path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
+  fd: FormData,
+  fallback: (fd: FormData) => Promise<T>
+): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+  if (res.status === 404) {
+    return fallback(fd);
+  }
+  if (res.status === 413) {
+    throw new Error(
+      "El PDF supera el límite del servidor. Usa un archivo más liviano (< 8 MB)."
+    );
+  }
+  const text = await res.text();
+  if (!text.trim()) {
+    if (res.ok) return fallback(fd);
+    throw new Error("El servidor no respondió al OCR. Reintenta.");
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return fallback(fd);
+  }
+}
+
 /**
- * POST a Route Handler (120s, URL estable). Si la ruta no está en ese deploy, cae a Server Action.
+ * POST a Route Handler (120s, URL estable).
+ * Solo cae a Server Action si la ruta no existe en ese deploy (404 / cuerpo vacío).
+ * Un fallo de red no debe usar Server Action: en móvil suele cortarse antes.
  */
 export async function postSmartimportOcr<T>(
   path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
@@ -37,25 +69,16 @@ export async function postSmartimportOcr<T>(
   fallback: (fd: FormData) => Promise<T>
 ): Promise<T> {
   try {
-    const res = await fetch(path, {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-    });
-    if (res.status === 404) {
-      return fallback(fd);
+    return await postOcrOnce(path, fd, fallback);
+  } catch (first) {
+    if (isCargaMasivaNetworkError(first)) {
+      try {
+        return await postOcrOnce(path, fd, fallback);
+      } catch {
+        throw first;
+      }
     }
-    const text = await res.text();
-    if (!text.trim()) {
-      return fallback(fd);
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return fallback(fd);
-    }
-  } catch {
-    return fallback(fd);
+    throw first;
   }
 }
 

@@ -34,6 +34,25 @@ export function normalizeVinLoose(
   return v;
 }
 
+/**
+ * Prefiere el VIN de 17 caracteres. El OCR de factura a menudo recorta
+ * el chasis; el certificado suele traer el completo.
+ */
+export function preferCompleteVin(
+  current: string | null | undefined,
+  incoming: string | null | undefined
+): string {
+  const currentStrict = normalizeVinLoose(current, { strict: true });
+  const incomingStrict = normalizeVinLoose(incoming, { strict: true });
+  if (incomingStrict && !currentStrict) return incomingStrict;
+  if (currentStrict) return currentStrict;
+  const currentLoose = normalizeVinLoose(current, { strict: false }) ?? compactAlnumVin(current);
+  const incomingLoose =
+    normalizeVinLoose(incoming, { strict: false }) ?? compactAlnumVin(incoming);
+  if (incomingLoose && incomingLoose.length > currentLoose.length) return incomingLoose;
+  return currentLoose || incomingLoose;
+}
+
 /** Extrae VIN de 17 chars desde texto libre (JSON truncado, OCR, etc.). */
 export function extractVinStringsFromText(text: string): string[] {
   const found = new Set<string>();

@@ -67,6 +67,9 @@ import {
 } from "@/lib/taller-preferencias";
 import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
 import {
+  lookupBySerialPrefix,
+  matchSerialKeyAmong,
+  normalizeSerialKey,
   rifCoincideConSeleccionado,
   vehicleSemaforo,
 } from "@/lib/importacion/carga-masiva-ui";
@@ -933,7 +936,7 @@ export async function extractCargaMasivaEtapaAction(
         );
         for (const v of extracted.vehiculos) {
           const fields = mergeScanFields(extracted.shared, v);
-          const serial = normalizarSerialCarroceria(
+          const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
           );
           if (serial) {
@@ -980,8 +983,10 @@ export async function extractCargaMasivaEtapaAction(
     let matched = 0;
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!;
-      const serial = normalizarSerialCarroceria(row.serialCarroceria || row.vin);
-      const fromCert = serial ? certBySerial.get(serial) : undefined;
+      const serial = normalizeSerialKey(row.serialCarroceria || row.vin);
+      const fromCert = serial
+        ? lookupBySerialPrefix(certBySerial, serial)
+        : undefined;
       const patch = fromCert
         ? mergeScanFields(sharedFromCert, fromCert)
         : mergeScanFields(sharedFromCert, sharedFromBl);
@@ -993,9 +998,24 @@ export async function extractCargaMasivaEtapaAction(
         fromCert ? "cert" : "embarque"
       );
     }
+    let appended = 0;
+    const existingKeys = rows.map((r) =>
+      normalizeSerialKey(r.serialCarroceria || r.vin)
+    );
+    for (const [serial, fields] of certBySerial) {
+      if (matchSerialKeyAmong(serial, existingKeys)) continue;
+      rows.push(scanFieldsToRow(mergeScanFields(sharedFromCert, fields), "cert"));
+      existingKeys.push(serial);
+      appended += 1;
+    }
     if (certs.length > 0) {
       warnings.push(
         `Certificados emparejados por VIN: ${matched}/${rows.length}`
+      );
+    }
+    if (appended > 0) {
+      warnings.push(
+        `Se añadieron ${appended} vehículo(s) desde certificado(s) sin fila previa`
       );
     }
 
@@ -1094,7 +1114,7 @@ export async function completarCargaMasivaConCertificadosAction(
         for (const v of extracted.vehiculos) {
           const fields = mergeScanFields(extracted.shared, v);
           certVehicles.push({ fields, fileName: file.name });
-          const serial = normalizarSerialCarroceria(
+          const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
           );
           if (serial) certMatches.push({ serial, fileName: file.name });
@@ -1117,7 +1137,7 @@ export async function completarCargaMasivaConCertificadosAction(
     let matched = 0;
     const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
     for (const { fields } of certVehicles) {
-      const serial = normalizarSerialCarroceria(
+      const serial = normalizeSerialKey(
         fields.serialCarroceria ?? fields.vin ?? ""
       );
       if (serial) bySerial.set(serial, fields);
@@ -1125,8 +1145,10 @@ export async function completarCargaMasivaConCertificadosAction(
 
     for (let i = 0; i < vehicleRows.length; i++) {
       const row = vehicleRows[i]!;
-      const serial = normalizarSerialCarroceria(row.serialCarroceria || row.vin || "");
-      const fromCert = serial ? bySerial.get(serial) : undefined;
+      const serial = normalizeSerialKey(row.serialCarroceria || row.vin || "");
+      const fromCert = serial
+        ? lookupBySerialPrefix(bySerial, serial)
+        : undefined;
       const patch = fromCert
         ? mergeScanFields(sharedFromCert, fromCert)
         : sharedFromCert;
@@ -1140,26 +1162,22 @@ export async function completarCargaMasivaConCertificadosAction(
       );
     }
 
-    const existingSerials = new Set(
-      vehicleRows
-        .map((r) =>
-          normalizarSerialCarroceria(r.serialCarroceria || r.vin || "")
-        )
-        .filter(Boolean)
+    const existingKeys = vehicleRows.map((r) =>
+      normalizeSerialKey(r.serialCarroceria || r.vin || "")
     );
     let appended = 0;
     for (const { fields, fileName } of certVehicles) {
-      const serial = normalizarSerialCarroceria(
+      const serial = normalizeSerialKey(
         fields.serialCarroceria ?? fields.vin ?? ""
       );
-      if (!serial || existingSerials.has(serial)) continue;
+      if (!serial || matchSerialKeyAmong(serial, existingKeys)) continue;
       vehicleRows.push(
         scanFieldsToRow(
           mergeScanFields(sharedFromCert, fields),
           `Certificado origen · ${fileName}`
         )
       );
-      existingSerials.add(serial);
+      existingKeys.push(serial);
       appended += 1;
     }
 
