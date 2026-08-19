@@ -12,14 +12,18 @@ import {
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
+  looksLikeCheryModelName,
   looksLikeCheryVin,
+  repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
 
 export { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 export {
   inferCheryModelo,
   isModeloFragmentInColor,
+  looksLikeCheryModelName,
   looksLikeCheryVin,
+  repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
 
 const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/gi;
@@ -129,14 +133,15 @@ export function sanitizeVehiculoRow(
 
   const isChery =
     looksLikeCheryVin(vin ?? next.serialCarroceria) ||
-    /^chery$/i.test(row.marca?.trim() ?? "");
+    /^chery$/i.test(row.marca?.trim() ?? "") ||
+    looksLikeCheryModelName(row.marca);
 
   if (isChery) {
-    if (!next.marca?.trim()) next.marca = "Chery";
-    const inferred = inferCheryModelo(
-      row.modelo,
-      colorWasModelo ? rawColor : null
-    );
+    const fixed = repairCheryMarcaModelo(next.marca ?? row.marca, next.modelo ?? row.modelo);
+    next.marca = fixed.marca || "Chery";
+    const inferred =
+      inferCheryModelo(fixed.modelo, colorWasModelo ? rawColor : null) ||
+      fixed.modelo;
     if (inferred) next.modelo = inferred;
   } else if (colorWasModelo && !next.modelo?.trim()) {
     next.modelo = rawColor;
@@ -161,7 +166,8 @@ export function healCheryFacturaRows(
   const anyChery = vehiculos.some(
     (v) =>
       looksLikeCheryVin(v.serialCarroceria ?? v.vin) ||
-      /^chery$/i.test(v.marca ?? "")
+      /^chery$/i.test(v.marca ?? "") ||
+      looksLikeCheryModelName(v.marca)
   );
   if (!anyChery) {
     return { shared: extracted.shared, vehiculos };
@@ -184,10 +190,14 @@ export function healCheryFacturaRows(
 
   const healed = vehiculos.map((v) => {
     const next = { ...v };
-    if (!next.marca?.trim()) next.marca = "Chery";
+    const fixed = repairCheryMarcaModelo(next.marca, next.modelo);
+    next.marca = fixed.marca || "Chery";
     if (!next.modelo?.trim() && bestModelo) next.modelo = bestModelo;
-    else if (next.modelo?.trim()) {
-      const inferred = inferCheryModelo(next.modelo);
+    else {
+      const inferred =
+        inferCheryModelo(fixed.modelo) ||
+        inferCheryModelo(next.modelo) ||
+        fixed.modelo;
       if (inferred) next.modelo = inferred;
     }
     if (isModeloFragmentInColor(next.color)) delete next.color;

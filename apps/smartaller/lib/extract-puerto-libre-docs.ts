@@ -27,6 +27,13 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
+import {
+  inferCheryModelo,
+  isModeloFragmentInColor,
+  looksLikeCheryModelName,
+  looksLikeCheryVin,
+  repairCheryMarcaModelo,
+} from "@/lib/importacion/chery-modelo";
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -942,6 +949,21 @@ function mapFacturaMultiVehiculo(
     valor_cif: v.valor_cif ?? v.unit_price ?? v.amount ?? null,
   });
   const fields = facturaToFormFields(data);
+  if (
+    looksLikeCheryVin(fields.serialCarroceria || fields.vin) ||
+    looksLikeCheryModelName(fields.marca) ||
+    /^chery$/i.test(fields.marca ?? "")
+  ) {
+    const fixed = repairCheryMarcaModelo(fields.marca, fields.modelo);
+    fields.marca = fixed.marca || "Chery";
+    fields.modelo =
+      inferCheryModelo(
+        fixed.modelo,
+        isModeloFragmentInColor(color) ? color : null
+      ) ||
+      fixed.modelo ||
+      fields.modelo;
+  }
   if (!fields.marca) {
     const marcaShared = parseString(sharedParsed.marca);
     if (marcaShared) fields.marca = marcaShared;

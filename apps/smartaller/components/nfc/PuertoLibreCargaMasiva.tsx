@@ -40,6 +40,7 @@ import {
   detectedImportadorFromRows,
   EMPTY_DETECTED_IMPORTADOR,
   EMPTY_SHARED_SHIPMENT,
+  healCargaMasivaCheryRows,
   normalizeSerialKey,
   resumenSemaforo,
   rifCoincideConSeleccionado,
@@ -144,7 +145,7 @@ export function PuertoLibreCargaMasiva({
   useEffect(() => {
     if (initialRowsApplied.current || !initialRows?.length) return;
     initialRowsApplied.current = true;
-    setRows(initialRows);
+    setRows(healCargaMasivaCheryRows(initialRows));
     setShared(sharedShipmentFromRows(initialRows));
     setDetectedImportador(detectedImportadorFromRows(initialRows));
     if (initialMessage) {
@@ -165,7 +166,7 @@ export function PuertoLibreCargaMasiva({
     if (!seed) return;
     seedApplied.current = true;
     setMode("documentos");
-    setRows(seed.rows);
+    setRows(healCargaMasivaCheryRows(seed.rows));
     setShared(sharedShipmentFromRows(seed.rows));
     setDetectedImportador(detectedImportadorFromRows(seed.rows));
     setResultMsg(
@@ -285,10 +286,11 @@ export function PuertoLibreCargaMasiva({
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
-    rowsRef.current = nextRows;
-    setRows(nextRows);
-    setShared(sharedShipmentFromRows(nextRows));
-    const detected = detectedImportadorFromRows(nextRows);
+    const healed = healCargaMasivaCheryRows(nextRows);
+    rowsRef.current = healed;
+    setRows(healed);
+    setShared(sharedShipmentFromRows(healed));
+    const detected = detectedImportadorFromRows(healed);
     if (detected.documento || detected.nombre) {
       setDetectedImportador(detected);
     }
