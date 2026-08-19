@@ -59,8 +59,19 @@ export function computeCompletitudDatos(
   const criticos: string[] = [];
   const medios: string[] = [];
 
-  const vinRaw = input.serialCarroceria || input.vin || "";
-  const vin = normalizeVinKey(vinRaw);
+  // Preferimos el VIN que realmente esté completo:
+  // si `serialCarroceria` quedó como placeholder/recortado, no debe bloquear
+  // un `vin` correcto de 17 caracteres.
+  const vinFromSerial = normalizeVinKey(input.serialCarroceria);
+  const vinFromVin = normalizeVinKey(input.vin);
+  const vin =
+    vinFromSerial.length === 17
+      ? vinFromSerial
+      : vinFromVin.length === 17
+        ? vinFromVin
+        : vinFromSerial.length >= vinFromVin.length
+          ? vinFromSerial
+          : vinFromVin;
   const registrable = isVinRegistrable(vin);
 
   if (!vin) criticos.push("VIN");
