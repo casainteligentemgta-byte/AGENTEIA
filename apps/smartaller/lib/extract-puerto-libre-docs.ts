@@ -1915,6 +1915,41 @@ export async function extractCertificadoOrigenMultiFromDocument(
     } catch (err) {
       llmError = err;
     }
+
+    // Reintento: si el PDF es escaneado y el primer parse casi no detectó
+    // seriales/motor (los campos quedan null), fuerza raster+visión.
+    const isPdf = mimeType.toLowerCase().includes("pdf");
+    if (isPdf && !llmError) {
+      const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
+      const hasCritical = vehiculosRaw.some((v) => {
+        const vinOrChassis = parseString(
+          (v as Record<string, unknown>).serial_carroceria ??
+            (v as Record<string, unknown>).vin ??
+            (v as Record<string, unknown>).chasis ??
+            (v as Record<string, unknown>).code
+        );
+        const motor = parseString(
+          (v as Record<string, unknown>).serial_motor ??
+            (v as Record<string, unknown>).engine_number ??
+            (v as Record<string, unknown>).no_de_motor ??
+            (v as Record<string, unknown>).numero_motor
+        );
+        return Boolean(vinOrChassis || motor);
+      });
+
+      if (!hasCritical) {
+        parsed = await createDocumentJsonCompletion({
+          prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+          buffer,
+          mimeType,
+          maxTokens: options?.rapido ? 3500 : 4500,
+          maxTextChars: options?.rapido ? 16000 : 32000,
+          maxPdfPages: options?.rapido ? 1 : 6,
+          preferHighDetail: true,
+          forceRasterVision: true,
+        });
+      }
+    }
   }
 
   const shared: PuertoLibreRegistroScanFields = {};
