@@ -6,6 +6,7 @@ import {
   Camera,
   CheckCircle2,
   ClipboardList,
+  FileSpreadsheet,
   FileText,
   Loader2,
   Plus,
@@ -68,6 +69,8 @@ type Props = {
   onCertFilesChange?: (files: File[]) => void;
   /** Abre la planilla de varios vehículos (un expediente por VIN). */
   onOpenVariosVehiculos?: () => void;
+  /** Abre carga masiva en modo plantilla Excel/CSV. */
+  onOpenExcelCsv?: () => void;
 };
 
 async function extractDocumentoClient(
@@ -300,7 +303,9 @@ function ScanButton({
             </p>
           ) : (
             <p className="mt-1 text-xs text-slate-500">
-              {ocr ? "Foto o PDF · la IA rellena campos" : "Foto o PDF"}
+              {ocr
+                ? "Un solo botón: 1 o varios vehículos. La IA rellena o abre la planilla."
+                : "Foto o PDF"}
             </p>
           )}
         </div>
@@ -327,9 +332,9 @@ function ScanButton({
               Leyendo…
             </>
           ) : loaded ? (
-            "Sustituir"
+            "Sustituir PDF"
           ) : (
-            "Foto o PDF"
+            "Subir factura (1 o varios)"
           )}
         </button>
       </div>
@@ -361,7 +366,7 @@ function ScanButton({
         >
           {currentVin
             ? "¿El PDF tiene más vehículos? Abrir planilla"
-            : "Abrir planilla de varios vehículos"}
+            : "Abrir planilla sin subir archivo"}
         </button>
       ) : null}
     </div>
@@ -563,7 +568,8 @@ function CertScanPanel({
             <span className="truncate">Certificado de origen</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Puedes añadir varios PDF. Se emparejan por VIN (un expediente por vehículo).
+            Un solo botón: 1 o varios PDF. Se emparejan por VIN (un expediente por
+            vehículo).
           </p>
           {pending ? (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300">
@@ -598,10 +604,10 @@ function CertScanPanel({
           ) : files.length > 0 ? (
             <>
               <Plus className="h-4 w-4" />
-              Añadir certificado
+              Añadir más certificados
             </>
           ) : (
-            "Foto o PDF"
+            "Subir certificado(s)"
           )}
         </button>
         {files.length > 0 ? (
@@ -643,7 +649,7 @@ function CertScanPanel({
           onClick={onOpenVariosVehiculos}
           className="mt-2 text-xs text-cyan-300 hover:underline"
         >
-          Abrir planilla de varios vehículos
+          Abrir planilla sin subir archivo
         </button>
       ) : null}
     </div>
@@ -659,6 +665,7 @@ export function PuertoLibreDocScan({
   currentVin,
   onCertFilesChange,
   onOpenVariosVehiculos,
+  onOpenExcelCsv,
 }: Props) {
   return (
     <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5">
@@ -667,8 +674,8 @@ export function PuertoLibreDocScan({
         Autorellenar con documentos
       </h2>
       <p className="text-xs text-slate-500">
-        Un PDF de factura puede traer 1 o N vehículos: cada VIN es un expediente.
-        Los certificados se añaden (no se sustituyen) y se emparejan por serial.
+        Sube factura o certificado: 1 o varios vehículos en el mismo PDF. Cada VIN
+        es un expediente. También puedes cargar una tabla Excel/CSV.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <ScanButton
@@ -695,6 +702,27 @@ export function PuertoLibreDocScan({
           onOpenVariosVehiculos={onOpenVariosVehiculos}
         />
       </div>
+
+      {onOpenExcelCsv ? (
+        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-3.5">
+          <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-slate-100">
+            <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-400" />
+            Tabla Excel / CSV
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Si ya tienes la planilla con VIN y datos, cárgala aquí (varios
+            vehículos).
+          </p>
+          <button
+            type="button"
+            onClick={onOpenExcelCsv}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-800 px-3 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-slate-700 sm:w-auto"
+          >
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+            Cargar Excel o CSV
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

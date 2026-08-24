@@ -3,8 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   CheckCircle2,
-  ClipboardList,
-  FileSpreadsheet,
   Plus,
   Search,
   UserRound,
@@ -77,16 +75,6 @@ export function RegistrarImportacionWizard({
         (c.registroPuertoLibre ?? "").toLowerCase().includes(q)
     );
   }, [clientes, query]);
-
-  function openMasivaDocumentos() {
-    setMasivaRows(undefined);
-    setMasivaMessage(null);
-    setMasivaInitialDocs([]);
-    setCertMergeRequest(null);
-    setMasivaTabMode("documentos");
-    setImportModo("masiva");
-    setMasivaInstance((n) => n + 1);
-  }
 
   function openMasivaPlantilla() {
     setMasivaRows(undefined);
@@ -199,25 +187,6 @@ export function RegistrarImportacionWizard({
       <div className="space-y-4">
         {clienteBanner}
 
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            onClick={openMasivaDocumentos}
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-50"
-          >
-            <ClipboardList className="h-4 w-4" />
-            Varios vehículos
-          </button>
-          <button
-            type="button"
-            onClick={openMasivaPlantilla}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Excel / CSV
-          </button>
-        </div>
-
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
           <PlanillaAltaPuertoLibre
             importadorId={selected.id}
@@ -230,6 +199,7 @@ export function RegistrarImportacionWizard({
             }}
             lockImportador
             onMultiDetected={handleMultiDetected}
+            onOpenExcelCsv={openMasivaPlantilla}
           />
         </div>
       </div>
