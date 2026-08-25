@@ -6,5 +6,5 @@ export default function ImportacionRootLayout({
 }: {
   children: ReactNode;
 }) {
-  return children;
+  return <div className="smartimport-typography">{children}</div>;
 }

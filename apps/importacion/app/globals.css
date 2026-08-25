@@ -92,52 +92,80 @@
     cursor: pointer;
     opacity: 0;
   }
+}
 
-  /* Escala tipográfica móvil exclusiva para SmartImport. */
-  .smartimport-typography {
-    --primary: #0a5b7a;
-    --secondary: #1ba098;
-    --accent: #ff6b35;
-    --text-primary: #f0efe8;
-    --text-secondary: #a5a5a5;
-    --h2: 20px;
-    --h3: 16px;
-    --h4: 13px;
-    --body: 14px;
-    --small: 12px;
-    --lh-tight: 1.1;
-    --lh-normal: 1.4;
-    --sp-xs: 4px;
-    --sp-sm: 8px;
-    --sp-md: 12px;
-    --sp-lg: 16px;
-    --sp-xl: 20px;
-  }
+/* Tipografía SmartImport: fuera de @layer para ganar a text-sm/text-xs de Tailwind. */
+.smartimport-typography {
+  --primary: #0a5b7a;
+  --secondary: #1ba098;
+  --accent: #ff6b35;
+  --text-primary: #f0efe8;
+  --text-secondary: #a5a5a5;
+  --h2: 20px;
+  --h3: 16px;
+  --h4: 13px;
+  --body: 14px;
+  --small: 12px;
+  --lh-tight: 1.1;
+  --lh-normal: 1.4;
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 12px;
+  --sp-lg: 16px;
+  --sp-xl: 20px;
+  font-size: var(--body);
+  line-height: var(--lh-normal);
+}
 
-  .smartimport-typography .smartimport-page-title {
-    font-size: var(--h2);
-    font-weight: 700;
-    line-height: var(--lh-tight);
-    letter-spacing: -0.01em;
-    margin-bottom: var(--sp-lg);
-  }
+/* Tarjetas claras (botón blanco del vehículo, cards). */
+.smartimport-typography .smartimport-surface-light,
+.smartimport-surface-light {
+  --text-primary: #0a1628;
+  --text-secondary: #5c5c5c;
+  color: var(--text-primary);
+}
 
-  .smartimport-typography .smartimport-bucket-title {
-    font-size: var(--h3);
-    font-weight: 700;
-    line-height: var(--lh-normal);
-  }
+.smartimport-page-title {
+  font-size: var(--h2, 20px) !important;
+  font-weight: 700;
+  line-height: var(--lh-tight, 1.1);
+  letter-spacing: -0.01em;
+}
 
-  .smartimport-typography .smartimport-expediente-title {
-    font-size: var(--h4);
-    font-weight: 700;
-    line-height: var(--lh-tight);
-    letter-spacing: 0.02em;
-  }
+.smartimport-bucket-title,
+.smartimport-product-title {
+  font-size: var(--h3, 16px) !important;
+  font-weight: 700;
+  line-height: var(--lh-normal, 1.4);
+  letter-spacing: -0.005em;
+}
 
-  .smartimport-typography .smartimport-vehiculo-description {
-    font-size: var(--small);
-    line-height: var(--lh-normal);
-    color: var(--text-secondary);
-  }
+.smartimport-expediente-title {
+  font-size: var(--h4, 13px) !important;
+  font-weight: 700;
+  line-height: var(--lh-tight, 1.1);
+  letter-spacing: 0.02em;
+}
+
+.smartimport-body-text {
+  font-size: var(--body, 14px) !important;
+  line-height: var(--lh-normal, 1.4);
+}
+
+.smartimport-vehiculo-description,
+.smartimport-meta {
+  font-size: var(--small, 12px) !important;
+  line-height: var(--lh-normal, 1.4);
+  color: var(--text-secondary, #a5a5a5);
+}
+
+.smartimport-surface-light .smartimport-product-title,
+.smartimport-surface-light .smartimport-expediente-title,
+.smartimport-surface-light .smartimport-body-text {
+  color: var(--text-primary);
+}
+
+.smartimport-surface-light .smartimport-vehiculo-description,
+.smartimport-surface-light .smartimport-meta {
+  color: var(--text-secondary);
 }

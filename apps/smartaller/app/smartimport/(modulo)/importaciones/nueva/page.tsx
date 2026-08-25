@@ -45,7 +45,7 @@ export default async function NuevaImportacionPage({ searchParams }: Props) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
+          <h1 className="smartimport-page-title min-w-0 flex-1 text-zinc-50">
             Nueva importación
           </h1>
         </div>
