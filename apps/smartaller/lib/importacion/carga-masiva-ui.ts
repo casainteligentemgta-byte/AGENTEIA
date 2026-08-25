@@ -164,6 +164,10 @@ export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow
 
 /** VIN ISO: 17 caracteres visibles sin recortar el input. */
 export const VIN_VISIBLE_CHARS = 17;
+/** Año del modelo: 4 dígitos. */
+export const ANIO_VISIBLE_CHARS = 4;
+/** Serial motor: ancho extra para ver el valor completo en móvil. */
+export const SERIAL_MOTOR_VISIBLE_CHARS = 24;
 
 export type VehicleFieldCol = {
   key: keyof CargaMasivaRow;
@@ -190,11 +194,49 @@ export const VEHICLE_FIELD_COLS: VehicleFieldCol[] = [
 const FIELD_INPUT_BASE =
   "rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-100 outline-none focus:border-cyan-500/50";
 
+export function vehicleFieldHeaderClass(col: VehicleFieldCol): string {
+  if (col.key === "anio") return "min-w-[4ch]";
+  if (col.key === "serialMotor") return "min-w-[24ch]";
+  if (col.code) return "min-w-[17ch]";
+  return "";
+}
+
+export function vehicleFieldInputSize(col: VehicleFieldCol): number | undefined {
+  if (col.key === "anio") return ANIO_VISIBLE_CHARS;
+  if (col.key === "serialMotor") return SERIAL_MOTOR_VISIBLE_CHARS;
+  if (col.code) return VIN_VISIBLE_CHARS;
+  return undefined;
+}
+
 export function vehicleFieldInputClass(col: VehicleFieldCol): string {
+  if (col.key === "anio") {
+    return `${FIELD_INPUT_BASE} box-content w-[4ch] min-w-[4ch] max-w-[4ch] text-center font-mono text-[13px] tabular-nums`;
+  }
+  if (col.key === "serialMotor") {
+    return `${FIELD_INPUT_BASE} box-content w-[24ch] min-w-[24ch] max-w-none font-mono text-[13px] tracking-tight`;
+  }
   if (col.code) {
-    return `${FIELD_INPUT_BASE} box-content w-[18ch] min-w-[18ch] max-w-none font-mono text-[13px] tracking-tight`;
+    return `${FIELD_INPUT_BASE} box-content w-[17ch] min-w-[17ch] max-w-none font-mono text-[13px] tracking-tight`;
   }
   return `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
+}
+
+const STICKY_INDEX_SHADOW = "shadow-[2px_0_6px_rgba(0,0,0,0.45)]";
+
+/** Cabecera de la columna # fija al desplazar la tabla en horizontal (Safari/iOS). */
+export function cargaMasivaStickyIndexHeadClass(): string {
+  return `sticky left-0 z-30 min-w-[2.75rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
+}
+
+/** Celda # con fondo opaco según semáforo (sticky requiere color sólido). */
+export function cargaMasivaStickyIndexCellClass(
+  nivel: SemaforoNivel,
+  hasError: boolean
+): string {
+  const base = `sticky left-0 z-20 min-w-[2.75rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
+  if (hasError || nivel === "rojo") return `${base} bg-red-950 text-slate-200`;
+  if (nivel === "ambar") return `${base} bg-amber-950 text-slate-200`;
+  return `${base} bg-slate-950 text-slate-400`;
 }
 
 export type SharedShipmentFields = {
