@@ -816,8 +816,9 @@ Responde SOLO JSON:
 
 /** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
 const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
+Facturas multi suelen traer varias unidades (p. ej. 8 vehículos): vehiculos.length debe coincidir con todas las filas visibles.
 También anota modelo y color de la misma fila si se ven.
-NO omitas filas del medio ni del final. Si hay 18 VIN, vehiculos.length debe ser 18.
+NO omitas filas del medio ni del final. Si hay 8 VIN, vehiculos.length debe ser 8; si hay 18, debe ser 18.
 Responde SOLO JSON:
 {
   "vehiculos": [
@@ -1760,32 +1761,27 @@ export async function extractFacturaVinsStageFromDocument(
         );
       }
 
-      // 2) Visión LLM: pocas llamadas (Vercel maxDuration 120s).
-      // Antes se encadenaban página + ~7 recortes × hasta 120s → "Load failed" / UI en "Cosechar VIN".
-      if (vinSet.size < 8 && isLlmConfigured() && !visionCreditsBlocked) {
+      // 2) Visión LLM orientada a facturas multi (p. ej. 8 VIN):
+      // 1× página completa (+ 1× JSON harvest si faltan). Sin recortes en cadena
+      // (antes ~7×120s → timeout / UI colgada en «Cosechar VIN»).
+      const MULTI_VIN_TARGET = 8;
+      if (
+        vinSet.size < MULTI_VIN_TARGET &&
+        isLlmConfigured() &&
+        !visionCreditsBlocked
+      ) {
         const pageMime = isPdf ? "image/png" : mimeType;
         const beforeVision = vinSet.size;
         await fromImageList(page1, pageMime, "pagina-1");
-        if (
-          vinSet.size === beforeVision &&
-          !visionCreditsBlocked &&
-          vinSet.size < 2
-        ) {
-          const priorityCrops = croppedBuffers.filter(
-            (c) =>
-              c.label === "tabla" ||
-              c.label.startsWith("col-code") ||
-              c.label.startsWith("col-chasis")
+        if (vinSet.size > beforeVision) {
+          diagnostics.push(
+            `vision: pagina-1 → ${vinSet.size} VIN (objetivo ≥${MULTI_VIN_TARGET})`
           );
-          for (const crop of priorityCrops.slice(0, 1)) {
-            await fromImageList(crop.buffer, crop.mimeType, crop.label);
-            if (vinSet.size > beforeVision) break;
-          }
-        } else if (vinSet.size > beforeVision) {
-          diagnostics.push("vision: crops omitidos (página-1 suficiente)");
         }
-      } else if (vinSet.size >= 8) {
-        diagnostics.push("vision: omitida (tesseract suficiente)");
+      } else if (vinSet.size >= MULTI_VIN_TARGET) {
+        diagnostics.push(
+          `vision: omitida (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
+        );
       } else if (!isLlmConfigured()) {
         diagnostics.push("vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)");
       }
@@ -1796,8 +1792,12 @@ export async function extractFacturaVinsStageFromDocument(
     );
   }
 
-  // Fallback JSON harvest solo si aún no hay ningún VIN (1 llamada, no encadenar más)
-  if (vinSet.size === 0 && isLlmConfigured() && !visionCreditsBlocked) {
+  // Si faltan VIN de una factura multi (p. ej. 8 unidades), una pasada JSON de toda la tabla
+  if (
+    vinSet.size < 8 &&
+    isLlmConfigured() &&
+    !visionCreditsBlocked
+  ) {
     try {
       const sized = await compressImageForVision(
         isPdf
@@ -1808,7 +1808,7 @@ export async function extractFacturaVinsStageFromDocument(
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
-        maxTokens: 3000,
+        maxTokens: 3500,
         preferHighDetail: true,
       });
       const extracted = enrichWithSalvagedVins(
