@@ -30,7 +30,6 @@ import {
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
-import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
   inferCheryModelo,
@@ -39,6 +38,13 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
+
+/** Normaliza HS a 10 dígitos (sin puntos). Local: importacion no tiene lib/arancel. */
+function normalizePartida10(raw: string | null | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.length < 6) return null;
+  return digits.padEnd(10, "0").slice(0, 10);
+}
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
