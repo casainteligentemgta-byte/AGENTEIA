@@ -139,6 +139,10 @@ export function PuertoLibreCargaMasiva({
   const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
     null
   );
+  /** Etapas realmente terminadas (evita checks verdes falsos al estar en certs). */
+  const [etapasHechas, setEtapasHechas] = useState<Set<CargaMasivaEtapaId>>(
+    () => new Set()
+  );
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
@@ -392,7 +396,8 @@ export function PuertoLibreCargaMasiva({
       const result = await postSmartimportOcr(
         "/api/smartimport/ocr-carga-masiva",
         fd,
-        extractCargaMasivaEtapaAction
+        extractCargaMasivaEtapaAction,
+        { deadlineMs: 100_000 }
       );
       if (!result.success) {
         setError(
@@ -498,6 +503,7 @@ export function PuertoLibreCargaMasiva({
     setWarnings([]);
     setExtractProgress(null);
     setActiveEtapa(null);
+    setEtapasHechas(new Set());
 
     const hasCertOrBl = docs.some(
       (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
@@ -540,9 +546,19 @@ export function PuertoLibreCargaMasiva({
           }
 
           if (etapa === "certs") {
+            if (currentRows.length === 0) {
+              setError(
+                "No hay VIN de la factura para emparejar certificados. Reintenta Extraer vehículos o usa Excel."
+              );
+              setActiveEtapa(null);
+              setExtractProgress(null);
+              setWarnings(allWarnings);
+              return;
+            }
             const ok = await applyCertsFromStorage(storageDocs, currentRows);
             if (!ok) return;
             currentRows = rowsRef.current.length > 0 ? rowsRef.current : currentRows;
+            setEtapasHechas((prev) => new Set(prev).add("certs"));
             continue;
           }
 
@@ -571,7 +587,8 @@ export function PuertoLibreCargaMasiva({
           const result = await postSmartimportOcr(
             "/api/smartimport/ocr-carga-masiva",
             fd,
-            extractCargaMasivaEtapaAction
+            extractCargaMasivaEtapaAction,
+            { deadlineMs: 110_000 }
           );
           if (!result.success) {
             setError(
@@ -592,6 +609,7 @@ export function PuertoLibreCargaMasiva({
             lastCertMatches = result.certMatches;
           }
           ingestExtracted(result.rows, result.certMatches);
+          setEtapasHechas((prev) => new Set(prev).add(etapa));
           setExtractProgress({
             ...result.progress,
             pct: Math.round(((i + 1) / etapas.length) * 100),
@@ -626,6 +644,12 @@ export function PuertoLibreCargaMasiva({
       setError("No se pudo identificar el taller para subir documentos");
       return;
     }
+    if (rowsRef.current.length === 0) {
+      setError(
+        "Primero extrae la factura (Extraer vehículos) para tener VIN. Luego añade certificados."
+      );
+      return;
+    }
     const certDocs: DocItem[] = Array.from(list).map((file) => ({
       id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
       file,
@@ -641,8 +665,11 @@ export function PuertoLibreCargaMasiva({
             ? crypto.randomUUID()
             : `${Date.now()}`;
         const storageDocs = await uploadDocsToStorage(certDocs, batchId);
-        await applyCertsFromStorage(storageDocs);
+        const ok = await applyCertsFromStorage(storageDocs);
+        if (ok) setEtapasHechas((prev) => new Set(prev).add("certs"));
       } catch (err) {
+        setActiveEtapa(null);
+        setExtractProgress(null);
         setError(formatCargaMasivaClientError(err));
       }
     });
@@ -1143,10 +1170,7 @@ export function PuertoLibreCargaMasiva({
                 </p>
                 <ol className="mt-2 space-y-1.5">
                   {CARGA_MASIVA_ETAPAS.map((id) => {
-                    const done =
-                      extractProgress &&
-                      CARGA_MASIVA_ETAPAS.indexOf(extractProgress.etapa) >
-                        CARGA_MASIVA_ETAPAS.indexOf(id);
+                    const done = etapasHechas.has(id);
                     const current = activeEtapa === id;
                     const skipped =
                       id === "certs" &&

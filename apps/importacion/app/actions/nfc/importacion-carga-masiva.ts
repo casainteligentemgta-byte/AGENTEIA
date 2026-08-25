@@ -415,10 +415,8 @@ export async function extractCargaMasivaDocumentosAction(
           );
         }
       } else if (tipoRaw === "certificado_origen") {
-        const extracted = await extractCertificadoOrigenMultiFromDocument(
-          buffer,
-          mimeType
-        );
+        const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
+        , { rapido: true });
         sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
         if (extracted.vehiculos.length > 0) {
           warnings.push(
@@ -932,10 +930,8 @@ export async function extractCargaMasivaEtapaAction(
     const certBySerial = new Map<string, PuertoLibreRegistroScanFields>();
 
     for (const f of certs) {
-      const extracted = await extractCertificadoOrigenMultiFromDocument(
-        f.buffer,
-        f.mimeType
-      );
+      const extracted = await extractCertificadoOrigenMultiFromDocument(f.buffer, f.mimeType
+      , { rapido: true });
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(
@@ -1116,10 +1112,8 @@ export async function completarCargaMasivaConCertificadosAction(
         warnings.push(`${file.name}: ${validationError}`);
         continue;
       }
-      const extracted = await extractCertificadoOrigenMultiFromDocument(
-        buffer,
-        mimeType
-      );
+      const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
+      , { rapido: true });
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(

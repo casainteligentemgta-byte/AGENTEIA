@@ -417,7 +417,8 @@ export async function extractCargaMasivaDocumentosAction(
       } else if (tipoRaw === "certificado_origen") {
         const extracted = await extractCertificadoOrigenMultiFromDocument(
           buffer,
-          mimeType
+          mimeType,
+          { rapido: true }
         );
         sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
         if (extracted.vehiculos.length > 0) {
@@ -934,7 +935,8 @@ export async function extractCargaMasivaEtapaAction(
     for (const f of certs) {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
         f.buffer,
-        f.mimeType
+        f.mimeType,
+        { rapido: true }
       );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
@@ -1118,7 +1120,8 @@ export async function completarCargaMasivaConCertificadosAction(
       }
       const extracted = await extractCertificadoOrigenMultiFromDocument(
         buffer,
-        mimeType
+        mimeType,
+        { rapido: true }
       );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
