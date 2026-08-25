@@ -76,6 +76,22 @@ type DocItem = {
   tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
 };
 
+function mergeDocsWithoutDuplicates(
+  current: DocItem[],
+  incoming: DocItem[]
+): DocItem[] {
+  const seen = new Set(
+    current.map((doc) => `${doc.tipo}:${doc.file.name}:${doc.file.size}`)
+  );
+  const uniqueIncoming = incoming.filter((doc) => {
+    const key = `${doc.tipo}:${doc.file.name}:${doc.file.size}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return [...current, ...uniqueIncoming].slice(0, 20);
+}
+
 export type CargaMasivaInitialDoc = {
   file: File;
   tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
@@ -190,12 +206,15 @@ export function PuertoLibreCargaMasiva({
   useEffect(() => {
     if (initialDocsApplied.current || !initialDocs.length) return;
     initialDocsApplied.current = true;
-    setDocs(
-      initialDocs.map((d) => ({
+    setDocs((prev) =>
+      mergeDocsWithoutDuplicates(
+        prev,
+        initialDocs.map((d) => ({
         id: `${d.file.name}-${d.file.size}-${Math.random().toString(36).slice(2, 7)}`,
         file: d.file,
         tipo: d.tipo,
-      }))
+        }))
+      )
     );
   }, [initialDocs]);
 
@@ -209,13 +228,7 @@ export function PuertoLibreCargaMasiva({
       file,
       tipo: "certificado_origen",
     }));
-    setDocs((prev) => {
-      const seen = new Set(prev.map((d) => `${d.file.name}-${d.file.size}`));
-      const extra = certDocs.filter(
-        (d) => !seen.has(`${d.file.name}-${d.file.size}`)
-      );
-      return [...prev, ...extra].slice(0, 20);
-    });
+    setDocs((prev) => mergeDocsWithoutDuplicates(prev, certDocs));
     setError(null);
     setResultMsg(null);
 
@@ -444,7 +457,7 @@ export function PuertoLibreCargaMasiva({
       file,
       tipo: guessTipo(file.name),
     }));
-    setDocs((prev) => [...prev, ...next].slice(0, 20));
+    setDocs((prev) => mergeDocsWithoutDuplicates(prev, next));
   }
 
   async function uploadDocsToStorage(
@@ -629,7 +642,7 @@ export function PuertoLibreCargaMasiva({
       file,
       tipo: "certificado_origen" as const,
     }));
-    setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
+    setDocs((prev) => mergeDocsWithoutDuplicates(prev, certDocs));
     setError(null);
     setResultMsg(null);
     startExtractTransition(async () => {
@@ -657,7 +670,10 @@ export function PuertoLibreCargaMasiva({
       );
       if (byName) return byName.file;
     }
-    const certs = docs.filter((d) => d.tipo === "certificado_origen");
+    const certs = mergeDocsWithoutDuplicates(
+      [],
+      docs.filter((d) => d.tipo === "certificado_origen")
+    );
     if (certs.length === 1) return certs[0]!.file;
     return null;
   }
