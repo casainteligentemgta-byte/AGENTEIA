@@ -1,9 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Car, ChevronDown, Pencil, Search, X } from "lucide-react";
-import type { PuertoLibreVehiculoListItem } from "@/app/actions/nfc/importacion-vehiculo";
+import {
+  Car,
+  CheckSquare,
+  ChevronDown,
+  FileUp,
+  Loader2,
+  Pencil,
+  Search,
+  X,
+} from "lucide-react";
+import {
+  uploadPuertoLibreBlLoteAction,
+  type PuertoLibreVehiculoListItem,
+} from "@/app/actions/nfc/importacion-vehiculo";
 import { placaRealVisible } from "@/lib/importacion/expediente";
 
 export type PlanillaVehiculoOption = Pick<
@@ -36,6 +48,10 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const blInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -54,6 +70,44 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
     setQ("");
     if (id === current.id) return;
     router.push(`/smartimport/${id}/planilla`);
+  }
+
+  function toggleSelected(id: string) {
+    setMessage(null);
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  }
+
+  function toggleAllFiltered() {
+    const ids = filtered.map((vehiculo) => vehiculo.id);
+    const allSelected = ids.every((id) => selectedIds.includes(id));
+    setSelectedIds((prev) =>
+      allSelected
+        ? prev.filter((id) => !ids.includes(id))
+        : [...new Set([...prev, ...ids])]
+    );
+  }
+
+  function uploadBlToSelected(file: File | null) {
+    if (!file) return;
+    if (selectedIds.length === 0) {
+      setMessage("Selecciona al menos un expediente antes de cargar el BL.");
+      return;
+    }
+    setMessage(null);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("vehiculoIds", JSON.stringify(selectedIds));
+      const result = await uploadPuertoLibreBlLoteAction(formData);
+      if (!result.success) {
+        setMessage(result.error);
+        return;
+      }
+      setMessage(`BL aplicado a ${result.applied} expediente(s).`);
+      router.refresh();
+    });
   }
 
   return (
@@ -127,6 +181,21 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
                   className="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
                 />
               </label>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleAllFiltered}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-100"
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  {filtered.every((vehiculo) => selectedIds.includes(vehiculo.id))
+                    ? "Quitar selección"
+                    : "Seleccionar visibles"}
+                </button>
+                <span className="text-xs text-slate-500">
+                  {selectedIds.length} seleccionado{selectedIds.length === 1 ? "" : "s"}
+                </span>
+              </div>
             </div>
 
             <ul className="max-h-[55vh] space-y-2 overflow-y-auto px-4 py-3">
@@ -137,8 +206,18 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
               ) : (
                 filtered.map((v) => {
                   const active = v.id === current.id;
+                  const checked = selectedIds.includes(v.id);
                   return (
-                    <li key={v.id}>
+                    <li key={v.id} className="flex items-stretch gap-2">
+                      <label className="flex shrink-0 items-center px-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelected(v.id)}
+                          className="h-4 w-4 accent-cyan-500"
+                          aria-label={`Seleccionar ${codigoLinea(v)}`}
+                        />
+                      </label>
                       <button
                         type="button"
                         onClick={() => selectVehiculo(v.id)}
@@ -173,6 +252,36 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
                 })
               )}
             </ul>
+            <div className="border-t border-slate-800 px-4 py-3">
+              <input
+                ref={blInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(event) => {
+                  uploadBlToSelected(event.target.files?.[0] ?? null);
+                  event.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                disabled={pending || selectedIds.length === 0}
+                onClick={() => blInputRef.current?.click()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileUp className="h-4 w-4" />
+                )}
+                {pending
+                  ? "Aplicando BL…"
+                  : `Cargar BL a ${selectedIds.length} expediente${selectedIds.length === 1 ? "" : "s"}`}
+              </button>
+              {message ? (
+                <p className="mt-2 text-center text-xs text-slate-300">{message}</p>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
