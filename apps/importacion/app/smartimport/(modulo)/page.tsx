@@ -19,8 +19,8 @@ import {
   PuertoLibreDashboardBucket,
   type DashboardBucketRow,
 } from "@/components/nfc/PuertoLibreDashboardBucket";
-import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { LlmUsagePanel } from "@/components/nfc/LlmUsagePanel";
+import { PuertoLibreSwipeDeleteExpediente } from "@/components/nfc/PuertoLibreSwipeDeleteExpediente";
 import {
   canAccessAllImportacionData,
   isImportacionUsuarioOnly,
@@ -783,7 +783,11 @@ export default async function PuertoLibrePage() {
               <ul className="max-h-48 space-y-0.5 overflow-y-auto">
                 {vehiculos.map((v) => (
                   <li key={v.id}>
-                    <div className="flex items-center gap-1 rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
+                    <PuertoLibreSwipeDeleteExpediente
+                      vehiculoId={v.id}
+                      codigo={labelExpediente(v)}
+                    >
+                      <div className="flex items-center rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
                       <Link
                         href={`/smartimport/${v.id}`}
                         className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
@@ -798,12 +802,8 @@ export default async function PuertoLibrePage() {
                         </span>
                         <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
                       </Link>
-                      <PuertoLibreDeleteExpediente
-                        vehiculoId={v.id}
-                        codigo={labelExpediente(v)}
-                        variant="icon"
-                      />
-                    </div>
+                      </div>
+                    </PuertoLibreSwipeDeleteExpediente>
                   </li>
                 ))}
               </ul>
