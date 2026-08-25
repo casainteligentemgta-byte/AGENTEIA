@@ -31,12 +31,14 @@ export function formatCargaMasivaClientError(err: unknown): string {
 async function postOcrOnce<T>(
   path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
   fd: FormData,
-  fallback: (fd: FormData) => Promise<T>
+  fallback: (fd: FormData) => Promise<T>,
+  signal?: AbortSignal
 ): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
     body: fd,
     credentials: "include",
+    signal,
   });
   if (res.status === 404) {
     return fallback(fd);
@@ -66,14 +68,24 @@ async function postOcrOnce<T>(
 export async function postSmartimportOcr<T>(
   path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
   fd: FormData,
-  fallback: (fd: FormData) => Promise<T>
+  fallback: (fd: FormData) => Promise<T>,
+  options?: { signal?: AbortSignal; deadlineMs?: number }
 ): Promise<T> {
+  const deadlineMs = options?.deadlineMs;
+  const signal =
+    options?.signal ??
+    (deadlineMs && deadlineMs > 0 ? AbortSignal.timeout(deadlineMs) : undefined);
   try {
-    return await postOcrOnce(path, fd, fallback);
+    return await postOcrOnce(path, fd, fallback, signal);
   } catch (first) {
+    if (signal?.aborted) {
+      throw new Error(
+        "El OCR tardó demasiado (límite del servidor). Reintenta con Wi‑Fi o un PDF más liviano; si ya hay filas, se conservan."
+      );
+    }
     if (isCargaMasivaNetworkError(first)) {
       try {
-        return await postOcrOnce(path, fd, fallback);
+        return await postOcrOnce(path, fd, fallback, signal);
       } catch {
         throw first;
       }

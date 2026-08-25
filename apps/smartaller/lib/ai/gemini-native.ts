@@ -267,7 +267,7 @@ async function generateOnce(params: {
         "x-goog-api-key": params.apiKey,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(55_000),
     }
   );
   const json = (await res.json().catch(() => ({}))) as GeminiGenerateResponse;

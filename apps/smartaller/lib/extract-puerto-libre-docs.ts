@@ -1760,18 +1760,31 @@ export async function extractFacturaVinsStageFromDocument(
         );
       }
 
-      // 2) Visión LLM solo si faltan VIN y hay créditos / clave
-      if (vinSet.size < 12 && isLlmConfigured() && !visionCreditsBlocked) {
+      // 2) Visión LLM: pocas llamadas (Vercel maxDuration 120s).
+      // Antes se encadenaban página + ~7 recortes × hasta 120s → "Load failed" / UI en "Cosechar VIN".
+      if (vinSet.size < 8 && isLlmConfigured() && !visionCreditsBlocked) {
         const pageMime = isPdf ? "image/png" : mimeType;
+        const beforeVision = vinSet.size;
         await fromImageList(page1, pageMime, "pagina-1");
-        if (!visionCreditsBlocked) {
-          for (const crop of croppedBuffers) {
-            if (vinSet.size >= 15 || visionCreditsBlocked) break;
-            if (crop.label.startsWith("banda") && vinSet.size >= 8) continue;
+        if (
+          vinSet.size === beforeVision &&
+          !visionCreditsBlocked &&
+          vinSet.size < 2
+        ) {
+          const priorityCrops = croppedBuffers.filter(
+            (c) =>
+              c.label === "tabla" ||
+              c.label.startsWith("col-code") ||
+              c.label.startsWith("col-chasis")
+          );
+          for (const crop of priorityCrops.slice(0, 1)) {
             await fromImageList(crop.buffer, crop.mimeType, crop.label);
+            if (vinSet.size > beforeVision) break;
           }
+        } else if (vinSet.size > beforeVision) {
+          diagnostics.push("vision: crops omitidos (página-1 suficiente)");
         }
-      } else if (vinSet.size >= 12) {
+      } else if (vinSet.size >= 8) {
         diagnostics.push("vision: omitida (tesseract suficiente)");
       } else if (!isLlmConfigured()) {
         diagnostics.push("vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)");
@@ -1783,8 +1796,8 @@ export async function extractFacturaVinsStageFromDocument(
     );
   }
 
-  // Fallback JSON harvest / tabla si aún faltan y hay créditos
-  if (vinSet.size < 2 && isLlmConfigured() && !visionCreditsBlocked) {
+  // Fallback JSON harvest solo si aún no hay ningún VIN (1 llamada, no encadenar más)
+  if (vinSet.size === 0 && isLlmConfigured() && !visionCreditsBlocked) {
     try {
       const sized = await compressImageForVision(
         isPdf
@@ -1795,7 +1808,7 @@ export async function extractFacturaVinsStageFromDocument(
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
-        maxTokens: 8000,
+        maxTokens: 3000,
         preferHighDetail: true,
       });
       const extracted = enrichWithSalvagedVins(
@@ -1813,7 +1826,7 @@ export async function extractFacturaVinsStageFromDocument(
 
   if (vinSet.size === 0) {
     const hint = visionCreditsBlocked
-      ? "OpenRouter sin créditos (402). Recarga en openrouter.ai o usa Excel mientras tanto."
+      ? "La IA de visión no respondió (créditos/cuota). Revisa GEMINI_API_KEY o usa Excel mientras tanto."
       : "Revisa nitidez / rotación de la foto, o usa la plantilla Excel.";
     throw new Error(
       `Sin VIN legibles. ${diagnostics.slice(0, 6).join(" · ") || hint}`

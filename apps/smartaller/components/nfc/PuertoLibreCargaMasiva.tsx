@@ -392,7 +392,8 @@ export function PuertoLibreCargaMasiva({
       const result = await postSmartimportOcr(
         "/api/smartimport/ocr-carga-masiva",
         fd,
-        extractCargaMasivaEtapaAction
+        extractCargaMasivaEtapaAction,
+        { deadlineMs: 115_000 }
       );
       if (!result.success) {
         setError(
@@ -576,7 +577,8 @@ export function PuertoLibreCargaMasiva({
           const result = await postSmartimportOcr(
             "/api/smartimport/ocr-carga-masiva",
             fd,
-            extractCargaMasivaEtapaAction
+            extractCargaMasivaEtapaAction,
+            { deadlineMs: 115_000 }
           );
           if (!result.success) {
             setError(
@@ -1039,6 +1041,50 @@ export function PuertoLibreCargaMasiva({
               </button>
             </div>
 
+            {docs.length > 0 ? (
+              <ul className="space-y-2">
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                      {d.file.name}
+                    </span>
+                    <select
+                      value={d.tipo}
+                      onChange={(e) =>
+                        setDocs((prev) =>
+                          prev.map((x) =>
+                            x.id === d.id
+                              ? {
+                                  ...x,
+                                  tipo: e.target.value as DocItem["tipo"],
+                                }
+                              : x
+                          )
+                        )
+                      }
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                    >
+                      <option value="factura_comercial">Factura</option>
+                      <option value="certificado_origen">Certificado origen</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
+                      }
+                      className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
+                      aria-label="Quitar documento"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             {extractPending ? (
               <div
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/15 px-4 py-2.5 text-sm font-medium text-cyan-100"
@@ -1096,50 +1142,6 @@ export function PuertoLibreCargaMasiva({
                 e.target.value = "";
               }}
             />
-
-            {docs.length > 0 ? (
-              <ul className="space-y-2">
-                {docs.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                      {d.file.name}
-                    </span>
-                    <select
-                      value={d.tipo}
-                      onChange={(e) =>
-                        setDocs((prev) =>
-                          prev.map((x) =>
-                            x.id === d.id
-                              ? {
-                                  ...x,
-                                  tipo: e.target.value as DocItem["tipo"],
-                                }
-                              : x
-                          )
-                        )
-                      }
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-                    >
-                      <option value="factura_comercial">Factura</option>
-                      <option value="certificado_origen">Certificado origen</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
-                      }
-                      className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
-                      aria-label="Quitar documento"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
 
             {(extractPending || extractProgress) ? (
               <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">

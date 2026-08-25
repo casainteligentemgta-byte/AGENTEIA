@@ -713,11 +713,25 @@ export async function extractCargaMasivaEtapaAction(
   }
 
   const etapaRaw = String(formData.get("etapa") ?? "vins");
-  const gate = await gateLlmForTaller(
-    auth,
-    `carga_masiva_${etapaRaw || "vins"}`
-  );
-  if (!gate.ok) return { success: false, error: gate.error };
+  // Etapa VIN puede usar Tesseract local sin clave; datos/certs sí requieren LLM.
+  if (etapaRaw === "vins") {
+    if (isLlmConfigured()) {
+      const gate = await gateLlmForTaller(auth, "carga_masiva_vins");
+      if (!gate.ok) return { success: false, error: gate.error };
+    } else {
+      bindLlmUsageContext({
+        action: "carga_masiva_vins",
+        tallerId: auth.taller.id,
+        userId: auth.userId,
+      });
+    }
+  } else {
+    const gate = await gateLlmForTaller(
+      auth,
+      `carga_masiva_${etapaRaw || "vins"}`
+    );
+    if (!gate.ok) return { success: false, error: gate.error };
+  }
 
   if (etapaRaw !== "vins" && etapaRaw !== "datos" && etapaRaw !== "certs") {
     return { success: false, error: "Etapa inválida" };
@@ -740,9 +754,14 @@ export async function extractCargaMasivaEtapaAction(
   bls.push(...loaded.bls);
 
   if (facturas.length + certs.length + bls.length === 0) {
+    const storageHint = warnings.find((w) =>
+      /Storage|no se pudo leer|ruta no autorizada/i.test(w)
+    );
     return {
       success: false,
-      error: "Selecciona al menos un PDF o foto válido",
+      error:
+        storageHint ??
+        "No se pudo leer ningún documento. Reintenta subir el PDF (Wi‑Fi) o usa Excel.",
     };
   }
 

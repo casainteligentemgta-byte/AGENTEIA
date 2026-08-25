@@ -36,8 +36,12 @@ async function requestVisionCompletion(params: {
   detail: "low" | "high";
   maxTokens: number;
   jsonMode: boolean;
+  /** Override del timeout (ms). Por defecto: 45s, o 90s si maxTokens ≥ 4000. */
+  timeoutMs?: number;
 }): Promise<string> {
-  const timeoutMs = params.maxTokens >= 4000 ? 120_000 : 45_000;
+  const timeoutMs =
+    params.timeoutMs ??
+    (params.maxTokens >= 4000 ? 90_000 : 45_000);
   const openai = createOpenAIClient({ timeoutMs });
   const model = getVisionModelId();
   const response = await createChatCompletion(openai, {
@@ -133,7 +137,8 @@ export async function createVisionVinListCompletion(params: {
     preferHighDetail: params.preferHighDetail ?? true,
   });
   const dataUrl = `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`;
-  const maxTokens = params.maxTokens ?? 4000;
+  /** Tokens moderados: timeout 45s; evita encadenar llamadas de 120s en carga masiva. */
+  const maxTokens = params.maxTokens ?? 1500;
   const prompt = `Lee esta imagen de factura de vehículos (Chery / commercial invoice / hoja anexa).
 Lista TODOS los números VIN / chasis de exactamente 17 caracteres visibles (columna Code o No. de Chasis).
 Uno por línea. Solo letras y dígitos. No inventes. No omitas filas del medio.
@@ -146,6 +151,7 @@ Si no hay ninguno, responde NINGUNO.`;
       detail: prepared.detail,
       maxTokens,
       jsonMode: false,
+      timeoutMs: 45_000,
     });
     return extractVinStringsFromText(raw);
   } catch (firstError) {
@@ -156,6 +162,7 @@ Si no hay ninguno, responde NINGUNO.`;
       detail: "high",
       maxTokens,
       jsonMode: false,
+      timeoutMs: 45_000,
     });
     return extractVinStringsFromText(raw);
   }

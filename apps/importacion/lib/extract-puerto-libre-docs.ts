@@ -30,6 +30,7 @@ import {
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
+import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
   inferCheryModelo,
@@ -53,6 +54,9 @@ export type FacturaComercialExtraida = {
   es_subasta: boolean | null;
   valor_cif: number | null;
   pais_origen: string | null;
+  partida_arancelaria: string | null;
+  cilindrada_cc: number | null;
+  tipo_combustible: "gasolina" | "diesel" | "electrico" | "hibrido" | "gnv" | "otro" | null;
   importador_nombre: string | null;
   importador_documento: string | null;
   importador_telefono: string | null;
@@ -115,6 +119,9 @@ Extrae en JSON con estas claves exactas:
 - es_subasta (boolean si indica subasta/auction; null si no aparece)
 - valor_cif (number: valor CIF, unit price o total en USD si aparece un solo vehículo)
 - pais_origen (string)
+- partida_arancelaria (string: HS / NANDINA / subpartida a 6–10 dígitos si aparece)
+- cilindrada_cc (number: cilindrada en cm3 / cc si aparece)
+- tipo_combustible ("gasolina"|"diesel"|"electrico"|"hibrido"|"gnv"|"otro"|null)
 - importador_nombre (string: buyer / consignee / importador / comprador)
 - importador_documento (string: RIF/NIT/tax id / cédula del importador si aparece)
 - importador_telefono (string)
@@ -194,6 +201,23 @@ function parseCondicion(value: unknown): "nuevo" | "usado" | null {
   if (/nuevo|new|0\s*km|zero/.test(raw)) return "nuevo";
   if (/usado|used|pre-?owned|second/.test(raw)) return "usado";
   if (raw === "nuevo" || raw === "usado") return raw;
+  return null;
+}
+
+function parseTipoCombustible(
+  value: unknown
+): "gasolina" | "diesel" | "electrico" | "hibrido" | "gnv" | "otro" | null {
+  const raw = parseString(value)
+    ?.toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  if (!raw) return null;
+  if (/elect/.test(raw)) return "electrico";
+  if (/hibr/.test(raw) || /hybrid/.test(raw)) return "hibrido";
+  if (/gnv|gas\s*natural|cng/.test(raw)) return "gnv";
+  if (/diesel|gasoil/.test(raw)) return "diesel";
+  if (/gasolina|gasoline|petrol/.test(raw)) return "gasolina";
+  if (/otro|other/.test(raw)) return "otro";
   return null;
 }
 
@@ -316,6 +340,13 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
     es_subasta: parseBool(parsed.es_subasta ?? parsed.subasta ?? parsed.auction),
     valor_cif: parseNumber(parsed.valor_cif ?? parsed.cif ?? parsed.total ?? parsed.precio),
     pais_origen: parseString(parsed.pais_origen ?? parsed.country_of_origin),
+    partida_arancelaria: parseString(
+      parsed.partida_arancelaria ?? parsed.hs_code ?? parsed.nandina
+    ),
+    cilindrada_cc: parseIntSafe(parsed.cilindrada_cc ?? parsed.cc ?? parsed.cilindrada),
+    tipo_combustible: parseTipoCombustible(
+      parsed.tipo_combustible ?? parsed.combustible ?? parsed.fuel
+    ),
     importador_nombre: parseString(
       parsed.importador_nombre ?? parsed.buyer ?? parsed.consignee
     ),
@@ -579,6 +610,13 @@ export function facturaToFormFields(
   if (data.es_subasta != null) fields.esSubasta = data.es_subasta ? "true" : "false";
   if (data.valor_cif != null) fields.valorCif = String(data.valor_cif);
   if (data.pais_origen) fields.paisOrigen = data.pais_origen;
+  if (data.partida_arancelaria) {
+        fields.partidaArancelaria =
+          normalizePartida10(data.partida_arancelaria) ??
+          (data.partida_arancelaria.replace(/\D/g, "") || data.partida_arancelaria);
+  }
+  if (data.cilindrada_cc != null) fields.cilindradaCc = String(data.cilindrada_cc);
+  if (data.tipo_combustible) fields.tipoCombustible = data.tipo_combustible;
   if (data.importador_nombre) fields.importadorNombre = data.importador_nombre;
   if (data.importador_documento) fields.importadorDocumento = data.importador_documento;
   if (data.importador_telefono) fields.importadorTelefono = data.importador_telefono;
@@ -902,6 +940,7 @@ function mapFacturaMultiVehiculo(
     ...merged,
     modelo,
     color,
+    // No heredar marca de fila si es modelo comercial (Marks and numbers).
     marca: isPlausibleMarcaFabricante(parseString(v.marca ?? merged.marca))
       ? parseString(v.marca ?? merged.marca)
       : parseString(sharedParsed.marca),
@@ -1721,18 +1760,31 @@ export async function extractFacturaVinsStageFromDocument(
         );
       }
 
-      // 2) Visión LLM solo si faltan VIN y hay créditos / clave
-      if (vinSet.size < 12 && isLlmConfigured() && !visionCreditsBlocked) {
+      // 2) Visión LLM: pocas llamadas (Vercel maxDuration 120s).
+      // Antes se encadenaban página + ~7 recortes × hasta 120s → "Load failed" / UI en "Cosechar VIN".
+      if (vinSet.size < 8 && isLlmConfigured() && !visionCreditsBlocked) {
         const pageMime = isPdf ? "image/png" : mimeType;
+        const beforeVision = vinSet.size;
         await fromImageList(page1, pageMime, "pagina-1");
-        if (!visionCreditsBlocked) {
-          for (const crop of croppedBuffers) {
-            if (vinSet.size >= 15 || visionCreditsBlocked) break;
-            if (crop.label.startsWith("banda") && vinSet.size >= 8) continue;
+        if (
+          vinSet.size === beforeVision &&
+          !visionCreditsBlocked &&
+          vinSet.size < 2
+        ) {
+          const priorityCrops = croppedBuffers.filter(
+            (c) =>
+              c.label === "tabla" ||
+              c.label.startsWith("col-code") ||
+              c.label.startsWith("col-chasis")
+          );
+          for (const crop of priorityCrops.slice(0, 1)) {
             await fromImageList(crop.buffer, crop.mimeType, crop.label);
+            if (vinSet.size > beforeVision) break;
           }
+        } else if (vinSet.size > beforeVision) {
+          diagnostics.push("vision: crops omitidos (página-1 suficiente)");
         }
-      } else if (vinSet.size >= 12) {
+      } else if (vinSet.size >= 8) {
         diagnostics.push("vision: omitida (tesseract suficiente)");
       } else if (!isLlmConfigured()) {
         diagnostics.push("vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)");
@@ -1744,8 +1796,8 @@ export async function extractFacturaVinsStageFromDocument(
     );
   }
 
-  // Fallback JSON harvest / tabla si aún faltan y hay créditos
-  if (vinSet.size < 2 && isLlmConfigured() && !visionCreditsBlocked) {
+  // Fallback JSON harvest solo si aún no hay ningún VIN (1 llamada, no encadenar más)
+  if (vinSet.size === 0 && isLlmConfigured() && !visionCreditsBlocked) {
     try {
       const sized = await compressImageForVision(
         isPdf
@@ -1756,7 +1808,7 @@ export async function extractFacturaVinsStageFromDocument(
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
-        maxTokens: 8000,
+        maxTokens: 3000,
         preferHighDetail: true,
       });
       const extracted = enrichWithSalvagedVins(
@@ -1774,7 +1826,7 @@ export async function extractFacturaVinsStageFromDocument(
 
   if (vinSet.size === 0) {
     const hint = visionCreditsBlocked
-      ? "OpenRouter sin créditos (402). Recarga en openrouter.ai o usa Excel mientras tanto."
+      ? "La IA de visión no respondió (créditos/cuota). Revisa GEMINI_API_KEY o usa Excel mientras tanto."
       : "Revisa nitidez / rotación de la foto, o usa la plantilla Excel.";
     throw new Error(
       `Sin VIN legibles. ${diagnostics.slice(0, 6).join(" · ") || hint}`

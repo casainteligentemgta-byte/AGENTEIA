@@ -275,7 +275,8 @@ export function PuertoLibreCargaMasiva({
       const result = await postSmartimportOcr(
         "/api/smartimport/ocr-carga-masiva",
         fd,
-        extractCargaMasivaEtapaAction
+        extractCargaMasivaEtapaAction,
+        { deadlineMs: 115_000 }
       );
       if (!result.success) {
         setError(
