@@ -921,7 +921,6 @@ export function PuertoLibreCargaMasiva({
                 Extraer vehículos
               </button>
             )}
-          </div>
             <input
               ref={docsRef}
               type="file"

@@ -1067,7 +1067,6 @@ export function PuertoLibreCargaMasiva({
               <Plus className="h-4 w-4 shrink-0" />
               Añadir fila
             </button>
-          </div>
             <input
               ref={docsRef}
               type="file"
