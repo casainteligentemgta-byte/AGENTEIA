@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   VEHICULO_CATALOGO_OTRA,
-  VEHICULO_COLORES,
   VEHICULO_MARCAS,
   aniosVehiculoCatalogo,
   modelosDeMarca,
@@ -64,9 +63,7 @@ export function VehiculoCatalogoFields({
   });
   const [modeloOtra, setModeloOtra] = useState(() => modeloInit.custom);
 
-  const colorInit = resolveSelectValue(initialColor, VEHICULO_COLORES);
-  const [colorSelect, setColorSelect] = useState(colorInit.select);
-  const [colorOtra, setColorOtra] = useState(colorInit.custom);
+  const [color, setColor] = useState(initialColor);
 
   const anios = useMemo(() => aniosVehiculoCatalogo(), []);
   const anioOptions = useMemo(() => {
@@ -84,9 +81,6 @@ export function VehiculoCatalogoFields({
     marcaSelect === VEHICULO_CATALOGO_OTRA ? marcaOtra : marcaSelect;
   const modeloValue =
     modeloSelect === VEHICULO_CATALOGO_OTRA ? modeloOtra : modeloSelect;
-  const colorValue =
-    colorSelect === VEHICULO_CATALOGO_OTRA ? colorOtra : colorSelect;
-
   return (
     <>
       <label className="block min-w-0 space-y-1.5">
@@ -180,36 +174,14 @@ export function VehiculoCatalogoFields({
 
       <label className="block min-w-0 space-y-1.5">
         <span className="text-sm text-slate-400">Color *</span>
-        <select
+        <input
+          name="color"
           required
-          value={colorSelect}
-          onChange={(e) => {
-            const next = e.target.value;
-            setColorSelect(next);
-            if (next !== VEHICULO_CATALOGO_OTRA) setColorOtra("");
-          }}
-          className={selectClass}
-        >
-          <option value="" disabled>
-            Selecciona color
-          </option>
-          {VEHICULO_COLORES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-          <option value={VEHICULO_CATALOGO_OTRA}>Otro…</option>
-        </select>
-        {colorSelect === VEHICULO_CATALOGO_OTRA ? (
-          <input
-            required
-            value={colorOtra}
-            onChange={(e) => setColorOtra(e.target.value)}
-            placeholder="Escribe el color"
-            className={inputClass}
-          />
-        ) : null}
-        <input type="hidden" name="color" value={colorValue} />
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          placeholder="Ej. CELADON GRAY"
+          className={inputClass}
+        />
       </label>
 
       <label className="block min-w-0 space-y-1.5">
