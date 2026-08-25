@@ -2108,6 +2108,183 @@ export async function uploadPuertoLibreDocumentoAction(
   }
 }
 
+/**
+ * Adjunta un mismo BL a varios expedientes del mismo taller y aplica sus
+ * datos compartidos de embarque. El archivo se sube una sola vez.
+ */
+export async function uploadPuertoLibreBlLoteAction(
+  formData: FormData
+): Promise<{ success: true; applied: number } | { success: false; error: string }> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { success: false, error: "Selecciona el PDF del BL" };
+  }
+  if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
+    return { success: false, error: "El BL debe ser un archivo PDF" };
+  }
+  const validationError = validateVehiculoDocumentoFile(file);
+  if (validationError) return { success: false, error: validationError };
+
+  let vehiculoIds: unknown;
+  try {
+    vehiculoIds = JSON.parse(String(formData.get("vehiculoIds") ?? "[]"));
+  } catch {
+    return { success: false, error: "La selección de expedientes no es válida" };
+  }
+  const ids = Array.isArray(vehiculoIds)
+    ? [...new Set(vehiculoIds.filter((id): id is string => typeof id === "string"))]
+    : [];
+  if (ids.length === 0) {
+    return { success: false, error: "Selecciona al menos un expediente" };
+  }
+  if (ids.length > 50 || ids.some((id) => !z.string().uuid().safeParse(id).success)) {
+    return { success: false, error: "La selección de expedientes no es válida" };
+  }
+
+  const rows = await Promise.all(
+    ids.map((vehiculoId) => assertVehiculoTaller(vehiculoId, auth.taller.id))
+  );
+  if (rows.some((row) => !row)) {
+    return { success: false, error: "Uno o más expedientes no están disponibles" };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const documento = await uploadVehiculoDocumento(admin, {
+      tallerId: auth.taller.id,
+      vehiculoId: ids[0]!,
+      tipo: "bl_guia",
+      file,
+    });
+
+    let patch: Partial<ImportacionData> = {};
+    if (isLlmConfigured()) {
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const fields = (
+          await extractBlMultiFromDocument(buffer, "application/pdf")
+        ).shared;
+        patch = embarquePatchFromScanFields(fields, {});
+      } catch {
+        // El PDF sigue adjunto aun cuando OCR no pueda leerlo.
+      }
+    }
+
+    const updatedAt = new Date().toISOString();
+    await Promise.all(
+      rows.map(async (row) => {
+        if (!row) return;
+        const documentos: VehiculosDocumentos = {
+          ...parseVehiculosDocumentos(row.documentos),
+          bl_guia: documento,
+        };
+        const existing = parseImportacion(row.importacion);
+        const importacion =
+          Object.keys(patch).length > 0
+            ? serializeImportacion({ ...existing, ...patch })
+            : row.importacion;
+        const { error } = await admin
+          .from("vehiculos")
+          .update({ documentos, importacion, updated_at: updatedAt })
+          .eq("id", row.id)
+          .eq("taller_id", auth.taller.id);
+        if (error) throw new Error(error.message);
+        revalidateFicha(row.id);
+      })
+    );
+
+    return { success: true, applied: ids.length };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo aplicar el BL",
+    };
+  }
+}
+
+/** Aplica condición y combustible a los expedientes seleccionados del taller. */
+export async function updatePuertoLibreDatosLoteAction(input: {
+  vehiculoIds: string[];
+  condicion: "nuevo" | "usado";
+  tipoCombustible:
+    | "gasolina"
+    | "diesel"
+    | "electrico"
+    | "hibrido"
+    | "gnv"
+    | "otro";
+}): Promise<{ success: true; applied: number } | { success: false; error: string }> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z
+    .object({
+      vehiculoIds: z.array(z.string().uuid()).min(1).max(50),
+      condicion: z.enum(["nuevo", "usado"]),
+      tipoCombustible: z.enum([
+        "gasolina",
+        "diesel",
+        "electrico",
+        "hibrido",
+        "gnv",
+        "otro",
+      ]),
+    })
+    .safeParse({
+      ...input,
+      vehiculoIds: [...new Set(input.vehiculoIds)],
+    });
+  if (!parsed.success) {
+    return { success: false, error: "Selecciona expedientes y datos válidos" };
+  }
+
+  const rows = await Promise.all(
+    parsed.data.vehiculoIds.map((vehiculoId) =>
+      assertVehiculoTaller(vehiculoId, auth.taller.id)
+    )
+  );
+  if (rows.some((row) => !row)) {
+    return { success: false, error: "Uno o más expedientes no están disponibles" };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const updatedAt = new Date().toISOString();
+    await Promise.all(
+      rows.map(async (row) => {
+        if (!row) return;
+        const existing = parseImportacion(row.importacion);
+        const importacion = serializeImportacion({
+          ...existing,
+          condicionVehiculo: parsed.data.condicion,
+          esSubasta: false,
+          tipoCombustible: parsed.data.tipoCombustible,
+        });
+        const { error } = await admin
+          .from("vehiculos")
+          .update({ importacion, updated_at: updatedAt })
+          .eq("id", row.id)
+          .eq("taller_id", auth.taller.id);
+        if (error) throw new Error(error.message);
+        revalidateFicha(row.id);
+      })
+    );
+    return { success: true, applied: parsed.data.vehiculoIds.length };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo actualizar el lote",
+    };
+  }
+}
+
 export type PuertoLibreVehiculoListItem = {
   id: string;
   placa: string;
