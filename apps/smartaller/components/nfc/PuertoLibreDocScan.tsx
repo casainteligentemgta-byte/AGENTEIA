@@ -669,11 +669,11 @@ export function PuertoLibreDocScan({
 }: Props) {
   return (
     <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
+      <h2 className="smartimport-bucket-title flex items-center gap-2 text-slate-100">
         <ClipboardList className="h-4 w-4 text-cyan-400" />
         Autorellenar con documentos
       </h2>
-      <p className="text-xs text-slate-500">
+      <p className="smartimport-meta">
         Sube factura o certificado: 1 o varios vehículos en el mismo PDF. Cada VIN
         es un expediente. También puedes cargar una tabla Excel/CSV.
       </p>

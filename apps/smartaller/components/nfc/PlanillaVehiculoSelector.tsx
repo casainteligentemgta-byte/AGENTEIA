@@ -151,7 +151,7 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-2xl border border-slate-700/80 bg-white p-3 text-left shadow-md transition hover:shadow-lg active:scale-[0.99]"
+        className="smartimport-surface-light flex w-full items-center gap-3 rounded-2xl border border-slate-700/80 bg-white p-3 text-left shadow-md transition hover:shadow-lg active:scale-[0.99]"
       >
         <div className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-100 to-zinc-200 text-zinc-400">
           {current.fotoUrl ? (
@@ -166,19 +166,19 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold text-zinc-900">
+          <p className="smartimport-product-title truncate">
             {codigoLinea(current) !== "—"
               ? `Auto ${codigoLinea(current)}`
               : "Auto"}
           </p>
-          <p className="truncate text-sm text-zinc-700">{tituloLinea(current)}</p>
+          <p className="smartimport-body-text truncate">{tituloLinea(current)}</p>
           {colorPlacaLinea(current) ? (
-            <p className="truncate text-sm capitalize text-zinc-500">
+            <p className="smartimport-vehiculo-description truncate capitalize">
               {colorPlacaLinea(current)}
             </p>
           ) : null}
           {current.vin?.trim() ? (
-            <p className="truncate font-mono text-xs text-zinc-500">
+            <p className="smartimport-meta truncate font-mono">
               VIN: {current.vin.trim()}
             </p>
           ) : null}
@@ -277,12 +277,12 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-mono text-sm font-semibold text-cyan-300">
+                          <p className="smartimport-expediente-title truncate font-mono text-cyan-300">
                             {codigoLinea(v)}
                           </p>
-                          <p className="truncate text-sm text-slate-200">{tituloLinea(v)}</p>
+                          <p className="smartimport-body-text truncate text-slate-200">{tituloLinea(v)}</p>
                           {colorPlacaLinea(v) ? (
-                            <p className="truncate text-xs capitalize text-slate-500">
+                            <p className="smartimport-vehiculo-description truncate capitalize">
                               {colorPlacaLinea(v)}
                             </p>
                           ) : null}

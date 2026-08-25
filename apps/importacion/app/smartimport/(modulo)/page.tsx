@@ -582,7 +582,7 @@ export default async function PuertoLibrePage() {
     <PuertoLibreShell>
       <header className="mb-3 space-y-3">
         <div className="flex items-center gap-1.5">
-          <h1 className="smartimport-page-title min-w-0 flex-1 whitespace-nowrap text-zinc-50">
+          <h1 className="smartimport-page-title min-w-0 flex-1 text-zinc-50">
             Expediente de Importación Vehicular
           </h1>
         </div>
@@ -759,7 +759,7 @@ export default async function PuertoLibrePage() {
 
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+            <h2 className="smartimport-bucket-title uppercase tracking-wider text-zinc-400">
               Todos
             </h2>
             <span

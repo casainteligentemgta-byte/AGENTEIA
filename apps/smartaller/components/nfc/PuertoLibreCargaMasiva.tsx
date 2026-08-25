@@ -832,7 +832,7 @@ export function PuertoLibreCargaMasiva({
 
       {!hideClienteSection ? (
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-100">
+        <h2 className="flex items-center gap-2 smartimport-bucket-title text-slate-100">
           <UserRound className="h-4 w-4 text-cyan-400" />
           1. Cliente importador
         </h2>
@@ -942,7 +942,7 @@ export function PuertoLibreCargaMasiva({
       ) : null}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 space-y-4">
-        <h2 className="text-base font-semibold text-slate-100">
+        <h2 className="smartimport-bucket-title text-slate-100">
           {hideClienteSection ? "1.- Factura con varios vehículos" : "2.- Factura con varios vehículos"}
         </h2>
 
@@ -1264,7 +1264,7 @@ export function PuertoLibreCargaMasiva({
         >
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-slate-100">
+              <h2 className="smartimport-bucket-title text-slate-100">
                 {hideClienteSection ? "2. Revisa y registra" : "3. Revisa y registra"} ({rows.length})
               </h2>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
