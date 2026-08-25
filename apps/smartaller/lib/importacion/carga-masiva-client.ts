@@ -22,7 +22,7 @@ export function formatCargaMasivaClientError(err: unknown): string {
     return "La página quedó desactualizada tras el deploy (404). Recarga sin caché (en el móvil: cerrar pestaña y abrir de nuevo) y vuelve a Extraer vehículos.";
   }
   if (isCargaMasivaNetworkError(err)) {
-    return "Se cortó la conexión al leer el PDF (en el móvil el OCR puede tardar). Reintenta con Wi‑Fi y sube los certificados de uno en uno; las filas ya extraídas se conservan.";
+    return "Se cortó la conexión al leer el PDF (en el móvil el OCR puede tardar). Reintenta con Wi‑Fi; si usas varios certificados, súbelos de uno en uno.";
   }
   if (err instanceof Error && err.message.trim()) return err.message;
   return "Error inesperado al procesar la carga masiva";

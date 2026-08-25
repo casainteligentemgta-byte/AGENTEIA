@@ -15,14 +15,17 @@ import {
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { cargaMasivaRowFromScanFields } from "@/lib/importacion/carga-masiva-template";
 import { normalizeSerialKey } from "@/lib/importacion/carga-masiva-ui";
-import { OCR_UI_UNLOCK_MS, postSmartimportOcr } from "@/lib/importacion/carga-masiva-client";
+import { OCR_UI_UNLOCK_MS, postSmartimportOcr, formatCargaMasivaClientError, safeStorageFileName, type CargaMasivaStorageDocRef } from "@/lib/importacion/carga-masiva-client";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import type { ExtractPuertoLibreDocResult } from "@/app/actions/nfc/importacion-extract";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
+import { getTallerAction } from "@/app/actions/taller";
 import type { PuertoLibreRegistroScanFields } from "@/lib/extract-puerto-libre-docs";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 import { PL_CARGA_MASIVA_SEED_KEY } from "@/lib/importacion/carga-masiva-seed";
+import { createClient } from "@/lib/supabase/client";
+import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
@@ -81,6 +84,51 @@ async function extractDocumentoClient(
     fd,
     extractPuertoLibreDocumentoAction
   );
+}
+
+let cachedTallerId: string | null = null;
+
+async function resolveTallerIdForOcr(): Promise<string> {
+  if (cachedTallerId) return cachedTallerId;
+  const result = await getTallerAction();
+  if (!result.taller?.id) {
+    throw new Error(result.error ?? "No se pudo identificar el taller");
+  }
+  cachedTallerId = result.taller.id;
+  return cachedTallerId;
+}
+
+/** Sube a Storage y arma FormData solo con path (sin binario) para evitar Load failed. */
+async function buildOcrFormData(
+  tipo: PuertoLibreScanTipo,
+  file: File
+): Promise<FormData> {
+  const tallerId = await resolveTallerIdForOcr();
+  const batchId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}`;
+  const fileName = safeStorageFileName(file.name);
+  const path = `${tallerId}/ocr-temp/${batchId}/${fileName}`;
+  const supabase = createClient();
+  const { error } = await supabase.storage
+    .from(VEHICULO_DOCS_BUCKET)
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type || "application/pdf",
+    });
+  if (error) {
+    throw new Error(`No se pudo subir el archivo: ${error.message}`);
+  }
+  const ref: CargaMasivaStorageDocRef = {
+    path,
+    tipo,
+    fileName: file.name,
+  };
+  const fd = new FormData();
+  fd.set("tipo", tipo);
+  fd.set("storageDocs", JSON.stringify([ref]));
+  return fd;
 }
 
 async function prepareFile(file: File): Promise<File> {
@@ -192,9 +240,7 @@ function ScanButton({
         let filledCount = 0;
 
         if (ocr) {
-          const fd = new FormData();
-          fd.set("tipo", tipo);
-          fd.set("file", prepared);
+          const fd = await buildOcrFormData(tipo, prepared);
           const result = await extractDocumentoClient(fd);
           if (gen !== runId.current) return;
           if (!result.success) {
@@ -261,9 +307,8 @@ function ScanButton({
       } catch (err) {
         if (gen !== runId.current) return;
         setWarning(
-          err instanceof Error
-            ? err.message
-            : "No se pudo leer el documento. El archivo queda adjunto."
+          formatCargaMasivaClientError(err) ||
+            "No se pudo leer el documento. El archivo queda adjunto."
         );
         setDoneMsg("Archivo adjunto. Reintenta o completa a mano.");
       } finally {
@@ -462,9 +507,7 @@ function CertScanPanel({
           const file = prepared[i]!;
           if (gen !== runId.current) return;
           setDoneMsg(`Leyendo certificado ${i + 1}/${prepared.length}…`);
-          const fd = new FormData();
-          fd.set("tipo", "certificado_origen");
-          fd.set("file", file);
+          const fd = await buildOcrFormData("certificado_origen", file);
           const result = await extractDocumentoClient(fd);
           if (gen !== runId.current) return;
           if (!result.success) {
@@ -533,9 +576,8 @@ function CertScanPanel({
       } catch (err) {
         if (gen !== runId.current) return;
         setWarning(
-          err instanceof Error
-            ? err.message
-            : "No se pudo leer el certificado. El archivo queda adjunto."
+          formatCargaMasivaClientError(err) ||
+            "No se pudo leer el certificado. El archivo queda adjunto."
         );
         setDoneMsg("Certificado adjunto. Reintenta o completa a mano.");
       } finally {

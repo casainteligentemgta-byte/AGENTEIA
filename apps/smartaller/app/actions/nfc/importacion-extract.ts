@@ -1,6 +1,7 @@
 "use server";
 
 import { getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured, formatLlmAuthError } from "@/lib/ai/openai-config";
 import {
@@ -20,11 +21,15 @@ import {
   polizaToFormFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
+import type { CargaMasivaStorageDocRef } from "@/lib/importacion/carga-masiva-client";
 import {
   emptyCargaMasivaRow,
   type CargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
-import { validateVehiculoDocumentoFile } from "@/lib/vehiculos/upload-documento";
+import {
+  validateVehiculoDocumentoFile,
+  VEHICULO_DOCS_BUCKET,
+} from "@/lib/vehiculos/upload-documento";
 
 export type ExtractPuertoLibreDocResult =
   | {
@@ -136,6 +141,83 @@ async function extractFacturaAutofill(buffer: Buffer, mimeType: string) {
   return full.vehiculos.length > rapido.vehiculos.length ? full : rapido;
 }
 
+type LoadedOcrDoc = { file: File; buffer: Buffer; mimeType: string };
+
+/**
+ * Carga el documento desde Storage (recomendado) o desde FormData file (legacy).
+ * Storage evita enviar PDFs grandes por fetch/Server Action (Safari: Load failed).
+ */
+async function loadOcrDocFromForm(
+  formData: FormData,
+  tallerId: string
+): Promise<{ ok: true; doc: LoadedOcrDoc } | { ok: false; error: string }> {
+  const storageRaw = String(formData.get("storageDocs") ?? "").trim();
+  if (storageRaw) {
+    let refs: CargaMasivaStorageDocRef[] = [];
+    try {
+      const parsed = JSON.parse(storageRaw) as unknown;
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return { ok: false, error: "storageDocs inválido" };
+      }
+      refs = parsed as CargaMasivaStorageDocRef[];
+    } catch {
+      return { ok: false, error: "storageDocs JSON inválido" };
+    }
+    const ref = refs[0]!;
+    const path = String(ref.path ?? "");
+    const prefix = `${tallerId}/`;
+    if (!path.startsWith(prefix) || path.includes("..")) {
+      return { ok: false, error: "Ruta de documento no autorizada" };
+    }
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
+      .from(VEHICULO_DOCS_BUCKET)
+      .download(path);
+    if (error || !data) {
+      return {
+        ok: false,
+        error: `No se pudo leer el documento de Storage (${error?.message ?? "sin datos"})`,
+      };
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    if (buffer.byteLength > MAX_BYTES) {
+      return { ok: false, error: "El archivo supera 10 MB" };
+    }
+    const fileName = ref.fileName || path.split("/").pop() || "documento.pdf";
+    const file = new File([buffer], fileName, {
+      type: data.type || "application/pdf",
+    });
+    const validationError = validateVehiculoDocumentoFile(file);
+    if (validationError) {
+      return { ok: false, error: validationError };
+    }
+    return {
+      ok: true,
+      doc: { file, buffer, mimeType: resolveDocMime(file, buffer) },
+    };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return {
+      ok: false,
+      error: "Selecciona una foto o un PDF del documento",
+    };
+  }
+  if (file.size > MAX_BYTES) {
+    return { ok: false, error: "El archivo supera 10 MB" };
+  }
+  const validationError = validateVehiculoDocumentoFile(file);
+  if (validationError) {
+    return { ok: false, error: validationError };
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return {
+    ok: true,
+    doc: { file, buffer, mimeType: resolveDocMime(file, buffer) },
+  };
+}
+
 export async function extractPuertoLibreDocumentoAction(
   formData: FormData
 ): Promise<ExtractPuertoLibreDocResult> {
@@ -171,23 +253,11 @@ export async function extractPuertoLibreDocumentoAction(
     return { success: false, error: "Tipo de documento inválido" };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return { success: false, error: "Selecciona una foto o un PDF del documento" };
-  }
-
-  if (file.size > MAX_BYTES) {
-    return { success: false, error: "El archivo supera 10 MB" };
-  }
-
-  const validationError = validateVehiculoDocumentoFile(file);
-  if (validationError) {
-    return { success: false, error: validationError };
-  }
+  const loaded = await loadOcrDocFromForm(formData, taller.id);
+  if (!loaded.ok) return { success: false, error: loaded.error };
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const mimeType = resolveDocMime(file, buffer);
+    const { file, buffer, mimeType } = loaded.doc;
 
     if (tipoRaw === "factura_comercial") {
       const extracted = await extractFacturaAutofill(buffer, mimeType);
