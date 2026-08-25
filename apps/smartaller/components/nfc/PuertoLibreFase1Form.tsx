@@ -267,6 +267,8 @@ type Props = {
   existingDocumentos?: VehiculosDocumentos;
   onDocumentosChange?: (documentos: VehiculosDocumentos) => void;
   onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
+  /** Abre carga masiva en modo plantilla Excel/CSV (wizard). */
+  onOpenExcelCsv?: () => void;
 };
 
 /**
@@ -283,6 +285,7 @@ export function PuertoLibreFase1Form({
   existingDocumentos,
   onDocumentosChange,
   onMultiDetected,
+  onOpenExcelCsv,
 }: Props) {
   const [values, setValues] = useState<PuertoLibreFase1FormValues>(() => {
     const merged = { ...emptyPuertoLibreFase1Values(), ...initial };
@@ -436,6 +439,7 @@ export function PuertoLibreFase1Form({
         onOpenVariosVehiculos={
           onMultiDetected ? handleOpenVariosVehiculos : undefined
         }
+        onOpenExcelCsv={onOpenExcelCsv}
       />
 
       <section className={sectionClass}>

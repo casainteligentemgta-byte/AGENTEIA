@@ -22,6 +22,8 @@ type Props = {
   /** Si true, no se editan datos del importador (vienen del paso cliente). */
   lockImportador?: boolean;
   onMultiDetected?: (payload: MultiDocDetectedPayload) => void;
+  /** Abre carga masiva en modo plantilla Excel/CSV. */
+  onOpenExcelCsv?: () => void;
 };
 
 async function attachScanFiles(vehiculoId: string, scanFiles: PuertoLibreScanFiles) {
@@ -115,6 +117,7 @@ export function PlanillaAltaPuertoLibre({
   initialImportador,
   lockImportador = false,
   onMultiDetected,
+  onOpenExcelCsv,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -167,6 +170,7 @@ export function PlanillaAltaPuertoLibre({
       }}
       onSubmit={handleSubmit}
       onMultiDetected={onMultiDetected}
+      onOpenExcelCsv={onOpenExcelCsv}
       actions={
         <>
           {error ? (
