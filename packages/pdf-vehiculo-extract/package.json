@@ -1,0 +1,24 @@
+{
+  "name": "@agenteia/pdf-vehiculo-extract",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agente de extracción de vehículos y certificados desde PDFs (factura + COO)",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./schemas/vehicles": "./src/schemas/vehicles.js",
+    "./config/supabase": "./src/config/supabase.js",
+    "./agents/pdf-vehiculo-extract": "./src/agents/pdf-vehiculo-extract.js"
+  },
+  "scripts": {
+    "test:schema": "node --test src/schemas/vehicles.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "zod": "^3.25.76"
+  }
+}
