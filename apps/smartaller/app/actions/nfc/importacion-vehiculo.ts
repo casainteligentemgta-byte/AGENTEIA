@@ -40,6 +40,7 @@ import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_B
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
 import {
+  compareExpedientesAsc,
   formatCodigoExpediente,
   parseCodigoExpediente,
   partsFromDate,
@@ -2288,6 +2289,7 @@ export async function updatePuertoLibreDatosLoteAction(input: {
 export type PuertoLibreVehiculoListItem = {
   id: string;
   placa: string;
+  vin: string | null;
   marca: string | null;
   modelo: string | null;
   color: string | null;
@@ -2338,7 +2340,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   const { data, error } = await supabase
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
+      "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
     )
     .eq("taller_id", auth.taller.id)
     .order("created_at", { ascending: false });
@@ -2348,7 +2350,7 @@ export async function listPuertoLibreVehiculos(): Promise<
     const { data: fallback, error: fallbackError } = await supabase
       .from("vehiculos")
       .select(
-        "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, documentos"
+        "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, documentos"
       )
       .eq("taller_id", auth.taller.id)
       .order("created_at", { ascending: false });
@@ -2360,9 +2362,9 @@ export async function listPuertoLibreVehiculos(): Promise<
     const stickers = await loadStickersByVehiculo(auth.taller.id);
     return {
       success: true,
-      vehiculos: (fallback ?? []).map((row) =>
-        mapListItem(row as Record<string, unknown>, stickers)
-      ),
+      vehiculos: (fallback ?? [])
+        .map((row) => mapListItem(row as Record<string, unknown>, stickers))
+        .sort(compareExpedientesAsc),
     };
   }
 
@@ -2371,7 +2373,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   await backfillCodigosExpediente(auth.taller.id, rows);
   return {
     success: true,
-    vehiculos: rows.map((row) => mapListItem(row, stickers)),
+    vehiculos: rows.map((row) => mapListItem(row, stickers)).sort(compareExpedientesAsc),
   };
 }
 
@@ -2421,6 +2423,7 @@ function mapListItem(
   return {
     id,
     placa,
+    vin: (row.serial_carroceria as string | null) ?? null,
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
     color: (row.color as string | null) ?? null,

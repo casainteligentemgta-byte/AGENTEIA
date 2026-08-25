@@ -8,7 +8,7 @@ import { placaRealVisible } from "@/lib/importacion/expediente";
 
 export type PlanillaVehiculoOption = Pick<
   PuertoLibreVehiculoListItem,
-  "id" | "placa" | "marca" | "modelo" | "color" | "codigoExpediente" | "fotoUrl" | "created_at"
+  "id" | "placa" | "vin" | "marca" | "modelo" | "color" | "codigoExpediente" | "fotoUrl" | "created_at"
 >;
 
 type Props = {
@@ -85,6 +85,11 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
           {colorPlacaLinea(current) ? (
             <p className="truncate text-sm capitalize text-zinc-500">
               {colorPlacaLinea(current)}
+            </p>
+          ) : null}
+          {current.vin?.trim() ? (
+            <p className="truncate font-mono text-xs text-zinc-500">
+              VIN: {current.vin.trim()}
             </p>
           ) : null}
         </div>

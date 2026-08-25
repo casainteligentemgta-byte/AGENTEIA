@@ -299,6 +299,7 @@ export function PlanillaRegistroImportacion({
   const selectorCurrent = vehiculoSelector?.current ?? {
     id: vehiculoId,
     placa,
+    vin: initialImportacion.vin?.trim() || serialCarroceria,
     marca,
     modelo,
     color,

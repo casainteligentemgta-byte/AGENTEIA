@@ -28,6 +28,7 @@ import {
   isTallerOrConcesionario,
 } from "@/lib/importacion/access";
 import {
+  compareExpedientesAsc,
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
@@ -211,6 +212,7 @@ async function loadVehiculosForImportacion(
         (v): PuertoLibreVehiculoListItem => ({
           id: v.id,
           placa: v.placa ?? "",
+          vin: v.serialCarroceria,
           marca: v.marca,
           modelo: v.modelo,
           color: v.color,
@@ -305,7 +307,7 @@ async function loadVehiculosForImportacion(
     const { data, error } = await admin
       .from("vehiculos")
       .select(
-        "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, importacion"
+        "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, importacion"
       )
       .in("id", idsRes.vehiculoIds)
       .order("created_at", { ascending: false });
@@ -314,57 +316,60 @@ async function loadVehiculosForImportacion(
     }
     return {
       ok: true,
-      vehiculos: (data ?? []).map((row): PuertoLibreVehiculoListItem => {
-        const imp = parseImportacion(row.importacion);
-        const placaRaw = (row.placa as string | null) ?? "";
-        const codigoExpediente = resolveCodigoExpediente({
-          codigoExpediente: imp.codigoExpediente,
-          placa: placaRaw,
-        });
-        return {
-          id: row.id as string,
-          placa: placaRealVisible(placaRaw, codigoExpediente) ?? placaRaw ?? "",
-          marca: (row.marca as string | null) ?? null,
-          modelo: (row.modelo as string | null) ?? null,
-          color: (row.color as string | null) ?? null,
-          nombre_cliente: (row.nombre_cliente as string | null) ?? null,
-          telefono_cliente: (row.telefono_cliente as string | null) ?? null,
-          kilometraje_ultimo:
-            typeof row.kilometraje_ultimo === "number"
-              ? row.kilometraje_ultimo
-              : null,
-          created_at: String(row.created_at ?? ""),
-          updated_at: null,
-          tienePin: false,
-          docsCount: 0,
-          docsFaltantes: 0,
-          planillaFase: imp.planillaFase ?? null,
-          fechaLlegadaBuque: imp.fechaLlegadaBuque ?? null,
-          fechaIngreso: imp.fechaIngreso ?? null,
-          stickerToken: null,
-          regimen: imp.regimen ?? null,
-          estadoNacionalizacion: imp.estadoNacionalizacion ?? null,
-          fechaLimiteNacionalizacion:
-            resolverFechaLimiteNacionalizacion(imp) ??
-            imp.fechaLimiteNacionalizacion ??
-            null,
-          estadoSeniat: imp.estadoSeniat ?? null,
-          fechaPresentacionSeniat: imp.fechaPresentacionSeniat ?? null,
-          fechaRechazoSeniat: imp.fechaRechazoSeniat ?? null,
-          motivoRechazoSeniat: imp.motivoRechazoSeniat ?? null,
-          diasNacionalizacion: diasHasta(
-            resolverFechaLimiteNacionalizacion(imp)
-          ),
-          diasSeniat: diasHasta(imp.fechaPresentacionSeniat),
-          proximoNacionalizar: esProximoNacionalizar(imp),
-          proximoSeniat: esProximoSeniat(imp),
-          rechazadoSeniat: (imp.estadoSeniat ?? "pendiente") === "rechazada",
-          codigoExpediente,
-          fotoUrl: null,
-          completitudDatos: imp.completitudDatos ?? null,
-          datosPendientes: imp.datosPendientes ?? [],
-        };
-      }),
+      vehiculos: (data ?? [])
+        .map((row): PuertoLibreVehiculoListItem => {
+          const imp = parseImportacion(row.importacion);
+          const placaRaw = (row.placa as string | null) ?? "";
+          const codigoExpediente = resolveCodigoExpediente({
+            codigoExpediente: imp.codigoExpediente,
+            placa: placaRaw,
+          });
+          return {
+            id: row.id as string,
+            placa: placaRealVisible(placaRaw, codigoExpediente) ?? placaRaw ?? "",
+            vin: (row.serial_carroceria as string | null) ?? null,
+            marca: (row.marca as string | null) ?? null,
+            modelo: (row.modelo as string | null) ?? null,
+            color: (row.color as string | null) ?? null,
+            nombre_cliente: (row.nombre_cliente as string | null) ?? null,
+            telefono_cliente: (row.telefono_cliente as string | null) ?? null,
+            kilometraje_ultimo:
+              typeof row.kilometraje_ultimo === "number"
+                ? row.kilometraje_ultimo
+                : null,
+            created_at: String(row.created_at ?? ""),
+            updated_at: null,
+            tienePin: false,
+            docsCount: 0,
+            docsFaltantes: 0,
+            planillaFase: imp.planillaFase ?? null,
+            fechaLlegadaBuque: imp.fechaLlegadaBuque ?? null,
+            fechaIngreso: imp.fechaIngreso ?? null,
+            stickerToken: null,
+            regimen: imp.regimen ?? null,
+            estadoNacionalizacion: imp.estadoNacionalizacion ?? null,
+            fechaLimiteNacionalizacion:
+              resolverFechaLimiteNacionalizacion(imp) ??
+              imp.fechaLimiteNacionalizacion ??
+              null,
+            estadoSeniat: imp.estadoSeniat ?? null,
+            fechaPresentacionSeniat: imp.fechaPresentacionSeniat ?? null,
+            fechaRechazoSeniat: imp.fechaRechazoSeniat ?? null,
+            motivoRechazoSeniat: imp.motivoRechazoSeniat ?? null,
+            diasNacionalizacion: diasHasta(
+              resolverFechaLimiteNacionalizacion(imp)
+            ),
+            diasSeniat: diasHasta(imp.fechaPresentacionSeniat),
+            proximoNacionalizar: esProximoNacionalizar(imp),
+            proximoSeniat: esProximoSeniat(imp),
+            rechazadoSeniat: (imp.estadoSeniat ?? "pendiente") === "rechazada",
+            codigoExpediente,
+            fotoUrl: null,
+            completitudDatos: imp.completitudDatos ?? null,
+            datosPendientes: imp.datosPendientes ?? [],
+          };
+        })
+        .sort(compareExpedientesAsc),
     };
   }
 

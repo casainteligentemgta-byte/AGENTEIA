@@ -69,6 +69,7 @@ export default async function PlanillaRegistroImportacionPage({
   const vehiculos = (list.success ? list.vehiculos : []).map((v) => ({
     id: v.id,
     placa: v.placa,
+    vin: v.vin,
     marca: v.marca,
     modelo: v.modelo,
     color: v.color,
@@ -82,6 +83,7 @@ export default async function PlanillaRegistroImportacionPage({
   const current = {
     id: ficha.id,
     placa: ficha.placa,
+    vin: ficha.serial_carroceria,
     marca: ficha.marca,
     modelo: ficha.modelo,
     color: ficha.color,
