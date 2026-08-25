@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Plus,
@@ -13,6 +13,7 @@ import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibr
 import { PuertoLibreCargaMasiva } from "@/components/nfc/PuertoLibreCargaMasiva";
 import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
+import { mergeCargaMasivaRowsByVin } from "@/lib/importacion/carga-masiva-ui";
 import {
   IMPORTADOR_TIPO_LABELS,
   formatImportadorDocumentoLine,
@@ -62,6 +63,9 @@ export function RegistrarImportacionWizard({
   const [masivaInitialDocs, setMasivaInitialDocs] = useState<MasivaDocSeed[]>(
     []
   );
+  const masivaRowsRef = useRef<CargaMasivaRow[] | undefined>(masivaRows);
+  const masivaDocsRef = useRef<MasivaDocSeed[]>([]);
+  masivaRowsRef.current = masivaRows;
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,8 +82,10 @@ export function RegistrarImportacionWizard({
 
   function openMasivaPlantilla() {
     setMasivaRows(undefined);
+    masivaRowsRef.current = undefined;
     setMasivaMessage(null);
     setMasivaInitialDocs([]);
+    masivaDocsRef.current = [];
     setCertMergeRequest(null);
     setMasivaTabMode("plantilla");
     setImportModo("masiva");
@@ -92,18 +98,37 @@ export function RegistrarImportacionWizard({
       ...(docTipo === "certificado_origen" && file ? [file] : []),
       ...(payload.extraCertFiles ?? []),
     ].filter((item, index, all) => all.indexOf(item) === index);
-    const docs: MasivaDocSeed[] = [];
+    const incomingDocs: MasivaDocSeed[] = [];
     const factura =
       payload.facturaFile ??
       (docTipo === "factura_comercial" ? file : undefined);
     if (factura) {
-      docs.push({ file: factura, tipo: "factura_comercial" });
+      incomingDocs.push({ file: factura, tipo: "factura_comercial" });
     }
     for (const cert of certFiles) {
-      docs.push({ file: cert, tipo: "certificado_origen" });
+      incomingDocs.push({ file: cert, tipo: "certificado_origen" });
     }
 
-    if (docTipo === "certificado_origen" && masivaRows && masivaRows.length > 0) {
+    const mergedRows = mergeCargaMasivaRowsByVin(
+      masivaRowsRef.current ?? [],
+      rows
+    );
+    masivaRowsRef.current = mergedRows.length > 0 ? mergedRows : masivaRowsRef.current;
+
+    const seen = new Set(
+      masivaDocsRef.current.map((d) => `${d.tipo}:${d.file.name}:${d.file.size}`)
+    );
+    for (const doc of incomingDocs) {
+      const key = `${doc.tipo}:${doc.file.name}:${doc.file.size}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      masivaDocsRef.current.push(doc);
+    }
+
+    if (
+      docTipo === "certificado_origen" &&
+      (masivaRowsRef.current?.length ?? 0) > 0
+    ) {
       setCertMergeRequest({ files: certFiles, requestId: Date.now() });
       setMasivaMessage(
         "Certificado detectado. Emparejando con las filas por VIN…"
@@ -112,8 +137,8 @@ export function RegistrarImportacionWizard({
       return;
     }
 
-    setMasivaInitialDocs(docs);
-    setMasivaRows(rows.length > 0 ? rows : undefined);
+    setMasivaInitialDocs(masivaDocsRef.current);
+    setMasivaRows(masivaRowsRef.current);
     setMasivaMessage(message);
     setMasivaTabMode("documentos");
     setImportModo("masiva");

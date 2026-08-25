@@ -13,6 +13,7 @@ import {
   countFilledFields,
   extractBlFromDocument,
   extractCertificadoOrigenMultiFromDocument,
+  extractFacturaMultiFromDocument,
   extractFacturaRapidoFromDocument,
   extractPolizaTransporteFromDocument,
   mergeScanFields,
@@ -126,6 +127,15 @@ function scanFieldsToRow(
   });
 }
 
+/** PDF con varios VIN: si el extractor rápido deja una sola fila, usa la pasada completa. */
+async function extractFacturaAutofill(buffer: Buffer, mimeType: string) {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  const rapido = await extractFacturaRapidoFromDocument(buffer, mimeType);
+  if (rapido.vehiculos.length > 1 || !isPdf) return rapido;
+  const full = await extractFacturaMultiFromDocument(buffer, mimeType);
+  return full.vehiculos.length > rapido.vehiculos.length ? full : rapido;
+}
+
 export async function extractPuertoLibreDocumentoAction(
   formData: FormData
 ): Promise<ExtractPuertoLibreDocResult> {
@@ -180,7 +190,7 @@ export async function extractPuertoLibreDocumentoAction(
     const mimeType = resolveDocMime(file, buffer);
 
     if (tipoRaw === "factura_comercial") {
-      const extracted = await extractFacturaRapidoFromDocument(buffer, mimeType);
+      const extracted = await extractFacturaAutofill(buffer, mimeType);
       if (extracted.vehiculos.length > 1) {
         const rows = extracted.vehiculos.map((v, i) => {
           const merged = mergeScanFields(extracted.shared, v);
@@ -230,8 +240,7 @@ export async function extractPuertoLibreDocumentoAction(
     if (tipoRaw === "certificado_origen") {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
         buffer,
-        mimeType,
-        { rapido: true }
+        mimeType
       );
       if (extracted.vehiculos.length > 1) {
         const rows = extracted.vehiculos.map((v, i) => {

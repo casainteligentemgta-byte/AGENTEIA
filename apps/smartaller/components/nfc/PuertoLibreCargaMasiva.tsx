@@ -162,6 +162,7 @@ export function PuertoLibreCargaMasiva({
       "Revisa VIN, motor, color y año de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor.",
       "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
+    requestAnimationFrame(() => scrollToCargaMasivaListado());
   }, [initialRows, initialMessage]);
 
   useEffect(() => {
@@ -358,6 +359,7 @@ export function PuertoLibreCargaMasiva({
         return Array.from(bySerial.values());
       });
     }
+    requestAnimationFrame(() => scrollToCargaMasivaListado());
   }
 
   /** Un certificado por request (120s) para no cortar la conexión en el móvil. */
@@ -444,7 +446,11 @@ export function PuertoLibreCargaMasiva({
       file,
       tipo: guessTipo(file.name),
     }));
-    setDocs((prev) => [...prev, ...next].slice(0, 20));
+    const merged = mergeDocsWithoutDuplicates(docs, next);
+    setDocs(merged);
+    if (merged.some((d) => d.tipo === "factura_comercial")) {
+      extractDocs(merged);
+    }
   }
 
   async function uploadDocsToStorage(
@@ -482,8 +488,9 @@ export function PuertoLibreCargaMasiva({
     return allRefs.filter((r) => r.tipo === "factura_comercial");
   }
 
-  function extractDocs() {
-    if (docs.length === 0) {
+  function extractDocs(sourceDocs?: DocItem[]) {
+    const workingDocs = sourceDocs ?? docs;
+    if (workingDocs.length === 0) {
       setError("Agrega al menos un PDF o foto");
       return;
     }
@@ -497,7 +504,7 @@ export function PuertoLibreCargaMasiva({
     setExtractProgress(null);
     setActiveEtapa(null);
 
-    const hasCertOrBl = docs.some(
+    const hasCertOrBl = workingDocs.some(
       (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
     );
     const etapas: CargaMasivaEtapaId[] = hasCertOrBl
@@ -524,7 +531,7 @@ export function PuertoLibreCargaMasiva({
         let lastCertMatches: CertMatch[] = [];
 
         try {
-        const allStorageDocs = await uploadDocsToStorage(docs, batchId);
+        const allStorageDocs = await uploadDocsToStorage(workingDocs, batchId);
 
         for (let i = 0; i < etapas.length; i++) {
           const etapa = etapas[i]!;
@@ -1045,7 +1052,7 @@ export function PuertoLibreCargaMasiva({
               <button
                 type="button"
                 disabled={importPending || docs.length === 0}
-                onClick={extractDocs}
+                onClick={() => extractDocs()}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
               >
                 <FileUp className="h-4 w-4 shrink-0" />
@@ -1509,6 +1516,22 @@ function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
+}
+
+function mergeDocsWithoutDuplicates(
+  current: DocItem[],
+  incoming: DocItem[]
+): DocItem[] {
+  const seen = new Set(
+    current.map((doc) => `${doc.tipo}:${doc.file.name}:${doc.file.size}`)
+  );
+  const uniqueIncoming = incoming.filter((doc) => {
+    const key = `${doc.tipo}:${doc.file.name}:${doc.file.size}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return [...current, ...uniqueIncoming].slice(0, 20);
 }
 
 function summarizeBulkRegisterFailures(

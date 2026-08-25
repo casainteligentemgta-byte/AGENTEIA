@@ -1400,7 +1400,7 @@ export async function extractFacturaRapidoFromDocument(
         mimeType,
         maxTokens: 3500,
         maxTextChars: 16000,
-        maxPdfPages: 1,
+        maxPdfPages: 4,
         preferHighDetail: true,
         renderScale: 2.2,
       });
