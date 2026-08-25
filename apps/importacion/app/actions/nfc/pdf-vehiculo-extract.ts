@@ -217,11 +217,10 @@ export async function extractVehiculosPdfAction(
   }
 
   try {
-    const extracted = await extractVehiculosFromPdfs({
+    const result = await extractVehiculosFromPdfs({
       factura,
       certificados,
     });
-    const result = await reinforceWithAgentPackage(extracted);
     if (result.status === "error") {
       return {
         success: false,
