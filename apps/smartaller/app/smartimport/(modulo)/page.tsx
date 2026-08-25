@@ -590,7 +590,7 @@ export default async function PuertoLibrePage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="min-w-0 flex-1 whitespace-nowrap text-[13px] font-semibold tracking-tight text-zinc-50 sm:text-lg">
+          <h1 className="smartimport-page-title min-w-0 flex-1 whitespace-nowrap text-zinc-50">
             Expediente de Importación Vehicular
           </h1>
         </div>
@@ -797,10 +797,10 @@ export default async function PuertoLibrePage() {
                         className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
                       >
                         <span className="min-w-0">
-                          <span className="inline-block whitespace-nowrap font-mono font-medium text-zinc-300">
+                          <span className="smartimport-expediente-title inline-block whitespace-nowrap font-mono text-zinc-300">
                             {labelExpediente(v)}
                           </span>
-                          <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                          <span className="smartimport-vehiculo-description mt-0.5 block truncate">
                             {labelVehiculo(v)}
                           </span>
                         </span>
@@ -825,7 +825,7 @@ export default async function PuertoLibrePage() {
 
 function PuertoLibreShell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-3 pb-6 pt-3 sm:px-6 lg:px-8">
+    <main className="smartimport-typography min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-3 pb-6 pt-3 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-lg sm:max-w-2xl lg:max-w-3xl">{children}</div>
     </main>
   );
