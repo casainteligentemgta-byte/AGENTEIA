@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  updatePuertoLibreDatosLoteAction,
   uploadPuertoLibreBlLoteAction,
   type PuertoLibreVehiculoListItem,
 } from "@/app/actions/nfc/importacion-vehiculo";
@@ -51,6 +52,8 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [condicion, setCondicion] = useState<"nuevo" | "usado">("nuevo");
+  const [tipoCombustible, setTipoCombustible] = useState("gasolina");
   const blInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
@@ -106,6 +109,39 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
         return;
       }
       setMessage(`BL aplicado a ${result.applied} expediente(s).`);
+      router.refresh();
+    });
+  }
+
+  function applyDatosToSelected() {
+    if (selectedIds.length === 0) {
+      setMessage("Selecciona al menos un expediente antes de aplicar los datos.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Aplicar ${condicion} y ${tipoCombustible} a ${selectedIds.length} expediente(s)?`
+    );
+    if (!confirmed) return;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await updatePuertoLibreDatosLoteAction({
+        vehiculoIds: selectedIds,
+        condicion,
+        tipoCombustible: tipoCombustible as
+          | "gasolina"
+          | "diesel"
+          | "electrico"
+          | "hibrido"
+          | "gnv"
+          | "otro",
+      });
+      if (!result.success) {
+        setMessage(result.error);
+        return;
+      }
+      setMessage(
+        `Condición y combustible aplicados a ${result.applied} expediente(s).`
+      );
       router.refresh();
     });
   }
@@ -281,6 +317,46 @@ export function PlanillaVehiculoSelector({ current, vehiculos }: Props) {
               {message ? (
                 <p className="mt-2 text-center text-xs text-slate-300">{message}</p>
               ) : null}
+              <div className="mt-3 border-t border-slate-800 pt-3">
+                <p className="text-xs font-medium text-slate-300">
+                  Edición rápida del lote
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <select
+                    value={condicion}
+                    onChange={(event) =>
+                      setCondicion(event.target.value as "nuevo" | "usado")
+                    }
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                    aria-label="Condición para expedientes seleccionados"
+                  >
+                    <option value="nuevo">Nuevo</option>
+                    <option value="usado">Usado</option>
+                  </select>
+                  <select
+                    value={tipoCombustible}
+                    onChange={(event) => setTipoCombustible(event.target.value)}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                    aria-label="Combustible para expedientes seleccionados"
+                  >
+                    <option value="gasolina">Gasolina</option>
+                    <option value="diesel">Diésel</option>
+                    <option value="hibrido">Híbrido</option>
+                    <option value="electrico">Eléctrico</option>
+                    <option value="gnv">GNV</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={pending || selectedIds.length === 0}
+                  onClick={applyDatosToSelected}
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50"
+                >
+                  Aplicar datos a {selectedIds.length} expediente
+                  {selectedIds.length === 1 ? "" : "s"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

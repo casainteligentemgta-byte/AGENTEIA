@@ -2207,6 +2207,84 @@ export async function uploadPuertoLibreBlLoteAction(
   }
 }
 
+/** Aplica condición y combustible a los expedientes seleccionados del taller. */
+export async function updatePuertoLibreDatosLoteAction(input: {
+  vehiculoIds: string[];
+  condicion: "nuevo" | "usado";
+  tipoCombustible:
+    | "gasolina"
+    | "diesel"
+    | "electrico"
+    | "hibrido"
+    | "gnv"
+    | "otro";
+}): Promise<{ success: true; applied: number } | { success: false; error: string }> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z
+    .object({
+      vehiculoIds: z.array(z.string().uuid()).min(1).max(50),
+      condicion: z.enum(["nuevo", "usado"]),
+      tipoCombustible: z.enum([
+        "gasolina",
+        "diesel",
+        "electrico",
+        "hibrido",
+        "gnv",
+        "otro",
+      ]),
+    })
+    .safeParse({
+      ...input,
+      vehiculoIds: [...new Set(input.vehiculoIds)],
+    });
+  if (!parsed.success) {
+    return { success: false, error: "Selecciona expedientes y datos válidos" };
+  }
+
+  const rows = await Promise.all(
+    parsed.data.vehiculoIds.map((vehiculoId) =>
+      assertVehiculoTaller(vehiculoId, auth.taller.id)
+    )
+  );
+  if (rows.some((row) => !row)) {
+    return { success: false, error: "Uno o más expedientes no están disponibles" };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const updatedAt = new Date().toISOString();
+    await Promise.all(
+      rows.map(async (row) => {
+        if (!row) return;
+        const existing = parseImportacion(row.importacion);
+        const importacion = serializeImportacion({
+          ...existing,
+          condicionVehiculo: parsed.data.condicion,
+          esSubasta: false,
+          tipoCombustible: parsed.data.tipoCombustible,
+        });
+        const { error } = await admin
+          .from("vehiculos")
+          .update({ importacion, updated_at: updatedAt })
+          .eq("id", row.id)
+          .eq("taller_id", auth.taller.id);
+        if (error) throw new Error(error.message);
+        revalidateFicha(row.id);
+      })
+    );
+    return { success: true, applied: parsed.data.vehiculoIds.length };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "No se pudo actualizar el lote",
+    };
+  }
+}
+
 export type PuertoLibreVehiculoListItem = {
   id: string;
   placa: string;
