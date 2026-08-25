@@ -212,6 +212,7 @@ async function loadVehiculosForImportacion(
         (v): PuertoLibreVehiculoListItem => ({
           id: v.id,
           placa: v.placa ?? "",
+          vin: v.serialCarroceria,
           marca: v.marca,
           modelo: v.modelo,
           color: v.color,
