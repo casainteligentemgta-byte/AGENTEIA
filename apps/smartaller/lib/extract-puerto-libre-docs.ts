@@ -890,6 +890,10 @@ IMPORTANTE:
 Responde SOLO JSON con:
 {
   "numero_certificado_origen": string|null,
+  "tipo_certificado": string|null,
+  "fecha_emision": string|null,
+  "autoridad_emisora": string|null,
+  "estado_certificado": string|null,
   "pais_origen": string|null,
   "marca": string|null,
   "anio": number|null,
@@ -909,7 +913,11 @@ Responde SOLO JSON con:
       "pais_origen": string|null
     }
   ]
-}`;
+}
+fecha_emision en YYYY-MM-DD si aparece (issue date / fecha de emisión).
+tipo_certificado: p. ej. "origen", "procedencia", "COO".
+autoridad_emisora: organismo o cámara que firma el certificado.
+estado_certificado: vigente / válido / anulado si se indica; si no, null.`;
 
 export type DocMultiExtracted = {
   shared: PuertoLibreRegistroScanFields;
@@ -2129,6 +2137,30 @@ export async function extractCertificadoOrigenMultiFromDocument(
     parsed.numero_certificado_origen ?? parsed.certificate_no ?? parsed.coo_no
   );
   if (certNo) shared.numeroCertificadoOrigen = certNo;
+  const fechaCert = parseFechaIso(
+    parsed.fecha_emision ?? parsed.issue_date ?? parsed.date_of_issue
+  );
+  if (fechaCert) shared.fechaCertificadoOrigen = fechaCert;
+  const autoridad = parseString(
+    parsed.autoridad_emisora ??
+      parsed.issuing_authority ??
+      parsed.chamber ??
+      parsed.emisor
+  );
+  if (autoridad) shared.autoridadCertificadoOrigen = autoridad;
+  const tipoCert = parseString(
+    parsed.tipo_certificado ?? parsed.certificate_type ?? parsed.doc_type
+  );
+  if (tipoCert) shared.tipoCertificadoOrigen = tipoCert;
+  const estadoCert = parseString(
+    parsed.estado_certificado ?? parsed.status ?? parsed.validity
+  );
+  if (estadoCert) {
+    shared.estadoCertificadoOrigen = estadoCert;
+    shared.observaciones = [`Cert: ${estadoCert}`, shared.observaciones]
+      .filter(Boolean)
+      .join(" · ");
+  }
   const impNombre = parseString(
     parsed.importador_nombre ?? parsed.consignee ?? parsed.importer
   );
@@ -2155,6 +2187,10 @@ export async function extractCertificadoOrigenMultiFromDocument(
     if (certNo) {
       fields.numeroCertificadoOrigen = certNo;
     }
+    if (fechaCert) fields.fechaCertificadoOrigen = fechaCert;
+    if (autoridad) fields.autoridadCertificadoOrigen = autoridad;
+    if (tipoCert) fields.tipoCertificadoOrigen = tipoCert;
+    if (estadoCert) fields.estadoCertificadoOrigen = estadoCert;
     if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
     if (!fields.marca && marca) fields.marca = marca;
     else if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {

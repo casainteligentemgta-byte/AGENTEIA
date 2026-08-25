@@ -42,6 +42,14 @@ export type PuertoLibreRegistroScanFields = {
   numeroExpedienteSeniat?: string;
   numeroDav?: string;
   numeroCertificadoOrigen?: string;
+  /** Fecha de emisión del certificado (YYYY-MM-DD) si el OCR la lee. */
+  fechaCertificadoOrigen?: string;
+  /** Autoridad / organismo emisor del certificado. */
+  autoridadCertificadoOrigen?: string;
+  /** Tipo textual: origen, procedencia, etc. */
+  tipoCertificadoOrigen?: string;
+  /** Vigencia / estado del certificado (vigente, anulado, …). */
+  estadoCertificadoOrigen?: string;
   numeroListaEmpaque?: string;
   numeroPolizaTransporte?: string;
   observaciones?: string;
