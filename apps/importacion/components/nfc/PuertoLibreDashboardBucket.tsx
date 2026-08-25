@@ -61,7 +61,7 @@ type Props = {
 };
 
 const EXPEDIENTE_CODE_CLASS =
-  "inline-block whitespace-nowrap font-mono text-xs font-semibold tracking-wide text-zinc-100 hover:text-cyan-300 sm:text-sm";
+  "smartimport-expediente-title inline-block whitespace-nowrap font-mono tracking-wide text-zinc-100 hover:text-cyan-300";
 
 const ACTION_TONE: Record<
   NonNullable<DashboardBucketRow["actionTone"]>,
@@ -154,7 +154,7 @@ export function PuertoLibreDashboardBucket({
   );
 
   const titleRow = (
-    <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-zinc-200">
+    <h2 className="smartimport-bucket-title flex min-w-0 items-center gap-2 text-zinc-200">
       <BucketIcon name={icon} />
       <span className="truncate">{title}</span>
     </h2>
@@ -404,7 +404,7 @@ export function PuertoLibreDashboardBucket({
 
                       return (
                         <td key={col.key} className="px-3 py-3 text-zinc-300">
-                          <p className="text-xs leading-snug sm:text-sm">{value}</p>
+                          <p className="smartimport-vehiculo-description">{value}</p>
                           {sub ? (
                             <p className="mt-1 line-clamp-2 text-[11px] text-red-300/80">
                               {sub}
