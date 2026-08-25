@@ -306,7 +306,7 @@ async function loadVehiculosForImportacion(
     const { data, error } = await admin
       .from("vehiculos")
       .select(
-        "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, importacion"
+        "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, importacion"
       )
       .in("id", idsRes.vehiculoIds)
       .order("created_at", { ascending: false });
@@ -326,6 +326,7 @@ async function loadVehiculosForImportacion(
           return {
             id: row.id as string,
             placa: placaRealVisible(placaRaw, codigoExpediente) ?? placaRaw ?? "",
+            vin: (row.serial_carroceria as string | null) ?? null,
             marca: (row.marca as string | null) ?? null,
             modelo: (row.modelo as string | null) ?? null,
             color: (row.color as string | null) ?? null,

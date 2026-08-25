@@ -2010,6 +2010,7 @@ export async function uploadPuertoLibreDocumentoAction(
 export type PuertoLibreVehiculoListItem = {
   id: string;
   placa: string;
+  vin: string | null;
   marca: string | null;
   modelo: string | null;
   color: string | null;
@@ -2060,7 +2061,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   const { data, error } = await supabase
     .from("vehiculos")
     .select(
-      "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
+      "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
     )
     .eq("taller_id", auth.taller.id)
     .order("created_at", { ascending: false });
@@ -2070,7 +2071,7 @@ export async function listPuertoLibreVehiculos(): Promise<
     const { data: fallback, error: fallbackError } = await supabase
       .from("vehiculos")
       .select(
-        "id, placa, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, documentos"
+        "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, documentos"
       )
       .eq("taller_id", auth.taller.id)
       .order("created_at", { ascending: false });
@@ -2143,6 +2144,7 @@ function mapListItem(
   return {
     id,
     placa,
+    vin: (row.serial_carroceria as string | null) ?? null,
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
     color: (row.color as string | null) ?? null,
