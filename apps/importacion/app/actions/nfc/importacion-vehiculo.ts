@@ -40,6 +40,7 @@ import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_B
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
 import {
+  compareExpedientesAsc,
   formatCodigoExpediente,
   parseCodigoExpediente,
   partsFromDate,
@@ -2081,9 +2082,9 @@ export async function listPuertoLibreVehiculos(): Promise<
     const stickers = await loadStickersByVehiculo(auth.taller.id);
     return {
       success: true,
-      vehiculos: (fallback ?? []).map((row) =>
-        mapListItem(row as Record<string, unknown>, stickers)
-      ),
+      vehiculos: (fallback ?? [])
+        .map((row) => mapListItem(row as Record<string, unknown>, stickers))
+        .sort(compareExpedientesAsc),
     };
   }
 
@@ -2092,7 +2093,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   await backfillCodigosExpediente(auth.taller.id, rows);
   return {
     success: true,
-    vehiculos: rows.map((row) => mapListItem(row, stickers)),
+    vehiculos: rows.map((row) => mapListItem(row, stickers)).sort(compareExpedientesAsc),
   };
 }
 

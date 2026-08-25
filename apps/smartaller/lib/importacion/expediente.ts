@@ -59,6 +59,29 @@ export function resolveCodigoExpediente(params: {
   return null;
 }
 
+/**
+ * Orden cronológico ascendente de expedientes PL. Los registros sin código
+ * quedan al final y conservan su orden de creación ascendente.
+ */
+export function compareExpedientesAsc(
+  a: { codigoExpediente: string | null; created_at: string },
+  b: { codigoExpediente: string | null; created_at: string }
+): number {
+  const codigoA = parseCodigoExpediente(a.codigoExpediente);
+  const codigoB = parseCodigoExpediente(b.codigoExpediente);
+
+  if (codigoA && codigoB) {
+    return (
+      codigoA.year - codigoB.year ||
+      codigoA.month - codigoB.month ||
+      codigoA.numero - codigoB.numero
+    );
+  }
+  if (codigoA) return -1;
+  if (codigoB) return 1;
+  return a.created_at.localeCompare(b.created_at);
+}
+
 /** Placeholder único en BD cuando aún no hay placa real (placa ≠ expediente). */
 export function placaPendienteDesdeCodigo(codigoExpediente: string): string {
   const parts = parseCodigoExpediente(codigoExpediente);
