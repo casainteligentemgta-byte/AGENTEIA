@@ -713,25 +713,11 @@ export async function extractCargaMasivaEtapaAction(
   }
 
   const etapaRaw = String(formData.get("etapa") ?? "vins");
-  // Etapa VIN puede usar Tesseract local sin clave; datos/certs sí requieren LLM.
-  if (etapaRaw === "vins") {
-    if (isLlmConfigured()) {
-      const gate = await gateLlmForTaller(auth, "carga_masiva_vins");
-      if (!gate.ok) return { success: false, error: gate.error };
-    } else {
-      bindLlmUsageContext({
-        action: "carga_masiva_vins",
-        tallerId: auth.taller.id,
-        userId: auth.userId,
-      });
-    }
-  } else {
-    const gate = await gateLlmForTaller(
-      auth,
-      `carga_masiva_${etapaRaw || "vins"}`
-    );
-    if (!gate.ok) return { success: false, error: gate.error };
-  }
+  const gate = await gateLlmForTaller(
+    auth,
+    `carga_masiva_${etapaRaw || "vins"}`
+  );
+  if (!gate.ok) return { success: false, error: gate.error };
 
   if (etapaRaw !== "vins" && etapaRaw !== "datos" && etapaRaw !== "certs") {
     return { success: false, error: "Etapa inválida" };
