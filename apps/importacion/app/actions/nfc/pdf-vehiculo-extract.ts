@@ -1,7 +1,8 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireTallerAuth } from "@/lib/importacion/taller-auth";
+import { getUser } from "@/lib/supabase/server";
+import { getMyTaller } from "@/lib/taller";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
 import {
   assertLlmBudgetAllows,
@@ -21,6 +22,22 @@ import {
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_CERTS = 20;
+
+async function requireTallerAuth() {
+  const user = await getUser();
+  if (!user) {
+    return { error: "Debes iniciar sesión" as const, taller: null, user: null };
+  }
+  const taller = await getMyTaller();
+  if (!taller) {
+    return {
+      error: "No se encontró tu taller" as const,
+      taller: null,
+      user,
+    };
+  }
+  return { error: null, taller, user };
+}
 
 export type ExtractVehiculosPdfActionResult =
   | ({ success: true } & PdfVehiculoExtractResult)
