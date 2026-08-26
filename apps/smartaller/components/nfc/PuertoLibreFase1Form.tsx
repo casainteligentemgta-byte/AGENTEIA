@@ -24,6 +24,7 @@ import {
   resolveAduanaVenezuela,
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
+import { porCompletarTextClass } from "@/lib/importacion/completitud-datos";
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>> & {
   certificadosOrigen?: File[];
@@ -764,7 +765,7 @@ function ControlledField({
         }}
         className={`box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60 ${
           mono ? "font-mono uppercase" : ""
-        } ${readOnly ? "cursor-default opacity-70 focus:border-slate-700" : ""}`}
+        } ${readOnly ? "cursor-default opacity-70 focus:border-slate-700" : ""} ${porCompletarTextClass(value)}`}
       />
       {hint ? <span className="block text-xs text-slate-500">{hint}</span> : null}
     </label>

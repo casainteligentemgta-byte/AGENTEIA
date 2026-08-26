@@ -7,6 +7,7 @@ import {
   aniosVehiculoCatalogo,
   modelosDeMarca,
 } from "@/lib/importacion/vehiculo-catalog";
+import { porCompletarTextClass } from "@/lib/importacion/completitud-datos";
 
 const selectClass =
   "box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60";
@@ -113,7 +114,7 @@ export function VehiculoCatalogoFields({
             value={marcaOtra}
             onChange={(e) => setMarcaOtra(e.target.value)}
             placeholder="Escribe la marca"
-            className={inputClass}
+            className={`${inputClass} ${porCompletarTextClass(marcaOtra)}`}
           />
         ) : null}
         <input type="hidden" name="marca" value={marcaValue} />
@@ -150,7 +151,7 @@ export function VehiculoCatalogoFields({
                 value={modeloOtra}
                 onChange={(e) => setModeloOtra(e.target.value)}
                 placeholder="Escribe el modelo"
-                className={inputClass}
+                className={`${inputClass} ${porCompletarTextClass(modeloOtra)}`}
               />
             ) : null}
           </>
@@ -166,7 +167,7 @@ export function VehiculoCatalogoFields({
               marcaEfectiva ? "Escribe el modelo" : "Primero elige marca"
             }
             disabled={!marcaEfectiva}
-            className={inputClass}
+            className={`${inputClass} ${porCompletarTextClass(modeloOtra)}`}
           />
         )}
         <input type="hidden" name="modelo" value={modeloValue} />
@@ -180,7 +181,7 @@ export function VehiculoCatalogoFields({
           value={color}
           onChange={(e) => setColor(e.target.value)}
           placeholder="Ej. CELADON GRAY"
-          className={inputClass}
+          className={`${inputClass} ${porCompletarTextClass(color)}`}
         />
       </label>
 

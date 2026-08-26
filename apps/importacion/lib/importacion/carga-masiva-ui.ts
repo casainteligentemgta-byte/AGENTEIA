@@ -11,6 +11,7 @@ import { preferCompleteVin, repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
   isPlaceholderDato,
+  porCompletarTextClass,
   type CompletitudNivel,
 } from "@/lib/importacion/completitud-datos";
 import {
