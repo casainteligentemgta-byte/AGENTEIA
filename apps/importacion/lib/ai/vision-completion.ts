@@ -82,6 +82,7 @@ export async function createVisionJsonCompletion(params: {
   softFail?: boolean;
   /** Mejor lectura de texto en facturas / documentos. */
   preferHighDetail?: boolean;
+  timeoutMs?: number;
 }): Promise<Record<string, unknown>> {
   const prepared = prepareImageForVision(params.imageBuffer, params.mimeType, {
     preferHighDetail: params.preferHighDetail,
@@ -96,6 +97,7 @@ export async function createVisionJsonCompletion(params: {
       detail: prepared.detail,
       maxTokens,
       jsonMode: true,
+      timeoutMs: params.timeoutMs,
     });
     return parseJsonOrSalvageVins(raw);
   } catch (firstError) {
@@ -108,6 +110,9 @@ export async function createVisionJsonCompletion(params: {
         detail: "low",
         maxTokens,
         jsonMode: false,
+        timeoutMs: params.timeoutMs
+          ? Math.min(params.timeoutMs, 28_000)
+          : undefined,
       });
 
       const trimmed = raw
@@ -131,12 +136,15 @@ export async function createVisionVinListCompletion(params: {
   mimeType: string;
   preferHighDetail?: boolean;
   maxTokens?: number;
+  /** Por defecto 32s: la carga masiva no puede encadenar varias pasadas de 50–90s. */
+  timeoutMs?: number;
 }): Promise<string[]> {
   const prepared = prepareImageForVision(params.imageBuffer, params.mimeType, {
     preferHighDetail: params.preferHighDetail ?? true,
   });
   const dataUrl = `data:${prepared.mimeType};base64,${prepared.buffer.toString("base64")}`;
   const maxTokens = params.maxTokens ?? 2000;
+  const timeoutMs = params.timeoutMs ?? 32_000;
   const prompt = `Lee esta imagen de factura de vehículos (Chery / commercial invoice / hoja anexa).
 Suele haber VARIAS filas (p. ej. 8 vehículos). Lista TODOS los números VIN / chasis de exactamente 17 caracteres visibles (columna Code o No. de Chasis).
 Uno por línea. Solo letras y dígitos. No inventes. No omitas filas del medio ni del final.
@@ -149,7 +157,7 @@ Si no hay ninguno, responde NINGUNO.`;
       detail: prepared.detail,
       maxTokens,
       jsonMode: false,
-      timeoutMs: 50_000,
+      timeoutMs,
     });
     return extractVinStringsFromText(raw);
   } catch (firstError) {
@@ -160,7 +168,7 @@ Si no hay ninguno, responde NINGUNO.`;
       detail: "high",
       maxTokens,
       jsonMode: false,
-      timeoutMs: 50_000,
+      timeoutMs: Math.min(timeoutMs, 28_000),
     });
     return extractVinStringsFromText(raw);
   }

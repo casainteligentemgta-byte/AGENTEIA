@@ -768,6 +768,7 @@ export async function extractCargaMasivaEtapaAction(
         let extracted: Awaited<
           ReturnType<typeof extractFacturaVinsStageFromDocument>
         > = { shared: {}, vehiculos: [] };
+        const harvestStarted = Date.now();
         try {
           extracted = await extractFacturaVinsStageFromDocument(
             f.buffer,
@@ -782,10 +783,17 @@ export async function extractCargaMasivaEtapaAction(
               detail
             )
           ) {
-            return { success: false, error: `${f.file.name}: ${detail}` };
+            // Si la cosecha ya consumió casi el límite, no encadenar pipeline completo
+            // (eso provoca el abort del cliente a ~110s con 0 filas).
+            if (Date.now() - harvestStarted > 45_000) {
+              return {
+                success: false,
+                error: `${f.file.name}: ${detail}`,
+              };
+            }
           }
         }
-        if (extracted.vehiculos.length === 0) {
+        if (extracted.vehiculos.length === 0 && Date.now() - harvestStarted < 45_000) {
           try {
             extracted = await extractFacturaMultiFromDocument(
               f.buffer,
@@ -801,6 +809,10 @@ export async function extractCargaMasivaEtapaAction(
               `${f.file.name}: error OCR — ${formatLlmAuthError(err)}`
             );
           }
+        } else if (extracted.vehiculos.length === 0) {
+          warnings.push(
+            `${f.file.name}: sin VIN y sin tiempo para pipeline completo (evitar timeout)`
+          );
         }
         if (extracted.vehiculos.length === 0) {
           warnings.push(
