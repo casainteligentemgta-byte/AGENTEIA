@@ -1093,6 +1093,8 @@ function Fase2Embarque({
     regimen: "puerto_libre",
   });
   const certSyncStarted = useRef(false);
+  const [certSyncPending, setCertSyncPending] = useState(false);
+  const [certSyncTried, setCertSyncTried] = useState(false);
 
   useEffect(() => {
     setDatos((prev) => ({
@@ -1110,20 +1112,32 @@ function Fase2Embarque({
     }));
   }, [initial]);
 
+  function syncCertificadoNumero() {
+    if (!docs.certificado_origen?.url) return;
+    setCertSyncPending(true);
+    void syncCertificadoOrigenNumeroAction(vehiculoId)
+      .then((result) => {
+        if (result.success && result.numeroCertificadoOrigen) {
+          setDatos((prev) => ({
+            ...prev,
+            numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
+          }));
+        }
+      })
+      .finally(() => {
+        setCertSyncPending(false);
+        setCertSyncTried(true);
+      });
+  }
+
   useEffect(() => {
     if (certSyncStarted.current) return;
     if (datos.numeroCertificadoOrigen.trim()) return;
     if (!docs.certificado_origen?.url) return;
     certSyncStarted.current = true;
-    void syncCertificadoOrigenNumeroAction(vehiculoId).then((result) => {
-      if (result.success && result.numeroCertificadoOrigen) {
-        setDatos((prev) => ({
-          ...prev,
-          numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
-        }));
-      }
-    });
-  }, [vehiculoId, docs.certificado_origen?.url, datos.numeroCertificadoOrigen]);
+    syncCertificadoNumero();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehiculoId, docs.certificado_origen?.url]);
 
   function patch<K extends keyof EmbarqueDatosForm>(
     key: K,
@@ -1211,7 +1225,7 @@ function Fase2Embarque({
                 {datos.numeroCertificadoOrigen}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Extraído del certificado escaneado en Registro
+                Extraído del certificado de origen de este VIN
               </p>
             </div>
           ) : (
@@ -1224,16 +1238,39 @@ function Fase2Embarque({
                   patch("numeroCertificadoOrigen", e.target.value.toUpperCase())
                 }
                 placeholder={
-                  docs.certificado_origen?.url
-                    ? "Leyendo certificado…"
-                    : "Del certificado de origen (Registro)"
+                  certSyncPending
+                    ? "Leyendo certificado de este VIN…"
+                    : docs.certificado_origen?.url
+                      ? "Nº del certificado (completo a mano si falla)"
+                      : "Del certificado de origen (Registro)"
                 }
-                className={`${inputClass} font-mono uppercase`}
+                disabled={certSyncPending}
+                className={`${inputClass} font-mono uppercase ${
+                  certSyncPending ? "text-amber-200/90" : ""
+                }`}
               />
               {docs.certificado_origen?.url ? (
                 <p className="text-xs text-slate-500">
-                  Se intenta leer del certificado cargado en Registro. Si no aparece,
-                  complétalo a mano.
+                  {certSyncPending
+                    ? "Extrayendo el nº del certificado que corresponde a este VIN…"
+                    : certSyncTried
+                      ? "No se pudo leer el nº para este VIN. Complétalo a mano o reintenta."
+                      : "Se intenta leer del certificado cargado en Registro (match por VIN)."}
+                  {!certSyncPending ? (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          certSyncStarted.current = true;
+                          syncCertificadoNumero();
+                        }}
+                        className="text-cyan-400 underline hover:text-cyan-300"
+                      >
+                        Reintentar
+                      </button>
+                    </>
+                  ) : null}
                 </p>
               ) : null}
             </label>

@@ -879,6 +879,7 @@ Si la descripción es genérica sin VIN, "vehiculos" puede ser [].`;
 
 const CERTIFICADO_ORIGEN_MULTI_PROMPT = `Analiza este CERTIFICADO DE ORIGEN / Certificate of Origin (COO) de vehículos importados.
 Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
+También puede ser un PDF con VARIOS certificados (uno por unidad / página).
 
 Extrae datos que suelen faltar en la factura comercial:
 - serial_motor / ENGINE NO / engine number (columna del motor)
@@ -886,12 +887,14 @@ Extrae datos que suelen faltar en la factura comercial:
 - modelo, color, anio (año / year / model year del vehículo)
 - serial_carroceria / VIN / chasis
 - país de origen (country of origin)
-- número del certificado
+- número del certificado (Certificate No. / COO No. / Nº certificado)
 
 IMPORTANTE:
 - Incluye TODAS las unidades visibles. No omitas filas.
 - Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
-- No inventes seriales. Si no se lee el motor, null.
+- Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
+- Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
+- No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
 {
@@ -909,6 +912,7 @@ Responde SOLO JSON con:
       "anio": number|null,
       "serial_motor": string|null,
       "serial_carroceria": string|null,
+      "numero_certificado_origen": string|null,
       "numero_llave": string|null,
       "kilometraje": number|null,
       "condicion": "nuevo"|"usado"|null,
@@ -2212,6 +2216,12 @@ export async function extractCertificadoOrigenMultiFromDocument(
     if (certNo) {
       fields.numeroCertificadoOrigen = certNo;
     }
+    const vCertNo = parseString(
+      v.numero_certificado_origen ?? v.certificate_no ?? v.coo_no
+    );
+    if (vCertNo) {
+      fields.numeroCertificadoOrigen = vCertNo;
+    }
     if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
     if (!fields.marca && marca) fields.marca = marca;
     else if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
@@ -2263,6 +2273,69 @@ export async function extractCertificadoOrigenMultiFromDocument(
     if (llmError) throw llmError;
   }
   return { shared, vehiculos };
+}
+
+/**
+ * Elige la fila OCR del certificado que corresponde al VIN del expediente.
+ * Si no hay match en un multi-VIN, no inventa el nº de otra unidad (solo cabecera).
+ */
+export function pickCertificadoScanForVin(
+  extracted: DocMultiExtracted,
+  targetVin: string | null | undefined
+): PuertoLibreRegistroScanFields {
+  const target = (targetVin ?? "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase();
+  const repairedTarget = /^LWV|^LV[WY]|^LYV|^LWW/.test(target)
+    ? `LVV${target.slice(3)}`
+    : target;
+
+  let matched: PuertoLibreRegistroScanFields | undefined;
+  if (repairedTarget && extracted.vehiculos.length > 0) {
+    const keys = extracted.vehiculos.map((v) => {
+      const raw = (v.serialCarroceria || v.vin || "")
+        .replace(/[^A-Za-z0-9]/g, "")
+        .toUpperCase();
+      return /^LWV|^LV[WY]|^LYV|^LWW/.test(raw) ? `LVV${raw.slice(3)}` : raw;
+    });
+
+    let idx = keys.findIndex((k) => k && k === repairedTarget);
+    if (idx < 0 && repairedTarget.length >= 11) {
+      const hits = keys
+        .map((k, i) => ({ k, i }))
+        .filter(
+          ({ k }) =>
+            k.length >= 11 &&
+            (k.startsWith(repairedTarget) || repairedTarget.startsWith(k))
+        );
+      if (hits.length === 1) idx = hits[0]!.i;
+    }
+    if (idx >= 0) matched = extracted.vehiculos[idx];
+  }
+
+  const fallback = extracted.vehiculos[0] ?? {};
+  const picked = matched ?? fallback;
+  const merged = mergeScanFields(extracted.shared, picked);
+
+  if (matched?.numeroCertificadoOrigen?.trim()) {
+    merged.numeroCertificadoOrigen = matched.numeroCertificadoOrigen.trim();
+  } else if (
+    repairedTarget &&
+    extracted.vehiculos.length > 1 &&
+    !matched
+  ) {
+    // Multi-unidad sin match de VIN: no tomar el nº de la primera fila.
+    if (extracted.shared.numeroCertificadoOrigen?.trim()) {
+      merged.numeroCertificadoOrigen =
+        extracted.shared.numeroCertificadoOrigen.trim();
+    } else {
+      delete merged.numeroCertificadoOrigen;
+    }
+  } else if (picked.numeroCertificadoOrigen?.trim()) {
+    merged.numeroCertificadoOrigen = picked.numeroCertificadoOrigen.trim();
+  }
+
+  return merged;
 }
 
 /** Combina campos OCR: el patch no pisa valores ya rellenados (observaciones se concatenan). */
