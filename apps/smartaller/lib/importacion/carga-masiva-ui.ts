@@ -13,6 +13,10 @@ import {
   isPlaceholderDato,
   type CompletitudNivel,
 } from "@/lib/importacion/completitud-datos";
+import {
+  formatPuertosDescarga,
+  parsePuertosDescarga,
+} from "@/lib/importacion/puertos-venezuela";
 
 export function normalizeSerialKey(serial: string): string {
   return repairCheryWmi(
@@ -477,7 +481,9 @@ export function sharedShipmentFromRows(rows: CargaMasivaRow[]): SharedShipmentFi
 
   return {
     fechaLlegadaBuque: first.fechaLlegadaBuque ?? "",
-    puerto: first.puerto ?? "",
+    puerto: formatPuertosDescarga(
+      parsePuertosDescarga(first.puerto ?? "")
+    ),
     modalidadTransito,
     aduanaTransito: first.aduanaTransito ?? "",
     aduana: first.aduana ?? "",
@@ -550,7 +556,7 @@ export function applySharedShipmentToRows(
       next.fechaLlegadaBuque = fecha;
     }
     if (puerto && (force || isBlankTech(r.puerto))) {
-      next.puerto = puerto;
+      next.puerto = formatPuertosDescarga(parsePuertosDescarga(puerto));
     }
     if (modalidad && (force || isBlankTech(r.modalidadTransito))) {
       next.modalidadTransito = modalidad;
