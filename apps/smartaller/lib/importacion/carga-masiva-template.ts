@@ -94,6 +94,24 @@ export const CARGA_MASIVA_COLUMNS = [
     required: false,
     hint: "Dirección fiscal",
   },
+  {
+    key: "puerto",
+    header: "puerto",
+    required: false,
+    hint: "Puerto de descarga",
+  },
+  {
+    key: "modalidad_transito",
+    header: "modalidad_transito",
+    required: false,
+    hint: "ninguno | transito | uso24",
+  },
+  {
+    key: "aduana_transito",
+    header: "aduana_transito",
+    required: false,
+    hint: "Si tránsito / USO24",
+  },
   { key: "aduana", header: "aduana", required: false, hint: "Ej. Guanta" },
   { key: "numero_bl", header: "numero_bl", required: false, hint: "Nº BL" },
   { key: "pais_origen", header: "pais_origen", required: false, hint: "China" },
@@ -185,6 +203,10 @@ export type CargaMasivaRow = {
   importadorTelefono: string;
   importadorEmail: string;
   importadorDireccion: string;
+  /** Puerto de descarga / llegada (distinto de aduana SENIAT). */
+  puerto: string;
+  modalidadTransito: string;
+  aduanaTransito: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
@@ -260,8 +282,16 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   importador_direccion: "importador_direccion",
   direccion_fiscal: "importador_direccion",
   direccion: "importador_direccion",
+  puerto: "puerto",
+  puerto_descarga: "puerto",
+  "puerto descarga": "puerto",
+  modalidad_transito: "modalidad_transito",
+  modalidadtransito: "modalidad_transito",
+  "modalidad transito": "modalidad_transito",
+  aduana_transito: "aduana_transito",
+  aduanatransito: "aduana_transito",
+  "aduana transito": "aduana_transito",
   aduana: "aduana",
-  puerto: "aduana",
   numero_bl: "numero_bl",
   numerobl: "numero_bl",
   bl: "numero_bl",
@@ -324,6 +354,9 @@ export function emptyCargaMasivaRow(
     importadorTelefono: "",
     importadorEmail: "",
     importadorDireccion: "",
+    puerto: "",
+    modalidadTransito: "",
+    aduanaTransito: "",
     aduana: "",
     numeroBl: "",
     paisOrigen: "",
@@ -373,6 +406,9 @@ export function cargaMasivaRowFromScanFields(
     importadorTelefono: fields.importadorTelefono ?? "",
     importadorEmail: fields.importadorEmail ?? "",
     importadorDireccion: fields.importadorDireccion ?? "",
+    puerto: fields.puerto ?? "",
+    modalidadTransito: fields.modalidadTransito ?? "",
+    aduanaTransito: fields.aduanaTransito ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
     paisOrigen: fields.paisOrigen ?? "",
@@ -487,6 +523,9 @@ export function rowFromSpreadsheetRecord(
     importadorTelefono: get("importador_telefono"),
     importadorEmail: get("importador_email"),
     importadorDireccion: get("importador_direccion"),
+    puerto: get("puerto"),
+    modalidadTransito: get("modalidad_transito").toLowerCase(),
+    aduanaTransito: get("aduana_transito"),
     aduana: get("aduana"),
     numeroBl: get("numero_bl"),
     paisOrigen: get("pais_origen"),
@@ -592,6 +631,14 @@ export function cargaMasivaRowToAltaInput(
     importadorTelefono: row.importadorTelefono,
     importadorEmail: row.importadorEmail,
     importadorDireccion: row.importadorDireccion,
+    puerto: row.puerto,
+    modalidadTransito:
+      row.modalidadTransito === "ninguno" ||
+      row.modalidadTransito === "transito" ||
+      row.modalidadTransito === "uso24"
+        ? row.modalidadTransito
+        : undefined,
+    aduanaTransito: row.aduanaTransito,
     aduana: row.aduana,
     numeroBl: row.numeroBl,
     paisOrigen: row.paisOrigen,

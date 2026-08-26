@@ -201,6 +201,9 @@ function scanFieldsToRow(
     importadorTelefono: fields.importadorTelefono ?? "",
     importadorEmail: fields.importadorEmail ?? "",
     importadorDireccion: fields.importadorDireccion ?? "",
+    puerto: fields.puerto ?? "",
+    modalidadTransito: fields.modalidadTransito ?? "",
+    aduanaTransito: fields.aduanaTransito ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
     paisOrigen: fields.paisOrigen ?? "",
@@ -1309,6 +1312,14 @@ function rowToScanFields(row: CargaMasivaRow): PuertoLibreRegistroScanFields {
     importadorTelefono: row.importadorTelefono || undefined,
     importadorEmail: row.importadorEmail || undefined,
     importadorDireccion: row.importadorDireccion || undefined,
+    puerto: row.puerto || undefined,
+    modalidadTransito:
+      row.modalidadTransito === "ninguno" ||
+      row.modalidadTransito === "transito" ||
+      row.modalidadTransito === "uso24"
+        ? row.modalidadTransito
+        : undefined,
+    aduanaTransito: row.aduanaTransito || undefined,
     aduana: row.aduana || undefined,
     numeroBl: row.numeroBl || undefined,
     paisOrigen: row.paisOrigen || undefined,
