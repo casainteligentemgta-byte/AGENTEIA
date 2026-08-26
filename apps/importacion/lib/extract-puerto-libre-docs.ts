@@ -2275,6 +2275,69 @@ export async function extractCertificadoOrigenMultiFromDocument(
   return { shared, vehiculos };
 }
 
+/**
+ * Elige la fila OCR del certificado que corresponde al VIN del expediente.
+ * Si no hay match en un multi-VIN, no inventa el nº de otra unidad (solo cabecera).
+ */
+export function pickCertificadoScanForVin(
+  extracted: DocMultiExtracted,
+  targetVin: string | null | undefined
+): PuertoLibreRegistroScanFields {
+  const target = (targetVin ?? "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase();
+  const repairedTarget = /^LWV|^LV[WY]|^LYV|^LWW/.test(target)
+    ? `LVV${target.slice(3)}`
+    : target;
+
+  let matched: PuertoLibreRegistroScanFields | undefined;
+  if (repairedTarget && extracted.vehiculos.length > 0) {
+    const keys = extracted.vehiculos.map((v) => {
+      const raw = (v.serialCarroceria || v.vin || "")
+        .replace(/[^A-Za-z0-9]/g, "")
+        .toUpperCase();
+      return /^LWV|^LV[WY]|^LYV|^LWW/.test(raw) ? `LVV${raw.slice(3)}` : raw;
+    });
+
+    let idx = keys.findIndex((k) => k && k === repairedTarget);
+    if (idx < 0 && repairedTarget.length >= 11) {
+      const hits = keys
+        .map((k, i) => ({ k, i }))
+        .filter(
+          ({ k }) =>
+            k.length >= 11 &&
+            (k.startsWith(repairedTarget) || repairedTarget.startsWith(k))
+        );
+      if (hits.length === 1) idx = hits[0]!.i;
+    }
+    if (idx >= 0) matched = extracted.vehiculos[idx];
+  }
+
+  const fallback = extracted.vehiculos[0] ?? {};
+  const picked = matched ?? fallback;
+  const merged = mergeScanFields(extracted.shared, picked);
+
+  if (matched?.numeroCertificadoOrigen?.trim()) {
+    merged.numeroCertificadoOrigen = matched.numeroCertificadoOrigen.trim();
+  } else if (
+    repairedTarget &&
+    extracted.vehiculos.length > 1 &&
+    !matched
+  ) {
+    // Multi-unidad sin match de VIN: no tomar el nº de la primera fila.
+    if (extracted.shared.numeroCertificadoOrigen?.trim()) {
+      merged.numeroCertificadoOrigen =
+        extracted.shared.numeroCertificadoOrigen.trim();
+    } else {
+      delete merged.numeroCertificadoOrigen;
+    }
+  } else if (picked.numeroCertificadoOrigen?.trim()) {
+    merged.numeroCertificadoOrigen = picked.numeroCertificadoOrigen.trim();
+  }
+
+  return merged;
+}
+
 /** Combina campos OCR: el patch no pisa valores ya rellenados (observaciones se concatenan). */
 export function mergeScanFields(
   base: PuertoLibreRegistroScanFields,
