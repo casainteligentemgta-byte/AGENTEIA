@@ -1605,6 +1605,14 @@ export async function extractFacturaVinsStageFromDocument(
   let visionCreditsBlocked = false;
   /** Facturas multi típicas (p. ej. 8 unidades Chery). */
   const MULTI_VIN_TARGET = 8;
+  /**
+   * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
+   * Devolver VIN parcial > quedar en 0 por timeout.
+   */
+  const STAGE_BUDGET_MS = 70_000;
+  const startedAt = Date.now();
+  const remainingMs = () => STAGE_BUDGET_MS - (Date.now() - startedAt);
+  const withinBudget = (needMs: number) => remainingMs() >= needMs;
 
   const addVins = (vins: string[], source: string) => {
     let added = 0;
@@ -1634,16 +1642,22 @@ export async function extractFacturaVinsStageFromDocument(
   const fromImageList = async (
     img: Buffer,
     imgMime: string,
-    label: string
+    label: string,
+    timeoutMs = 32_000
   ) => {
     if (visionCreditsBlocked || !isLlmConfigured()) return;
+    if (!withinBudget(8_000)) {
+      diagnostics.push(`${label}: omitida (presupuesto etapa)`);
+      return;
+    }
     try {
       const sized = await compressImageForVision(img);
       const vins = await createVisionVinListCompletion({
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
         preferHighDetail: true,
-        maxTokens: 4000,
+        maxTokens: 3000,
+        timeoutMs: Math.min(timeoutMs, Math.max(12_000, remainingMs() - 3_000)),
       });
       addVins(vins, label);
     } catch (err) {
@@ -1695,10 +1709,10 @@ export async function extractFacturaVinsStageFromDocument(
     }
   }
 
-  // Raster + Tesseract (local, sin créditos OpenRouter) + visión opcional
+  // Raster + Tesseract (local) + visión acotada
   try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.8 })
+      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.6 })
       : [buffer];
     const page1 = pages[0];
     if (!page1) {
@@ -1706,16 +1720,11 @@ export async function extractFacturaVinsStageFromDocument(
     } else {
       diagnostics.push(`raster: ok ${page1.length} bytes`);
 
-      // Recortes Chery (Code) + MAV (columna Chasis aprox. tras rotar)
+      // Recortes prioritarios (menos bandas = menos Tesseract/visión)
       const cropSpecs = [
         { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
         { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
-        { label: "col-code-2", region: { x: 0.2, y: 0.36, w: 0.15, h: 0.5 } },
-        // Hoja anexa MAV: No. de Chasis suele ir a la izquierda-centro
         { label: "col-chasis", region: { x: 0.08, y: 0.18, w: 0.28, h: 0.7 } },
-        { label: "col-chasis-2", region: { x: 0.12, y: 0.2, w: 0.22, h: 0.65 } },
-        { label: "banda-sup", region: { x: 0.05, y: 0.28, w: 0.9, h: 0.35 } },
-        { label: "banda-inf", region: { x: 0.05, y: 0.48, w: 0.9, h: 0.35 } },
       ] as const;
 
       const croppedBuffers: { label: string; buffer: Buffer; mimeType: string }[] =
@@ -1735,76 +1744,81 @@ export async function extractFacturaVinsStageFromDocument(
         }
       }
 
-      // 1) Tesseract primero (no depende de créditos OpenRouter)
-      try {
-        const tessImages = croppedBuffers
-          .filter(
-            (c) =>
-              c.label.startsWith("col-code") ||
-              c.label.startsWith("col-chasis")
-          )
-          .map((c) => c.buffer);
-
-        const tess = isPdf
-          ? await extractVinsWithTesseract(
-              tessImages.length > 0 ? tessImages : [page1]
+      const runTesseract = async () => {
+        try {
+          const tessImages = croppedBuffers
+            .filter(
+              (c) =>
+                c.label.startsWith("col-code") ||
+                c.label.startsWith("col-chasis")
             )
-          : await extractVinsWithTesseractOriented(page1);
+            .map((c) => c.buffer);
 
-        // En foto: también OCR de recortes si la página orientada ya aportó poco
-        if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
-          const extra = await extractVinsWithTesseract(tessImages);
-          addVins(extra.vins, "tesseract-crops");
-          tryMavFromText(extra.fullText, "tesseract-mav-crops");
-        }
+          const tess = isPdf
+            ? await extractVinsWithTesseract(
+                tessImages.length > 0 ? tessImages : [page1]
+              )
+            : await extractVinsWithTesseractOriented(page1);
 
-        addVins(tess.vins, "tesseract");
-        tryMavFromText(tess.fullText, "tesseract-mav");
-        if (tess.textSample) {
-          diagnostics.push(`tesseract-sample: ${tess.textSample.slice(0, 80)}`);
+          if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
+            const extra = await extractVinsWithTesseract(tessImages);
+            addVins(extra.vins, "tesseract-crops");
+            tryMavFromText(extra.fullText, "tesseract-mav-crops");
+          }
+
+          addVins(tess.vins, "tesseract");
+          tryMavFromText(tess.fullText, "tesseract-mav");
+          if (tess.textSample) {
+            diagnostics.push(
+              `tesseract-sample: ${tess.textSample.slice(0, 80)}`
+            );
+          }
+        } catch (err) {
+          diagnostics.push(
+            `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+          );
         }
-      } catch (err) {
-        diagnostics.push(
-          `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
-        );
+      };
+
+      const pageMime = isPdf ? "image/png" : mimeType;
+      const canVision =
+        isLlmConfigured() &&
+        !visionCreditsBlocked &&
+        vinSet.size < MULTI_VIN_TARGET;
+
+      // Tesseract + 1ª visión en paralelo (antes eran secuenciales y estallaban el timeout)
+      if (canVision && withinBudget(15_000)) {
+        await Promise.all([
+          runTesseract(),
+          fromImageList(page1, pageMime, "pagina-1", 32_000),
+        ]);
+      } else {
+        await runTesseract();
       }
 
-      // 2) Visión LLM: página + pocos recortes prioritarios (objetivo multi ~8 VIN).
-      // Sin cadena de 7×120s (colgaba Vercel); sin quedarse en 1 sola pasada corta.
+      // Un solo recorte extra si aún faltan VIN y queda tiempo
       if (
         vinSet.size < MULTI_VIN_TARGET &&
         isLlmConfigured() &&
-        !visionCreditsBlocked
+        !visionCreditsBlocked &&
+        withinBudget(18_000)
       ) {
-        const pageMime = isPdf ? "image/png" : mimeType;
-        const before = vinSet.size;
-        await fromImageList(page1, pageMime, "pagina-1");
-        if (
-          vinSet.size < MULTI_VIN_TARGET &&
-          !visionCreditsBlocked
-        ) {
-          const priority = croppedBuffers.filter(
-            (c) =>
-              c.label === "tabla" ||
-              c.label.startsWith("col-code") ||
-              c.label.startsWith("col-chasis")
-          );
-          for (const crop of priority.slice(0, 2)) {
-            if (vinSet.size >= MULTI_VIN_TARGET || visionCreditsBlocked) break;
-            await fromImageList(crop.buffer, crop.mimeType, crop.label);
-          }
-        }
-        if (vinSet.size > before) {
-          diagnostics.push(
-            `vision: ${before}→${vinSet.size} VIN (objetivo ≥${MULTI_VIN_TARGET})`
+        const priority =
+          croppedBuffers.find((c) => c.label === "tabla") ??
+          croppedBuffers.find((c) => c.label.startsWith("col-code")) ??
+          croppedBuffers.find((c) => c.label.startsWith("col-chasis"));
+        if (priority) {
+          await fromImageList(
+            priority.buffer,
+            priority.mimeType,
+            priority.label,
+            28_000
           );
         }
       } else if (vinSet.size >= MULTI_VIN_TARGET) {
         diagnostics.push(
-          `vision: omitida (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
+          `vision: omitida extra (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
         );
-      } else if (!isLlmConfigured()) {
-        diagnostics.push("vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)");
       }
     }
   } catch (err) {
@@ -1813,11 +1827,12 @@ export async function extractFacturaVinsStageFromDocument(
     );
   }
 
-  // JSON harvest si aún faltan VIN de una factura multi
+  // JSON harvest solo si casi no hay VIN y aún cabe en el presupuesto
   if (
-    vinSet.size < MULTI_VIN_TARGET &&
+    vinSet.size < 3 &&
     isLlmConfigured() &&
-    !visionCreditsBlocked
+    !visionCreditsBlocked &&
+    withinBudget(22_000)
   ) {
     try {
       const sized = await compressImageForVision(
@@ -1829,8 +1844,9 @@ export async function extractFacturaVinsStageFromDocument(
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
-        maxTokens: 3500,
+        maxTokens: 2500,
         preferHighDetail: true,
+        timeoutMs: Math.min(35_000, Math.max(12_000, remainingMs() - 2_000)),
       });
       const extracted = enrichWithSalvagedVins(
         sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
@@ -1843,7 +1859,17 @@ export async function extractFacturaVinsStageFromDocument(
     } catch (err) {
       noteVisionError("json-harvest", err);
     }
+  } else if (vinSet.size >= 3) {
+    diagnostics.push(
+      `json-harvest: omitido (ya hay ${vinSet.size} VIN; datos en etapa 2)`
+    );
+  } else if (!withinBudget(22_000)) {
+    diagnostics.push(
+      `json-harvest: omitido (presupuesto ${Math.round(remainingMs() / 1000)}s)`
+    );
   }
+
+  diagnostics.push(`etapa-vin: ${Date.now() - startedAt}ms · ${vinSet.size} VIN`);
 
   if (vinSet.size === 0) {
     const hint = visionCreditsBlocked
@@ -1972,10 +1998,28 @@ export async function enrichFacturaRowsStageFromDocument(
       // fallback full doc
     }
 
-    try {
-      candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
-    } catch {
-      // ignore
+    const coveredKnown =
+      knownVins.length === 0 ||
+      candidates.some((c) => {
+        const found = new Set(
+          c.vehiculos
+            .map((v) => compactSerial(v.serialCarroceria ?? v.vin ?? null))
+            .filter(Boolean)
+        );
+        const hit = knownVins.filter((vin) => {
+          const key = compactSerial(vin);
+          return key && found.has(key);
+        }).length;
+        return hit >= Math.min(knownVins.length, Math.max(1, knownVins.length - 1));
+      });
+
+    // Evitar 2ª pasada LLM (full PDF) si la página ya cubrió los VIN — causa timeout móvil
+    if (!coveredKnown) {
+      try {
+        candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
+      } catch {
+        // ignore
+      }
     }
   }
 

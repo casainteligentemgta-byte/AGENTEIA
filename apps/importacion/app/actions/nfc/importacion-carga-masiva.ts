@@ -204,9 +204,9 @@ function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[]
   const without: CargaMasivaRow[] = [];
 
   for (const row of rows) {
-    // En Chery el OCR a menudo lee WMI como LWV/LVW/LYV.
-    // Antes de deduplicar, lo normalizamos a LVV para evitar
-    // que el mismo carro aparezca repetido.
+    // En Chery el OCR a menudo lee WMI como LWV/LVW/LYV. Antes de deduplicar,
+    // normalizamos a la convención LVV para que el mismo carro no aparezca
+    // repetido en la planilla.
     const compact = normalizarSerialCarroceria(row.serialCarroceria);
     const serial = compact ? repairCheryWmi(compact) : "";
     if (!serial) {
@@ -415,8 +415,11 @@ export async function extractCargaMasivaDocumentosAction(
           );
         }
       } else if (tipoRaw === "certificado_origen") {
-        const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
-        , { rapido: true });
+        const extracted = await extractCertificadoOrigenMultiFromDocument(
+          buffer,
+          mimeType,
+          { rapido: true }
+        );
         sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
         if (extracted.vehiculos.length > 0) {
           warnings.push(
@@ -765,6 +768,7 @@ export async function extractCargaMasivaEtapaAction(
         let extracted: Awaited<
           ReturnType<typeof extractFacturaVinsStageFromDocument>
         > = { shared: {}, vehiculos: [] };
+        const harvestStarted = Date.now();
         try {
           extracted = await extractFacturaVinsStageFromDocument(
             f.buffer,
@@ -779,10 +783,17 @@ export async function extractCargaMasivaEtapaAction(
               detail
             )
           ) {
-            return { success: false, error: `${f.file.name}: ${detail}` };
+            // Si la cosecha ya consumió casi el límite, no encadenar pipeline completo
+            // (eso provoca el abort del cliente a ~110s con 0 filas).
+            if (Date.now() - harvestStarted > 45_000) {
+              return {
+                success: false,
+                error: `${f.file.name}: ${detail}`,
+              };
+            }
           }
         }
-        if (extracted.vehiculos.length === 0) {
+        if (extracted.vehiculos.length === 0 && Date.now() - harvestStarted < 45_000) {
           try {
             extracted = await extractFacturaMultiFromDocument(
               f.buffer,
@@ -798,6 +809,10 @@ export async function extractCargaMasivaEtapaAction(
               `${f.file.name}: error OCR — ${formatLlmAuthError(err)}`
             );
           }
+        } else if (extracted.vehiculos.length === 0) {
+          warnings.push(
+            `${f.file.name}: sin VIN y sin tiempo para pipeline completo (evitar timeout)`
+          );
         }
         if (extracted.vehiculos.length === 0) {
           warnings.push(
@@ -930,8 +945,11 @@ export async function extractCargaMasivaEtapaAction(
     const certBySerial = new Map<string, PuertoLibreRegistroScanFields>();
 
     for (const f of certs) {
-      const extracted = await extractCertificadoOrigenMultiFromDocument(f.buffer, f.mimeType
-      , { rapido: true });
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        f.buffer,
+        f.mimeType,
+        { rapido: true }
+      );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(
@@ -1112,8 +1130,11 @@ export async function completarCargaMasivaConCertificadosAction(
         warnings.push(`${file.name}: ${validationError}`);
         continue;
       }
-      const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
-      , { rapido: true });
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        buffer,
+        mimeType,
+        { rapido: true }
+      );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(

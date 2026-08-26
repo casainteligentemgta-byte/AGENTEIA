@@ -80,7 +80,7 @@ export async function postSmartimportOcr<T>(
   } catch (first) {
     if (signal?.aborted) {
       throw new Error(
-        "El OCR tardó demasiado (límite del servidor). Reintenta con Wi‑Fi o un PDF más liviano; si ya hay filas, se conservan."
+        "El OCR tardó demasiado. Suele pasar con PDFs pesados o Wi‑Fi lento: reintenta; si ya hay filas, se conservan."
       );
     }
     if (isCargaMasivaNetworkError(first)) {
