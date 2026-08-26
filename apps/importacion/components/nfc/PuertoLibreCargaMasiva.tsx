@@ -67,6 +67,12 @@ import {
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import { PAISES } from "@/lib/importacion/paises";
 import {
+  formatPuertosDescarga,
+  parsePuertosDescarga,
+  PUERTOS_DESCARGA_VENEZUELA,
+  resolvePuertoDescarga,
+} from "@/lib/importacion/puertos-venezuela";
+import {
   formatCargaMasivaClientError,
   postSmartimportOcr,
   safeStorageFileName,
@@ -1411,21 +1417,80 @@ export function PuertoLibreCargaMasiva({
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   />
                 </label>
-                <label className="block text-xs text-slate-400">
-                  Puerto de descarga
-                  <input
-                    type="text"
-                    value={shared.puerto}
-                    onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        puerto: e.target.value,
-                      }))
-                    }
-                    placeholder="Ej. Guanta"
-                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
-                  />
-                </label>
+                <div className="block text-xs text-slate-400 sm:col-span-2 lg:col-span-3">
+                  <span className="font-medium text-slate-300">
+                    Puerto de descarga
+                  </span>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    Selección múltiple · marca todos los que apliquen al lote
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+                    {PUERTOS_DESCARGA_VENEZUELA.map((p) => {
+                      const selected = parsePuertosDescarga(shared.puerto);
+                      const checked = selected.includes(p);
+                      return (
+                        <label
+                          key={p}
+                          className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1.5 text-sm transition ${
+                            checked
+                              ? "border-cyan-600/60 bg-cyan-950/40 text-cyan-100"
+                              : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const next = checked
+                                ? selected.filter((x) => x !== p)
+                                : [...selected, p];
+                              setShared((prev) => ({
+                                ...prev,
+                                puerto: formatPuertosDescarga(next),
+                              }));
+                            }}
+                            className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-600/40"
+                          />
+                          <span className="truncate">{p}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(() => {
+                    const extras = parsePuertosDescarga(shared.puerto).filter(
+                      (p) =>
+                        !PUERTOS_DESCARGA_VENEZUELA.includes(
+                          p as (typeof PUERTOS_DESCARGA_VENEZUELA)[number]
+                        )
+                    );
+                    if (extras.length === 0) return null;
+                    return (
+                      <p className="mt-2 text-[11px] text-amber-200/90">
+                        También del OCR / manual:{" "}
+                        {extras.map((e) => resolvePuertoDescarga(e)).join(", ")}
+                        {" · "}
+                        <button
+                          type="button"
+                          className="underline hover:text-amber-100"
+                          onClick={() =>
+                            setShared((prev) => ({
+                              ...prev,
+                              puerto: formatPuertosDescarga(
+                                parsePuertosDescarga(prev.puerto).filter((p) =>
+                                  PUERTOS_DESCARGA_VENEZUELA.includes(
+                                    p as (typeof PUERTOS_DESCARGA_VENEZUELA)[number]
+                                  )
+                                )
+                              ),
+                            }))
+                          }
+                        >
+                          quitar extras
+                        </button>
+                      </p>
+                    );
+                  })()}
+                </div>
                 <label className="block text-xs text-slate-400">
                   Aduana
                   <select
