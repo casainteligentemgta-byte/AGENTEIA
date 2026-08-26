@@ -20,6 +20,7 @@ import {
   resolveAduanaVenezuela,
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
+import { porCompletarTextClass } from "@/lib/importacion/completitud-datos";
 
 export type PuertoLibreScanFiles = Partial<Record<PuertoLibreScanTipo, File>> & {
   certificadosOrigen?: File[];

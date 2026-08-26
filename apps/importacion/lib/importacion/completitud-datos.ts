@@ -31,6 +31,20 @@ export function isPlaceholderDato(value: string | null | undefined): boolean {
   return PLACEHOLDER_RE.test(v);
 }
 
+/** True solo si el texto visible es el marcador POR-COMPLETAR (para pintar en rojo). */
+export function isPorCompletarText(value: string | null | undefined): boolean {
+  return /^POR-COMPLETAR$/i.test((value ?? "").trim());
+}
+
+/** Clases extra para inputs cuyo valor es POR-COMPLETAR. */
+export function porCompletarTextClass(
+  value: string | null | undefined
+): string {
+  return isPorCompletarText(value)
+    ? "text-red-400 border-red-800/70 focus:border-red-500/60"
+    : "";
+}
+
 export function normalizeVinKey(raw: string | null | undefined): string {
   let v = (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   if (/^LWV|^LV[WY]|^LYV|^LWW/.test(v)) v = `LVV${v.slice(3)}`;

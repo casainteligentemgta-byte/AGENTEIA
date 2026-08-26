@@ -11,6 +11,7 @@ import { preferCompleteVin, repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
   isPlaceholderDato,
+  porCompletarTextClass,
   type CompletitudNivel,
 } from "@/lib/importacion/completitud-datos";
 import {
@@ -257,17 +258,22 @@ export function vehicleFieldInputSize(col: VehicleFieldCol): number | undefined 
   return undefined;
 }
 
-export function vehicleFieldInputClass(col: VehicleFieldCol): string {
+export function vehicleFieldInputClass(
+  col: VehicleFieldCol,
+  value?: string
+): string {
+  let base: string;
   if (col.key === "anio") {
-    return `${FIELD_INPUT_BASE} box-content w-[4ch] min-w-[4ch] max-w-[4ch] text-center font-mono text-[13px] tabular-nums`;
+    base = `${FIELD_INPUT_BASE} box-content w-[4ch] min-w-[4ch] max-w-[4ch] text-center font-mono text-[13px] tabular-nums`;
+  } else if (col.key === "serialMotor") {
+    base = `${FIELD_INPUT_BASE} box-content w-[24ch] min-w-[24ch] max-w-none font-mono text-[13px] tracking-tight`;
+  } else if (col.code) {
+    base = `${FIELD_INPUT_BASE} box-content w-[17ch] min-w-[17ch] max-w-none font-mono text-[13px] tracking-tight`;
+  } else {
+    base = `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
   }
-  if (col.key === "serialMotor") {
-    return `${FIELD_INPUT_BASE} box-content w-[24ch] min-w-[24ch] max-w-none font-mono text-[13px] tracking-tight`;
-  }
-  if (col.code) {
-    return `${FIELD_INPUT_BASE} box-content w-[17ch] min-w-[17ch] max-w-none font-mono text-[13px] tracking-tight`;
-  }
-  return `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
+  const pending = porCompletarTextClass(value);
+  return pending ? `${base} ${pending}` : base;
 }
 
 const STICKY_INDEX_SHADOW = "shadow-[2px_0_6px_rgba(0,0,0,0.45)]";

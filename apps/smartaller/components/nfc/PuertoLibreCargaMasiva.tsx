@@ -1924,7 +1924,10 @@ export function PuertoLibreCargaMasiva({
                               }
                               spellCheck={c.code ? false : undefined}
                               autoComplete="off"
-                              className={vehicleFieldInputClass(c)}
+                              className={vehicleFieldInputClass(
+                                c,
+                                String(row[c.key] ?? "")
+                              )}
                             />
                           )}
                         </td>
