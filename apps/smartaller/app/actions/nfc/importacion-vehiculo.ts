@@ -80,6 +80,7 @@ import {
   extractCertificadoOrigenMultiFromDocument,
   extractPolizaTransporteFromDocument,
   mergeScanFields,
+  pickCertificadoScanForVin,
   polizaToFormFields,
   type PuertoLibreRegistroScanFields,
 } from "@/lib/extract-puerto-libre-docs";
@@ -150,11 +151,14 @@ function certificadoPatchFromScanFields(
 
 async function ocrCertificadoOrigenBuffer(
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  options?: { targetVin?: string | null }
 ): Promise<PuertoLibreRegistroScanFields> {
-  const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType);
-  const first = extracted.vehiculos[0] ?? {};
-  return mergeScanFields(extracted.shared, first);
+  const extracted = await extractCertificadoOrigenMultiFromDocument(
+    buffer,
+    mimeType
+  );
+  return pickCertificadoScanForVin(extracted, options?.targetVin);
 }
 
 export type PuertoLibreActionResult =
@@ -973,7 +977,10 @@ export async function syncCertificadoOrigenNumeroAction(vehiculoId: string): Pro
             fileName: certRef.path,
             buffer,
           }) ?? "image/jpeg";
-    const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType);
+    const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType, {
+      targetVin:
+        (row.serial_carroceria as string | null) ?? existingImp.vin ?? null,
+    });
     const patch = certificadoPatchFromScanFields(fields, existingImp);
     const numero = patch.numeroCertificadoOrigen?.trim() ?? null;
     if (numero) {
@@ -2067,7 +2074,12 @@ export async function uploadPuertoLibreDocumentoAction(
         const existingImp = parseImportacion(row.importacion);
         let patch: Partial<ImportacionData> = {};
         if (tipoParsed.data === "certificado_origen") {
-          const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType);
+          const fields = await ocrCertificadoOrigenBuffer(buffer, mimeType, {
+            targetVin:
+              (row.serial_carroceria as string | null) ??
+              existingImp.vin ??
+              null,
+          });
           patch = certificadoPatchFromScanFields(fields, existingImp);
         } else {
           const fields =

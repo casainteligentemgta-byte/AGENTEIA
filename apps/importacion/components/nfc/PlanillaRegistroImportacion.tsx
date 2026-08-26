@@ -1093,6 +1093,8 @@ function Fase2Embarque({
     regimen: "puerto_libre",
   });
   const certSyncStarted = useRef(false);
+  const [certSyncPending, setCertSyncPending] = useState(false);
+  const [certSyncTried, setCertSyncTried] = useState(false);
 
   useEffect(() => {
     setDatos((prev) => ({
@@ -1110,20 +1112,32 @@ function Fase2Embarque({
     }));
   }, [initial]);
 
+  function syncCertificadoNumero() {
+    if (!docs.certificado_origen?.url) return;
+    setCertSyncPending(true);
+    void syncCertificadoOrigenNumeroAction(vehiculoId)
+      .then((result) => {
+        if (result.success && result.numeroCertificadoOrigen) {
+          setDatos((prev) => ({
+            ...prev,
+            numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
+          }));
+        }
+      })
+      .finally(() => {
+        setCertSyncPending(false);
+        setCertSyncTried(true);
+      });
+  }
+
   useEffect(() => {
     if (certSyncStarted.current) return;
     if (datos.numeroCertificadoOrigen.trim()) return;
     if (!docs.certificado_origen?.url) return;
     certSyncStarted.current = true;
-    void syncCertificadoOrigenNumeroAction(vehiculoId).then((result) => {
-      if (result.success && result.numeroCertificadoOrigen) {
-        setDatos((prev) => ({
-          ...prev,
-          numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
-        }));
-      }
-    });
-  }, [vehiculoId, docs.certificado_origen?.url, datos.numeroCertificadoOrigen]);
+    syncCertificadoNumero();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehiculoId, docs.certificado_origen?.url]);
 
   function patch<K extends keyof EmbarqueDatosForm>(
     key: K,
