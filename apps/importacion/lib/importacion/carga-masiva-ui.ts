@@ -286,19 +286,37 @@ export function cargaMasivaStickyIndexCellClass(
 
 export type SharedShipmentFields = {
   fechaLlegadaBuque: string;
+  puerto: string;
+  modalidadTransito: "" | "ninguno" | "transito" | "uso24";
+  aduanaTransito: string;
   aduana: string;
   numeroBl: string;
   paisOrigen: string;
   tasaCambioBcv: string;
+  /** Si true, pisa valores ya presentes en las filas. */
+  sobrescribir: boolean;
 };
 
 export const EMPTY_SHARED_SHIPMENT: SharedShipmentFields = {
   fechaLlegadaBuque: "",
+  puerto: "",
+  modalidadTransito: "",
+  aduanaTransito: "",
   aduana: "",
   numeroBl: "",
   paisOrigen: "",
   tasaCambioBcv: "",
+  sobrescribir: false,
 };
+
+export const LOTE_MODALIDAD_TRANSITO_OPTIONS: {
+  value: Exclude<SharedShipmentFields["modalidadTransito"], "">;
+  label: string;
+}[] = [
+  { value: "ninguno", label: "Sin tránsito" },
+  { value: "transito", label: "Tránsito" },
+  { value: "uso24", label: "USO24" },
+];
 
 /** Combustible / cilindrada / condición para aplicar al lote entero. */
 export type SharedLoteTechFields = {
@@ -449,12 +467,24 @@ export type CertMatch = {
 export function sharedShipmentFromRows(rows: CargaMasivaRow[]): SharedShipmentFields {
   const first = rows[0];
   if (!first) return { ...EMPTY_SHARED_SHIPMENT };
+
+  const modalidadRaw = (first.modalidadTransito ?? "").trim().toLowerCase();
+  const modalidadTransito = (
+    LOTE_MODALIDAD_TRANSITO_OPTIONS.some((o) => o.value === modalidadRaw)
+      ? modalidadRaw
+      : ""
+  ) as SharedShipmentFields["modalidadTransito"];
+
   return {
     fechaLlegadaBuque: first.fechaLlegadaBuque ?? "",
+    puerto: first.puerto ?? "",
+    modalidadTransito,
+    aduanaTransito: first.aduanaTransito ?? "",
     aduana: first.aduana ?? "",
     numeroBl: first.numeroBl ?? "",
     paisOrigen: first.paisOrigen ?? "",
     tasaCambioBcv: first.tasaCambioBcv ?? "",
+    sobrescribir: false,
   };
 }
 
@@ -480,19 +510,76 @@ export function rifCoincideConSeleccionado(
   return a === b;
 }
 
+/**
+ * Aplica datos de embarque compartidos a todas las filas.
+ * Campos vacíos en `shared` no se tocan.
+ * `force: true` (botón Aplicar) pisa valores; si no, solo rellena huecos.
+ */
 export function applySharedShipmentToRows(
   rows: CargaMasivaRow[],
-  shared: SharedShipmentFields
+  shared: SharedShipmentFields,
+  options?: { force?: boolean }
 ): CargaMasivaRow[] {
-  return rows.map((r) => ({
-    ...r,
-    fechaLlegadaBuque: shared.fechaLlegadaBuque.trim() || r.fechaLlegadaBuque,
-    aduana: shared.aduana.trim() || r.aduana,
-    numeroBl: shared.numeroBl.trim() || r.numeroBl,
-    paisOrigen: shared.paisOrigen.trim() || r.paisOrigen,
-    tasaCambioBcv: shared.tasaCambioBcv.trim() || r.tasaCambioBcv,
-    error: null,
-  }));
+  const force = options?.force ?? shared.sobrescribir;
+  const fecha = shared.fechaLlegadaBuque.trim();
+  const puerto = shared.puerto.trim();
+  const modalidad = shared.modalidadTransito;
+  const aduanaTransito = shared.aduanaTransito.trim();
+  const aduana = shared.aduana.trim();
+  const numeroBl = shared.numeroBl.trim();
+  const paisOrigen = shared.paisOrigen.trim();
+  const tasa = shared.tasaCambioBcv.trim();
+
+  if (
+    !fecha &&
+    !puerto &&
+    !modalidad &&
+    !aduanaTransito &&
+    !aduana &&
+    !numeroBl &&
+    !paisOrigen &&
+    !tasa
+  ) {
+    return rows;
+  }
+
+  return rows.map((r) => {
+    const next: CargaMasivaRow = { ...r, error: null };
+
+    if (fecha && (force || isBlankTech(r.fechaLlegadaBuque))) {
+      next.fechaLlegadaBuque = fecha;
+    }
+    if (puerto && (force || isBlankTech(r.puerto))) {
+      next.puerto = puerto;
+    }
+    if (modalidad && (force || isBlankTech(r.modalidadTransito))) {
+      next.modalidadTransito = modalidad;
+      if (modalidad === "ninguno") {
+        next.aduanaTransito = "";
+      }
+    }
+    if (
+      aduanaTransito &&
+      modalidad !== "ninguno" &&
+      (force || isBlankTech(r.aduanaTransito))
+    ) {
+      next.aduanaTransito = aduanaTransito;
+    }
+    if (aduana && (force || isBlankTech(r.aduana))) {
+      next.aduana = aduana;
+    }
+    if (numeroBl && (force || isBlankTech(r.numeroBl))) {
+      next.numeroBl = numeroBl;
+    }
+    if (paisOrigen && (force || isBlankTech(r.paisOrigen))) {
+      next.paisOrigen = paisOrigen;
+    }
+    if (tasa && (force || isBlankTech(r.tasaCambioBcv))) {
+      next.tasaCambioBcv = tasa;
+    }
+
+    return next;
+  });
 }
 
 export function applyImportadorToRows(

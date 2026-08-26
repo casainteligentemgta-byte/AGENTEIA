@@ -46,6 +46,7 @@ import {
   EMPTY_SHARED_LOTE_TECH,
   EMPTY_SHARED_SHIPMENT,
   healCargaMasivaCheryRows,
+  LOTE_MODALIDAD_TRANSITO_OPTIONS,
   LOTE_TIPO_COMBUSTIBLE_OPTIONS,
   normalizeSerialKey,
   resumenSemaforo,
@@ -63,6 +64,8 @@ import {
   type SharedLoteTechFields,
   type SharedShipmentFields,
 } from "@/lib/importacion/carga-masiva-ui";
+import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
+import { PAISES } from "@/lib/importacion/paises";
 import {
   formatCargaMasivaClientError,
   postSmartimportOcr,
@@ -744,7 +747,7 @@ export function PuertoLibreCargaMasiva({
     setError(null);
 
     const rowsToImport = applySharedLoteTechToRows(
-      applySharedShipmentToRows(aptos, shared),
+      applySharedShipmentToRows(aptos, shared, { force: true }),
       loteTech,
       { force: true }
     ).map((r) => ({
@@ -1366,6 +1369,219 @@ export function PuertoLibreCargaMasiva({
               rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
               en la ficha.
             </p>
+          ) : null}
+
+          {rows.length > 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <p className="text-sm font-medium text-slate-200">
+                Datos de embarque del lote
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Mismo BL / buque para las {rows.length} fila
+                {rows.length === 1 ? "" : "s"}. Se rellenan solas al OCR del BL;
+                edítalas aquí y aplica a todas.
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="block text-xs text-slate-400">
+                  Fecha llegada buque
+                  <input
+                    type="date"
+                    value={shared.fechaLlegadaBuque}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        fechaLlegadaBuque: e.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Nº BL / guía
+                  <input
+                    type="text"
+                    value={shared.numeroBl}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        numeroBl: e.target.value,
+                      }))
+                    }
+                    placeholder="Ej. COSU123…"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Puerto de descarga
+                  <input
+                    type="text"
+                    value={shared.puerto}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        puerto: e.target.value,
+                      }))
+                    }
+                    placeholder="Ej. Guanta"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Aduana
+                  <select
+                    value={shared.aduana}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        aduana: e.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    {shared.aduana &&
+                    !ADUANAS_VENEZUELA.includes(
+                      shared.aduana as (typeof ADUANAS_VENEZUELA)[number]
+                    ) ? (
+                      <option value={shared.aduana}>{shared.aduana}</option>
+                    ) : null}
+                    {ADUANAS_VENEZUELA.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  País de origen
+                  <select
+                    value={shared.paisOrigen}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        paisOrigen: e.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    {shared.paisOrigen &&
+                    !PAISES.includes(
+                      shared.paisOrigen as (typeof PAISES)[number]
+                    ) ? (
+                      <option value={shared.paisOrigen}>
+                        {shared.paisOrigen}
+                      </option>
+                    ) : null}
+                    {PAISES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Modalidad tránsito
+                  <select
+                    value={shared.modalidadTransito}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        modalidadTransito: e.target
+                          .value as SharedShipmentFields["modalidadTransito"],
+                        aduanaTransito:
+                          e.target.value === "ninguno"
+                            ? ""
+                            : prev.aduanaTransito,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    {LOTE_MODALIDAD_TRANSITO_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {shared.modalidadTransito === "transito" ||
+                shared.modalidadTransito === "uso24" ? (
+                  <label className="block text-xs text-slate-400">
+                    Aduana tránsito / USO24
+                    <select
+                      value={shared.aduanaTransito}
+                      onChange={(e) =>
+                        setShared((prev) => ({
+                          ...prev,
+                          aduanaTransito: e.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                    >
+                      <option value="">— Elegir —</option>
+                      {shared.aduanaTransito &&
+                      !ADUANAS_VENEZUELA.includes(
+                        shared.aduanaTransito as (typeof ADUANAS_VENEZUELA)[number]
+                      ) ? (
+                        <option value={shared.aduanaTransito}>
+                          {shared.aduanaTransito}
+                        </option>
+                      ) : null}
+                      {ADUANAS_VENEZUELA.map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <label className="block text-xs text-slate-400">
+                  Tasa BCV (Bs/USD)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={shared.tasaCambioBcv}
+                    onChange={(e) =>
+                      setShared((prev) => ({
+                        ...prev,
+                        tasaCambioBcv: e.target.value.replace(/[^\d.,]/g, ""),
+                      }))
+                    }
+                    placeholder="Opcional"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={
+                  extractPending ||
+                  importPending ||
+                  (!shared.fechaLlegadaBuque.trim() &&
+                    !shared.numeroBl.trim() &&
+                    !shared.puerto.trim() &&
+                    !shared.aduana.trim() &&
+                    !shared.paisOrigen.trim() &&
+                    !shared.modalidadTransito &&
+                    !shared.aduanaTransito.trim() &&
+                    !shared.tasaCambioBcv.trim())
+                }
+                onClick={() => {
+                  const next = applySharedShipmentToRows(rows, shared, {
+                    force: true,
+                  });
+                  rowsRef.current = next;
+                  setRows(next);
+                  setResultMsg(
+                    `Datos de embarque aplicados a ${next.length} vehículo${next.length === 1 ? "" : "s"}.`
+                  );
+                }}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
+              >
+                Aplicar a todas ({rows.length})
+              </button>
+            </div>
           ) : null}
 
           {rows.length > 0 ? (
