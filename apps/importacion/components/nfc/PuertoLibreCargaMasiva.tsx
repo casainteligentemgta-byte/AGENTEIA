@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileUp,
   Loader2,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -23,8 +24,8 @@ import {
 } from "@/app/actions/nfc/importacion-carga-masiva";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import {
-  CARGA_MASIVA_MAX_ROWS,
   type CargaMasivaRow,
+  emptyCargaMasivaRow,
 } from "@/lib/importacion/carga-masiva-template";
 import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
 import {
@@ -35,16 +36,21 @@ import {
   type CargaMasivaEtapaProgress,
 } from "@/lib/importacion/carga-masiva-etapas";
 import {
+  applyImportadorToRows,
+  applySharedLoteTechToRows,
   applySharedShipmentToRows,
   cargaMasivaStickyIndexCellClass,
   cargaMasivaStickyIndexHeadClass,
   detectedImportadorFromRows,
   EMPTY_DETECTED_IMPORTADOR,
+  EMPTY_SHARED_LOTE_TECH,
   EMPTY_SHARED_SHIPMENT,
   healCargaMasivaCheryRows,
+  LOTE_TIPO_COMBUSTIBLE_OPTIONS,
   normalizeSerialKey,
   resumenSemaforo,
   rifCoincideConSeleccionado,
+  sharedLoteTechFromRows,
   sharedShipmentFromRows,
   vehicleCompleteness,
   vehicleSemaforo,
@@ -54,6 +60,7 @@ import {
   vehicleFieldInputSize,
   type CertMatch,
   type DetectedImportador,
+  type SharedLoteTechFields,
   type SharedShipmentFields,
 } from "@/lib/importacion/carga-masiva-ui";
 import {
@@ -74,27 +81,55 @@ type DocItem = {
   tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
 };
 
+export type CargaMasivaInitialDoc = {
+  file: File;
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+};
+
 type Props = {
   initialImportadores: ImportadorListItem[];
   tallerId: string;
+  embedded?: boolean;
+  hideClienteSection?: boolean;
+  initialSelectedImportador?: ImportadorListItem | null;
+  initialRows?: CargaMasivaRow[];
+  initialMode?: Mode;
+  initialMessage?: string | null;
+  initialDocs?: CargaMasivaInitialDoc[];
+  certMergeRequest?: { files: File[]; requestId: number } | null;
+  onSwitchToIndividual?: () => void;
 };
 
 export function PuertoLibreCargaMasiva({
   initialImportadores,
   tallerId,
+  embedded = false,
+  hideClienteSection = false,
+  initialSelectedImportador = null,
+  initialRows,
+  initialMode,
+  initialMessage = null,
+  initialDocs = [],
+  certMergeRequest = null,
+  onSwitchToIndividual,
 }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("documentos");
-  const [rows, setRows] = useState<CargaMasivaRow[]>([]);
+  const [mode, setMode] = useState<Mode>(initialMode ?? "documentos");
+  const [rows, setRows] = useState<CargaMasivaRow[]>(initialRows ?? []);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [shared, setShared] = useState<SharedShipmentFields>({
     ...EMPTY_SHARED_SHIPMENT,
+  });
+  const [loteTech, setLoteTech] = useState<SharedLoteTechFields>({
+    ...EMPTY_SHARED_LOTE_TECH,
   });
   const [detectedImportador, setDetectedImportador] = useState<DetectedImportador>(
     { ...EMPTY_DETECTED_IMPORTADOR }
   );
   const [importadores] = useState(initialImportadores);
-  const [selected, setSelected] = useState<ImportadorListItem | null>(null);
+  const [selected, setSelected] = useState<ImportadorListItem | null>(
+    initialSelectedImportador
+  );
   const [clienteQuery, setClienteQuery] = useState("");
   const [certMatches, setCertMatches] = useState<CertMatch[]>([]);
   const [sheetPending, startSheetTransition] = useTransition();
@@ -103,7 +138,7 @@ export function PuertoLibreCargaMasiva({
   const pending = sheetPending || extractPending || importPending;
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
   const [createdExpedientes, setCreatedExpedientes] = useState<
     { vehiculoId: string; codigoExpediente: string; serial: string }[]
   >([]);
@@ -112,6 +147,7 @@ export function PuertoLibreCargaMasiva({
   const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
     null
   );
+  /** Etapas realmente terminadas (evita checks verdes falsos al estar en certs). */
   const [etapasHechas, setEtapasHechas] = useState<Set<CargaMasivaEtapaId>>(
     () => new Set()
   );
@@ -119,8 +155,28 @@ export function PuertoLibreCargaMasiva({
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
+  const initialRowsApplied = useRef(false);
+  const initialDocsApplied = useRef(false);
+  const certMergeHandled = useRef<number | null>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+
+  useEffect(() => {
+    if (initialRowsApplied.current || !initialRows?.length) return;
+    initialRowsApplied.current = true;
+    setRows(healCargaMasivaCheryRows(initialRows));
+    setShared(sharedShipmentFromRows(initialRows));
+    setLoteTech(sharedLoteTechFromRows(initialRows));
+    setDetectedImportador(detectedImportadorFromRows(initialRows));
+    if (initialMessage) {
+      setResultMsg(initialMessage);
+    }
+    setWarnings([
+      "Revisa VIN, motor, color y año de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor.",
+      "Aduana, BL y fecha de llegada se completan al cargar el BL.",
+    ]);
+    requestAnimationFrame(() => scrollToCargaMasivaListado());
+  }, [initialRows, initialMessage]);
 
   useEffect(() => {
     if (seedApplied.current) return;
@@ -133,6 +189,7 @@ export function PuertoLibreCargaMasiva({
     setMode("documentos");
     setRows(healCargaMasivaCheryRows(seed.rows));
     setShared(sharedShipmentFromRows(seed.rows));
+    setLoteTech(sharedLoteTechFromRows(seed.rows));
     setDetectedImportador(detectedImportadorFromRows(seed.rows));
     setResultMsg(
       seed.message ?? `Se cargaron ${seed.rows.length} vehículos desde la factura.`
@@ -141,8 +198,60 @@ export function PuertoLibreCargaMasiva({
       "Revisa VIN, motor, color y año de cada fila. Selecciona el importador y súbelos certificados de origen para completar motor.",
       "Aduana, BL y fecha de llegada se completan al cargar el BL.",
     ]);
-    router.replace("/smartimport/carga-masiva", { scroll: false });
+    const nextUrl = "/smartimport/importaciones/nueva?masiva=1";
+    router.replace(nextUrl, { scroll: false });
   }, [router]);
+
+  useEffect(() => {
+    if (initialDocsApplied.current || !initialDocs.length) return;
+    initialDocsApplied.current = true;
+    setDocs(
+      initialDocs.map((d) => ({
+        id: `${d.file.name}-${d.file.size}-${Math.random().toString(36).slice(2, 7)}`,
+        file: d.file,
+        tipo: d.tipo,
+      }))
+    );
+  }, [initialDocs]);
+
+  useEffect(() => {
+    if (!certMergeRequest?.files.length) return;
+    if (certMergeHandled.current === certMergeRequest.requestId) return;
+    certMergeHandled.current = certMergeRequest.requestId;
+
+    const certDocs: DocItem[] = certMergeRequest.files.map((file, index) => ({
+      id: `cert-merge-${certMergeRequest.requestId}-${index}`,
+      file,
+      tipo: "certificado_origen",
+    }));
+    setDocs((prev) => {
+      const seen = new Set(prev.map((d) => `${d.file.name}-${d.file.size}`));
+      const extra = certDocs.filter(
+        (d) => !seen.has(`${d.file.name}-${d.file.size}`)
+      );
+      return [...prev, ...extra].slice(0, 20);
+    });
+    setError(null);
+    setResultMsg(null);
+
+    startExtractTransition(async () => {
+      try {
+        if (!tallerId) {
+          setError("No se pudo identificar el taller para subir documentos");
+          return;
+        }
+        const batchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}`;
+        const storageDocs = await uploadDocsToStorage(certDocs, batchId);
+        const ok = await applyCertsFromStorage(storageDocs);
+        if (!ok) return;
+      } catch (err) {
+        setError(formatCargaMasivaClientError(err));
+      }
+    });
+  }, [certMergeRequest, tallerId]);
 
   const filtrados = useMemo(() => {
     const q = clienteQuery.trim().toLowerCase();
@@ -156,13 +265,17 @@ export function PuertoLibreCargaMasiva({
     );
   }, [importadores, clienteQuery]);
 
+  /** En el wizard el importador ya se eligió en el paso 1; no bloquear por RIF del OCR. */
+  const trustWizardImportador = hideClienteSection && Boolean(selected);
+
   const rifOk = useMemo(() => {
     if (!selected) return false;
+    if (trustWizardImportador) return true;
     return rifCoincideConSeleccionado(
       detectedImportador.documento,
       selected.documento
     );
-  }, [detectedImportador.documento, selected]);
+  }, [detectedImportador.documento, selected, trustWizardImportador]);
 
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
   const incompleteCount = useMemo(
@@ -201,7 +314,9 @@ export function PuertoLibreCargaMasiva({
       return "No hay vehículos con VIN válido para registrar.";
     }
     if (!selected) {
-      return "Selecciona el cliente importador (paso 1) para habilitar el registro.";
+      return hideClienteSection
+        ? "No hay cliente importador asociado. Vuelve al paso 1 y selecciona uno."
+        : "Selecciona el cliente importador (paso 1) para habilitar el registro.";
     }
     if (avisoCupoNatural) return avisoCupoNatural;
     if (!rifOk) {
@@ -218,6 +333,7 @@ export function PuertoLibreCargaMasiva({
     avisoCupoNatural,
     rifOk,
     detectedImportador.documento,
+    hideClienteSection,
   ]);
 
   function updateRow(id: string, key: keyof CargaMasivaRow, value: string) {
@@ -231,13 +347,33 @@ export function PuertoLibreCargaMasiva({
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
-    const healed = healCargaMasivaCheryRows(nextRows);
+    let healed = healCargaMasivaCheryRows(nextRows);
+    if (selected) {
+      healed = applyImportadorToRows(healed, selected);
+    }
     rowsRef.current = healed;
     setRows(healed);
     setShared(sharedShipmentFromRows(healed));
-    const detected = detectedImportadorFromRows(healed);
-    if (detected.documento || detected.nombre) {
-      setDetectedImportador(detected);
+    setLoteTech((prev) => {
+      const fromRows = sharedLoteTechFromRows(healed);
+      return {
+        condicion: prev.condicion || fromRows.condicion,
+        tipoCombustible: prev.tipoCombustible || fromRows.tipoCombustible,
+        cilindradaCc: prev.cilindradaCc || fromRows.cilindradaCc,
+        sobrescribir: prev.sobrescribir,
+      };
+    });
+    if (trustWizardImportador && selected) {
+      setDetectedImportador({
+        nombre: selected.nombre,
+        documento: selected.documento,
+        direccion: selected.direccion ?? "",
+      });
+    } else {
+      const detected = detectedImportadorFromRows(healed);
+      if (detected.documento || detected.nombre) {
+        setDetectedImportador(detected);
+      }
     }
     if (matches?.length) {
       setCertMatches((prev) => {
@@ -246,6 +382,7 @@ export function PuertoLibreCargaMasiva({
         return Array.from(bySerial.values());
       });
     }
+    requestAnimationFrame(() => scrollToCargaMasivaListado());
   }
 
   /** Un certificado por request (120s) para no cortar la conexión en el móvil. */
@@ -547,8 +684,11 @@ export function PuertoLibreCargaMasiva({
             ? crypto.randomUUID()
             : `${Date.now()}`;
         const storageDocs = await uploadDocsToStorage(certDocs, batchId);
-        await applyCertsFromStorage(storageDocs);
+        const ok = await applyCertsFromStorage(storageDocs);
+        if (ok) setEtapasHechas((prev) => new Set(prev).add("certs"));
       } catch (err) {
+        setActiveEtapa(null);
+        setExtractProgress(null);
         setError(formatCargaMasivaClientError(err));
       }
     });
@@ -575,7 +715,7 @@ export function PuertoLibreCargaMasiva({
       setError("Selecciona el cliente importador");
       return;
     }
-    if (!rifOk) {
+    if (!trustWizardImportador && !rifOk) {
       setError(
         "El RIF de los documentos no coincide con el cliente seleccionado"
       );
@@ -603,7 +743,11 @@ export function PuertoLibreCargaMasiva({
     }
     setError(null);
 
-    const rowsToImport = applySharedShipmentToRows(aptos, shared).map((r) => ({
+    const rowsToImport = applySharedLoteTechToRows(
+      applySharedShipmentToRows(aptos, shared),
+      loteTech,
+      { force: true }
+    ).map((r) => ({
       ...r,
       importadorNombre: selected.nombre,
       importadorDocumento: selected.documento,
@@ -621,7 +765,9 @@ export function PuertoLibreCargaMasiva({
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: selected.id,
         rows: rowsToImport,
-        detectedImportadorDocumento: detectedImportador.documento,
+        detectedImportadorDocumento: trustWizardImportador
+          ? selected.documento
+          : detectedImportador.documento,
       });
       if (!result.success) {
         setError(result.error);
@@ -701,6 +847,7 @@ export function PuertoLibreCargaMasiva({
         if (fail === 0) {
           setDocs([]);
           setShared({ ...EMPTY_SHARED_SHIPMENT });
+          setLoteTech({ ...EMPTY_SHARED_LOTE_TECH });
           setDetectedImportador({ ...EMPTY_DETECTED_IMPORTADOR });
           setCertMatches([]);
         }
@@ -717,6 +864,19 @@ export function PuertoLibreCargaMasiva({
 
   return (
     <div className="space-y-6">
+      {onSwitchToIndividual ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onSwitchToIndividual}
+            className="text-sm text-cyan-400 hover:underline"
+          >
+            Registrar un solo vehículo
+          </button>
+        </div>
+      ) : null}
+
+      {!hideClienteSection ? (
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
         <h2 className="flex items-center gap-2 smartimport-bucket-title text-slate-100">
           <UserRound className="h-4 w-4 text-cyan-400" />
@@ -825,10 +985,11 @@ export function PuertoLibreCargaMasiva({
           </div>
         ) : null}
       </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 space-y-4">
         <h2 className="smartimport-bucket-title text-slate-100">
-          2.- Factura con varios vehículos
+          {hideClienteSection ? "1.- Factura con varios vehículos" : "2.- Factura con varios vehículos"}
         </h2>
 
         <div className="grid grid-cols-2 gap-2">
@@ -924,49 +1085,6 @@ export function PuertoLibreCargaMasiva({
               </button>
             </div>
 
-            {extractPending ? (
-              <div
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/15 px-4 py-2.5 text-sm font-medium text-cyan-100"
-                role="status"
-                aria-live="polite"
-              >
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                {extractProgress?.label ?? "Extrayendo…"}
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={importPending || docs.length === 0}
-                onClick={extractDocs}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
-              >
-                <FileUp className="h-4 w-4 shrink-0" />
-                Extraer vehículos
-              </button>
-            )}
-            <input
-              ref={docsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                handleDocsFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <input
-              ref={certsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                completarConCertificados(e.target.files);
-                e.target.value = "";
-              }}
-            />
-
             {docs.length > 0 ? (
               <ul className="space-y-2">
                 {docs.map((d) => (
@@ -1010,6 +1128,64 @@ export function PuertoLibreCargaMasiva({
                 ))}
               </ul>
             ) : null}
+
+            {extractPending ? (
+              <div
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/15 px-4 py-2.5 text-sm font-medium text-cyan-100"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                {extractProgress?.label ?? "Extrayendo…"}
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={importPending || docs.length === 0}
+                onClick={extractDocs}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+              >
+                <FileUp className="h-4 w-4 shrink-0" />
+                Extraer vehículos
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                setRows((prev) => [
+                  ...prev,
+                  emptyCargaMasivaRow({ fuente: "Manual" }),
+                ])
+              }
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              Añadir fila
+            </button>
+            <input
+              ref={docsRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                handleDocsFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={certsRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                completarConCertificados(e.target.files);
+                e.target.value = "";
+              }}
+            />
 
             {(extractPending || extractProgress) ? (
               <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
@@ -1124,7 +1300,7 @@ export function PuertoLibreCargaMasiva({
         </div>
       ) : null}
 
-      {rows.length > 0 ? (
+      {rows.length > 0 || mode === "documentos" ? (
         <section
           id={CARGA_MASIVA_LISTADO_ID}
           className="scroll-mt-4 space-y-3"
@@ -1132,7 +1308,7 @@ export function PuertoLibreCargaMasiva({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="smartimport-bucket-title text-slate-100">
-                3. Revisa y registra ({rows.length})
+                {hideClienteSection ? "2. Revisa y registra" : "3. Revisa y registra"} ({rows.length})
               </h2>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
@@ -1190,6 +1366,99 @@ export function PuertoLibreCargaMasiva({
               rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
               en la ficha.
             </p>
+          ) : null}
+
+          {rows.length > 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <p className="text-sm font-medium text-slate-200">
+                Datos técnicos del lote
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Aplica condición, combustible y cilindrada a las {rows.length}{" "}
+                fila{rows.length === 1 ? "" : "s"} (típico en facturas multi Chery).
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className="block text-xs text-slate-400">
+                  Condición
+                  <select
+                    value={loteTech.condicion}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        condicion: e.target
+                          .value as SharedLoteTechFields["condicion"],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    <option value="nuevo">Nuevo</option>
+                    <option value="usado">Usado</option>
+                    <option value="subasta">Subasta</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Combustible
+                  <select
+                    value={loteTech.tipoCombustible}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        tipoCombustible: e.target
+                          .value as SharedLoteTechFields["tipoCombustible"],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    {LOTE_TIPO_COMBUSTIBLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Cilindrada (cc)
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={loteTech.cilindradaCc}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        cilindradaCc: e.target.value.replace(/[^\d]/g, ""),
+                      }))
+                    }
+                    placeholder="Ej. 1500"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={
+                  extractPending ||
+                  importPending ||
+                  (!loteTech.condicion &&
+                    !loteTech.tipoCombustible &&
+                    !loteTech.cilindradaCc.trim())
+                }
+                onClick={() => {
+                  const next = applySharedLoteTechToRows(rows, loteTech, {
+                    force: true,
+                  });
+                  rowsRef.current = next;
+                  setRows(next);
+                  setResultMsg(
+                    `Datos técnicos aplicados a ${next.length} vehículo${next.length === 1 ? "" : "s"}.`
+                  );
+                }}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
+              >
+                Aplicar a todas ({rows.length})
+              </button>
+            </div>
           ) : null}
 
           <div className="relative isolate overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-800 [-webkit-overflow-scrolling:touch]">
@@ -1268,6 +1537,22 @@ export function PuertoLibreCargaMasiva({
                             {sem.criticos.length > 2 ? "…" : ""}
                           </span>
                         )}
+                        {(() => {
+                          const serial = normalizeSerialKey(
+                            row.serialCarroceria || row.vin
+                          );
+                          const certMatch = serial
+                            ? certMatches.find((m) => m.serial === serial)
+                            : undefined;
+                          return certMatch ? (
+                            <p
+                              className="mt-1 max-w-[9rem] truncate text-[10px] text-cyan-300"
+                              title={`Certificado emparejado: ${certMatch.fileName}`}
+                            >
+                              Cert. ✓ {certMatch.fileName}
+                            </p>
+                          ) : null;
+                        })()}
                       </td>
                       {VEHICLE_FIELD_COLS.map((c) => (
                         <td
@@ -1317,6 +1602,26 @@ export function PuertoLibreCargaMasiva({
                                 </select>
                               );
                             })()
+                          ) : c.key === "tipoCombustible" ? (
+                            <select
+                              value={String(row.tipoCombustible ?? "")}
+                              onChange={(e) =>
+                                updateRow(
+                                  row.id,
+                                  "tipoCombustible",
+                                  e.target.value
+                                )
+                              }
+                              className={`${vehicleFieldInputClass(c)} w-full`}
+                              aria-label="Combustible"
+                            >
+                              <option value="">—</option>
+                              {LOTE_TIPO_COMBUSTIBLE_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
                           ) : (
                             <input
                               value={String(row[c.key] ?? "")}
@@ -1324,8 +1629,18 @@ export function PuertoLibreCargaMasiva({
                                 updateRow(row.id, c.key, e.target.value)
                               }
                               size={vehicleFieldInputSize(c)}
-                              maxLength={c.key === "anio" ? 4 : undefined}
-                              inputMode={c.key === "anio" ? "numeric" : undefined}
+                              maxLength={
+                                c.key === "anio"
+                                  ? 4
+                                  : c.key === "cilindradaCc"
+                                    ? 5
+                                    : undefined
+                              }
+                              inputMode={
+                                c.key === "anio" || c.key === "cilindradaCc"
+                                  ? "numeric"
+                                  : undefined
+                              }
                               spellCheck={c.code ? false : undefined}
                               autoComplete="off"
                               className={vehicleFieldInputClass(c)}
@@ -1368,6 +1683,7 @@ function guessTipo(name: string): DocItem["tipo"] {
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   return "factura_comercial";
 }
+
 
 function summarizeBulkRegisterFailures(
   failed: { index: number; serial: string; error: string }[]
