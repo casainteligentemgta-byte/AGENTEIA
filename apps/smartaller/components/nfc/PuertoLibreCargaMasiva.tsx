@@ -37,16 +37,20 @@ import {
 } from "@/lib/importacion/carga-masiva-etapas";
 import {
   applyImportadorToRows,
+  applySharedLoteTechToRows,
   applySharedShipmentToRows,
   cargaMasivaStickyIndexCellClass,
   cargaMasivaStickyIndexHeadClass,
   detectedImportadorFromRows,
   EMPTY_DETECTED_IMPORTADOR,
+  EMPTY_SHARED_LOTE_TECH,
   EMPTY_SHARED_SHIPMENT,
   healCargaMasivaCheryRows,
+  LOTE_TIPO_COMBUSTIBLE_OPTIONS,
   normalizeSerialKey,
   resumenSemaforo,
   rifCoincideConSeleccionado,
+  sharedLoteTechFromRows,
   sharedShipmentFromRows,
   vehicleCompleteness,
   vehicleSemaforo,
@@ -56,6 +60,7 @@ import {
   vehicleFieldInputSize,
   type CertMatch,
   type DetectedImportador,
+  type SharedLoteTechFields,
   type SharedShipmentFields,
 } from "@/lib/importacion/carga-masiva-ui";
 import {
@@ -115,6 +120,9 @@ export function PuertoLibreCargaMasiva({
   const [shared, setShared] = useState<SharedShipmentFields>({
     ...EMPTY_SHARED_SHIPMENT,
   });
+  const [loteTech, setLoteTech] = useState<SharedLoteTechFields>({
+    ...EMPTY_SHARED_LOTE_TECH,
+  });
   const [detectedImportador, setDetectedImportador] = useState<DetectedImportador>(
     { ...EMPTY_DETECTED_IMPORTADOR }
   );
@@ -158,6 +166,7 @@ export function PuertoLibreCargaMasiva({
     initialRowsApplied.current = true;
     setRows(healCargaMasivaCheryRows(initialRows));
     setShared(sharedShipmentFromRows(initialRows));
+    setLoteTech(sharedLoteTechFromRows(initialRows));
     setDetectedImportador(detectedImportadorFromRows(initialRows));
     if (initialMessage) {
       setResultMsg(initialMessage);
@@ -180,6 +189,7 @@ export function PuertoLibreCargaMasiva({
     setMode("documentos");
     setRows(healCargaMasivaCheryRows(seed.rows));
     setShared(sharedShipmentFromRows(seed.rows));
+    setLoteTech(sharedLoteTechFromRows(seed.rows));
     setDetectedImportador(detectedImportadorFromRows(seed.rows));
     setResultMsg(
       seed.message ?? `Se cargaron ${seed.rows.length} vehículos desde la factura.`
@@ -344,6 +354,15 @@ export function PuertoLibreCargaMasiva({
     rowsRef.current = healed;
     setRows(healed);
     setShared(sharedShipmentFromRows(healed));
+    setLoteTech((prev) => {
+      const fromRows = sharedLoteTechFromRows(healed);
+      return {
+        condicion: prev.condicion || fromRows.condicion,
+        tipoCombustible: prev.tipoCombustible || fromRows.tipoCombustible,
+        cilindradaCc: prev.cilindradaCc || fromRows.cilindradaCc,
+        sobrescribir: prev.sobrescribir,
+      };
+    });
     if (trustWizardImportador && selected) {
       setDetectedImportador({
         nombre: selected.nombre,
@@ -724,7 +743,11 @@ export function PuertoLibreCargaMasiva({
     }
     setError(null);
 
-    const rowsToImport = applySharedShipmentToRows(aptos, shared).map((r) => ({
+    const rowsToImport = applySharedLoteTechToRows(
+      applySharedShipmentToRows(aptos, shared),
+      loteTech,
+      { force: true }
+    ).map((r) => ({
       ...r,
       importadorNombre: selected.nombre,
       importadorDocumento: selected.documento,
@@ -824,6 +847,7 @@ export function PuertoLibreCargaMasiva({
         if (fail === 0) {
           setDocs([]);
           setShared({ ...EMPTY_SHARED_SHIPMENT });
+          setLoteTech({ ...EMPTY_SHARED_LOTE_TECH });
           setDetectedImportador({ ...EMPTY_DETECTED_IMPORTADOR });
           setCertMatches([]);
         }
@@ -1344,6 +1368,99 @@ export function PuertoLibreCargaMasiva({
             </p>
           ) : null}
 
+          {rows.length > 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <p className="text-sm font-medium text-slate-200">
+                Datos técnicos del lote
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Aplica condición, combustible y cilindrada a las {rows.length}{" "}
+                fila{rows.length === 1 ? "" : "s"} (típico en facturas multi Chery).
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className="block text-xs text-slate-400">
+                  Condición
+                  <select
+                    value={loteTech.condicion}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        condicion: e.target
+                          .value as SharedLoteTechFields["condicion"],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    <option value="nuevo">Nuevo</option>
+                    <option value="usado">Usado</option>
+                    <option value="subasta">Subasta</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Combustible
+                  <select
+                    value={loteTech.tipoCombustible}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        tipoCombustible: e.target
+                          .value as SharedLoteTechFields["tipoCombustible"],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">— Elegir —</option>
+                    {LOTE_TIPO_COMBUSTIBLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Cilindrada (cc)
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={loteTech.cilindradaCc}
+                    onChange={(e) =>
+                      setLoteTech((prev) => ({
+                        ...prev,
+                        cilindradaCc: e.target.value.replace(/[^\d]/g, ""),
+                      }))
+                    }
+                    placeholder="Ej. 1500"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={
+                  extractPending ||
+                  importPending ||
+                  (!loteTech.condicion &&
+                    !loteTech.tipoCombustible &&
+                    !loteTech.cilindradaCc.trim())
+                }
+                onClick={() => {
+                  const next = applySharedLoteTechToRows(rows, loteTech, {
+                    force: true,
+                  });
+                  rowsRef.current = next;
+                  setRows(next);
+                  setResultMsg(
+                    `Datos técnicos aplicados a ${next.length} vehículo${next.length === 1 ? "" : "s"}.`
+                  );
+                }}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
+              >
+                Aplicar a todas ({rows.length})
+              </button>
+            </div>
+          ) : null}
+
           <div className="relative isolate overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-800 [-webkit-overflow-scrolling:touch]">
             <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500 md:hidden">
               Desliza → para ver más columnas. La columna # queda fija para ubicar cada vehículo.
@@ -1485,6 +1602,26 @@ export function PuertoLibreCargaMasiva({
                                 </select>
                               );
                             })()
+                          ) : c.key === "tipoCombustible" ? (
+                            <select
+                              value={String(row.tipoCombustible ?? "")}
+                              onChange={(e) =>
+                                updateRow(
+                                  row.id,
+                                  "tipoCombustible",
+                                  e.target.value
+                                )
+                              }
+                              className={`${vehicleFieldInputClass(c)} w-full`}
+                              aria-label="Combustible"
+                            >
+                              <option value="">—</option>
+                              {LOTE_TIPO_COMBUSTIBLE_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
                           ) : (
                             <input
                               value={String(row[c.key] ?? "")}
@@ -1492,8 +1629,18 @@ export function PuertoLibreCargaMasiva({
                                 updateRow(row.id, c.key, e.target.value)
                               }
                               size={vehicleFieldInputSize(c)}
-                              maxLength={c.key === "anio" ? 4 : undefined}
-                              inputMode={c.key === "anio" ? "numeric" : undefined}
+                              maxLength={
+                                c.key === "anio"
+                                  ? 4
+                                  : c.key === "cilindradaCc"
+                                    ? 5
+                                    : undefined
+                              }
+                              inputMode={
+                                c.key === "anio" || c.key === "cilindradaCc"
+                                  ? "numeric"
+                                  : undefined
+                              }
                               spellCheck={c.code ? false : undefined}
                               autoComplete="off"
                               className={vehicleFieldInputClass(c)}

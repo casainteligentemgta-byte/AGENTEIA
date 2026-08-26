@@ -231,6 +231,8 @@ export const VEHICLE_FIELD_COLS: VehicleFieldCol[] = [
   { key: "serialCarroceria", label: "Serial carrocería", wide: true, code: true },
   { key: "kilometraje", label: "Km" },
   { key: "condicion", label: "Condición" },
+  { key: "tipoCombustible", label: "Combustible" },
+  { key: "cilindradaCc", label: "Cilindrada" },
   { key: "observaciones", label: "Obs. (unidad/llave)", wide: true },
 ];
 
@@ -297,6 +299,134 @@ export const EMPTY_SHARED_SHIPMENT: SharedShipmentFields = {
   paisOrigen: "",
   tasaCambioBcv: "",
 };
+
+/** Combustible / cilindrada / condición para aplicar al lote entero. */
+export type SharedLoteTechFields = {
+  /** vacío = no tocar ese campo */
+  condicion: "" | "nuevo" | "usado" | "subasta";
+  tipoCombustible:
+    | ""
+    | "gasolina"
+    | "diesel"
+    | "electrico"
+    | "hibrido"
+    | "gnv"
+    | "otro";
+  cilindradaCc: string;
+  /** Si true, pisa valores ya presentes en las filas. */
+  sobrescribir: boolean;
+};
+
+export const EMPTY_SHARED_LOTE_TECH: SharedLoteTechFields = {
+  condicion: "",
+  tipoCombustible: "",
+  cilindradaCc: "",
+  sobrescribir: false,
+};
+
+export const LOTE_TIPO_COMBUSTIBLE_OPTIONS: {
+  value: Exclude<SharedLoteTechFields["tipoCombustible"], "">;
+  label: string;
+}[] = [
+  { value: "gasolina", label: "Gasolina" },
+  { value: "diesel", label: "Diésel" },
+  { value: "hibrido", label: "Híbrido" },
+  { value: "electrico", label: "Eléctrico" },
+  { value: "gnv", label: "GNV" },
+  { value: "otro", label: "Otro" },
+];
+
+function isBlankTech(value: string | null | undefined): boolean {
+  return !String(value ?? "").trim() || isPlaceholderDato(value);
+}
+
+/**
+ * Aplica condición / combustible / cilindrada a todas las filas del lote.
+ * Campos vacíos en `tech` no se tocan.
+ * `force: true` (botón Aplicar) pisa valores; si no, solo rellena huecos.
+ */
+export function applySharedLoteTechToRows(
+  rows: CargaMasivaRow[],
+  tech: SharedLoteTechFields,
+  options?: { force?: boolean }
+): CargaMasivaRow[] {
+  const cond = tech.condicion;
+  const fuel = tech.tipoCombustible;
+  const cc = tech.cilindradaCc.trim().replace(/[^\d]/g, "");
+  const force = options?.force ?? tech.sobrescribir;
+
+  if (!cond && !fuel && !cc) return rows;
+
+  return rows.map((r) => {
+    const next: CargaMasivaRow = { ...r, error: null };
+
+    if (cond && (force || isBlankTech(r.condicion))) {
+      if (cond === "subasta") {
+        next.condicion = "usado";
+        next.esSubasta = "true";
+      } else {
+        next.condicion = cond;
+        next.esSubasta = "false";
+      }
+    }
+
+    if (fuel && (force || isBlankTech(r.tipoCombustible))) {
+      next.tipoCombustible = fuel;
+    }
+
+    if (cc && (force || isBlankTech(r.cilindradaCc))) {
+      next.cilindradaCc = cc;
+    }
+
+    return next;
+  });
+}
+
+/** Prefill suave desde la primera fila del lote (si todas coinciden, mejor UX). */
+export function sharedLoteTechFromRows(rows: CargaMasivaRow[]): SharedLoteTechFields {
+  const first = rows[0];
+  if (!first) return { ...EMPTY_SHARED_LOTE_TECH };
+
+  const sameCond = rows.every((r) => {
+    const a = (r.condicion ?? "").trim().toLowerCase();
+    const b = (first.condicion ?? "").trim().toLowerCase();
+    const sa = (r.esSubasta ?? "").toLowerCase() === "true";
+    const sb = (first.esSubasta ?? "").toLowerCase() === "true";
+    return a === b && sa === sb;
+  });
+  const sameFuel = rows.every(
+    (r) =>
+      (r.tipoCombustible ?? "").trim().toLowerCase() ===
+      (first.tipoCombustible ?? "").trim().toLowerCase()
+  );
+  const sameCc = rows.every(
+    (r) => (r.cilindradaCc ?? "").trim() === (first.cilindradaCc ?? "").trim()
+  );
+
+  let condicion: SharedLoteTechFields["condicion"] = "";
+  if (sameCond) {
+    if ((first.esSubasta ?? "").toLowerCase() === "true") condicion = "subasta";
+    else if ((first.condicion ?? "").trim().toLowerCase() === "usado")
+      condicion = "usado";
+    else if ((first.condicion ?? "").trim().toLowerCase() === "nuevo")
+      condicion = "nuevo";
+  }
+
+  const fuelRaw = (first.tipoCombustible ?? "").trim().toLowerCase();
+  const tipoCombustible = (
+    sameFuel &&
+    LOTE_TIPO_COMBUSTIBLE_OPTIONS.some((o) => o.value === fuelRaw)
+      ? fuelRaw
+      : ""
+  ) as SharedLoteTechFields["tipoCombustible"];
+
+  return {
+    condicion,
+    tipoCombustible,
+    cilindradaCc: sameCc ? (first.cilindradaCc ?? "").trim() : "",
+    sobrescribir: false,
+  };
+}
 
 /** Importador detectado en documentos (solo para certificar vs. cliente elegido). */
 export type DetectedImportador = {
