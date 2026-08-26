@@ -7,7 +7,7 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
-import { repairCheryWmi } from "@/lib/importacion/vin-text";
+import { preferCompleteVin, repairCheryWmi } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
   isPlaceholderDato,
@@ -44,6 +44,49 @@ export function matchSerialKeyAmong(
   return hits.length === 1 ? hits[0]! : null;
 }
 
+/**
+ * Empareja filas↔certificados 1:1 (evita que un solo motor/VIN de cert
+ * se copie a las 8 unidades de una factura multi).
+ * Prioriza exacto; luego prefijo único entre los que queden libres.
+ */
+export function pairSerialsOneToOne(
+  rowSerials: string[],
+  certSerials: string[]
+): Map<string, string> {
+  const rows = [
+    ...new Set(rowSerials.map(normalizeSerialKey).filter(Boolean)),
+  ];
+  const certs = [
+    ...new Set(certSerials.map(normalizeSerialKey).filter(Boolean)),
+  ];
+  /** rowSerial → certSerial */
+  const paired = new Map<string, string>();
+  const usedCert = new Set<string>();
+
+  for (const row of rows) {
+    if (certs.includes(row) && !usedCert.has(row)) {
+      paired.set(row, row);
+      usedCert.add(row);
+    }
+  }
+
+  for (const row of rows) {
+    if (paired.has(row) || row.length < SERIAL_PREFIX_MIN) continue;
+    const candidates = certs.filter(
+      (c) =>
+        !usedCert.has(c) &&
+        c.length >= SERIAL_PREFIX_MIN &&
+        (c.startsWith(row) || row.startsWith(c))
+    );
+    if (candidates.length === 1) {
+      paired.set(row, candidates[0]!);
+      usedCert.add(candidates[0]!);
+    }
+  }
+
+  return paired;
+}
+
 export function lookupBySerialPrefix<T>(
   map: Map<string, T>,
   serial: string
@@ -52,6 +95,67 @@ export function lookupBySerialPrefix<T>(
   if (!n) return undefined;
   const matched = matchSerialKeyAmong(n, [...map.keys()]);
   return matched ? map.get(matched) : undefined;
+}
+
+const ROW_MERGE_SKIP = new Set(["id", "error", "fuente"]);
+
+function fillEmptyRowFields(
+  base: CargaMasivaRow,
+  incoming: CargaMasivaRow
+): CargaMasivaRow {
+  const next: CargaMasivaRow = { ...base };
+  (Object.keys(incoming) as (keyof CargaMasivaRow)[]).forEach((key) => {
+    if (ROW_MERGE_SKIP.has(key)) return;
+    const incomingVal = incoming[key];
+    const currentVal = next[key];
+    if (typeof incomingVal !== "string" || !incomingVal.trim()) return;
+    if (key === "vin" || key === "serialCarroceria") {
+      const preferred = preferCompleteVin(
+        typeof currentVal === "string" ? currentVal : "",
+        incomingVal
+      );
+      if (preferred) (next[key] as string) = preferred;
+      return;
+    }
+    if (typeof currentVal === "string" && currentVal.trim()) return;
+    (next[key] as string) = incomingVal;
+  });
+  if (!next.fuente && incoming.fuente) next.fuente = incoming.fuente;
+  return next;
+}
+
+/** Une filas por VIN/serial: completa huecos y añade vehículos nuevos. */
+export function mergeCargaMasivaRowsByVin(
+  existing: CargaMasivaRow[],
+  incoming: CargaMasivaRow[]
+): CargaMasivaRow[] {
+  const result = [...existing];
+  const indexBySerial = new Map<string, number>();
+  result.forEach((row, index) => {
+    const key = normalizeSerialKey(row.serialCarroceria || row.vin);
+    if (key) indexBySerial.set(key, index);
+  });
+  for (const row of incoming) {
+    const key = normalizeSerialKey(row.serialCarroceria || row.vin);
+    const matched = key
+      ? matchSerialKeyAmong(key, [...indexBySerial.keys()])
+      : null;
+    if (matched && indexBySerial.has(matched)) {
+      const index = indexBySerial.get(matched)!;
+      result[index] = fillEmptyRowFields(result[index]!, row);
+      const mergedKey = normalizeSerialKey(
+        result[index]!.serialCarroceria || result[index]!.vin
+      );
+      if (mergedKey && mergedKey !== matched) {
+        indexBySerial.delete(matched);
+        indexBySerial.set(mergedKey, index);
+      }
+      continue;
+    }
+    if (key) indexBySerial.set(key, result.length);
+    result.push(row);
+  }
+  return result;
 }
 
 /** Corrige filas Chery ya en UI: marca, modelo desde «PRO MAX», limpia VIN. */

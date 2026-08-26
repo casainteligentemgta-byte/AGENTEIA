@@ -44,6 +44,49 @@ export function matchSerialKeyAmong(
   return hits.length === 1 ? hits[0]! : null;
 }
 
+/**
+ * Empareja filas↔certificados 1:1 (evita que un solo motor/VIN de cert
+ * se copie a las 8 unidades de una factura multi).
+ * Prioriza exacto; luego prefijo único entre los que queden libres.
+ */
+export function pairSerialsOneToOne(
+  rowSerials: string[],
+  certSerials: string[]
+): Map<string, string> {
+  const rows = [
+    ...new Set(rowSerials.map(normalizeSerialKey).filter(Boolean)),
+  ];
+  const certs = [
+    ...new Set(certSerials.map(normalizeSerialKey).filter(Boolean)),
+  ];
+  /** rowSerial → certSerial */
+  const paired = new Map<string, string>();
+  const usedCert = new Set<string>();
+
+  for (const row of rows) {
+    if (certs.includes(row) && !usedCert.has(row)) {
+      paired.set(row, row);
+      usedCert.add(row);
+    }
+  }
+
+  for (const row of rows) {
+    if (paired.has(row) || row.length < SERIAL_PREFIX_MIN) continue;
+    const candidates = certs.filter(
+      (c) =>
+        !usedCert.has(c) &&
+        c.length >= SERIAL_PREFIX_MIN &&
+        (c.startsWith(row) || row.startsWith(c))
+    );
+    if (candidates.length === 1) {
+      paired.set(row, candidates[0]!);
+      usedCert.add(candidates[0]!);
+    }
+  }
+
+  return paired;
+}
+
 export function lookupBySerialPrefix<T>(
   map: Map<string, T>,
   serial: string

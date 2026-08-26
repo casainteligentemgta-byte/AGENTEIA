@@ -952,12 +952,14 @@ function mapFacturaMultiVehiculo(
       v.vin_number ??
       v.chasis ??
       v.no_de_chasis ??
-      sharedParsed.serial_carroceria,
+      null,
     serial_motor:
       v.serial_motor ??
       v.engine_number ??
       v.no_de_motor ??
-      sharedParsed.serial_motor,
+      v.engine_no ??
+      v.engineNo ??
+      null,
     // CIF unitario de la fila; no heredar total de cabecera.
     valor_cif: v.valor_cif ?? v.unit_price ?? v.amount ?? null,
   });
@@ -2137,18 +2139,23 @@ export async function extractCertificadoOrigenMultiFromDocument(
   if (impDoc) shared.importadorDocumento = impDoc;
 
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
+    const multi = asRecordArray(parsed.vehiculos).length > 1;
     const fields = facturaToFormFields(
       mapFactura({
         ...parsed,
         ...v,
+        // En multi-unidad no heredar VIN/motor de cabecera (clonaba 1 motor a las 8 filas)
         serial_carroceria:
-          v.serial_carroceria ?? v.vin ?? v.chasis ?? parsed.serial_carroceria,
+          v.serial_carroceria ??
+          v.vin ??
+          v.chasis ??
+          (multi ? null : parsed.serial_carroceria),
         serial_motor:
           v.serial_motor ??
           v.engine_number ??
           v.engine_no ??
           v.engineNo ??
-          parsed.serial_motor,
+          (multi ? null : parsed.serial_motor),
         pais_origen: v.pais_origen ?? parsed.pais_origen,
       })
     );

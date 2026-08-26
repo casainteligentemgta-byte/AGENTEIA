@@ -71,14 +71,39 @@ import {
 } from "@/lib/taller-preferencias";
 import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
 import {
-  lookupBySerialPrefix,
   matchSerialKeyAmong,
   normalizeSerialKey,
+  pairSerialsOneToOne,
   rifCoincideConSeleccionado,
   vehicleSemaforo,
 } from "@/lib/importacion/carga-masiva-ui";
 import type { CargaMasivaStorageDocRef } from "@/lib/importacion/carga-masiva-client";
 import { normalizeRif } from "@/lib/validations/rif";
+
+/** Campos de unidad: no propagar desde cabecera del cert a todas las filas. */
+const UNIT_SCAN_FIELD_KEYS = [
+  "serialMotor",
+  "vin",
+  "serialCarroceria",
+  "color",
+  "modelo",
+  "anio",
+  "valorCif",
+  "kilometraje",
+  "cilindradaCc",
+  "tipoCombustible",
+  "partidaArancelaria",
+] as const satisfies readonly (keyof PuertoLibreRegistroScanFields)[];
+
+function sharedDocHeaderFields(
+  fields: PuertoLibreRegistroScanFields
+): PuertoLibreRegistroScanFields {
+  const out: PuertoLibreRegistroScanFields = { ...fields };
+  for (const k of UNIT_SCAN_FIELD_KEYS) {
+    delete out[k];
+  }
+  return out;
+}
 
 async function requireTallerAuth() {
   const user = await getUser();
@@ -204,9 +229,9 @@ function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[]
   const without: CargaMasivaRow[] = [];
 
   for (const row of rows) {
-    // En Chery el OCR a menudo lee WMI como LWV/LVW/LYV.
-    // Antes de deduplicar, lo normalizamos a LVV para evitar
-    // que el mismo carro aparezca repetido.
+    // En Chery el OCR a menudo lee WMI como LWV/LVW/LYV. Antes de deduplicar,
+    // normalizamos a la convención LVV para que el mismo carro no aparezca
+    // repetido en la planilla.
     const compact = normalizarSerialCarroceria(row.serialCarroceria);
     const serial = compact ? repairCheryWmi(compact) : "";
     if (!serial) {
@@ -415,8 +440,11 @@ export async function extractCargaMasivaDocumentosAction(
           );
         }
       } else if (tipoRaw === "certificado_origen") {
-        const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
-        , { rapido: true });
+        const extracted = await extractCertificadoOrigenMultiFromDocument(
+          buffer,
+          mimeType,
+          { rapido: true }
+        );
         sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
         if (extracted.vehiculos.length > 0) {
           warnings.push(
@@ -459,13 +487,13 @@ export async function extractCargaMasivaDocumentosAction(
       }
     }
 
-    // Certificado: rellenar filas existentes por VIN; si no hay filas, crearlas.
+    // Certificado: rellenar filas existentes por VIN 1:1; si no hay filas, crearlas.
     if (certVehicles.length > 0) {
       if (vehicleRows.length === 0) {
         for (const { fields } of certVehicles) {
           vehicleRows.push(
             scanFieldsToRow(
-              mergeScanFields(sharedFromCert, fields),
+              mergeScanFields(sharedDocHeaderFields(sharedFromCert), fields),
               "Certificado origen"
             )
           );
@@ -474,21 +502,26 @@ export async function extractCargaMasivaDocumentosAction(
         let matched = 0;
         const bySerial = new Map<string, PuertoLibreRegistroScanFields>();
         for (const { fields } of certVehicles) {
-          const serial = normalizarSerialCarroceria(
+          const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
           );
           if (serial) bySerial.set(serial, fields);
         }
+        const rowSerials = vehicleRows.map((r) =>
+          normalizeSerialKey(r.serialCarroceria || r.vin || "")
+        );
+        const rowToCert = pairSerialsOneToOne(rowSerials, [...bySerial.keys()]);
+        const headerCert = sharedDocHeaderFields(sharedFromCert);
         for (let i = 0; i < vehicleRows.length; i++) {
           const row = vehicleRows[i]!;
-            const rawSerial = normalizarSerialCarroceria(
-              row.serialCarroceria || row.vin || ""
-            );
-            const serial = rawSerial ? repairCheryWmi(rawSerial) : "";
-          const fromCert = serial ? bySerial.get(serial) : undefined;
+          const serial = normalizeSerialKey(
+            row.serialCarroceria || row.vin || ""
+          );
+          const certKey = serial ? rowToCert.get(serial) : undefined;
+          const fromCert = certKey ? bySerial.get(certKey) : undefined;
           const patch = fromCert
-            ? mergeScanFields(sharedFromCert, fromCert)
-            : sharedFromCert;
+            ? mergeScanFields(headerCert, fromCert)
+            : headerCert;
           const base = rowToScanFields(row);
           const merged = mergeScanFields(base, patch);
           if (fromCert) matched += 1;
@@ -505,18 +538,20 @@ export async function extractCargaMasivaDocumentosAction(
         );
       }
     } else if (Object.keys(sharedFromCert).length > 0 && vehicleRows.length > 0) {
+      const headerCert = sharedDocHeaderFields(sharedFromCert);
       for (let i = 0; i < vehicleRows.length; i++) {
         const row = vehicleRows[i]!;
-        const merged = mergeScanFields(rowToScanFields(row), sharedFromCert);
+        const merged = mergeScanFields(rowToScanFields(row), headerCert);
         vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento", row.id);
       }
     }
 
     // Si hay BL compartido y filas de factura, enriquecer filas sin esos campos.
     if (Object.keys(sharedFromBl).length > 0 && vehicleRows.length > 0) {
+      const headerBl = sharedDocHeaderFields(sharedFromBl);
       for (let i = 0; i < vehicleRows.length; i++) {
         const row = vehicleRows[i]!;
-        const merged = mergeScanFields(rowToScanFields(row), sharedFromBl);
+        const merged = mergeScanFields(rowToScanFields(row), headerBl);
         vehicleRows[i] = scanFieldsToRow(merged, row.fuente ?? "Documento", row.id);
       }
     }
@@ -873,15 +908,17 @@ export async function extractCargaMasivaEtapaAction(
           );
           if (serial) byVin.set(serial, mergeScanFields(enriched.shared, v));
         }
-        // Aplicar cabecera shared a todas
+        // Aplicar cabecera shared a todas (sin campos de unidad: motor/color/VIN)
+        const headerOnly = sharedDocHeaderFields(enriched.shared);
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i]!;
           const serial = normalizarSerialCarroceria(
             row.serialCarroceria || row.vin || ""
           );
-          const patch = serial
-            ? byVin.get(serial) ?? enriched.shared
-            : enriched.shared;
+          const unit = serial ? byVin.get(serial) : undefined;
+          const patch = unit
+            ? mergeScanFields(headerOnly, unit)
+            : headerOnly;
           if (Object.keys(patch).length === 0) continue;
           rows[i] = mergeRowByVin(row, patch, "datos");
         }
@@ -930,8 +967,11 @@ export async function extractCargaMasivaEtapaAction(
     const certBySerial = new Map<string, PuertoLibreRegistroScanFields>();
 
     for (const f of certs) {
-      const extracted = await extractCertificadoOrigenMultiFromDocument(f.buffer, f.mimeType
-      , { rapido: true });
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        f.buffer,
+        f.mimeType,
+        { rapido: true }
+      );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(
@@ -984,20 +1024,28 @@ export async function extractCargaMasivaEtapaAction(
     }
 
     let matched = 0;
+    const rowSerials = rows.map((r) =>
+      normalizeSerialKey(r.serialCarroceria || r.vin)
+    );
+    const certSerials = [...certBySerial.keys()];
+    const rowToCert = pairSerialsOneToOne(rowSerials, certSerials);
+    const headerCert = sharedDocHeaderFields(sharedFromCert);
+    const headerBl = sharedDocHeaderFields(sharedFromBl);
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!;
       const serial = normalizeSerialKey(row.serialCarroceria || row.vin);
-      const fromCert = serial
-        ? lookupBySerialPrefix(certBySerial, serial)
-        : undefined;
+      const certKey = serial ? rowToCert.get(serial) : undefined;
+      const fromCert = certKey ? certBySerial.get(certKey) : undefined;
+      // Sin match 1:1 solo cabecera (país, nº cert, importador) — nunca motor/VIN
       const patch = fromCert
-        ? mergeScanFields(sharedFromCert, fromCert)
-        : mergeScanFields(sharedFromCert, sharedFromBl);
+        ? mergeScanFields(headerCert, fromCert)
+        : mergeScanFields(headerCert, headerBl);
       if (Object.keys(patch).length === 0) continue;
       if (fromCert) matched += 1;
       rows[i] = mergeRowByVin(
         row,
-        mergeScanFields(patch, sharedFromBl),
+        mergeScanFields(patch, headerBl),
         fromCert ? "cert" : "embarque"
       );
     }
@@ -1007,7 +1055,12 @@ export async function extractCargaMasivaEtapaAction(
     );
     for (const [serial, fields] of certBySerial) {
       if (matchSerialKeyAmong(serial, existingKeys)) continue;
-      rows.push(scanFieldsToRow(mergeScanFields(sharedFromCert, fields), "cert"));
+      rows.push(
+        scanFieldsToRow(
+          mergeScanFields(sharedDocHeaderFields(sharedFromCert), fields),
+          "cert"
+        )
+      );
       existingKeys.push(serial);
       appended += 1;
     }
@@ -1112,8 +1165,11 @@ export async function completarCargaMasivaConCertificadosAction(
         warnings.push(`${file.name}: ${validationError}`);
         continue;
       }
-      const extracted = await extractCertificadoOrigenMultiFromDocument(buffer, mimeType
-      , { rapido: true });
+      const extracted = await extractCertificadoOrigenMultiFromDocument(
+        buffer,
+        mimeType,
+        { rapido: true }
+      );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.vehiculos.length > 0) {
         warnings.push(
@@ -1151,15 +1207,20 @@ export async function completarCargaMasivaConCertificadosAction(
       if (serial) bySerial.set(serial, fields);
     }
 
+    const rowSerials = vehicleRows.map((r) =>
+      normalizeSerialKey(r.serialCarroceria || r.vin || "")
+    );
+    const rowToCert = pairSerialsOneToOne(rowSerials, [...bySerial.keys()]);
+    const headerCert = sharedDocHeaderFields(sharedFromCert);
+
     for (let i = 0; i < vehicleRows.length; i++) {
       const row = vehicleRows[i]!;
       const serial = normalizeSerialKey(row.serialCarroceria || row.vin || "");
-      const fromCert = serial
-        ? lookupBySerialPrefix(bySerial, serial)
-        : undefined;
+      const certKey = serial ? rowToCert.get(serial) : undefined;
+      const fromCert = certKey ? bySerial.get(certKey) : undefined;
       const patch = fromCert
-        ? mergeScanFields(sharedFromCert, fromCert)
-        : sharedFromCert;
+        ? mergeScanFields(headerCert, fromCert)
+        : headerCert;
       if (Object.keys(patch).length === 0) continue;
       const merged = mergeScanFields(rowToScanFields(row), patch);
       if (fromCert) matched += 1;
@@ -1181,7 +1242,7 @@ export async function completarCargaMasivaConCertificadosAction(
       if (!serial || matchSerialKeyAmong(serial, existingKeys)) continue;
       vehicleRows.push(
         scanFieldsToRow(
-          mergeScanFields(sharedFromCert, fields),
+          mergeScanFields(sharedDocHeaderFields(sharedFromCert), fields),
           `Certificado origen · ${fileName}`
         )
       );
