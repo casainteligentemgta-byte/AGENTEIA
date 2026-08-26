@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import {
   ArrowLeft,
   BookOpen,
-  ChevronRight,
   Plus,
   Scale,
   Users,
@@ -20,8 +19,8 @@ import {
   PuertoLibreDashboardBucket,
   type DashboardBucketRow,
 } from "@/components/nfc/PuertoLibreDashboardBucket";
+import { PuertoLibreDashboardTodosList } from "@/components/nfc/PuertoLibreDashboardTodosList";
 import { LlmUsagePanel } from "@/components/nfc/LlmUsagePanel";
-import { PuertoLibreSwipeDeleteExpediente } from "@/components/nfc/PuertoLibreSwipeDeleteExpediente";
 import {
   canAccessAllImportacionData,
   isImportacionUsuarioOnly,
@@ -765,59 +764,21 @@ export default async function PuertoLibrePage() {
           actionColumnKey="limite"
         />
 
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
-            <h2 className="smartimport-bucket-title uppercase tracking-wider text-zinc-400">
-              Todos
-            </h2>
-            <span
-              className={`rounded-md px-2 py-0.5 text-xs tabular-nums ${
-                vehiculos.length > 0
-                  ? "bg-red-950/50 text-red-300"
-                  : "bg-zinc-900 text-zinc-500"
-              }`}
-            >
-              {vehiculos.length}
-            </span>
-          </summary>
-          <div className="border-t border-zinc-800/60 px-2 pb-2 pt-1">
-            {vehiculos.length === 0 ? (
-              <p className="px-1 py-3 text-center text-sm text-zinc-500">
-                {puedeMutar
-                  ? "No hay importaciones. Usa «Importación» en el dashboard para registrar una o varias unidades."
-                  : "Cuando te asignen o compartan un vehículo, aparecerá aquí."}
-              </p>
-            ) : (
-              <ul className="max-h-48 space-y-0.5 overflow-y-auto">
-                {vehiculos.map((v) => (
-                  <li key={v.id}>
-                    <PuertoLibreSwipeDeleteExpediente
-                      vehiculoId={v.id}
-                      codigo={labelExpediente(v)}
-                    >
-                      <div className="flex items-center rounded-xl px-2 py-1.5 transition hover:bg-zinc-900/50">
-                      <Link
-                        href={`/smartimport/${v.id}`}
-                        className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-1 text-sm"
-                      >
-                        <span className="min-w-0">
-                          <span className="smartimport-expediente-title inline-block whitespace-nowrap font-mono text-zinc-300">
-                            {labelExpediente(v)}
-                          </span>
-                          <span className="smartimport-vehiculo-description mt-0.5 block truncate">
-                            {labelVehiculo(v)}
-                          </span>
-                        </span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
-                      </Link>
-                      </div>
-                    </PuertoLibreSwipeDeleteExpediente>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </details>
+        <PuertoLibreDashboardTodosList
+          items={vehiculos.map((v) => ({
+            id: v.id,
+            href: `/smartimport/${v.id}`,
+            codigo: labelExpediente(v),
+            vehiculo: labelVehiculo(v),
+            codigoExpediente: v.codigoExpediente,
+            created_at: v.created_at,
+          }))}
+          emptyMessage={
+            puedeMutar
+              ? "No hay importaciones. Usa «Importación» en el dashboard para registrar una o varias unidades."
+              : "Cuando te asignen o compartan un vehículo, aparecerá aquí."
+          }
+        />
       </div>
     </PuertoLibreShell>
   );
