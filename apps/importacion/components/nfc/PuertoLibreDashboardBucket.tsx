@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Building2,
   Download,
   Flag,
@@ -96,6 +98,13 @@ function matchesDate(
   return true;
 }
 
+type ExpedienteSortDir = "asc" | "desc";
+
+/** Orden natural de códigos tipo PL-2026.8.8 (partes numéricas). */
+function compareExpedienteCode(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -121,6 +130,9 @@ export function PuertoLibreDashboardBucket({
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [expedienteSort, setExpedienteSort] = useState<ExpedienteSortDir | null>(
+    null
+  );
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -134,8 +146,25 @@ export function PuertoLibreDashboardBucket({
     });
   }, [rows, query, dateFrom, dateTo]);
 
+  const displayed = useMemo(() => {
+    if (!expedienteSort) return filtered;
+    const dir = expedienteSort === "asc" ? 1 : -1;
+    return [...filtered].sort(
+      (a, b) =>
+        dir *
+        compareExpedienteCode(
+          a.cells.expediente ?? "",
+          b.cells.expediente ?? ""
+        )
+    );
+  }, [filtered, expedienteSort]);
+
   const hasFilters = Boolean(query.trim() || dateFrom || dateTo);
   const showTable = rows.length > 0;
+
+  function toggleExpedienteSort() {
+    setExpedienteSort((prev) => (prev === "asc" ? "desc" : "asc"));
+  }
 
   const countBadge = (
     <span
@@ -164,14 +193,14 @@ export function PuertoLibreDashboardBucket({
     return buildListaDashboardPdf({
       title,
       subtitle: hasFilters
-        ? `Filtros aplicados · ${filtered.length} de ${rows.length} registro(s)`
+        ? `Filtros aplicados · ${displayed.length} de ${rows.length} registro(s)`
         : undefined,
       columns: columns.map((c) => ({
         key: c.key,
         header: c.header,
         width: c.pdfWidth,
       })),
-      rows: filtered.map((r) => ({
+      rows: displayed.map((r) => ({
         cells: Object.fromEntries(
           columns.map((c) => {
             const main = r.cells[c.key] ?? "";
@@ -194,7 +223,7 @@ export function PuertoLibreDashboardBucket({
           new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }),
           fileName
         );
-        setStatus(`PDF descargado (${filtered.length} registro${filtered.length === 1 ? "" : "s"}).`);
+        setStatus(`PDF descargado (${displayed.length} registro${displayed.length === 1 ? "" : "s"}).`);
       } catch {
         setError("No se pudo generar el PDF.");
       }
@@ -222,7 +251,7 @@ export function PuertoLibreDashboardBucket({
             await navigator.share({
               files: [file],
               title,
-              text: `${title} · ${filtered.length} registro(s)`,
+              text: `${title} · ${displayed.length} registro(s)`,
             });
             setStatus("Lista compartida.");
             return;
@@ -284,7 +313,7 @@ export function PuertoLibreDashboardBucket({
           <button
             type="button"
             onClick={handleDownload}
-            disabled={pending || filtered.length === 0}
+            disabled={pending || displayed.length === 0}
             className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
           >
             {pending ? (
@@ -297,7 +326,7 @@ export function PuertoLibreDashboardBucket({
           <button
             type="button"
             onClick={handleShare}
-            disabled={pending || filtered.length === 0}
+            disabled={pending || displayed.length === 0}
             className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
           >
             {pending ? (
@@ -326,7 +355,7 @@ export function PuertoLibreDashboardBucket({
       {error ? <p className="text-xs text-red-300">{error}</p> : null}
       {status ? <p className="text-xs text-zinc-400">{status}</p> : null}
 
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <p className="text-sm text-zinc-500">
           Ningún registro coincide con los filtros.
         </p>
@@ -337,20 +366,55 @@ export function PuertoLibreDashboardBucket({
           <table className="w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-3 font-medium ${
-                      col.key === "expediente" ? "whitespace-nowrap" : ""
-                    }`}
-                  >
-                    {col.header}
-                  </th>
-                ))}
+                {columns.map((col) => {
+                  const isExpedienteCol = col.key === "expediente";
+                  return (
+                    <th
+                      key={col.key}
+                      onDoubleClick={
+                        isExpedienteCol ? toggleExpedienteSort : undefined
+                      }
+                      title={
+                        isExpedienteCol
+                          ? "Doble clic para ordenar por expediente"
+                          : undefined
+                      }
+                      className={`px-3 py-3 font-medium ${
+                        isExpedienteCol
+                          ? "cursor-pointer select-none whitespace-nowrap"
+                          : ""
+                      } ${
+                        isExpedienteCol && expedienteSort
+                          ? "text-cyan-400"
+                          : ""
+                      }`}
+                    >
+                      {isExpedienteCol ? (
+                        <span className="inline-flex items-center gap-1">
+                          {col.header}
+                          {expedienteSort === "asc" ? (
+                            <ArrowUp
+                              className="h-3 w-3"
+                              aria-label="Orden ascendente"
+                            />
+                          ) : null}
+                          {expedienteSort === "desc" ? (
+                            <ArrowDown
+                              className="h-3 w-3"
+                              aria-label="Orden descendente"
+                            />
+                          ) : null}
+                        </span>
+                      ) : (
+                        col.header
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/80">
-              {filtered.map((row) => {
+              {displayed.map((row) => {
                 const tone = row.actionTone ?? "cyan";
                 return (
                   <tr key={row.id} className="align-top hover:bg-zinc-900/50">
