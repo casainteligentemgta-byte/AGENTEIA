@@ -5,6 +5,7 @@ export {
   type ParsedRecord,
   type ParseFileInput,
   type FileValidationResult,
+  type ParseFileOptions,
 } from "./services/FileParser";
 export {
   requireAuth,
@@ -32,3 +33,17 @@ export {
   validateRecords,
   transformRecords,
 } from "./services/ImportService";
+
+/** Fase 2 — caché y optimización */
+export { CacheManager } from "./services/cache/CacheManager";
+export { ValidationEngine } from "./services/validation/ValidationEngine";
+export { CachedValidationEngine } from "./services/validation/CachedValidationEngine";
+export { OptimizedReferenceValidator } from "./services/validation/OptimizedReferenceValidator";
+export { DataTransformer } from "./services/transform/DataTransformer";
+export { StreamingDataTransformer } from "./services/transform/StreamingDataTransformer";
+export { SmartImporter } from "./services/SmartImporter";
+export type {
+  ValidationError,
+  ValidationResult,
+  ForeignKey,
+} from "./types/validation";

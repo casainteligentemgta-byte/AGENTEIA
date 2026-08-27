@@ -19,6 +19,14 @@ export type ParseFileInput = {
   buffer: Buffer;
 };
 
+export type ParseFileOptions = {
+  /** Activa parseo por chunks (JSON/CSV). */
+  streaming?: boolean;
+  /** Tamaño de lote para callbacks de streaming. */
+  chunkSize?: number;
+  onChunk?: (chunk: ParsedRecord[]) => void;
+};
+
 /**
  * Parser de archivos de importación (JSON, CSV, XLSX, XML)
  * con validación de tamaño, MIME y tamaño de lote.
@@ -106,11 +114,19 @@ export class FileParser {
 
   /**
    * Valida y parsea el archivo según su extensión / MIME.
+   * Con `options.streaming` usa parseo por chunks para JSON/CSV grandes.
    */
-  async parseFile(file: ParseFileInput): Promise<ParsedRecord[]> {
+  async parseFile(
+    file: ParseFileInput,
+    options?: ParseFileOptions
+  ): Promise<ParsedRecord[]> {
     const validation = this.validateFile(file);
     if (!validation.valid) {
       throw new Error(validation.error);
+    }
+
+    if (options?.streaming) {
+      return this.parseFileStreaming(file, options.onChunk, options.chunkSize);
     }
 
     const ext = this.getExtension(file.name);
@@ -128,7 +144,6 @@ export class FileParser {
       mime.includes("spreadsheet") ||
       mime === "application/vnd.ms-excel"
     ) {
-      // .xls genérico también puede ser CSV mal etiquetado; priorizamos extensión.
       if (ext === ".csv") return this.parseCSV(file.buffer);
       return this.parseXLSX(file.buffer);
     }
@@ -139,6 +154,103 @@ export class FileParser {
     throw new Error(
       "No se pudo determinar el formato del archivo. Usa .json, .csv, .xlsx o .xml"
     );
+  }
+
+  /**
+   * Parsea en streaming por lotes; invoca onChunk por cada chunk.
+   * Al final retorna el arreglo completo (útil para pipelines actuales).
+   */
+  async parseFileStreaming(
+    file: ParseFileInput,
+    onChunk?: (chunk: ParsedRecord[]) => void,
+    chunkSize = 1000
+  ): Promise<ParsedRecord[]> {
+    const validation = this.validateFile(file);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    const ext = this.getExtension(file.name);
+    const mime = (file.type ?? "").toLowerCase();
+    const all: ParsedRecord[] = [];
+
+    const emit = (rows: ParsedRecord[]) => {
+      if (rows.length === 0) return;
+      all.push(...rows);
+      onChunk?.(rows);
+    };
+
+    if (ext === ".json" || mime.includes("json")) {
+      const rows = this.parseJSON(file.buffer);
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        emit(rows.slice(i, i + chunkSize));
+        await new Promise((r) => setImmediate(r));
+      }
+      return this.assertBatchSize(all, "JSON");
+    }
+
+    if (ext === ".csv" || mime.includes("csv")) {
+      const rows = await this.parseCSVStreaming(file.buffer, chunkSize, emit);
+      return this.assertBatchSize(rows, "CSV");
+    }
+
+    // XLSX/XML: sin streaming nativo; parse completo + emit por chunks.
+    const rows =
+      ext === ".xml" || mime.includes("xml")
+        ? this.parseXML(file.buffer)
+        : this.parseXLSX(file.buffer);
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      emit(rows.slice(i, i + chunkSize));
+      await new Promise((r) => setImmediate(r));
+    }
+    return all;
+  }
+
+  /**
+   * CSV con PapaParse step/chunk para no acumular todo de golpe en el parser.
+   */
+  private async parseCSVStreaming(
+    buffer: Buffer,
+    chunkSize: number,
+    onChunk: (chunk: ParsedRecord[]) => void
+  ): Promise<ParsedRecord[]> {
+    const Papa = await import("papaparse");
+    const text = buffer.toString(FILE_CONFIG.ENCODING).replace(/^\uFEFF/, "");
+    const collected: ParsedRecord[] = [];
+    let batch: ParsedRecord[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      Papa.default.parse<ParsedRecord>(text, {
+        header: true,
+        skipEmptyLines: true,
+        step: (result) => {
+          if (result.errors.length > 0) {
+            reject(
+              new Error(
+                `CSV: ${result.errors[0]?.message ?? "error de parseo"}`
+              )
+            );
+            return;
+          }
+          batch.push(result.data as ParsedRecord);
+          if (batch.length >= chunkSize) {
+            onChunk(batch);
+            collected.push(...batch);
+            batch = [];
+          }
+        },
+        complete: () => {
+          if (batch.length > 0) {
+            onChunk(batch);
+            collected.push(...batch);
+          }
+          resolve();
+        },
+        error: (err: Error) => reject(err),
+      });
+    });
+
+    return collected;
   }
 
   parseJSON(buffer: Buffer): ParsedRecord[] {
