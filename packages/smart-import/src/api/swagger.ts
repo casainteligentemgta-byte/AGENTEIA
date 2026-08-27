@@ -239,11 +239,17 @@ export const swaggerSpec = swaggerJsdoc(options);
 
 export function mountSwagger(app: Express): void {
   if (process.env.DISABLE_SWAGGER === "1") return;
-  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+  // JSON antes del UI (si no, swagger-ui captura /api/docs/*)
   app.get("/api/docs.json", (_req, res) => {
     res.json(swaggerSpec);
   });
   app.get("/api/docs/swagger.json", (_req, res) => {
     res.json(swaggerSpec);
   });
+  app.get("/api/openapi.json", (_req, res) => {
+    res.json(swaggerSpec);
+  });
+
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
