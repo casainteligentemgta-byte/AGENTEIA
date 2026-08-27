@@ -1,1 +1,4 @@
 coverage/
+.bin/
+logs/
+*.log
