@@ -6,8 +6,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resolvePortalAccess,
   requirePortalRole,
+  type PortalRole,
 } from "@/lib/portal/roles";
 import { deleteVehiculoConDependencias } from "@/lib/vehicles/delete-cascade";
+import {
+  crearPortalAccesoPorEmailSchema,
+  mensajeAlcanceInsuficiente,
+  updateTallerEtiquetaSchema,
+  upsertPortalAccesoSchema,
+} from "@/lib/validations/portal-acceso";
+import type { TipoIndustria } from "@/lib/platform/types";
 
 export type MasterTallerRow = {
   id: string;
@@ -25,6 +33,7 @@ export type MasterPortalUserRow = {
   roles: string[];
   orgNombre: string | null;
   verTodo: boolean;
+  tallerIds: string[];
   aisladoAt: string | null;
 };
 
@@ -37,7 +46,8 @@ async function requireMaster() {
   if (!gate.access.verTodo) {
     return {
       ok: false as const,
-      error: "Solo el máster con visión global (ver_todo) puede aislar o borrar.",
+      error:
+        "Solo el máster con visión global (ver_todo) puede gestionar roles, etiquetas, aislar o borrar.",
     };
   }
   return { ok: true as const, access: gate.access };
@@ -46,6 +56,103 @@ async function requireMaster() {
 function revalidateMaster() {
   revalidatePath("/portales/master");
   revalidatePath("/portales");
+  revalidatePath("/smartimport");
+}
+
+function parseRoleList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === "string");
+}
+
+function parseIdList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === "string");
+}
+
+function isGlobalMaster(roles: readonly string[], verTodo: boolean): boolean {
+  return roles.includes("master") && verTodo;
+}
+
+async function countGlobalMasters(
+  admin: ReturnType<typeof createAdminClient>,
+  exceptUserId?: string
+): Promise<number> {
+  const { data } = await admin
+    .from("portal_accesos")
+    .select("user_id, roles, ver_todo, aislado_at");
+
+  return (data ?? []).filter((row) => {
+    if (row.aislado_at) return false;
+    if (exceptUserId && row.user_id === exceptUserId) return false;
+    return isGlobalMaster(parseRoleList(row.roles), Boolean(row.ver_todo));
+  }).length;
+}
+
+async function findAuthUserIdByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string
+): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  const normalized = email.trim().toLowerCase();
+  const perPage = 200;
+  for (let page = 1; page <= 25; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) return { ok: false, error: error.message };
+    const users = data.users ?? [];
+    const found = users.find((user) => user.email?.toLowerCase() === normalized);
+    if (found) return { ok: true, userId: found.id };
+    if (users.length < perPage) {
+      return {
+        ok: false,
+        error: "Ese correo no tiene cuenta. La persona debe registrarse primero.",
+      };
+    }
+  }
+  return {
+    ok: false,
+    error: "No se encontró el correo en las cuentas registradas.",
+  };
+}
+
+async function assertMasterChangeAllowed(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  actorUserId: string;
+  targetUserId: string;
+  nextRoles: readonly string[];
+  nextVerTodo: boolean;
+}): Promise<ActionResult | { ok: true }> {
+  const { admin, actorUserId, targetUserId, nextRoles, nextVerTodo } = params;
+
+  if (targetUserId === actorUserId) {
+    if (!isGlobalMaster(nextRoles, nextVerTodo)) {
+      return {
+        ok: false,
+        error: "No puedes quitarte el rol máster ni la visión global.",
+      };
+    }
+  }
+
+  const { data: current } = await admin
+    .from("portal_accesos")
+    .select("roles, ver_todo, aislado_at")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+
+  const currentlyGlobal = current
+    ? isGlobalMaster(parseRoleList(current.roles), Boolean(current.ver_todo)) &&
+      current.aislado_at == null
+    : false;
+
+  if (currentlyGlobal && !isGlobalMaster(nextRoles, nextVerTodo)) {
+    const remaining = await countGlobalMasters(admin, targetUserId);
+    if (remaining === 0) {
+      return {
+        ok: false,
+        error: "Debe quedar al menos un máster con visión global (ver_todo).",
+      };
+    }
+  }
+
+  return { ok: true };
 }
 
 export async function listMasterTalleresAction(): Promise<
@@ -117,7 +224,7 @@ export async function listMasterPortalUsersAction(): Promise<
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("portal_accesos")
-    .select("user_id, roles, ver_todo, org_nombre, aislado_at")
+    .select("user_id, roles, ver_todo, taller_ids, org_nombre, aislado_at")
     .order("updated_at", { ascending: false });
 
   if (error) return { success: false, error: error.message };
@@ -126,15 +233,14 @@ export async function listMasterPortalUsersAction(): Promise<
   for (const row of data ?? []) {
     const userId = row.user_id as string;
     const { data: authData } = await admin.auth.admin.getUserById(userId);
-    const roles = Array.isArray(row.roles)
-      ? (row.roles as string[]).filter((r) => typeof r === "string")
-      : [];
+    const roles = parseRoleList(row.roles);
     rows.push({
       userId,
       email: authData.user?.email ?? null,
       roles,
       orgNombre: (row.org_nombre as string | null) ?? null,
       verTodo: Boolean(row.ver_todo),
+      tallerIds: parseIdList(row.taller_ids),
       aisladoAt: (row.aislado_at as string | null) ?? null,
     });
   }
@@ -144,6 +250,181 @@ export async function listMasterPortalUsersAction(): Promise<
     activos: rows.filter((r) => !r.aisladoAt),
     aislados: rows.filter((r) => Boolean(r.aisladoAt)),
   };
+}
+
+export async function updatePortalAccesoAction(input: {
+  userId: string;
+  roles: PortalRole[];
+  verTodo: boolean;
+  tallerIds: string[];
+  orgNombre: string | null;
+}): Promise<ActionResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const parsed = upsertPortalAccesoSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const alcanceError = mensajeAlcanceInsuficiente(
+    parsed.data.roles,
+    parsed.data.verTodo,
+    parsed.data.tallerIds
+  );
+  if (alcanceError) return { ok: false, error: alcanceError };
+
+  const admin = createAdminClient();
+  const { data: existing, error: findError } = await admin
+    .from("portal_accesos")
+    .select("user_id, aislado_at")
+    .eq("user_id", parsed.data.userId)
+    .maybeSingle();
+
+  if (findError) return { ok: false, error: findError.message };
+  if (!existing) {
+    return { ok: false, error: "No hay acceso de portal para ese usuario." };
+  }
+  if (existing.aislado_at) {
+    return {
+      ok: false,
+      error: "Este acceso está aislado. Restáuralo antes de editar roles.",
+    };
+  }
+
+  const allowed = await assertMasterChangeAllowed({
+    admin,
+    actorUserId: gate.access.userId,
+    targetUserId: parsed.data.userId,
+    nextRoles: parsed.data.roles,
+    nextVerTodo: parsed.data.verTodo,
+  });
+  if (!allowed.ok) return allowed;
+
+  const orgNombre = parsed.data.orgNombre?.trim()
+    ? parsed.data.orgNombre.trim()
+    : null;
+
+  const { error } = await admin
+    .from("portal_accesos")
+    .update({
+      roles: parsed.data.roles,
+      ver_todo: parsed.data.verTodo,
+      taller_ids: parsed.data.tallerIds,
+      org_nombre: orgNombre,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", parsed.data.userId);
+
+  if (error) return { ok: false, error: error.message };
+  revalidateMaster();
+  return { ok: true };
+}
+
+export async function crearPortalAccesoPorEmailAction(input: {
+  email: string;
+  roles: PortalRole[];
+  verTodo: boolean;
+  tallerIds: string[];
+  orgNombre: string | null;
+}): Promise<ActionResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const parsed = crearPortalAccesoPorEmailSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const alcanceError = mensajeAlcanceInsuficiente(
+    parsed.data.roles,
+    parsed.data.verTodo,
+    parsed.data.tallerIds
+  );
+  if (alcanceError) return { ok: false, error: alcanceError };
+
+  const admin = createAdminClient();
+  const found = await findAuthUserIdByEmail(admin, parsed.data.email);
+  if (!found.ok) return found;
+
+  const { data: existing, error: findError } = await admin
+    .from("portal_accesos")
+    .select("user_id, aislado_at")
+    .eq("user_id", found.userId)
+    .maybeSingle();
+
+  if (findError) return { ok: false, error: findError.message };
+  if (existing?.aislado_at) {
+    return {
+      ok: false,
+      error: "Este acceso está aislado. Restáuralo antes de editar roles.",
+    };
+  }
+
+  const allowed = await assertMasterChangeAllowed({
+    admin,
+    actorUserId: gate.access.userId,
+    targetUserId: found.userId,
+    nextRoles: parsed.data.roles,
+    nextVerTodo: parsed.data.verTodo,
+  });
+  if (!allowed.ok) return allowed;
+
+  const orgNombre = parsed.data.orgNombre?.trim()
+    ? parsed.data.orgNombre.trim()
+    : null;
+  const now = new Date().toISOString();
+
+  const { error } = await admin.from("portal_accesos").upsert(
+    {
+      user_id: found.userId,
+      roles: parsed.data.roles,
+      ver_todo: parsed.data.verTodo,
+      taller_ids: parsed.data.tallerIds,
+      org_nombre: orgNombre,
+      updated_at: now,
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) return { ok: false, error: error.message };
+  revalidateMaster();
+  return { ok: true };
+}
+
+export async function updateTallerEtiquetaAction(input: {
+  tallerId: string;
+  tipoIndustria: TipoIndustria;
+}): Promise<ActionResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const parsed = updateTallerEtiquetaSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("talleres")
+    .update({
+      tipo_industria: parsed.data.tipoIndustria,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.tallerId);
+
+  if (error) return { ok: false, error: error.message };
+  revalidateMaster();
+  return { ok: true };
 }
 
 export async function aislarTallerAction(tallerId: string): Promise<ActionResult> {

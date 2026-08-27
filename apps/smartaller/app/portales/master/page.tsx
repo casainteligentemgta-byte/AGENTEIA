@@ -9,6 +9,7 @@ import {
   listMasterPortalUsersAction,
 } from "@/app/actions/portal-master";
 import { MasterAislamientoPanel } from "@/components/portal/MasterAislamientoPanel";
+import { MasterRolesPanel } from "@/components/portal/MasterRolesPanel";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { resolvePortalAccess, requirePortalRole } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
@@ -59,7 +60,7 @@ export default async function PortalMasterPage() {
       title="Administrador máster"
       subtitle={
         verTodo
-          ? "Visión global, aislamiento y borrado definitivo de entidades."
+          ? "Dirige roles, etiquetas, aislamiento y borrado definitivo."
           : "Visión acotada a talleres asignados (sin ver_todo)."
       }
     >
@@ -80,10 +81,18 @@ export default async function PortalMasterPage() {
         </div>
       ) : (
         <p className="mb-6 rounded-xl border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
-          Sin `ver_todo` no puedes aislar ni borrar. Actívalo solo si el contrato
+          Sin `ver_todo` no puedes dirigir roles ni etiquetas, ni aislar o borrar.
           y la ley lo permiten.
         </p>
       )}
+
+      {verTodo ? (
+        <MasterRolesPanel
+          currentUserId={gate.access.userId}
+          usuarios={usuariosActivos}
+          talleres={talleresActivos}
+        />
+      ) : null}
 
       {verTodo ? (
         <div className="mb-10">
