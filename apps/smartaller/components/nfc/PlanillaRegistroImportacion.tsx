@@ -30,6 +30,7 @@ import {
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
   syncCertificadoOrigenNumeroAction,
+  syncPuertoLibreBlEmbarqueAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PropietarioCedulaScan } from "@/components/nfc/PropietarioCedulaScan";
@@ -1158,6 +1159,9 @@ function Fase2Embarque({
   const certSyncStarted = useRef(false);
   const [certSyncPending, setCertSyncPending] = useState(false);
   const [certSyncTried, setCertSyncTried] = useState(false);
+  const blSyncStarted = useRef(false);
+  const [blSyncPending, setBlSyncPending] = useState(false);
+  const [blSyncTried, setBlSyncTried] = useState(false);
 
   useEffect(() => {
     setDatos((prev) => ({
@@ -1174,6 +1178,41 @@ function Fase2Embarque({
       observaciones: initial.observaciones || prev.observaciones,
     }));
   }, [initial]);
+
+  function applyBlSyncToForm(result: {
+    numeroBl: string | null;
+    fechaLlegadaBuque: string | null;
+    puerto: string | null;
+    aduana: string | null;
+    paisOrigen: string | null;
+    modalidadTransito: "ninguno" | "transito" | "uso24" | null;
+    aduanaTransito: string | null;
+  }) {
+    setDatos((prev) => ({
+      ...prev,
+      numeroBl: result.numeroBl?.trim() || prev.numeroBl,
+      fechaLlegadaBuque:
+        result.fechaLlegadaBuque?.trim() || prev.fechaLlegadaBuque,
+      puerto: result.puerto?.trim() || prev.puerto,
+      aduana: result.aduana?.trim() || prev.aduana,
+      paisOrigen: result.paisOrigen?.trim() || prev.paisOrigen,
+      modalidadTransito:
+        result.modalidadTransito ?? prev.modalidadTransito,
+      aduanaTransito: result.aduanaTransito?.trim() || prev.aduanaTransito,
+    }));
+  }
+
+  function syncBlEmbarque() {
+    setBlSyncPending(true);
+    void syncPuertoLibreBlEmbarqueAction(vehiculoId)
+      .then((result) => {
+        if (result.success) applyBlSyncToForm(result);
+      })
+      .finally(() => {
+        setBlSyncPending(false);
+        setBlSyncTried(true);
+      });
+  }
 
   function syncCertificadoNumero() {
     if (!docs.certificado_origen?.url) return;
@@ -1199,9 +1238,17 @@ function Fase2Embarque({
     if (!docs.certificado_origen?.url) return;
     certSyncStarted.current = true;
     syncCertificadoNumero();
-    // Solo al montar / cuando aparece el certificado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehiculoId, docs.certificado_origen?.url]);
+
+  useEffect(() => {
+    if (blSyncStarted.current) return;
+    if (datos.numeroBl.trim()) return;
+    if (!docs.bl_guia?.url) return;
+    blSyncStarted.current = true;
+    syncBlEmbarque();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehiculoId, docs.bl_guia?.url]);
 
   function patch<K extends keyof EmbarqueDatosForm>(
     key: K,
@@ -1248,13 +1295,19 @@ function Fase2Embarque({
               actionLabel={docs[tipo]?.url ? "Sustituir" : "Escanear / PDF"}
               onUploaded={(next) => {
                 setDocs(next);
-                onUploadedMessage(
-                  tipo === "bl_guia"
-                    ? "BL guardado · revisa/completa los datos de embarque"
-                    : tipo === "poliza_transporte"
+                if (tipo === "bl_guia") {
+                  blSyncStarted.current = true;
+                  syncBlEmbarque();
+                  onUploadedMessage(
+                    "BL guardado · extrayendo nº BL y datos de embarque…"
+                  );
+                } else {
+                  onUploadedMessage(
+                    tipo === "poliza_transporte"
                       ? "Póliza guardada · revisa/completa los datos de embarque"
                       : "Documento guardado"
-                );
+                  );
+                }
               }}
             />
           ))}
@@ -1451,11 +1504,39 @@ function Fase2Embarque({
               required
               value={datos.numeroBl}
               onChange={(e) => patch("numeroBl", e.target.value.toUpperCase())}
-              placeholder="Del escaneo del BL o captura manual"
-              className={`${inputClass} font-mono uppercase`}
+              placeholder={
+                blSyncPending
+                  ? "Leyendo nº BL del documento…"
+                  : "Del escaneo del BL o captura manual"
+              }
+              disabled={blSyncPending}
+              className={`${inputClass} font-mono uppercase ${
+                blSyncPending ? "text-amber-200/90" : ""
+              }`}
             />
             <span className="block text-xs text-slate-500">
-              Se extrae al cargar el BL; también puedes escribirlo.
+              {blSyncPending
+                ? "Extrayendo el nº de BL / guía del PDF o foto cargado…"
+                : docs.bl_guia?.url
+                  ? blSyncTried && !datos.numeroBl.trim()
+                    ? "No se pudo leer el nº del BL. Escríbelo a mano o reintenta."
+                    : "Se extrae al cargar el BL; también puedes escribirlo."
+                  : "Carga el BL arriba para intentar extraerlo automáticamente."}
+              {docs.bl_guia?.url && !blSyncPending ? (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      blSyncStarted.current = true;
+                      syncBlEmbarque();
+                    }}
+                    className="text-cyan-400 underline hover:text-cyan-300"
+                  >
+                    Reintentar
+                  </button>
+                </>
+              ) : null}
             </span>
           </label>
           <label className="block min-w-0 space-y-1.5">

@@ -89,6 +89,10 @@ import {
   resolveAduanaVenezuela,
 } from "@/lib/importacion/aduanas-venezuela";
 import { resolvePais } from "@/lib/importacion/paises";
+import {
+  formatPuertosDescarga,
+  parsePuertosDescarga,
+} from "@/lib/importacion/puertos-venezuela";
 
 /** Parche de importación desde campos OCR de BL / póliza (solo claves presentes). */
 function embarquePatchFromScanFields(
@@ -101,7 +105,11 @@ function embarquePatchFromScanFields(
   if (fields.fechaLlegadaBuque?.trim()) {
     patch.fechaLlegadaBuque = fields.fechaLlegadaBuque.trim();
   }
-  if (fields.puerto?.trim()) patch.puerto = fields.puerto.trim();
+  if (fields.puerto?.trim()) {
+    patch.puerto =
+      formatPuertosDescarga(parsePuertosDescarga(fields.puerto)) ||
+      fields.puerto.trim();
+  }
   const aduana = resolveAduanaVenezuela(fields.aduana);
   if (aduana) patch.aduana = aduana;
   const pais = resolvePais(fields.paisOrigen);
@@ -995,6 +1003,137 @@ export async function syncCertificadoOrigenNumeroAction(vehiculoId: string): Pro
     return { success: true, numeroCertificadoOrigen: numero };
   } catch {
     return { success: true, numeroCertificadoOrigen: null };
+  }
+}
+
+export type BlEmbarqueSyncResult =
+  | {
+      success: true;
+      numeroBl: string | null;
+      fechaLlegadaBuque: string | null;
+      puerto: string | null;
+      aduana: string | null;
+      paisOrigen: string | null;
+      modalidadTransito: "ninguno" | "transito" | "uso24" | null;
+      aduanaTransito: string | null;
+    }
+  | { success: false; error: string };
+
+/**
+ * Lee el BL ya cargado, extrae nº BL (+ datos de embarque) y persiste en importación.
+ */
+export async function syncPuertoLibreBlEmbarqueAction(
+  vehiculoId: string
+): Promise<BlEmbarqueSyncResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const idParsed = z.string().uuid().safeParse(vehiculoId);
+  if (!idParsed.success) {
+    return { success: false, error: "ID inválido" };
+  }
+
+  const row = await assertVehiculoTaller(idParsed.data, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existingImp = parseImportacion(row.importacion);
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const blRef = docs.bl_guia;
+  if (!blRef?.path) {
+    return {
+      success: true,
+      numeroBl: existingImp.numeroBl?.trim() || null,
+      fechaLlegadaBuque: existingImp.fechaLlegadaBuque?.trim() || null,
+      puerto: existingImp.puerto?.trim() || null,
+      aduana: existingImp.aduana?.trim() || null,
+      paisOrigen: existingImp.paisOrigen?.trim() || null,
+      modalidadTransito: existingImp.modalidadTransito ?? null,
+      aduanaTransito: existingImp.aduanaTransito?.trim() || null,
+    };
+  }
+
+  if (!isLlmConfigured()) {
+    return {
+      success: true,
+      numeroBl: existingImp.numeroBl?.trim() || null,
+      fechaLlegadaBuque: existingImp.fechaLlegadaBuque?.trim() || null,
+      puerto: existingImp.puerto?.trim() || null,
+      aduana: existingImp.aduana?.trim() || null,
+      paisOrigen: existingImp.paisOrigen?.trim() || null,
+      modalidadTransito: existingImp.modalidadTransito ?? null,
+      aduanaTransito: existingImp.aduanaTransito?.trim() || null,
+    };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
+      .from(VEHICULO_DOCS_BUCKET)
+      .download(blRef.path);
+    if (error || !data) {
+      return {
+        success: true,
+        numeroBl: existingImp.numeroBl?.trim() || null,
+        fechaLlegadaBuque: existingImp.fechaLlegadaBuque?.trim() || null,
+        puerto: existingImp.puerto?.trim() || null,
+        aduana: existingImp.aduana?.trim() || null,
+        paisOrigen: existingImp.paisOrigen?.trim() || null,
+        modalidadTransito: existingImp.modalidadTransito ?? null,
+        aduanaTransito: existingImp.aduanaTransito?.trim() || null,
+      };
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    const mimeType =
+      data.type === "application/pdf" || /\.pdf$/i.test(blRef.path)
+        ? "application/pdf"
+        : resolveImageMimeType({
+            declaredMime: data.type,
+            fileName: blRef.path,
+            buffer,
+          }) ?? "image/jpeg";
+
+    const fields = (await extractBlMultiFromDocument(buffer, mimeType)).shared;
+    const patch = embarquePatchFromScanFields(fields, existingImp);
+    const mergedImp =
+      Object.keys(patch).length > 0
+        ? { ...existingImp, ...patch }
+        : existingImp;
+
+    if (Object.keys(patch).length > 0) {
+      await admin
+        .from("vehiculos")
+        .update({
+          importacion: serializeImportacion(mergedImp),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", idParsed.data)
+        .eq("taller_id", auth.taller.id);
+      revalidateFicha(idParsed.data);
+    }
+
+    return {
+      success: true,
+      numeroBl: mergedImp.numeroBl?.trim() || null,
+      fechaLlegadaBuque: mergedImp.fechaLlegadaBuque?.trim() || null,
+      puerto: mergedImp.puerto?.trim() || null,
+      aduana: mergedImp.aduana?.trim() || null,
+      paisOrigen: mergedImp.paisOrigen?.trim() || null,
+      modalidadTransito: mergedImp.modalidadTransito ?? null,
+      aduanaTransito: mergedImp.aduanaTransito?.trim() || null,
+    };
+  } catch {
+    return {
+      success: true,
+      numeroBl: existingImp.numeroBl?.trim() || null,
+      fechaLlegadaBuque: existingImp.fechaLlegadaBuque?.trim() || null,
+      puerto: existingImp.puerto?.trim() || null,
+      aduana: existingImp.aduana?.trim() || null,
+      paisOrigen: existingImp.paisOrigen?.trim() || null,
+      modalidadTransito: existingImp.modalidadTransito ?? null,
+      aduanaTransito: existingImp.aduanaTransito?.trim() || null,
+    };
   }
 }
 
