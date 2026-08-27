@@ -55,6 +55,21 @@ HPA: mín 3 / máx 20 réplicas (CPU 70%, memoria 80%).
 
 Push a `main` con cambios en `packages/smart-import/**` construye y publica la imagen (GHCR) si `GITHUB_TOKEN` tiene `packages: write`.
 
+### Secrets recomendados (GitHub → Settings → Secrets and variables → Actions)
+
+| Secret | Uso |
+|--------|-----|
+| `AWS_REGISTRY` | URI del registry ECR (si despliegas a AWS) |
+| `AWS_ACCOUNT_ID` | Cuenta AWS |
+| `SLACK_WEBHOOK` | Notificaciones de deploy / fallos |
+| `STAGING_KUBECONFIG` | kubeconfig staging (base64) |
+| `PROD_KUBECONFIG` | kubeconfig producción (base64) |
+| `DATABASE_URL` / `SUPABASE_URL` | Conexión datos |
+| `REDIS_URL` | Caché / rate-limit |
+| `SUPABASE_ANON_KEY` | Auth API |
+
+> No commitear valores. En K8s preferir `Secret` / External Secrets Operator.
+
 ## 5. Checklist pre-prod
 
 - [ ] `SUPABASE_URL` / `SUPABASE_ANON_KEY` configurados
