@@ -1,4 +1,5 @@
 import { Router, type Response, type NextFunction } from "express";
+import { randomUUID } from "crypto";
 import {
   requireAuth,
   requireBodyTablePermission,
@@ -7,6 +8,7 @@ import {
   type AuthenticatedRequest,
 } from "../middleware/auth";
 import { apiLimiter, importLimiter } from "../middleware/rateLimit";
+import { gracefulShutdown } from "../middleware/gracefulShutdown";
 import {
   analyzeRecords,
   enqueueImport,
@@ -56,6 +58,8 @@ router.post(
   importLimiter,
   requireBodyTablePermission("targetTable"),
   async (req, res: Response) => {
+    const importId = randomUUID();
+    gracefulShutdown.registerImport(importId);
     try {
       const authReq = asAuth(req as AuthenticatedRequest);
       const data = readDataArray(req.body);
@@ -94,7 +98,7 @@ router.post(
       }
 
       console.log(
-        `[smart-import.execute] user=${authReq.user.id} table=${targetTable} rows=${data.length}`
+        `[smart-import.execute] user=${authReq.user.id} table=${targetTable} rows=${data.length} importId=${importId}`
       );
 
       const result = await enqueueImport({
@@ -113,6 +117,8 @@ router.post(
         success: false,
         error: safeErrorMessage(err, "No se pudo ejecutar la importación"),
       });
+    } finally {
+      gracefulShutdown.unregisterImport(importId);
     }
   }
 );

@@ -2,7 +2,7 @@
   "name": "@agenteia/smart-import",
   "version": "0.1.0",
   "private": true,
-  "description": "SmartImport — importación segura y optimizada (Fase 1 seguridad + Fase 2 caché)",
+  "description": "SmartImport — seguridad (F1) + caché (F2) + resiliencia (F3)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage src/__tests__/unit",
     "test:performance": "vitest run src/__tests__/performance",
-    "dev": "tsx src/dev-server.ts"
+    "test:resilience": "vitest run src/__tests__/resilience",
+    "dev": "tsx src/api/server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

@@ -1,5 +1,5 @@
 /**
- * @agenteia/smart-import — Fase 1 (seguridad) + Fase 2 (caché / optimización)
+ * @agenteia/smart-import — Fase 1 (seguridad) + Fase 2 (caché) + Fase 3 (resiliencia)
  *
  * ## Scripts
  * ```bash
@@ -8,32 +8,18 @@
  * npm run lint
  * npm test
  * npm run test:performance
- * npm run test:coverage
+ * npm run test:resilience
  * npm run build
- * npm run dev   # http://localhost:3000
+ * npm run dev   # http://localhost:3000  (GET /health)
  * ```
  *
- * ## Fase 2 — APIs principales
- * - `CacheManager` — Redis (`REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` o `REDIS_URL`) con fallback memoria
- * - `CachedValidationEngine` — validación Zod con cache-aside
- * - `OptimizedReferenceValidator` — FKs en bulk (sin N+1)
- * - `StreamingDataTransformer` — transform por lotes + métricas
- * - `SmartImporter` — orquestación `importWithStrategy` / `importWithMetrics`
- * - `FileParser.parseFile(..., { streaming: true })` — JSON/CSV por chunks (PapaParse)
+ * ## Fase 3
+ * - `RetryPolicy` — backoff exponencial + jitter
+ * - `CircuitBreaker` — CLOSED / OPEN / HALF_OPEN
+ * - `TransactionManager` — savepoints por lote (RPC o fallback)
+ * - `HealthCheck` — BD / Redis / memoria / disco
+ * - `GracefulShutdown` — espera imports activos en SIGTERM/SIGINT
  *
- * ## Montar en Express
- * ```ts
- * import express from "express";
- * import { importRouter, SmartImporter } from "@agenteia/smart-import";
- *
- * const app = express();
- * app.use(express.json({ limit: "2mb" }));
- * app.use("/api/import", importRouter);
- * ```
- *
- * Variables de entorno:
- * - `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL`
- * - `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`
- * - `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` (preferido) o `REDIS_URL`
- * - `PORT` (default 3000)
+ * Variables: `SUPABASE_*`, `REDIS_HOST`/`PORT`/`PASSWORD` o `REDIS_URL`, `PORT`,
+ * `HEALTH_MONITOR=0` para desactivar monitor.
  */
