@@ -1,5 +1,16 @@
 # Guía de Deployment — SmartImport
 
+## Prerequisites
+
+Antes de desplegar, asegúrate de tener:
+
+- Docker 24+ y Docker Compose v2 (`docker compose`)
+- Node 20+ (build local / CI)
+- Acceso a registry (GHCR) para imágenes
+- (Prod) Cluster Kubernetes 1.27+ y `kubectl`
+- Variables: `SUPABASE_URL` / `SUPABASE_ANON_KEY` **o** `DATABASE_URL`, más `REDIS_URL`
+- Secretos **nunca** en git (usar `.env` local / K8s Secret / GitHub Secrets)
+
 ## 1. Docker imagen
 
 ```bash
@@ -9,12 +20,17 @@ docker run --rm -p 3000:3000 \
   -e SUPABASE_URL=... \
   -e SUPABASE_ANON_KEY=... \
   -e REDIS_URL=redis://host.docker.internal:6379 \
+  -e DATABASE_URL=postgresql://smartimport:pass@host.docker.internal:5432/smartimport \
   smartimport:latest
 ```
 
 Imagen multi-stage (Node 20 Alpine). Entry: `node dist/api/server.js`.
 
+También: `npm run docker:build`.
+
 ## 2. Docker Compose (local / staging)
+
+Usa `docker-compose.yml` (y opcionalmente `docker-compose.prod.yml`):
 
 ```bash
 docker compose up -d --build
@@ -31,11 +47,20 @@ export SMARTIMPORT_IMAGE=ghcr.io/org/smartimport:1.0.0
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
+Equivalente clásico del binario `docker-compose` (v1):
+
+```bash
+docker-compose up -d --build
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
 Perfil observabilidad:
 
 ```bash
 docker compose --profile observability up -d
 ```
+
+Servicios: `app`, `postgres`, `redis`, `prometheus`, `grafana`, `jaeger`.
 
 ## 3. Kubernetes
 
@@ -58,7 +83,7 @@ kubectl create secret generic smartimport-secrets \
 kubectl apply -f k8s/01-configmap.yaml
 kubectl apply -f k8s/10-redis.yaml
 kubectl apply -f k8s/20-app.yaml
-# equivalente: kubectl apply -f k8s/ -n production  (el namespace ya está en los YAML)
+# equivalente: kubectl apply -f k8s/
 
 # 4. Verificar
 kubectl get pods,svc,hpa -n production
@@ -71,12 +96,15 @@ kubectl get ingress -n production
 
 HPA: mín 3 / máx 20 réplicas (CPU 70%, memoria 80%).
 
+Manifests sueltos: `k8s/deployment.yaml`, `k8s/service.yaml`, `k8s/autoscale.yaml`.
+
 ## 4. CI/CD
 
 - Tests: `.github/workflows/smart-import-test.yml` (Fase 5)
 - Deploy imagen: `.github/workflows/smart-import-deploy.yml`
+- Alias: `.github/workflows/ci.yml`, `.github/workflows/cd.yml`
 
-Push a `main` con cambios en `packages/smart-import/**` construye y publica la imagen (GHCR) si `GITHUB_TOKEN` tiene `packages: write`.
+Push a `main` con cambios en `packages/smart-import/**` construye y publica la imagen (GHCR).
 
 ### Secrets recomendados (GitHub → Settings → Secrets and variables → Actions)
 
@@ -95,9 +123,9 @@ Push a `main` con cambios en `packages/smart-import/**` construye y publica la i
 
 ## 5. Checklist pre-prod
 
-- [ ] `SUPABASE_URL` / `SUPABASE_ANON_KEY` configurados
+- [ ] `SUPABASE_URL` / `SUPABASE_ANON_KEY` **o** `DATABASE_URL` configurados
 - [ ] Redis reachable (`REDIS_URL`)
-- [ ] `/health` → 200 en al menos un pod
+- [ ] `/health` → 200 (`healthy`) en al menos un pod
 - [ ] Swagger desactivable (`DISABLE_SWAGGER=1`) si no se desea público
 - [ ] Secrets no commiteados
 - [ ] HPA / resource limits activos
