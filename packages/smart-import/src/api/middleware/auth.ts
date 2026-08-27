@@ -109,10 +109,16 @@ export async function requireAuth(
     (req as AuthenticatedRequest).supabase = supabase;
     next();
   } catch (err) {
-    console.error(
-      "[smart-import.auth] Error inesperado:",
-      err instanceof Error ? err.message : err
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[smart-import.auth] Error inesperado:", message);
+    if (/Faltan variables SUPABASE/i.test(message)) {
+      res.status(503).json({
+        success: false,
+        error:
+          "Auth no configurada: define SUPABASE_URL y SUPABASE_ANON_KEY (o NEXT_PUBLIC_*)",
+      });
+      return;
+    }
     res.status(500).json({
       success: false,
       error: "Error de autenticación",

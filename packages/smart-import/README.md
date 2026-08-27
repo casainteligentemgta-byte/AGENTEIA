@@ -1,9 +1,17 @@
 /**
  * @agenteia/smart-import — Fase 1 (seguridad)
  *
- * Paquete con validación de archivos, rate limiting y auth para importaciones.
- * Pensado para montarse en un servidor Express:
+ * ## Scripts
+ * ```bash
+ * cd packages/smart-import
+ * npm install
+ * npm run lint
+ * npm test
+ * npm run test:coverage
+ * npm run dev   # http://localhost:3000
+ * ```
  *
+ * ## Montar en Express
  * ```ts
  * import express from "express";
  * import { importRouter } from "@agenteia/smart-import";
@@ -13,8 +21,17 @@
  * app.use("/api/import", importRouter);
  * ```
  *
+ * ## Probar
+ * ```bash
+ * curl -X POST http://localhost:3000/api/import/execute \
+ *   -H "Authorization: Bearer YOUR_TOKEN" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"data":[{"id":1}],"targetTable":"devices"}'
+ * ```
+ *
  * Variables de entorno:
- * - NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL
- * - NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_ANON_KEY
- * - REDIS_URL (opcional; sin ella el rate limit usa memoria)
+ * - `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL`
+ * - `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`
+ * - `REDIS_URL` (opcional; sin ella el rate limit usa memoria)
+ * - `PORT` (default 3000)
  */
