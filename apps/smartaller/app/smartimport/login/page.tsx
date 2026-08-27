@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
+import { notifySmartImportRegistrationAction } from "@/app/actions/notify-registration";
 import {
   canonicalizeImportacionPath,
   IMPORTACION_BASE,
@@ -58,6 +59,9 @@ function ImportacionLoginForm() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        void notifySmartImportRegistrationAction({ email }).catch(() => {
+          /* soft-fail: no bloquear UI */
+        });
         setMessage({
           type: "success",
           text: "Cuenta creada. Revisa tu correo para confirmar o inicia sesión.",

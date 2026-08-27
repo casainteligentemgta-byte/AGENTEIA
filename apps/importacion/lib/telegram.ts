@@ -172,3 +172,29 @@ export async function sendTelegramMessage(chatId: number, text: string): Promise
     throw new Error(`Telegram sendMessage falló: ${res.status} ${body.slice(0, 200)}`);
   }
 }
+
+/** Chat admin para alertas de producto (registros, etc.). */
+export function getAdminNotifyChatId(): number | null {
+  const raw = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Notifica al chat admin. Soft-fail si faltan token/chat o Telegram falla.
+ * No lanza: no debe romper onboarding.
+ */
+export async function notifyAdminTelegram(text: string): Promise<boolean> {
+  const chatId = getAdminNotifyChatId();
+  if (!chatId || !process.env.TELEGRAM_BOT_TOKEN?.trim()) {
+    return false;
+  }
+  try {
+    await sendTelegramMessage(chatId, text);
+    return true;
+  } catch (err) {
+    console.error("[telegram] notifyAdminTelegram falló:", err);
+    return false;
+  }
+}
