@@ -33,14 +33,14 @@ function getRedisClient(): Redis | null {
         host,
         port: Number.isFinite(port) ? port : 6379,
         maxRetriesPerRequest: 1,
-        enableOfflineQueue: false,
-        lazyConnect: true,
+        enableOfflineQueue: true,
+        lazyConnect: false,
       });
     } else if (url) {
       redisClient = new Redis(url, {
         maxRetriesPerRequest: 1,
-        enableOfflineQueue: false,
-        lazyConnect: true,
+        enableOfflineQueue: true,
+        lazyConnect: false,
       });
     } else {
       console.warn(
@@ -67,11 +67,19 @@ function buildStore(prefix: string): Options["store"] | undefined {
   const client = getRedisClient();
   if (!client) return undefined;
 
-  return new RedisStore({
-    prefix: `smart-import:${prefix}:`,
-    // @ts-expect-error ioredis call compatible con rate-limit-redis
-    sendCommand: (...args: string[]) => client.call(...args),
-  });
+  try {
+    return new RedisStore({
+      prefix: `smart-import:${prefix}:`,
+      // @ts-expect-error ioredis call compatible con rate-limit-redis
+      sendCommand: (...args: string[]) => client.call(...args),
+    });
+  } catch (err) {
+    console.warn(
+      "[smart-import.rateLimit] RedisStore no disponible; memoria local:",
+      err instanceof Error ? err.message : err
+    );
+    return undefined;
+  }
 }
 
 export function buildRateLimitKey(req: LimiterRequest): string {
