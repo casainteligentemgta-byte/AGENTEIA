@@ -12,5 +12,5 @@
  * - Health: `GET /health`
  * - Swagger: `GET /api/docs`
  * - Docs: `docs/README.md`
- * - K8s: `k8s/smartimport.yaml`
+ * - K8s: `k8s/` (namespace `production`)
  */

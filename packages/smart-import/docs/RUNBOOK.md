@@ -12,8 +12,8 @@
 
 ### 1. `/health` unhealthy
 
-1. `kubectl -n smartimport get pods`
-2. Logs: `kubectl -n smartimport logs -l app=smartimport --tail=200`
+1. `kubectl -n production get pods`
+2. Logs: `kubectl -n production logs -l app=smartimport --tail=200`
 3. Verificar Redis / Supabase
 4. Si OOM: subir limits o bajar batch size
 5. Si crash loop: rollback imagen
@@ -33,7 +33,7 @@
 ### 4. Pico de importaciones
 
 ```bash
-kubectl -n smartimport scale deploy/smartimport --replicas=10
+kubectl -n production scale deploy/smartimport --replicas=10
 # HPA tomará el control después
 ```
 
