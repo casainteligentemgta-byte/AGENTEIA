@@ -1,1 +1,7 @@
 coverage/
+logs/
+*.log
+.bin/
+playwright-report/
+test-results/
+html-report/
