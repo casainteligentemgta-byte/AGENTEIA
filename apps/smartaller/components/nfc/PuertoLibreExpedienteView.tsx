@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { ExternalLink, FileText, ImageIcon, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
 import { AlertaDiasNacionalizacion } from "@/components/nfc/AlertaDiasNacionalizacion";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreDescargarPdf } from "@/components/nfc/PuertoLibreDescargarPdf";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
+import { PuertoLibreExpedienteDocsSection } from "@/components/nfc/PuertoLibreExpedienteDocsSection";
 import {
-  DOCUMENTO_LABELS,
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
-  MEMORIA_FOTOGRAFICA_TIPOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
@@ -19,7 +18,6 @@ import {
   type DocumentoTipo,
   type EstadoNacionalizacion,
   type EstadoSeniat,
-  type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { placaRealVisible } from "@/lib/importacion/expediente";
 import {
@@ -43,47 +41,6 @@ function valor(v: string | number | null | undefined, fallback = "—") {
   return String(v);
 }
 
-function DocRow({
-  tipo,
-  docs,
-}: {
-  tipo: DocumentoTipo;
-  docs: VehiculosDocumentos;
-}) {
-  const ref = docs[tipo];
-  const label = DOCUMENTO_LABELS[tipo];
-  if (!ref?.url) {
-    return (
-      <li className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2.5">
-        <span className="text-sm text-zinc-400">{label}</span>
-        <span className="text-xs text-zinc-600">Sin cargar</span>
-      </li>
-    );
-  }
-  const isImage = /\.(jpe?g|png|webp|gif)(\?|$)/i.test(ref.url) || tipo.startsWith("foto_");
-  return (
-    <li>
-      <a
-        href={ref.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2.5 transition hover:border-cyan-700/50"
-      >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-900 text-zinc-500">
-          {isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ref.url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <FileText className="h-4 w-4" />
-          )}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">{label}</span>
-        <ExternalLink className="h-4 w-4 shrink-0 text-cyan-400" />
-      </a>
-    </li>
-  );
-}
-
 export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
   const imp = ficha.importacion;
   const codigo = ficha.codigoExpediente ?? "—";
@@ -102,10 +59,6 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       ...PL_NACIONALIZACION_M2_TIPOS,
       ...PL_NACIONALIZACION_M3_TIPOS,
     ])
-  );
-  const docsCargados = docTipos.filter((t) => Boolean(ficha.documentos[t]?.url));
-  const fotosCargadas = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) =>
-    Boolean(ficha.documentos[t]?.url)
   );
 
   return (
@@ -308,65 +261,12 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
 
       <PuertoLibrePlazosPanel vehiculoId={ficha.id} importacion={imp} />
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-zinc-200">Documentos</h2>
-          <span className="text-xs text-zinc-500">
-            {docsCargados.length}/{docTipos.length} cargados
-          </span>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {docTipos.map((tipo) => (
-            <DocRow key={tipo} tipo={tipo} docs={ficha.documentos} />
-          ))}
-        </ul>
-      </section>
-
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-            <ImageIcon className="h-4 w-4 text-cyan-400" />
-            Memoria descriptiva
-          </h2>
-          <span className="text-xs text-zinc-500">
-            {fotosCargadas.length}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
-          </span>
-        </div>
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => {
-            const url = ficha.documentos[tipo]?.url;
-            return (
-              <li key={tipo}>
-                {url ? (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={DOCUMENTO_LABELS[tipo]}
-                      className="aspect-[4/3] w-full object-cover"
-                    />
-                    <p className="truncate px-2 py-1.5 text-[11px] text-zinc-400">
-                      {DOCUMENTO_LABELS[tipo]}
-                    </p>
-                  </a>
-                ) : (
-                  <div className="flex aspect-[4/3] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 px-2 text-center">
-                    <ImageIcon className="h-5 w-5 text-zinc-700" />
-                    <p className="mt-1 text-[11px] text-zinc-600">
-                      {DOCUMENTO_LABELS[tipo]}
-                    </p>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      <PuertoLibreExpedienteDocsSection
+        vehiculoId={ficha.id}
+        initialDocs={ficha.documentos}
+        docTipos={docTipos}
+        canMutate={canMutate}
+      />
 
       <PuertoLibreDeleteExpediente vehiculoId={ficha.id} codigo={codigo} />
 
