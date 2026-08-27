@@ -8,6 +8,8 @@ export default defineConfig({
       "chaos-test/**/*.test.ts",
     ],
     env: {
+      OTEL_ENABLED: "0",
+      LOG_LEVEL: "error",
       HEALTH_MONITOR: "0",
     },
     coverage: {

@@ -2,9 +2,13 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createRedisClient } from "redis";
 import importRouter from "./routes/import";
+import { createObservabilityRouter } from "./routes/observability";
 import { gracefulShutdown } from "./middleware/gracefulShutdown";
+import { requestLogger } from "./middleware/requestLogger";
 import { HealthCheck } from "../services/health/HealthCheck";
 import { CacheManager } from "../services/cache/CacheManager";
+import { logger } from "../services/logging/Logger";
+import { tracer } from "../services/tracing/Tracer";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -12,6 +16,7 @@ export function createSmartImportApp() {
   const app = express();
   app.set("trust proxy", 1);
   app.use(express.json({ limit: "2mb" }));
+  app.use(requestLogger);
 
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -38,10 +43,9 @@ export function createSmartImportApp() {
           password: process.env.REDIS_PASSWORD || undefined,
         });
     void redis.connect().catch((err: unknown) => {
-      console.warn(
-        "[smart-import.server] Redis no conectó:",
-        err instanceof Error ? err.message : err
-      );
+      logger.warn("Redis no conectó", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       redis = null;
     });
   }
@@ -51,11 +55,13 @@ export function createSmartImportApp() {
     health.startMonitoring(Number(process.env.HEALTH_INTERVAL_MS ?? 30_000));
   }
 
-  app.get("/health", async (_req, res) => {
-    const status = await health.check();
-    const code = status.status === "unhealthy" ? 503 : 200;
-    res.status(code).json(status);
-  });
+  app.use(
+    createObservabilityRouter({
+      health,
+      supabase,
+      redis,
+    })
+  );
 
   app.use("/api/import", importRouter);
 
@@ -66,9 +72,9 @@ export function createSmartImportApp() {
       res: express.Response,
       _next: express.NextFunction
     ) => {
-      console.error(
-        "[smart-import.server] Error:",
-        err instanceof Error ? err.message : err
+      logger.error(
+        "Error no manejado en API",
+        err instanceof Error ? err : new Error(String(err))
       );
       res.status(500).json({ success: false, error: "Error interno" });
     }
@@ -84,20 +90,25 @@ export async function main(): Promise<void> {
   gracefulShutdown.setupSignalHandlers({
     timeoutMs: 30_000,
     onShutdown: async () => {
-      console.log("[smart-import.server] Cerrando conexiones…");
+      logger.info("Cerrando conexiones…");
       health.stopMonitoring();
       await cache.disconnect();
+      await tracer.shutdown();
     },
   });
 
   app.listen(PORT, () => {
-    console.log(`[smart-import] listening on http://localhost:${PORT}`);
-    console.log(`  GET  /health`);
-    console.log(`  POST /api/import/execute`);
-    console.log(`  POST /api/import/analyze`);
-    console.log(`  POST /api/import/validate`);
-    console.log(`  POST /api/import/transform`);
-    console.log(`  GET  /api/import/status/:importId`);
+    logger.info("SmartImport listening", {
+      port: PORT,
+      endpoints: [
+        "GET /health",
+        "GET /health/readiness",
+        "GET /health/liveness",
+        "GET /metrics",
+        "GET /metrics/summary",
+        "POST /api/import/execute",
+      ],
+    });
   });
 }
 

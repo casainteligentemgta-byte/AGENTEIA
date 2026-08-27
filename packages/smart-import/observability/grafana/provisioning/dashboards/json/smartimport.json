@@ -1,0 +1,309 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Importaciones",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 1,
+      "title": "Importaciones por hora (24h)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(increase(smartimport_imports_total[1h]))",
+          "legendFormat": "imports/h",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 95 },
+              { "color": "green", "value": 99 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 1 },
+      "id": 2,
+      "title": "Tasa de éxito (%)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "100 * sum(rate(smartimport_imports_total{status=\"success\"}[5m])) / clamp_min(sum(rate(smartimport_imports_total[5m])), 0.0001)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "color": { "mode": "thresholds" } },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 1 },
+      "id": 3,
+      "title": "Tasa de error (%)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "100 * sum(rate(smartimport_imports_total{status=\"failure\"}[5m])) / clamp_min(sum(rate(smartimport_imports_total[5m])), 0.0001)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101,
+      "title": "Performance",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "id": 4,
+      "title": "Latencia promedio (s)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(smartimport_import_duration_seconds_sum[5m]) / clamp_min(rate(smartimport_import_duration_seconds_count[5m]), 0.0001)",
+          "legendFormat": "avg",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "id": 5,
+      "title": "Distribución de tiempos (histograma)",
+      "type": "heatmap",
+      "targets": [
+        {
+          "expr": "sum by (le) (rate(smartimport_import_duration_seconds_bucket[5m]))",
+          "format": "heatmap",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "id": 6,
+      "title": "P95 / P99 latencia",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(smartimport_import_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(smartimport_import_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 102,
+      "title": "Caché",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "id": 7,
+      "title": "Cache hit rate (%)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "100 * rate(smartimport_cache_hits_total[5m]) / clamp_min(rate(smartimport_cache_hits_total[5m]) + rate(smartimport_cache_misses_total[5m]), 0.0001)",
+          "legendFormat": "hit%",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+      "id": 8,
+      "title": "Cache size (MB)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "smartimport_cache_size_bytes / 1024 / 1024",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "id": 9,
+      "title": "Importaciones activas",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "smartimport_active_imports",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 103,
+      "title": "Recursos",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 28 },
+      "id": 10,
+      "title": "Uso de memoria (heap)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "smartimport_memory_usage_bytes",
+          "legendFormat": "heap",
+          "refId": "A"
+        },
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "rss",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 28 },
+      "id": 11,
+      "title": "Uso de CPU",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(process_cpu_user_seconds_total[5m])",
+          "legendFormat": "user",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(process_cpu_system_seconds_total[5m])",
+          "legendFormat": "system",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 28 },
+      "id": 12,
+      "title": "Conexiones BD",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "smartimport_db_connections",
+          "legendFormat": "connections",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "id": 104,
+      "title": "Errores",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 37 },
+      "id": 13,
+      "title": "Errores por tipo",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(smartimport_errors_total[5m]))",
+          "legendFormat": "{{type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 37 },
+      "id": 14,
+      "title": "Errores totales (alert >5%)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(smartimport_errors_total)",
+          "refId": "A"
+        }
+      ],
+      "alert": {
+        "name": "Error rate > 5%",
+        "conditions": [
+          {
+            "evaluator": { "params": [5], "type": "gt" },
+            "operator": { "type": "and" },
+            "query": { "params": ["B", "5m", "now"] },
+            "reducer": { "type": "avg", "params": [] },
+            "type": "query"
+          }
+        ],
+        "frequency": "1m",
+        "handler": 1,
+        "message": "Tasa de errores de importación supera 5%",
+        "name": "SmartImport error rate high"
+      }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["smartimport", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SmartImport Observability",
+  "uid": "smartimport-obs",
+  "version": 1
+}
