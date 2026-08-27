@@ -243,4 +243,7 @@ export function mountSwagger(app: Express): void {
   app.get("/api/docs.json", (_req, res) => {
     res.json(swaggerSpec);
   });
+  app.get("/api/docs/swagger.json", (_req, res) => {
+    res.json(swaggerSpec);
+  });
 }

@@ -33,6 +33,8 @@ npm run dev
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker, Compose prod, Kubernetes, CI/CD |
 | [RUNBOOK.md](./RUNBOOK.md) | Incidentes, escalado, rollback |
 | [API.md](./API.md) | Endpoints y autenticación |
+| [SCALING.md](./SCALING.md) | HPA, réplicas, cuellos de botella |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Cómo contribuir |
 | [TESTING.md](./TESTING.md) | Suite de tests (si Fase 5 mergeada) |
 
 ## Arquitectura (producción)
