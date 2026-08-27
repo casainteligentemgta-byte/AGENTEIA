@@ -98,6 +98,24 @@ export function formatPuertosDescarga(puertos: string[]): string {
   return cleaned.join(", ");
 }
 
+/** Valor único para un `<select>` de puerto (toma el primero del catálogo si venía multi). */
+export function primaryPuertoDescarga(
+  value: string | null | undefined
+): string {
+  const selected = parsePuertosDescarga(value);
+  const catalogado = selected.find((p) =>
+    PUERTOS_DESCARGA_VENEZUELA.includes(p as PuertoDescargaVenezuela)
+  );
+  if (catalogado) return catalogado;
+  const resolved = resolvePuertoDescarga(value);
+  if (
+    PUERTOS_DESCARGA_VENEZUELA.includes(resolved as PuertoDescargaVenezuela)
+  ) {
+    return resolved;
+  }
+  return selected[0] ?? "";
+}
+
 export function isPuertoDescargaCatalogado(value: string): boolean {
   const resolved = resolvePuertoDescarga(value);
   return PUERTOS_DESCARGA_VENEZUELA.some((p) => p === resolved);
