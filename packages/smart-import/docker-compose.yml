@@ -24,6 +24,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Via host cuando el bridge Docker no enruta contenedor↔contenedor
       REDIS_URL: ${REDIS_URL:-redis://host.docker.internal:6379}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://smartimport:${POSTGRES_PASSWORD:-smartimport_dev_change_me}@host.docker.internal:5432/smartimport}
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}

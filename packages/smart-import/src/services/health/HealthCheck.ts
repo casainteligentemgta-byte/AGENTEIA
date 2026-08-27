@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RedisClientType } from "redis";
 import { statfs } from "fs/promises";
+import net from "net";
+import os from "os";
 
 export type ComponentStatus = "up" | "down";
 
@@ -67,18 +69,58 @@ export class HealthCheck {
   }
 
   private async checkDatabase(): Promise<HealthStatus["database"]> {
-    if (!this.supabase) {
-      return { status: "down", error: "Supabase no configurado" };
+    if (this.supabase) {
+      const t0 = performance.now();
+      try {
+        const { error } = await this.supabase
+          .from("devices")
+          .select("id")
+          .limit(1);
+        const latency = performance.now() - t0;
+        if (error) {
+          return { status: "down", latency, error: error.message };
+        }
+        return { status: "up", latency };
+      } catch (err) {
+        return {
+          status: "down",
+          latency: performance.now() - t0,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
     }
+
+    const databaseUrl = process.env.DATABASE_URL?.trim();
+    if (databaseUrl) {
+      return this.checkPostgresTcp(databaseUrl);
+    }
+
+    return { status: "down", error: "Supabase/DATABASE_URL no configurado" };
+  }
+
+  /** Ping TCP a Postgres (compose local sin Supabase). */
+  private async checkPostgresTcp(
+    databaseUrl: string
+  ): Promise<HealthStatus["database"]> {
     const t0 = performance.now();
     try {
-      const { error } = await this.supabase
-        .from("devices")
-        .select("id")
-        .limit(1);
+      const parsed = new URL(databaseUrl);
+      const host = parsed.hostname || "127.0.0.1";
+      const port = Number(parsed.port || 5432);
+      const ok = await new Promise<boolean>((resolve) => {
+        const socket = net.connect({ host, port }, () => {
+          socket.end();
+          resolve(true);
+        });
+        socket.setTimeout(2000, () => {
+          socket.destroy();
+          resolve(false);
+        });
+        socket.on("error", () => resolve(false));
+      });
       const latency = performance.now() - t0;
-      if (error) {
-        return { status: "down", latency, error: error.message };
+      if (!ok) {
+        return { status: "down", latency, error: "Postgres no responde" };
       }
       return { status: "up", latency };
     } catch (err) {
@@ -109,10 +151,9 @@ export class HealthCheck {
 
   private checkMemory(): HealthStatus["memory"] {
     const mem = process.memoryUsage();
-    const usage = Math.round(mem.heapUsed / 1024 / 1024);
-    const total = Math.round(mem.heapTotal / 1024 / 1024);
-    const percentage =
-      total > 0 ? (mem.heapUsed / mem.heapTotal) * 100 : 0;
+    const usage = Math.round(mem.rss / 1024 / 1024);
+    const total = Math.round(os.totalmem() / 1024 / 1024);
+    const percentage = total > 0 ? (mem.rss / os.totalmem()) * 100 : 0;
     return { usage, total, percentage };
   }
 
