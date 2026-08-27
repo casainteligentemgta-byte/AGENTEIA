@@ -11,6 +11,7 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   faltantesMatriculacionCarpeta,
@@ -1182,11 +1183,13 @@ export async function completePuertoLibreFase2EmbarqueAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_EMBARQUE_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  const faltantes = PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.filter(
+    (t) => !docs[t]?.url
+  );
   if (faltantes.length > 0) {
     return {
       success: false,
-      error: "Carga BL/Guía, lista de empaque y póliza de transporte",
+      error: "Carga BL/Guía y lista de empaque (póliza de transporte es opcional)",
     };
   }
 

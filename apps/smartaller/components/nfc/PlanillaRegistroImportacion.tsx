@@ -75,6 +75,7 @@ import {
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
@@ -245,6 +246,10 @@ export function PlanillaRegistroImportacion({
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
+  const embarqueObligatoriosCount = countDocs(
+    docs,
+    PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS
+  );
   const aduanaCount = countDocs(docs, desaduanamientoTipos);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
@@ -269,7 +274,8 @@ export function PlanillaRegistroImportacion({
         initialImportacion.importadorNombre?.trim()
     ) && registroDocsCount === PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.length;
 
-  const embarqueCompleto = embarqueCount === PL_EMBARQUE_DOCUMENTO_TIPOS.length;
+  const embarqueCompleto =
+    embarqueObligatoriosCount === PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.length;
 
   const llegadaDocsCount = countDocs(docs, PL_LLEGADA_DOCUMENTO_TIPOS);
   const llegadaCompleta =

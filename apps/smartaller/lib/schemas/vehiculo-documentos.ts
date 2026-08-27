@@ -224,11 +224,18 @@ export const PL_FASE1_REGISTRO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 /**
  * Documentos de fase 2 (Embarque): BL, lista de empaque y póliza de transporte.
  * La DAV se carga en desaduanamiento.
+ * La póliza se muestra en la UI pero no es obligatoria para avanzar a Llegada.
  */
 export const PL_EMBARQUE_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
   "poliza_transporte",
+];
+
+/** Mínimo para completar Fase 2 y continuar a Llegada. */
+export const PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS: DocumentoTipo[] = [
+  "bl_guia",
+  "lista_empaque",
 ];
 
 /**

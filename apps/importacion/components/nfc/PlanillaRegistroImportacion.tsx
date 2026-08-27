@@ -74,6 +74,7 @@ import {
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_ORIGEN,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
+  PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
@@ -244,6 +245,10 @@ export function PlanillaRegistroImportacion({
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
+  const embarqueObligatoriosCount = countDocs(
+    docs,
+    PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS
+  );
   const aduanaCount = countDocs(docs, desaduanamientoTipos);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
@@ -268,7 +273,8 @@ export function PlanillaRegistroImportacion({
         initialImportacion.importadorNombre?.trim()
     ) && registroDocsCount === PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.length;
 
-  const embarqueCompleto = embarqueCount === PL_EMBARQUE_DOCUMENTO_TIPOS.length;
+  const embarqueCompleto =
+    embarqueObligatoriosCount === PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.length;
 
   const llegadaDocsCount = countDocs(docs, PL_LLEGADA_DOCUMENTO_TIPOS);
   const llegadaCompleta =
@@ -1184,6 +1190,10 @@ function Fase2Embarque({
             {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Obligatorios: BL y lista de empaque. La póliza de transporte es
+          opcional para continuar a Llegada.
+        </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -1192,7 +1202,13 @@ function Fase2Embarque({
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
               acceptMode="both"
-              hint={docs[tipo]?.url ? "" : "Foto o PDF · máx. 10 MB"}
+              hint={
+                docs[tipo]?.url
+                  ? ""
+                  : tipo === "poliza_transporte"
+                    ? "Opcional · foto o PDF · máx. 10 MB"
+                    : "Foto o PDF · máx. 10 MB"
+              }
               actionLabel={docs[tipo]?.url ? "Sustituir" : "Escanear / PDF"}
               onUploaded={(next) => {
                 setDocs(next);
