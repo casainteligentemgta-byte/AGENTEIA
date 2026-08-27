@@ -2,7 +2,7 @@
   "name": "@agenteia/smart-import",
   "version": "0.1.0",
   "private": true,
-  "description": "SmartImport — seguridad (F1) + caché (F2) + resiliencia (F3)",
+  "description": "SmartImport — F1 seguridad + F2 caché + F3 resiliencia + F5 tests",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
@@ -12,9 +12,22 @@
     "test": "vitest run src/__tests__/unit",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage src/__tests__/unit",
+    "coverage": "vitest run --coverage src/__tests__/unit",
     "test:performance": "vitest run src/__tests__/performance",
     "test:resilience": "vitest run src/__tests__/resilience",
-    "dev": "tsx src/api/server.ts"
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
+    "test:e2e:ui": "playwright test --config=e2e/playwright.config.ts --ui",
+    "test:e2e:debug": "playwright test --config=e2e/playwright.config.ts --debug",
+    "test:load": "k6 run load-test/import.load.js",
+    "test:load:smoke": "SCENARIO=smoke k6 run load-test/import.load.js",
+    "test:load:cloud": "k6 cloud load-test/import.load.js",
+    "test:chaos": "vitest run chaos-test",
+    "test:security": "vitest run src/__tests__/security",
+    "test:contract": "vitest run src/__tests__/contract",
+    "test:integration": "vitest run src/__tests__/integration",
+    "test:all": "npm run test && npm run test:e2e && npm run test:chaos && npm run test:security && npm run test:contract && npm run test:integration",
+    "dev": "tsx src/api/server.ts",
+    "dev:e2e": "tsx e2e/server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
