@@ -21,6 +21,7 @@ export async function notifySmartImportRegistrationAction(input: {
     "🆕 Nuevo registro SmartImport",
     `📧 ${email}`,
     "🌐 https://smarttaller.xyz/smartimport",
+    "🤖 @smartTaller_bot",
     `🕒 ${when}`,
   ].join("\n");
 
