@@ -22,7 +22,8 @@ services:
       NODE_ENV: production
       PORT: "3000"
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      REDIS_URL: redis://redis:6379
+      # Via host cuando el bridge Docker no enruta contenedor↔contenedor
+      REDIS_URL: ${REDIS_URL:-redis://host.docker.internal:6379}
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}
@@ -30,6 +31,8 @@ services:
       HEALTH_MONITOR: ${HEALTH_MONITOR:-1}
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
       OTEL_ENABLED: ${OTEL_ENABLED:-0}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

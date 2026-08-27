@@ -64,6 +64,13 @@ function getRedisClient(): Redis | null {
 }
 
 function buildStore(prefix: string): Options["store"] | undefined {
+  // RedisStore hace SCRIPT LOAD al construir. Si Redis no responde, ioredis
+  // lanza MaxRetriesPerRequestError y tumba el proceso. Usar memoria salvo
+  // RATE_LIMIT_USE_REDIS=1 (cuando Redis ya es estable).
+  if (process.env.RATE_LIMIT_USE_REDIS !== "1") {
+    return undefined;
+  }
+
   const client = getRedisClient();
   if (!client) return undefined;
 
