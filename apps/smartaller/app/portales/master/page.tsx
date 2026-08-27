@@ -82,7 +82,7 @@ export default async function PortalMasterPage() {
       ) : (
         <p className="mb-6 rounded-xl border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
           Sin `ver_todo` no puedes dirigir roles ni etiquetas, ni aislar o borrar.
-          y la ley lo permiten.
+          Actívalo solo si el contrato y la ley lo permiten.
         </p>
       )}
 

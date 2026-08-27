@@ -57,6 +57,7 @@ function revalidateMaster() {
   revalidatePath("/portales/master");
   revalidatePath("/portales");
   revalidatePath("/smartimport");
+  revalidatePath("/dashboard");
 }
 
 function parseRoleList(raw: unknown): string[] {
