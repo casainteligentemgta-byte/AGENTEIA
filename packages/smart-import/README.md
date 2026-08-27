@@ -1,23 +1,28 @@
 /**
- * @agenteia/smart-import — Fases 1–5 (seguridad, caché, resiliencia, observabilidad, tests)
+ * @agenteia/smart-import — Production ready (Fases 1–6)
  *
- * ## Scripts
+ * ## Quick start
  * ```bash
  * cd packages/smart-import
- * npm install
- * npm run lint
+ * cp .env.example .env
+ * npm install && npm run build && npm start
+ * # o: npm run docker:up
+ * ```
+ *
+ * - Health: `GET /health`
+ * - Swagger: `GET /api/docs`
+ * - Metrics: `GET /metrics`
+ * - Docs: `docs/README.md`
+ * - K8s: `k8s/` (namespace `production`)
+ *
+ * ## Tests
+ * ```bash
  * npm test
  * npm run test:e2e
  * npm run test:chaos
  * npm run test:security
- * npm run test:performance
- * npm run test:resilience
  * npm run test:observability
- * npm run test:contract
- * npm run test:integration
  * npm run test:load:smoke   # requiere: npm run dev:e2e + k6 en PATH
- * npm run build
- * npm run dev   # http://localhost:3000
  * ```
  *
  * Guía tests: `docs/TESTING.md`

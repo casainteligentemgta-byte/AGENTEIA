@@ -1,0 +1,49 @@
+# Re-export del Deployment de app (ver también 20-app.yaml)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartimport
+  namespace: production
+  labels:
+    app: smartimport
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: smartimport
+  template:
+    metadata:
+      labels:
+        app: smartimport
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/casainteligentemgta-byte/smartimport:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: smartimport-config
+            - secretRef:
+                name: smartimport-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

@@ -1,15 +1,88 @@
-# Observabilidad SmartImport (Fase 4)
+# SmartImport — stack local / staging (app + deps + observabilidad)
 # Uso:
 #   cd packages/smart-import
-#   docker compose up -d prometheus grafana jaeger
-#   docker ps
+#   docker compose up -d --build
 #
-# URLs:
-#   Prometheus  http://localhost:9090
-#   Grafana     http://localhost:3001  (admin/admin)
-#   Jaeger UI   http://localhost:16686
+# App:        http://localhost:3000
+# Swagger:    http://localhost:3000/api/docs
+# Prometheus: http://localhost:9090
+# Grafana:    http://localhost:3001  (admin/admin)
+# Jaeger:     http://localhost:16686
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smartimport:latest
+    container_name: smartimport-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY:-}}
+      HEALTH_MONITOR: ${HEALTH_MONITOR:-1}
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      OTEL_ENABLED: ${OTEL_ENABLED:-0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - smartimport
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartimport-postgres
+    environment:
+      POSTGRES_DB: smartimport
+      POSTGRES_USER: smartimport
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartimport_dev_change_me}
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartimport -d smartimport"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - smartimport
+
+  redis:
+    image: redis:7-alpine
+    container_name: smartimport-redis
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - smartimport
+
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: smartimport-prometheus
@@ -17,7 +90,7 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
+      - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -25,6 +98,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    networks:
+      - smartimport
 
   grafana:
     image: grafana/grafana:11.2.0
@@ -33,28 +108,38 @@ services:
       - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - grafana_data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks:
+      - smartimport
 
   jaeger:
     image: jaegertracing/all-in-one:1.62
     container_name: smartimport-jaeger
     ports:
-      - "6831:6831/udp" # agent thrift compact
-      - "16686:16686"   # UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
-      - "14268:14268"   # Jaeger HTTP collector
+      - "6831:6831/udp"
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "14268:14268"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     restart: unless-stopped
+    networks:
+      - smartimport
 
 volumes:
-  prometheus_data:
-  grafana_data:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  smartimport:
+    driver: bridge

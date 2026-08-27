@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartimport
+  namespace: production
+spec:
+  type: LoadBalancer
+  selector:
+    app: smartimport
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

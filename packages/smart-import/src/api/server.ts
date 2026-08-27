@@ -7,6 +7,7 @@ import { gracefulShutdown } from "./middleware/gracefulShutdown";
 import { requestLogger } from "./middleware/requestLogger";
 import { HealthCheck } from "../services/health/HealthCheck";
 import { CacheManager } from "../services/cache/CacheManager";
+import { mountSwagger } from "./swagger";
 import { logger } from "../services/logging/Logger";
 import { tracer } from "../services/tracing/Tracer";
 
@@ -63,6 +64,8 @@ export function createSmartImportApp() {
     })
   );
 
+  mountSwagger(app);
+
   app.use("/api/import", importRouter);
 
   app.use(
@@ -106,7 +109,12 @@ export async function main(): Promise<void> {
         "GET /health/liveness",
         "GET /metrics",
         "GET /metrics/summary",
+        "GET /api/docs",
         "POST /api/import/execute",
+        "POST /api/import/analyze",
+        "POST /api/import/validate",
+        "POST /api/import/transform",
+        "GET /api/import/status/:importId",
       ],
     });
   });

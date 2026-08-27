@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartimport-config
+  namespace: production
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"
+  HEALTH_MONITOR: "1"
+  REDIS_URL: "redis://smartimport-redis:6379"
+  DISABLE_SWAGGER: "0"

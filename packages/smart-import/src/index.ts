@@ -88,3 +88,6 @@ export { requestLogger } from "./api/middleware/requestLogger";
 export {
   createObservabilityRouter,
 } from "./api/routes/observability";
+
+/** Fase 6 — producción */
+export { mountSwagger, swaggerSpec } from "./api/swagger";

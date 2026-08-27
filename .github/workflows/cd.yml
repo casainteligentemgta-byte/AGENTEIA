@@ -1,0 +1,16 @@
+# Alias CD — publica imagen SmartImport (delega en smart-import-deploy)
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/smart-import/**"
+      - ".github/workflows/cd.yml"
+      - ".github/workflows/smart-import-deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  call-deploy:
+    uses: ./.github/workflows/smart-import-deploy.yml
+    secrets: inherit
