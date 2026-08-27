@@ -138,7 +138,13 @@ export class HealthCheck {
     }
     const t0 = performance.now();
     try {
-      await this.redis.ping();
+      // Evita colgar /health si Redis no responde (p. ej. URL incorrecta en contenedor)
+      await Promise.race([
+        this.redis.ping(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Redis ping timeout")), 2000)
+        ),
+      ]);
       return { status: "up", latency: performance.now() - t0 };
     } catch (err) {
       return {
