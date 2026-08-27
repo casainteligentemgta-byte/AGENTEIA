@@ -4,6 +4,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/__tests__/**/*.test.ts"],
+    env: {
+      OTEL_ENABLED: "0",
+      LOG_LEVEL: "error",
+      HEALTH_MONITOR: "0",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

@@ -66,3 +66,25 @@ export type { CircuitBreakerMetrics } from "./services/circuitbreaker/CircuitBre
 export type { TransactionImportResult } from "./services/transaction/TransactionManager";
 export type { RetryOptions } from "./services/retry/RetryPolicy";
 export type { ShutdownConfig } from "./api/middleware/gracefulShutdown";
+
+/** Fase 4 — observabilidad */
+export { Logger, logger } from "./services/logging/Logger";
+export {
+  MetricsCollector,
+  metricsCollector,
+} from "./services/metrics/MetricsCollector";
+export { TracerService, tracer } from "./services/tracing/Tracer";
+export {
+  AlertManager,
+  alertManager,
+} from "./services/alerts/AlertManager";
+export type {
+  Alert,
+  AlertSeverity,
+  AlertChannel,
+  ThresholdMetrics,
+} from "./services/alerts/AlertManager";
+export { requestLogger } from "./api/middleware/requestLogger";
+export {
+  createObservabilityRouter,
+} from "./api/routes/observability";
