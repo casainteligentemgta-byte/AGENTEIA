@@ -47,3 +47,22 @@ export type {
   ValidationResult,
   ForeignKey,
 } from "./types/validation";
+
+/** Fase 3 — confiabilidad */
+export { RetryPolicy, isTransientError } from "./services/retry/RetryPolicy";
+export {
+  CircuitBreaker,
+  CircuitState,
+} from "./services/circuitbreaker/CircuitBreaker";
+export { TransactionManager } from "./services/transaction/TransactionManager";
+export { HealthCheck } from "./services/health/HealthCheck";
+export {
+  GracefulShutdown,
+  gracefulShutdown,
+} from "./api/middleware/gracefulShutdown";
+export { createSmartImportApp, main as startSmartImportServer } from "./api/server";
+export type { HealthStatus } from "./services/health/HealthCheck";
+export type { CircuitBreakerMetrics } from "./services/circuitbreaker/CircuitBreaker";
+export type { TransactionImportResult } from "./services/transaction/TransactionManager";
+export type { RetryOptions } from "./services/retry/RetryPolicy";
+export type { ShutdownConfig } from "./api/middleware/gracefulShutdown";
