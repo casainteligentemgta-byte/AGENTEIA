@@ -1,6 +1,8 @@
 import { Router, type Response, type NextFunction } from "express";
 import {
   requireAuth,
+  requireBodyTablePermission,
+  requireRole,
   requireTablePermission,
   type AuthenticatedRequest,
 } from "../middleware/auth";
@@ -9,7 +11,7 @@ import {
   analyzeRecords,
   enqueueImport,
   getImportJob,
-  isValidTargetTable,
+  isExecuteTargetTable,
   transformRecords,
   validateRecords,
 } from "../../services/ImportService";
@@ -18,6 +20,7 @@ import { FILE_CONFIG } from "../../config/fileConfig";
 
 const router = Router();
 
+/** Rate limit general (100 req/min) en todas las rutas de importación. */
 router.use(apiLimiter);
 
 function asAuth(req: AuthenticatedRequest): AuthenticatedRequest {
@@ -32,7 +35,11 @@ function readDataArray(body: unknown): ParsedRecord[] | null {
 }
 
 function safeErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message && !/token|password|secret/i.test(err.message)) {
+  if (
+    err instanceof Error &&
+    err.message &&
+    !/token|password|secret/i.test(err.message)
+  ) {
     return err.message;
   }
   return fallback;
@@ -40,13 +47,14 @@ function safeErrorMessage(err: unknown, fallback: string): string {
 
 /**
  * POST /api/import/execute
- * Ejecuta (encola) una importación validada.
+ * Middlewares: requireAuth → importLimiter → permiso de tabla (body).
+ * targetTable ∈ devices | automations | sensor_data.
  */
 router.post(
   "/execute",
   requireAuth,
   importLimiter,
-  requireTablePermission("targetTable"),
+  requireBodyTablePermission("targetTable"),
   async (req, res: Response) => {
     try {
       const authReq = asAuth(req as AuthenticatedRequest);
@@ -67,10 +75,11 @@ router.post(
       }
 
       const targetTable = String(req.body?.targetTable ?? "").trim();
-      if (!isValidTargetTable(targetTable)) {
+      if (!isExecuteTargetTable(targetTable)) {
         res.status(400).json({
           success: false,
-          error: "targetTable no es válida",
+          error:
+            "targetTable debe ser una de: devices, automations, sensor_data",
         });
         return;
       }
@@ -84,13 +93,17 @@ router.post(
         return;
       }
 
-      const job = await enqueueImport({
+      console.log(
+        `[smart-import.execute] user=${authReq.user.id} table=${targetTable} rows=${data.length}`
+      );
+
+      const result = await enqueueImport({
         user: authReq.user,
         targetTable,
         data,
       });
 
-      res.status(200).json({ success: true, import: job });
+      res.status(200).json({ success: true, import: result });
     } catch (err) {
       console.error(
         "[smart-import.execute] Error:",
@@ -202,7 +215,9 @@ router.get(
       const importId = String(req.params.importId ?? "");
       const job = getImportJob(importId);
       if (!job) {
-        res.status(404).json({ success: false, error: "Importación no encontrada" });
+        res
+          .status(404)
+          .json({ success: false, error: "Importación no encontrada" });
         return;
       }
       if (job.userId !== authReq.user.id && authReq.user.role !== "admin") {
@@ -223,6 +238,23 @@ router.get(
         error: safeErrorMessage(err, "No se pudo obtener el estado"),
       });
     }
+  }
+);
+
+/**
+ * GET /api/import/admin/users-meta
+ * Ejemplo admin: requireRole + requireTablePermission fijo.
+ */
+router.get(
+  "/admin/users-meta",
+  requireAuth,
+  requireRole(["admin"]),
+  requireTablePermission("users"),
+  (_req, res: Response) => {
+    res.status(200).json({
+      success: true,
+      tables: ["devices", "automations", "sensor_data", "users"],
+    });
   }
 );
 

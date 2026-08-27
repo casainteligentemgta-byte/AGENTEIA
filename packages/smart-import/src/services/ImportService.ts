@@ -17,15 +17,24 @@ export type ImportJob = {
 /** Almacén en memoria (Fase 1). Sustituible por BD en fases posteriores. */
 const importJobs = new Map<string, ImportJob>();
 
-const VALID_TARGET_TABLES = new Set([
+/** Tablas permitidas en POST /execute (Fase 1). */
+export const EXECUTE_TARGET_TABLES = [
   "devices",
   "automations",
   "sensor_data",
+] as const;
+
+const VALID_TARGET_TABLES = new Set<string>([
+  ...EXECUTE_TARGET_TABLES,
   "users",
 ]);
 
 export function isValidTargetTable(table: string): boolean {
   return VALID_TARGET_TABLES.has(table);
+}
+
+export function isExecuteTargetTable(table: string): boolean {
+  return (EXECUTE_TARGET_TABLES as readonly string[]).includes(table);
 }
 
 export function getImportJob(importId: string): ImportJob | undefined {

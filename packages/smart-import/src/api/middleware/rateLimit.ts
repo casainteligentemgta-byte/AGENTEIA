@@ -14,24 +14,41 @@ type LimiterRequest = Request & {
 let redisClient: Redis | null = null;
 let redisInitAttempted = false;
 
+/**
+ * Cliente Redis desde REDIS_HOST/REDIS_PORT (prioridad) o REDIS_URL.
+ * Sin configuración, express-rate-limit usa memoria local.
+ */
 function getRedisClient(): Redis | null {
   if (redisInitAttempted) return redisClient;
   redisInitAttempted = true;
 
+  const host = process.env.REDIS_HOST?.trim();
+  const portRaw = process.env.REDIS_PORT?.trim();
   const url = process.env.REDIS_URL?.trim();
-  if (!url) {
-    console.warn(
-      "[smart-import.rateLimit] REDIS_URL no configurada; usando memoria local"
-    );
-    return null;
-  }
 
   try {
-    redisClient = new Redis(url, {
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      lazyConnect: true,
-    });
+    if (host) {
+      const port = Number(portRaw || "6379");
+      redisClient = new Redis({
+        host,
+        port: Number.isFinite(port) ? port : 6379,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        lazyConnect: true,
+      });
+    } else if (url) {
+      redisClient = new Redis(url, {
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        lazyConnect: true,
+      });
+    } else {
+      console.warn(
+        "[smart-import.rateLimit] REDIS_HOST/REDIS_PORT (o REDIS_URL) no configurados; usando memoria local"
+      );
+      return null;
+    }
+
     redisClient.on("error", (err) => {
       console.warn("[smart-import.rateLimit] Redis error:", err.message);
     });

@@ -32,6 +32,6 @@
  * Variables de entorno:
  * - `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL`
  * - `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`
- * - `REDIS_URL` (opcional; sin ella el rate limit usa memoria)
+ * - `REDIS_HOST` / `REDIS_PORT` (preferido) o `REDIS_URL` (opcional; sin ellos usa memoria)
  * - `PORT` (default 3000)
  */
