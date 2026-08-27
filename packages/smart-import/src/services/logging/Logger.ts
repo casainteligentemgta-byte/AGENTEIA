@@ -30,8 +30,14 @@ export class Logger {
 
   constructor() {
     const logsDir = path.join(process.cwd(), "logs");
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    let canWriteLogs = true;
+    try {
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      fs.accessSync(logsDir, fs.constants.W_OK);
+    } catch {
+      canWriteLogs = false;
     }
 
     const level = process.env.LOG_LEVEL ?? "info";
@@ -46,18 +52,14 @@ export class Logger {
       })
     );
 
-    this.logger = winston.createLogger({
-      level,
-      defaultMeta: { service: "smartimport" },
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      transports: [
-        new winston.transports.Console({
-          format: isDev ? consoleFormat : winston.format.json(),
-        }),
+    const transports: winston.transport[] = [
+      new winston.transports.Console({
+        format: isDev ? consoleFormat : winston.format.json(),
+      }),
+    ];
+
+    if (canWriteLogs) {
+      transports.push(
         new winston.transports.File({
           filename: path.join(logsDir, "error.log"),
           level: "error",
@@ -74,8 +76,19 @@ export class Logger {
           datePattern: "YYYY-MM-DD",
           maxSize: "10m",
           maxFiles: "14d",
-        }),
-      ],
+        })
+      );
+    }
+
+    this.logger = winston.createLogger({
+      level,
+      defaultMeta: { service: "smartimport" },
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      ),
+      transports,
     });
 
     const dsn = process.env.SENTRY_DSN?.trim();

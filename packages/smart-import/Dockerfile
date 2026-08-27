@@ -28,6 +28,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY healthcheck.js ./
 
+RUN mkdir -p /app/logs && chown -R app:app /app/logs
+
 USER app
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

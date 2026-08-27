@@ -4,7 +4,7 @@
 
 | Mecanismo | Config |
 |-----------|--------|
-| Réplicas base | 3 (`k8s/20-app.yaml`) |
+| Réplicas base | 3 (`k8s/20-app.yaml` / `deployment.yaml`) |
 | HPA | CPU 70% / memoria 80% · min 3 · max 20 |
 | Compose prod | `deploy.replicas: 3` en `docker-compose.prod.yml` |
 
@@ -14,6 +14,32 @@ kubectl -n production scale deploy/smartimport --replicas=10
 
 # Ver HPA
 kubectl -n production get hpa smartimport -w
+```
+
+## Auto-Scaling
+
+El **Auto-Scaling** horizontal está definido en:
+
+- `k8s/autoscale.yaml` — HorizontalPodAutoscaler `smartimport`
+- `k8s/20-app.yaml` — HPA embebido en el manifiesto completo
+
+Objetivos típicos:
+
+- CPU promedio 70%
+- Memoria promedio 80%
+- `minReplicas: 3` · `maxReplicas: 20`
+
+Activar / aplicar:
+
+```bash
+kubectl apply -f k8s/autoscale.yaml
+kubectl -n production describe hpa smartimport
+```
+
+Desactivar temporalmente (solo escala manual):
+
+```bash
+kubectl -n production delete hpa smartimport
 ```
 
 ## Vertical
@@ -43,3 +69,4 @@ SCENARIO=spike k6 run load-test/import.load.js
 - [ ] Redis dimensionado
 - [ ] Límites de rate-limit coherentes con tráfico
 - [ ] Prueba de spike en staging
+- [ ] Auto-Scaling HPA verificado en staging

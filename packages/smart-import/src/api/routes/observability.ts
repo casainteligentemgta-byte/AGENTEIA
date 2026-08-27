@@ -65,7 +65,8 @@ export function createObservabilityRouter(deps: ObservabilityDeps): Router {
     );
     const dbConfigured = Boolean(
       process.env.SUPABASE_URL?.trim() ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+        process.env.DATABASE_URL?.trim()
     );
     const redisOk = !redisConfigured || status.redis.status === "up";
     const dbOk = !dbConfigured || status.database.status === "up";
