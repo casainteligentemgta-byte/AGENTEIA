@@ -62,8 +62,8 @@ import {
 } from "@/lib/importacion/aduanas-venezuela";
 import { PAISES, resolvePais } from "@/lib/importacion/paises";
 import {
-  formatPuertosDescarga,
   parsePuertosDescarga,
+  primaryPuertoDescarga,
   PUERTOS_DESCARGA_VENEZUELA,
   resolvePuertoDescarga,
 } from "@/lib/importacion/puertos-venezuela";
@@ -1305,56 +1305,37 @@ function Fase2Embarque({
               name="fechaLlegadaBuque"
             />
           </div>
-          <div className="block min-w-0 space-y-1.5 sm:col-span-2">
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Puerto de descarga *</span>
-            <p className="text-[11px] text-slate-500">
-              Selección múltiple · marca todos los que apliquen
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {PUERTOS_DESCARGA_VENEZUELA.map((p) => {
-                const selected = parsePuertosDescarga(datos.puerto);
-                const checked = selected.includes(p);
-                return (
-                  <label
-                    key={p}
-                    className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-2 text-sm transition ${
-                      checked
-                        ? "border-cyan-600/60 bg-cyan-950/40 text-cyan-100"
-                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        const next = checked
-                          ? selected.filter((x) => x !== p)
-                          : [...selected, p];
-                        patch("puerto", formatPuertosDescarga(next));
-                      }}
-                      className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-600/40"
-                    />
-                    <span className="truncate">{p}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {(() => {
-              const extras = parsePuertosDescarga(datos.puerto).filter(
-                (p) =>
-                  !PUERTOS_DESCARGA_VENEZUELA.includes(
-                    p as (typeof PUERTOS_DESCARGA_VENEZUELA)[number]
-                  )
-              );
-              if (extras.length === 0) return null;
-              return (
-                <p className="text-[11px] text-amber-200/90">
-                  También del OCR: {extras.map(resolvePuertoDescarga).join(", ")}
-                </p>
-              );
-            })()}
-            <input type="hidden" name="puerto" value={datos.puerto} required />
-          </div>
+            <select
+              name="puerto"
+              required
+              value={primaryPuertoDescarga(datos.puerto)}
+              onChange={(e) => patch("puerto", e.target.value)}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Selecciona puerto
+              </option>
+              {PUERTOS_DESCARGA_VENEZUELA.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+              {parsePuertosDescarga(datos.puerto)
+                .filter(
+                  (p) =>
+                    !PUERTOS_DESCARGA_VENEZUELA.includes(
+                      p as (typeof PUERTOS_DESCARGA_VENEZUELA)[number]
+                    )
+                )
+                .map((p) => (
+                  <option key={p} value={p}>
+                    {resolvePuertoDescarga(p)}
+                  </option>
+                ))}
+            </select>
+          </label>
           <label className="block min-w-0 space-y-1.5">
             <span className="text-sm text-slate-400">Tránsito / USO24 *</span>
             <select
