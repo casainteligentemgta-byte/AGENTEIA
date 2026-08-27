@@ -1,5 +1,5 @@
 /**
- * @agenteia/smart-import — Fase 1–4 (seguridad, caché, resiliencia, observabilidad)
+ * @agenteia/smart-import — Fases 1–5 (seguridad, caché, resiliencia, observabilidad, tests)
  *
  * ## Scripts
  * ```bash
@@ -7,27 +7,23 @@
  * npm install
  * npm run lint
  * npm test
+ * npm run test:e2e
+ * npm run test:chaos
+ * npm run test:security
  * npm run test:performance
  * npm run test:resilience
  * npm run test:observability
+ * npm run test:contract
+ * npm run test:integration
+ * npm run test:load:smoke   # requiere: npm run dev:e2e + k6 en PATH
  * npm run build
  * npm run dev   # http://localhost:3000
  * ```
  *
+ * Guía tests: `docs/TESTING.md`
+ *
  * ## Fase 4 — Observabilidad
- * - Winston (`Logger`) — logs estructurados + rotación + Sentry opcional
- * - Prometheus (`MetricsCollector`) — counters / histograms / gauges
- * - OpenTelemetry → Jaeger (`Tracer`)
- * - `AlertManager` — Slack / SendGrid / PagerDuty
- * - Endpoints: `GET /metrics`, `/health`, `/health/readiness`, `/health/liveness`, `/metrics/summary`
- *
- * Stack Docker (Prometheus :9090, Grafana :3001, Jaeger :16686):
- * ```bash
- * docker compose up -d
- * ```
- *
- * Variables: `LOG_LEVEL`, `JAEGER_HOST`, `JAEGER_PORT`, `JAEGER_ENDPOINT`,
- * `OTEL_ENABLED=0` para desactivar tracing, `SENTRY_DSN`,
- * `SLACK_WEBHOOK_URL`, `SENDGRID_API_KEY`, `PAGERDUTY_KEY`, `ON_CALL_EMAIL`,
- * más las de Fases 1–3 (`SUPABASE_*`, `REDIS_*`, `PORT`, `HEALTH_MONITOR`).
+ * - Winston, Prometheus, Jaeger, AlertManager
+ * - `GET /metrics`, `/health`, `/health/readiness`, `/health/liveness`
+ * - Docker: Prometheus :9090, Grafana :3001, Jaeger :16686
  */
