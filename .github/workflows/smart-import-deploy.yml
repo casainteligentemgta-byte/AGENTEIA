@@ -7,6 +7,7 @@ on:
       - "packages/smart-import/**"
       - ".github/workflows/smart-import-deploy.yml"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
