@@ -1,36 +1,8 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: smartimport
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: smartimport-config
-  namespace: smartimport
-data:
-  NODE_ENV: "production"
-  PORT: "3000"
-  LOG_LEVEL: "info"
-  HEALTH_MONITOR: "1"
-  REDIS_URL: "redis://smartimport-redis:6379"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: smartimport-secrets
-  namespace: smartimport
-type: Opaque
-stringData:
-  SUPABASE_URL: "https://YOUR_PROJECT.supabase.co"
-  SUPABASE_ANON_KEY: "YOUR_ANON_KEY"
-  # Opcional service role solo en jobs de backend
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: smartimport
-  namespace: smartimport
+  namespace: production
   labels:
     app: smartimport
 spec:
@@ -80,21 +52,21 @@ apiVersion: v1
 kind: Service
 metadata:
   name: smartimport
-  namespace: smartimport
+  namespace: production
 spec:
+  type: LoadBalancer
   selector:
     app: smartimport
   ports:
     - name: http
       port: 80
       targetPort: http
-  type: ClusterIP
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: smartimport
-  namespace: smartimport
+  namespace: production
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -116,52 +88,11 @@ spec:
           type: Utilization
           averageUtilization: 80
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: smartimport-redis
-  namespace: smartimport
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: smartimport-redis
-  template:
-    metadata:
-      labels:
-        app: smartimport-redis
-    spec:
-      containers:
-        - name: redis
-          image: redis:7-alpine
-          args: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
-          ports:
-            - containerPort: 6379
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: smartimport-redis
-  namespace: smartimport
-spec:
-  selector:
-    app: smartimport-redis
-  ports:
-    - port: 6379
-      targetPort: 6379
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: smartimport
-  namespace: smartimport
+  namespace: production
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod

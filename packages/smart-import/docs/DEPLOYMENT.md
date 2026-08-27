@@ -40,10 +40,33 @@ docker compose --profile observability up -d
 ## 3. Kubernetes
 
 ```bash
-# Editar secrets en k8s/smartimport.yaml
-kubectl apply -f k8s/smartimport.yaml
-kubectl -n smartimport get pods,svc,hpa
-kubectl -n smartimport rollout status deploy/smartimport
+cd packages/smart-import
+
+# 1. Namespace
+kubectl apply -f k8s/00-namespace.yaml
+# o: kubectl create namespace production
+
+# 2. Secrets (no uses el example en prod con placeholders)
+kubectl create secret generic smartimport-secrets \
+  --from-literal=SUPABASE_URL="<URL>" \
+  --from-literal=SUPABASE_ANON_KEY="<KEY>" \
+  --from-literal=DATABASE_URL="<URL>" \
+  --from-literal=REDIS_URL="redis://smartimport-redis:6379" \
+  -n production
+
+# 3. Config + Redis + App + HPA + Ingress
+kubectl apply -f k8s/01-configmap.yaml
+kubectl apply -f k8s/10-redis.yaml
+kubectl apply -f k8s/20-app.yaml
+# equivalente: kubectl apply -f k8s/ -n production  (el namespace ya está en los YAML)
+
+# 4. Verificar
+kubectl get pods,svc,hpa -n production
+kubectl -n production rollout status deploy/smartimport
+
+# 5. Acceso externo (LoadBalancer / Ingress)
+kubectl get svc -n production
+kubectl get ingress -n production
 ```
 
 HPA: mín 3 / máx 20 réplicas (CPU 70%, memoria 80%).
@@ -83,7 +106,7 @@ Push a `main` con cambios en `packages/smart-import/**` construye y publica la i
 ## 6. Rollback
 
 ```bash
-kubectl -n smartimport rollout undo deploy/smartimport
+kubectl -n production rollout undo deploy/smartimport
 # o pin de imagen:
-kubectl -n smartimport set image deploy/smartimport app=ghcr.io/org/smartimport:PREV_TAG
+kubectl -n production set image deploy/smartimport app=ghcr.io/org/smartimport:PREV_TAG
 ```
