@@ -60,9 +60,19 @@ export function VehiculoCatalogoFields({
   const modeloInit = resolveSelectValue(initialModelo, modelos);
   const [modeloSelect, setModeloSelect] = useState(() => {
     if (!initialModelo.trim()) return "";
-    return modeloInit.select || (initialModelo.trim() ? VEHICULO_CATALOGO_OTRA : "");
+    if (
+      modeloInit.select &&
+      modeloInit.select !== VEHICULO_CATALOGO_OTRA
+    ) {
+      return modeloInit.select;
+    }
+    // Valor fuera de catálogo: se muestra como opción temporal en el select.
+    return initialModelo.trim();
   });
-  const [modeloOtra, setModeloOtra] = useState(() => modeloInit.custom);
+  /** Solo cuando la marca es libre (Otra…): el modelo también se escribe a mano. */
+  const [modeloOtra, setModeloOtra] = useState(() =>
+    marcaInit.select === VEHICULO_CATALOGO_OTRA ? initialModelo.trim() : ""
+  );
 
   const [color, setColor] = useState(initialColor);
 
@@ -81,7 +91,17 @@ export function VehiculoCatalogoFields({
   const marcaValue =
     marcaSelect === VEHICULO_CATALOGO_OTRA ? marcaOtra : marcaSelect;
   const modeloValue =
-    modeloSelect === VEHICULO_CATALOGO_OTRA ? modeloOtra : modeloSelect;
+    marcaSelect === VEHICULO_CATALOGO_OTRA ? modeloOtra : modeloSelect;
+  const modelosConExtra = useMemo(() => {
+    if (
+      modeloSelect &&
+      modeloSelect !== VEHICULO_CATALOGO_OTRA &&
+      !modelos.includes(modeloSelect)
+    ) {
+      return [...modelos, modeloSelect];
+    }
+    return modelos;
+  }, [modelos, modeloSelect]);
   return (
     <>
       <label className="block min-w-0 space-y-1.5">
@@ -122,45 +142,34 @@ export function VehiculoCatalogoFields({
 
       <label className="block min-w-0 space-y-1.5">
         <span className="text-sm text-slate-400">Modelo *</span>
-        {modelos.length > 0 && marcaSelect !== VEHICULO_CATALOGO_OTRA ? (
-          <>
-            <select
-              required
-              value={modeloSelect}
-              onChange={(e) => {
-                const next = e.target.value;
-                setModeloSelect(next);
-                if (next !== VEHICULO_CATALOGO_OTRA) setModeloOtra("");
-              }}
-              className={selectClass}
-              disabled={!marcaSelect}
-            >
-              <option value="" disabled>
-                Selecciona modelo
+        {modelosConExtra.length > 0 && marcaSelect !== VEHICULO_CATALOGO_OTRA ? (
+          <select
+            required
+            value={
+              modelosConExtra.includes(modeloSelect) ? modeloSelect : ""
+            }
+            onChange={(e) => {
+              setModeloSelect(e.target.value);
+              setModeloOtra("");
+            }}
+            className={selectClass}
+            disabled={!marcaSelect}
+          >
+            <option value="" disabled>
+              Selecciona modelo
+            </option>
+            {modelosConExtra.map((m) => (
+              <option key={m} value={m}>
+                {m}
               </option>
-              {modelos.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-              <option value={VEHICULO_CATALOGO_OTRA}>Otro…</option>
-            </select>
-            {modeloSelect === VEHICULO_CATALOGO_OTRA ? (
-              <input
-                required
-                value={modeloOtra}
-                onChange={(e) => setModeloOtra(e.target.value)}
-                placeholder="Escribe el modelo"
-                className={`${inputClass} ${porCompletarTextClass(modeloOtra)}`}
-              />
-            ) : null}
-          </>
+            ))}
+          </select>
         ) : (
           <input
             required
             value={modeloOtra}
             onChange={(e) => {
-              setModeloSelect(VEHICULO_CATALOGO_OTRA);
+              setModeloSelect("");
               setModeloOtra(e.target.value);
             }}
             placeholder={
