@@ -20,8 +20,8 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
-    "k8s:apply": "kubectl apply -f k8s/smartimport.yaml",
-    "k8s:status": "kubectl -n smartimport get pods,svc,hpa"
+    "k8s:apply": "kubectl apply -f k8s/00-namespace.yaml -f k8s/01-configmap.yaml -f k8s/10-redis.yaml -f k8s/20-app.yaml",
+    "k8s:status": "kubectl -n production get pods,svc,hpa"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
