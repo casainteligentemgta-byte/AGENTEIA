@@ -66,3 +66,4 @@ export type { CircuitBreakerMetrics } from "./services/circuitbreaker/CircuitBre
 export type { TransactionImportResult } from "./services/transaction/TransactionManager";
 export type { RetryOptions } from "./services/retry/RetryPolicy";
 export type { ShutdownConfig } from "./api/middleware/gracefulShutdown";
+export { mountSwagger, swaggerSpec } from "./api/swagger";

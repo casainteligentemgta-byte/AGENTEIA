@@ -1,0 +1,183 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smartimport
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartimport-config
+  namespace: smartimport
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"
+  HEALTH_MONITOR: "1"
+  REDIS_URL: "redis://smartimport-redis:6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smartimport-secrets
+  namespace: smartimport
+type: Opaque
+stringData:
+  SUPABASE_URL: "https://YOUR_PROJECT.supabase.co"
+  SUPABASE_ANON_KEY: "YOUR_ANON_KEY"
+  # Opcional service role solo en jobs de backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartimport
+  namespace: smartimport
+  labels:
+    app: smartimport
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: smartimport
+  template:
+    metadata:
+      labels:
+        app: smartimport
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/casainteligentemgta-byte/smartimport:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: smartimport-config
+            - secretRef:
+                name: smartimport-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartimport
+  namespace: smartimport
+spec:
+  selector:
+    app: smartimport
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: smartimport
+  namespace: smartimport
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: smartimport
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartimport-redis
+  namespace: smartimport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smartimport-redis
+  template:
+    metadata:
+      labels:
+        app: smartimport-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartimport-redis
+  namespace: smartimport
+spec:
+  selector:
+    app: smartimport-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartimport
+  namespace: smartimport
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: smartimport.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: smartimport
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - smartimport.example.com
+      secretName: smartimport-tls

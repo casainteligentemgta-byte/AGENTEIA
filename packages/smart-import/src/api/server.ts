@@ -5,6 +5,7 @@ import importRouter from "./routes/import";
 import { gracefulShutdown } from "./middleware/gracefulShutdown";
 import { HealthCheck } from "../services/health/HealthCheck";
 import { CacheManager } from "../services/cache/CacheManager";
+import { mountSwagger } from "./swagger";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -57,6 +58,8 @@ export function createSmartImportApp() {
     res.status(code).json(status);
   });
 
+  mountSwagger(app);
+
   app.use("/api/import", importRouter);
 
   app.use(
@@ -93,6 +96,7 @@ export async function main(): Promise<void> {
   app.listen(PORT, () => {
     console.log(`[smart-import] listening on http://localhost:${PORT}`);
     console.log(`  GET  /health`);
+    console.log(`  GET  /api/docs`);
     console.log(`  POST /api/import/execute`);
     console.log(`  POST /api/import/analyze`);
     console.log(`  POST /api/import/validate`);
