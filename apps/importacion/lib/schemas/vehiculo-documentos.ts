@@ -374,6 +374,13 @@ export const MEMORIA_FOTOGRAFICA_TIPOS: DocumentoTipo[] = [
   "foto_odometro",
 ];
 
+/**
+ * Fotos obligatorias para completar Llegada.
+ * `foto_impronta` es opcional (si se carga, se verifica el serial).
+ */
+export const MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS: DocumentoTipo[] =
+  MEMORIA_FOTOGRAFICA_TIPOS.filter((t) => t !== "foto_impronta");
+
 export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "poliza_seguro",
   "certificado_seguro",

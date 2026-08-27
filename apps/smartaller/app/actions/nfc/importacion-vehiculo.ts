@@ -9,6 +9,7 @@ import { hashPin } from "@/lib/nfc/crypto";
 import {
   DOCUMENTO_TIPOS,
   MEMORIA_FOTOGRAFICA_TIPOS,
+  MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
@@ -1291,12 +1292,14 @@ export async function savePuertoLibreFase2LlegadaAction(
     };
   }
 
-  const faltantesMemoria = MEMORIA_FOTOGRAFICA_TIPOS.filter((t) => !docs[t]?.url);
+  const faltantesMemoria = MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.filter(
+    (t) => !docs[t]?.url
+  );
   if (faltantesMemoria.length > 0) {
     return {
       success: false,
       error:
-        "Completa la memoria descriptiva: las 7 fotos del vehículo (incluye impronta y odómetro).",
+        "Completa la memoria descriptiva: fotos del vehículo (la impronta es opcional).",
     };
   }
 
@@ -1310,19 +1313,22 @@ export async function savePuertoLibreFase2LlegadaAction(
   }
 
   const estadoImpronta = existingImportacion.serialImprontaEstado;
-  if (estadoImpronta === "no_coincide") {
-    return {
-      success: false,
-      error:
-        "El serial de la impronta no coincide con el del expediente. Corrige el serial en Registro o vuelve a tomar la foto.",
-    };
-  }
-  if (estadoImpronta !== "coincide" && !parsed.data.forzarImprontaSinVerificar) {
-    return {
-      success: false,
-      error:
-        "Debes verificar que el serial de la impronta coincida con el del expediente (toma la foto de la impronta).",
-    };
+  // Impronta opcional: solo valida serial si hay foto cargada.
+  if (docs.foto_impronta?.url) {
+    if (estadoImpronta === "no_coincide") {
+      return {
+        success: false,
+        error:
+          "El serial de la impronta no coincide con el del expediente. Corrige el serial en Registro o vuelve a tomar la foto.",
+      };
+    }
+    if (estadoImpronta !== "coincide" && !parsed.data.forzarImprontaSinVerificar) {
+      return {
+        success: false,
+        error:
+          "Debes verificar que el serial de la impronta coincida con el del expediente (o omite la foto de impronta).",
+      };
+    }
   }
 
   const checklistNotas = parsed.data.checklistLlegadaNotas;

@@ -70,6 +70,7 @@ import {
 import {
   DOCUMENTO_LABELS,
   MEMORIA_FOTOGRAFICA_TIPOS,
+  MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS,
   MODALIDAD_TRANSITO_LABELS,
   MODALIDADES_TRANSITO,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
@@ -244,6 +245,10 @@ export function PlanillaRegistroImportacion({
     [initialImportacion.regimen, esImportadorJuridico]
   );
   const fotosCount = countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS);
+  const fotosObligatoriasCount = countDocs(
+    docs,
+    MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS
+  );
   const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
   const embarqueObligatoriosCount = countDocs(
@@ -282,7 +287,7 @@ export function PlanillaRegistroImportacion({
     Boolean(initialImportacion.fechaIngreso?.trim()) &&
     Boolean(initialImportacion.partidaArancelaria?.trim()) &&
     llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length &&
-    fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length &&
+    fotosObligatoriasCount === MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length &&
     isLlegadaChecklistCompleto(checklist);
 
   const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
@@ -1560,26 +1565,33 @@ function Fase2Llegada({
   }, [initialImprontaEstado, initialImprontaLeido]);
 
   const expectedSerial = (serialCarroceria ?? "").trim();
+  const tieneImpronta = Boolean(docs.foto_impronta?.url);
   const improntaOk = improntaEstado === "coincide";
   const canForce =
     canForzarImpronta &&
-    Boolean(docs.foto_impronta?.url) &&
+    tieneImpronta &&
     (improntaEstado === "no_leido" || improntaEstado == null);
   const llegadaDocsCount = PL_LLEGADA_DOCUMENTO_TIPOS.filter(
     (t) => Boolean(docs[t]?.url)
   ).length;
   const llegadaDocsOk = llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length;
-  const memoriaCompleta = fotosCount === MEMORIA_FOTOGRAFICA_TIPOS.length;
+  const memoriaCompleta =
+    countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS) ===
+    MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length;
   const cuestionarioCompleto = isLlegadaChecklistCompleto(checklist);
   const datosLlegadaOk =
     Boolean(fecha.trim()) && Boolean(partidaArancelaria.trim());
+  const improntaPermiteContinuar =
+    !tieneImpronta ||
+    improntaOk ||
+    (canForce && forzarImpronta);
   const canContinue =
     datosLlegadaOk &&
     llegadaDocsOk &&
     memoriaCompleta &&
     cuestionarioCompleto &&
-    improntaEstado !== "no_coincide" &&
-    (improntaOk || (canForce && forzarImpronta));
+    !(tieneImpronta && improntaEstado === "no_coincide") &&
+    improntaPermiteContinuar;
 
   return (
     <div className="space-y-6">
@@ -1670,8 +1682,8 @@ function Fase2Llegada({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Fotos del vehículo al llegar. La impronta debe coincidir con el serial
-          del expediente.
+          Fotos del vehículo al llegar. La impronta es opcional; si la cargas,
+          el serial debe coincidir con el del expediente.
         </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
@@ -1680,7 +1692,11 @@ function Fase2Llegada({
               vehiculoId={vehiculoId}
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
-              hint=""
+              hint={
+                tipo === "foto_impronta"
+                  ? "Opcional · si la subes, se verifica el serial"
+                  : ""
+              }
               actionLabel="Tomar / subir foto"
               annotateBeforeUpload
               verifySerialAgainstExpediente={tipo === "foto_impronta"}
