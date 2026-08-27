@@ -118,7 +118,7 @@ Extrae en JSON con estas claves exactas:
 - modelo (string: línea/modelo comercial)
 - color (string: color tal como aparece)
 - anio (number: año del vehículo o del modelo si aparece; null si no está)
-- serial_motor (string: Nº motor / engine no.)
+- serial_motor (string: Nº motor / ENGINE SERIAL / engine no.)
 - serial_carroceria (string: VIN de 17 caracteres, chasis o serial de carrocería; prioriza VIN)
 - kilometraje (number: odómetro en km o millas si aparece; si el vehículo es nuevo y no aparece usa 0)
 - condicion ("nuevo" o "usado" según el documento; null si no se deduce)
@@ -272,6 +272,57 @@ function compactSerial(value: string | null): string | null {
   return compact || null;
 }
 
+const SERIAL_MOTOR_KEY_RE =
+  /^(serial_?motor|engine_?serial|engine_?(no|number|#)?|motor_?(serial|no|number)|no_?de_?motor|numero_?motor|n_?motor)$/i;
+
+/** Lee serial de motor bajo nombres ES/EN habituales en factura/COO/Excel. */
+function pickSerialMotorRaw(parsed: Record<string, unknown>): string | null {
+  const preferred = [
+    "serial_motor",
+    "serialMotor",
+    "engine_serial",
+    "engineSerial",
+    "engine_number",
+    "engine_no",
+    "engineNo",
+    "engine",
+    "no_de_motor",
+    "numero_motor",
+    "motor_serial",
+    "motorSerial",
+    "motor_no",
+    "motorNo",
+    "serial motor",
+    "engine serial",
+    "engine number",
+    "engine no",
+    "motor serial",
+  ];
+  for (const key of preferred) {
+    const v = parseString(parsed[key]);
+    if (v) return v;
+  }
+  for (const [key, val] of Object.entries(parsed)) {
+    const collapsed = key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (
+      collapsed === "serialmotor" ||
+      collapsed === "engineserial" ||
+      collapsed === "enginenumber" ||
+      collapsed === "engineno" ||
+      collapsed === "motorserial" ||
+      collapsed === "motornumber" ||
+      collapsed === "motorno" ||
+      collapsed === "numeromotor" ||
+      collapsed === "nodemotor" ||
+      SERIAL_MOTOR_KEY_RE.test(collapsed)
+    ) {
+      const v = parseString(val);
+      if (v) return v;
+    }
+  }
+  return null;
+}
+
 /** Chery pone el VIN en la columna Code; MAV en Chasis. */
 function resolveVinCandidate(v: Record<string, unknown>): string | null {
   const keys = [
@@ -334,16 +385,7 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
     modelo: parseString(parsed.modelo),
     color: parseString(parsed.color),
     anio: resolveAnioFromSources(parsed, serial_carroceria),
-    serial_motor: compactSerial(
-      parseString(
-        parsed.serial_motor ??
-          parsed.engine_number ??
-          parsed.engine_no ??
-          parsed.engineNo ??
-          parsed.no_de_motor ??
-          parsed.numero_motor
-      )
-    ),
+    serial_motor: compactSerial(pickSerialMotorRaw(parsed)),
     serial_carroceria,
     kilometraje: parseIntSafe(parsed.kilometraje ?? parsed.odometro ?? parsed.odometer),
     condicion: parseCondicion(parsed.condicion ?? parsed.condition),
@@ -828,7 +870,7 @@ FORMATO B — ejemplo de fila EXACTA a transcribir:
   00001 | MF3PB8121TJ219731 | G4FLTQ622505 | M0433 | WC2 NNB | SB29AI7W5D661VDD41I
 - numero_unidad = "00001"
 - serial_carroceria = VIN de 17 caracteres EXACTO (sin espacios)
-- serial_motor = motor EXACTO (ej. G4FLTQ622505)
+- serial_motor = motor EXACTO desde columna ENGINE SERIAL / ENGINE NO / serial motor (ej. G4FLTQ622505)
 - numero_llave = EXACTO (ej. M0433)
 - color = celda Color completa (ej. "WC2 NNB")
 - codigo_modelo = celda Codigo completa (ej. SB29AI7W5D661VDD41I) — NUNCA como VIN
@@ -1009,7 +1051,7 @@ Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
 También puede ser un PDF con VARIOS certificados (uno por unidad / página).
 
 Extrae datos que suelen faltar en la factura comercial:
-- serial_motor / ENGINE NO / engine number (columna del motor)
+- serial_motor / ENGINE SERIAL / ENGINE NO / engine number / serial motor (columna del motor)
 - marca (fabricante en membrete del certificado; NO confundir con modelo Tiggo/Arrizo)
 - modelo, color, anio (año / year / model year del vehículo)
 - serial_carroceria / VIN / chasis
@@ -1090,13 +1132,7 @@ function mapFacturaMultiVehiculo(
       v.chasis ??
       v.no_de_chasis ??
       null,
-    serial_motor:
-      v.serial_motor ??
-      v.engine_number ??
-      v.no_de_motor ??
-      v.engine_no ??
-      v.engineNo ??
-      null,
+    serial_motor: pickSerialMotorRaw(v) ?? pickSerialMotorRaw(merged),
     // CIF unitario de la fila; no heredar total de cabecera.
     valor_cif: v.valor_cif ?? v.unit_price ?? v.amount ?? null,
   });
@@ -2287,12 +2323,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
             (v as Record<string, unknown>).chasis ??
             (v as Record<string, unknown>).code
         );
-        const motor = parseString(
-          (v as Record<string, unknown>).serial_motor ??
-            (v as Record<string, unknown>).engine_number ??
-            (v as Record<string, unknown>).no_de_motor ??
-            (v as Record<string, unknown>).numero_motor
-        );
+        const motor = pickSerialMotorRaw(v as Record<string, unknown>);
         return Boolean(vinOrChassis || motor);
       });
 
@@ -2342,11 +2373,8 @@ export async function extractCertificadoOrigenMultiFromDocument(
           v.chasis ??
           (multi ? null : parsed.serial_carroceria),
         serial_motor:
-          v.serial_motor ??
-          v.engine_number ??
-          v.engine_no ??
-          v.engineNo ??
-          (multi ? null : parsed.serial_motor),
+          pickSerialMotorRaw(v) ??
+          (multi ? null : pickSerialMotorRaw(parsed)),
         pais_origen: v.pais_origen ?? parsed.pais_origen,
       })
     );

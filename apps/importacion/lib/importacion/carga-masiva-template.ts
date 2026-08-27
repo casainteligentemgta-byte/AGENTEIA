@@ -211,7 +211,30 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   serial_motor: "serial_motor",
   serialmotor: "serial_motor",
   "serial motor": "serial_motor",
+  "serial de motor": "serial_motor",
+  "n motor": "serial_motor",
+  "no motor": "serial_motor",
+  "no. motor": "serial_motor",
+  "n de motor": "serial_motor",
+  "numero motor": "serial_motor",
+  "num motor": "serial_motor",
   engine: "serial_motor",
+  "engine serial": "serial_motor",
+  engineserial: "serial_motor",
+  "engine serial no": "serial_motor",
+  "engine serial number": "serial_motor",
+  engineserialno: "serial_motor",
+  engineserialnumber: "serial_motor",
+  "engine no": "serial_motor",
+  engineno: "serial_motor",
+  "engine number": "serial_motor",
+  enginenumber: "serial_motor",
+  "motor serial": "serial_motor",
+  motorserial: "serial_motor",
+  "motor no": "serial_motor",
+  "motor number": "serial_motor",
+  motorno: "serial_motor",
+  motornumber: "serial_motor",
   vin: "vin",
   serial_carroceria: "serial_carroceria",
   serialcarroceria: "serial_carroceria",
@@ -396,8 +419,15 @@ export function normalizeHeader(raw: string): CargaMasivaColumnKey | null {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['"]/g, "");
-  return HEADER_ALIASES[key] ?? null;
+    .replace(/['"`´]/g, "")
+    .replace(/[#№]/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!key) return null;
+  if (HEADER_ALIASES[key]) return HEADER_ALIASES[key];
+  const collapsed = key.replace(/\s+/g, "");
+  return HEADER_ALIASES[collapsed] ?? null;
 }
 
 function csvEscape(value: string): string {
