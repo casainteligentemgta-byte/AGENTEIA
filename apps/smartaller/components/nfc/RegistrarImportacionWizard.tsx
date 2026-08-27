@@ -129,6 +129,7 @@ export function RegistrarImportacionWizard({
       docTipo === "certificado_origen" &&
       (masivaRowsRef.current?.length ?? 0) > 0
     ) {
+      setMasivaInitialDocs(masivaDocsRef.current);
       setCertMergeRequest({ files: certFiles, requestId: Date.now() });
       setMasivaMessage(
         "Certificado detectado. Emparejando con las filas por VIN…"
@@ -143,7 +144,8 @@ export function RegistrarImportacionWizard({
     setMasivaTabMode("documentos");
     setImportModo("masiva");
     setMasivaInstance((n) => n + 1);
-    if (payload.mergeCerts && certFiles.length > 0) {
+    // Siempre re-emparejar certificados en la planilla masiva (precarga por VIN).
+    if (certFiles.length > 0) {
       setCertMergeRequest({ files: certFiles, requestId: Date.now() });
     } else {
       setCertMergeRequest(null);

@@ -48,7 +48,9 @@ import {
   healCargaMasivaCheryRows,
   LOTE_MODALIDAD_TRANSITO_OPTIONS,
   LOTE_TIPO_COMBUSTIBLE_OPTIONS,
+  matchSerialKeyAmong,
   normalizeSerialKey,
+  pairSerialsOneToOne,
   resumenSemaforo,
   rifCoincideConSeleccionado,
   sharedLoteTechFromRows,
@@ -222,6 +224,23 @@ export function PuertoLibreCargaMasiva({
       }))
     );
   }, [initialDocs]);
+
+  /**
+   * Si hay un solo PDF de certificado y filas con VIN, asocia ese archivo a
+   * cada serial (certificado multi-VIN o un solo vehículo).
+   */
+  useEffect(() => {
+    if (certMatches.length > 0) return;
+    const certDocs = docs.filter((d) => d.tipo === "certificado_origen");
+    if (certDocs.length !== 1) return;
+    const fileName = certDocs[0]!.file.name;
+    const synthesized = rows
+      .map((r) => normalizeSerialKey(r.serialCarroceria || r.vin))
+      .filter(Boolean)
+      .map((serial) => ({ serial, fileName }));
+    if (synthesized.length === 0) return;
+    setCertMatches(synthesized);
+  }, [docs, rows, certMatches.length]);
 
   useEffect(() => {
     if (!certMergeRequest?.files.length) return;
@@ -703,20 +722,78 @@ export function PuertoLibreCargaMasiva({
     });
   }
 
+  /**
+   * Resuelve el PDF de certificado para un VIN/serial.
+   * Usa empareje exacto o por prefijo (OCR parcial) y fallback 1 archivo.
+   */
   function resolveCertFileForSerial(serialRaw: string): File | null {
     const serial = normalizeSerialKey(serialRaw);
     if (!serial) return null;
-    const match = certMatches.find((m) => m.serial === serial);
-    if (match) {
+    const certDocs = docs.filter((d) => d.tipo === "certificado_origen");
+    if (certDocs.length === 0) return null;
+
+    const matchKeys = certMatches.map((m) => m.serial);
+    const matchedKey = matchSerialKeyAmong(serial, matchKeys);
+    if (matchedKey) {
+      const match =
+        certMatches.find(
+          (m) => normalizeSerialKey(m.serial) === matchedKey
+        ) ?? certMatches.find((m) => m.serial === matchedKey);
+      if (match) {
+        const byName = certDocs.find((d) => d.file.name === match.fileName);
+        if (byName) return byName.file;
+      }
+    }
+
+    // Empareje 1:1 global por si el serial del create difiere levemente del OCR.
+    const paired = pairSerialsOneToOne(
+      [serial],
+      certMatches.map((m) => m.serial)
+    );
+    const certSerial = paired.get(serial);
+    if (certSerial) {
+      const match = certMatches.find(
+        (m) => normalizeSerialKey(m.serial) === certSerial
+      );
+      if (match) {
+        const byName = certDocs.find((d) => d.file.name === match.fileName);
+        if (byName) return byName.file;
+      }
+    }
+
+    if (certDocs.length === 1) return certDocs[0]!.file;
+    return null;
+  }
+
+  /** Mapa serial → File de certificado para todos los expedientes a crear. */
+  function buildCertFileBySerial(
+    serials: string[]
+  ): Map<string, File> {
+    const map = new Map<string, File>();
+    const keys = serials.map(normalizeSerialKey).filter(Boolean);
+    const paired = pairSerialsOneToOne(
+      keys,
+      certMatches.map((m) => m.serial)
+    );
+    for (const rowSerial of keys) {
+      const file = resolveCertFileForSerial(rowSerial);
+      if (file) {
+        map.set(rowSerial, file);
+        continue;
+      }
+      const certSerial = paired.get(rowSerial);
+      if (!certSerial) continue;
+      const match = certMatches.find(
+        (m) => normalizeSerialKey(m.serial) === certSerial
+      );
+      if (!match) continue;
       const byName = docs.find(
         (d) =>
           d.tipo === "certificado_origen" && d.file.name === match.fileName
       );
-      if (byName) return byName.file;
+      if (byName) map.set(rowSerial, byName.file);
     }
-    const certs = docs.filter((d) => d.tipo === "certificado_origen");
-    if (certs.length === 1) return certs[0]!.file;
-    return null;
+    return map;
   }
 
   function importRows() {
@@ -769,6 +846,34 @@ export function PuertoLibreCargaMasiva({
       return prev.map((r) => byId.get(r.id) ?? r);
     });
 
+    const facturaDoc = docs.find((d) => d.tipo === "factura_comercial");
+    const blDoc = docs.find((d) => d.tipo === "bl_guia");
+    const certDocs = docs.filter((d) => d.tipo === "certificado_origen");
+    const serialsToImport = rowsToImport.map((r) =>
+      normalizeSerialKey(r.serialCarroceria || r.vin)
+    );
+    const certBySerial = buildCertFileBySerial(serialsToImport);
+
+    // Si el usuario cargó certificados, deben emparejarse antes de crear.
+    if (certDocs.length > 0) {
+      const unmatched = serialsToImport.filter((s) => s && !certBySerial.has(s));
+      if (unmatched.length > 0) {
+        setError(
+          `Hay ${certDocs.length} certificado(s) pero ${unmatched.length} vehículo(s) sin emparejar por VIN. ` +
+            `Espera a que termine el OCR o vuelve a pulsar «Añadir certificados» antes de registrar.`
+        );
+        return;
+      }
+    }
+
+    // Si hay factura en docs, se adjuntará a todos; si no y solo hay certs, seguir.
+    if (!facturaDoc && certDocs.length === 0 && docs.length === 0) {
+      setWarnings((prev) => [
+        ...prev,
+        "No hay factura ni certificados en memoria: los expedientes se crearán sin documentos adjuntos.",
+      ]);
+    }
+
     startImportTransition(async () => {
       try {
       const result = await createPuertoLibreCargaMasivaAction({
@@ -786,38 +891,62 @@ export function PuertoLibreCargaMasiva({
       const fail = result.failed.length;
 
       let attachNote = "";
-      if (ok > 0 && docs.length > 0) {
+      if (ok > 0 && (facturaDoc || blDoc || certDocs.length > 0)) {
         let attached = 0;
         let attachFail = 0;
-        const factura = docs.find((d) => d.tipo === "factura_comercial");
-        const bl = docs.find((d) => d.tipo === "bl_guia");
+        let withBoth = 0;
         for (const c of result.created) {
-          const sharedDocs = [factura, bl].filter(Boolean) as DocItem[];
+          const serial = normalizeSerialKey(c.serial);
+          let gotFactura = !facturaDoc;
+          let gotCert = certDocs.length === 0;
+
+          const sharedDocs = [facturaDoc, blDoc].filter(Boolean) as DocItem[];
           for (const d of sharedDocs) {
             const fd = new FormData();
             fd.set("vehiculoId", c.vehiculoId);
             fd.set("tipo", d.tipo);
             fd.set("file", d.file);
             const up = await uploadPuertoLibreDocumentoAction(fd);
-            if (up.success) attached += 1;
-            else attachFail += 1;
+            if (up.success) {
+              attached += 1;
+              if (d.tipo === "factura_comercial") gotFactura = true;
+            } else {
+              attachFail += 1;
+            }
           }
-          const certFile = resolveCertFileForSerial(c.serial);
+
+          const certFile =
+            (serial ? certBySerial.get(serial) : null) ??
+            resolveCertFileForSerial(c.serial);
           if (certFile) {
             const fd = new FormData();
             fd.set("vehiculoId", c.vehiculoId);
             fd.set("tipo", "certificado_origen");
             fd.set("file", certFile);
             const up = await uploadPuertoLibreDocumentoAction(fd);
-            if (up.success) attached += 1;
-            else attachFail += 1;
+            if (up.success) {
+              attached += 1;
+              gotCert = true;
+            } else {
+              attachFail += 1;
+            }
           }
+
+          if (gotFactura && gotCert) withBoth += 1;
         }
         if (attached > 0) {
           attachNote = ` Documentos adjuntos: ${attached}.`;
         }
+        if (facturaDoc && certDocs.length > 0) {
+          attachNote += ` Expedientes con factura+certificado: ${withBoth}/${ok}.`;
+        }
         if (attachFail > 0) {
           attachNote += ` No se pudieron adjuntar ${attachFail} archivo(s).`;
+        }
+        if (facturaDoc && certDocs.length > 0 && withBoth < ok) {
+          setError(
+            `Se crearon ${ok} expediente(s), pero solo ${withBoth} quedaron con factura y certificado. Revisa los fallos de subida.`
+          );
         }
       }
 
