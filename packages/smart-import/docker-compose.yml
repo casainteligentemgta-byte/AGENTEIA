@@ -1,0 +1,60 @@
+# Observabilidad SmartImport (Fase 4)
+# Uso:
+#   cd packages/smart-import
+#   docker compose up -d prometheus grafana jaeger
+#   docker ps
+#
+# URLs:
+#   Prometheus  http://localhost:9090
+#   Grafana     http://localhost:3001  (admin/admin)
+#   Jaeger UI   http://localhost:16686
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: smartimport-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: smartimport-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: smartimport-jaeger
+    ports:
+      - "6831:6831/udp" # agent thrift compact
+      - "16686:16686"   # UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+      - "14268:14268"   # Jaeger HTTP collector
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
