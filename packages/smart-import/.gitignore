@@ -5,3 +5,4 @@ logs/
 playwright-report/
 test-results/
 html-report/
+.env
