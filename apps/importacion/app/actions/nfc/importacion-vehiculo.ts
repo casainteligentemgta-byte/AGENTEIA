@@ -1202,8 +1202,11 @@ export async function completePuertoLibreFase2EmbarqueAction(
     numeroBl: parsed.data.numeroBl.trim(),
     paisOrigen: resolvePais(parsed.data.paisOrigen) || parsed.data.paisOrigen,
     regimen,
+    // El nº de certificado se captura en Registro; no se edita en embarque.
     numeroCertificadoOrigen:
-      parsed.data.numeroCertificadoOrigen?.trim() || null,
+      parsed.data.numeroCertificadoOrigen?.trim() ||
+      existing.numeroCertificadoOrigen ||
+      null,
     observaciones: parsed.data.observaciones?.trim() || null,
     estadoNacionalizacion:
       regimen === "puerto_libre"

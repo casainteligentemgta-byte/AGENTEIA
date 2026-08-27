@@ -29,7 +29,6 @@ import {
   savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
-  syncCertificadoOrigenNumeroAction,
   syncPuertoLibreBlEmbarqueAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
@@ -524,8 +523,6 @@ export function PlanillaRegistroImportacion({
             regimen:
               (initialImportacion.regimen as RegimenImportacion | null) ??
               "puerto_libre",
-            numeroCertificadoOrigen:
-              initialImportacion.numeroCertificadoOrigen?.trim() ?? "",
             observaciones: initialImportacion.observaciones?.trim() ?? "",
           }}
           onComplete={(datos, after) => {
@@ -1064,7 +1061,6 @@ type EmbarqueDatosForm = {
   numeroBl: string;
   paisOrigen: string;
   regimen: RegimenImportacion;
-  numeroCertificadoOrigen: string;
   observaciones: string;
 };
 
@@ -1093,9 +1089,6 @@ function Fase2Embarque({
     ...initial,
     regimen: "puerto_libre",
   });
-  const certSyncStarted = useRef(false);
-  const [certSyncPending, setCertSyncPending] = useState(false);
-  const [certSyncTried, setCertSyncTried] = useState(false);
   const blSyncStarted = useRef(false);
   const [blSyncPending, setBlSyncPending] = useState(false);
   const [blSyncTried, setBlSyncTried] = useState(false);
@@ -1110,8 +1103,6 @@ function Fase2Embarque({
       numeroBl: initial.numeroBl || prev.numeroBl,
       paisOrigen: initial.paisOrigen || prev.paisOrigen,
       regimen: "puerto_libre",
-      numeroCertificadoOrigen:
-        initial.numeroCertificadoOrigen || prev.numeroCertificadoOrigen,
       observaciones: initial.observaciones || prev.observaciones,
     }));
   }, [initial]);
@@ -1150,33 +1141,6 @@ function Fase2Embarque({
         setBlSyncTried(true);
       });
   }
-
-  function syncCertificadoNumero() {
-    if (!docs.certificado_origen?.url) return;
-    setCertSyncPending(true);
-    void syncCertificadoOrigenNumeroAction(vehiculoId)
-      .then((result) => {
-        if (result.success && result.numeroCertificadoOrigen) {
-          setDatos((prev) => ({
-            ...prev,
-            numeroCertificadoOrigen: result.numeroCertificadoOrigen ?? "",
-          }));
-        }
-      })
-      .finally(() => {
-        setCertSyncPending(false);
-        setCertSyncTried(true);
-      });
-  }
-
-  useEffect(() => {
-    if (certSyncStarted.current) return;
-    if (datos.numeroCertificadoOrigen.trim()) return;
-    if (!docs.certificado_origen?.url) return;
-    certSyncStarted.current = true;
-    syncCertificadoNumero();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehiculoId, docs.certificado_origen?.url]);
 
   useEffect(() => {
     if (blSyncStarted.current) return;
@@ -1267,68 +1231,6 @@ function Fase2Embarque({
               name="fechaLlegadaBuque"
             />
           </div>
-          {datos.numeroCertificadoOrigen.trim() ? (
-            <div className="min-w-0">
-              <input
-                type="hidden"
-                name="numeroCertificadoOrigen"
-                value={datos.numeroCertificadoOrigen}
-              />
-              <p className="text-sm text-slate-400">Nº certificado de origen</p>
-              <p className="mt-1 font-mono text-sm uppercase text-cyan-200">
-                {datos.numeroCertificadoOrigen}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Extraído del certificado de origen de este VIN
-              </p>
-            </div>
-          ) : (
-            <label className="block min-w-0 space-y-1.5">
-              <span className="text-sm text-slate-400">Nº certificado de origen</span>
-              <input
-                name="numeroCertificadoOrigen"
-                value={datos.numeroCertificadoOrigen}
-                onChange={(e) =>
-                  patch("numeroCertificadoOrigen", e.target.value.toUpperCase())
-                }
-                placeholder={
-                  certSyncPending
-                    ? "Leyendo certificado de este VIN…"
-                    : docs.certificado_origen?.url
-                      ? "Nº del certificado (completo a mano si falla)"
-                      : "Del certificado de origen (Registro)"
-                }
-                disabled={certSyncPending}
-                className={`${inputClass} font-mono uppercase ${
-                  certSyncPending ? "text-amber-200/90" : ""
-                }`}
-              />
-              {docs.certificado_origen?.url ? (
-                <p className="text-xs text-slate-500">
-                  {certSyncPending
-                    ? "Extrayendo el nº del certificado que corresponde a este VIN…"
-                    : certSyncTried
-                      ? "No se pudo leer el nº para este VIN. Complétalo a mano o reintenta."
-                      : "Se intenta leer del certificado cargado en Registro (match por VIN)."}
-                  {!certSyncPending ? (
-                    <>
-                      {" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          certSyncStarted.current = true;
-                          syncCertificadoNumero();
-                        }}
-                        className="text-cyan-400 underline hover:text-cyan-300"
-                      >
-                        Reintentar
-                      </button>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-            </label>
-          )}
           <div className="block min-w-0 space-y-1.5 sm:col-span-2">
             <span className="text-sm text-slate-400">Puerto de descarga *</span>
             <p className="text-[11px] text-slate-500">

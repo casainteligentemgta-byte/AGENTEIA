@@ -141,8 +141,12 @@ Reglas:
 const BL_PROMPT = `Eres un extractor de conocimientos de embarque / Bill of Lading / BL / guía de carga de un vehículo.
 Lee SOLO lo escrito en el documento. NO inventes.
 
+PRIORIDAD: numero_bl suele estar en la esquina SUPERIOR DERECHA de la 1ª página
+(etiquetas típicas: B/L No., BL No., Bill of Lading No., Document No., Nº BL / Guía).
+Léelo primero ahí; no lo confundas con container no., seal, voyage, booking interno ni VIN.
+
 Extrae en JSON con estas claves exactas:
-- numero_bl (string: B/L No., BL number, guía)
+- numero_bl (string: B/L No., BL number, guía — obligatorio si se ve arriba a la derecha)
 - fecha_llegada_buque (string YYYY-MM-DD: ETA, arrival, llegada del buque o fecha del BL si es la única)
 - puerto (string: puerto de descarga / port of discharge / place of delivery; ej. El Guamache, La Guaira, Puerto Cabello)
 - modalidad_transito ("ninguno" | "transito" | "uso24" | null):
@@ -583,6 +587,110 @@ export async function extractFacturaComercialFromDocument(
   return mapped;
 }
 
+function normalizeNumeroBlCandidate(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/^[:#.\-]+/, "");
+  if (v.length < 5 || v.length > 40) return null;
+  // Evitar confundir VIN / contenedores típicos ISO.
+  if (/^[A-HJ-NPR-Z0-9]{17}$/.test(v)) return null;
+  if (/^[A-Z]{4}\d{7}$/.test(v)) return null;
+  if (!/[A-Z0-9]/.test(v)) return null;
+  return v;
+}
+
+/** Heurística sobre texto embebido del PDF (B/L No. arriba). */
+function harvestNumeroBlFromText(text: string): string | null {
+  if (!text.trim()) return null;
+  const patterns = [
+    /(?:B\s*\/\s*L|BL|BILL\s+OF\s+LADING)\s*(?:NO\.?|NUMBER|#|N[º°O]\.?)?\s*[:#.]?\s*([A-Z0-9][A-Z0-9/\-]{4,32})/i,
+    /(?:N[º°O]\.?\s*(?:DE\s+)?(?:BL|GU[IÍ]A)|DOCUMENT\s+NO\.?)\s*[:#.]?\s*([A-Z0-9][A-Z0-9/\-]{4,32})/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    const candidate = normalizeNumeroBlCandidate(m?.[1]);
+    if (candidate) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Si el OCR general no trajo numero_bl: texto PDF → crop superior derecho → visión forzada.
+ */
+async function resolveNumeroBlFromDocument(
+  buffer: Buffer,
+  mimeType: string,
+  current: string | null | undefined
+): Promise<string | null> {
+  const already = normalizeNumeroBlCandidate(current);
+  if (already) return already;
+
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  if (isPdf) {
+    try {
+      const fromText = harvestNumeroBlFromText(await getPdfPlainText(buffer));
+      if (fromText) return fromText;
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    let pageBuf = buffer;
+    let pageMime: string = mimeType;
+    if (isPdf) {
+      const pages = await renderPdfPagesAsPng(buffer, {
+        maxPages: 1,
+        scale: 2.4,
+      });
+      if (pages[0]) {
+        pageBuf = pages[0];
+        pageMime = "image/png";
+      }
+    }
+    // Esquina superior derecha (cabecera del BL).
+    const cropped = await cropImageBuffer(pageBuf, {
+      x: 0.42,
+      y: 0,
+      w: 0.56,
+      h: 0.34,
+    });
+    const parsed = await createDocumentJsonCompletion({
+      prompt: BL_NUMERO_HEADER_PROMPT,
+      buffer: cropped.buffer,
+      mimeType: cropped.mimeType,
+      maxTokens: 200,
+      preferHighDetail: true,
+    });
+    const fromCrop = normalizeNumeroBlCandidate(
+      parseString(parsed.numero_bl ?? parsed.bl ?? parsed.bill_of_lading)
+    );
+    if (fromCrop) return fromCrop;
+  } catch {
+    // ignore
+  }
+
+  try {
+    const parsed = await createDocumentJsonCompletion({
+      prompt: BL_NUMERO_HEADER_PROMPT,
+      buffer,
+      mimeType,
+      maxTokens: 200,
+      maxPdfPages: 1,
+      preferHighDetail: true,
+      forceRasterVision: true,
+    });
+    return normalizeNumeroBlCandidate(
+      parseString(parsed.numero_bl ?? parsed.bl ?? parsed.bill_of_lading)
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function extractBlFromDocument(
   buffer: Buffer,
   mimeType: string
@@ -595,7 +703,15 @@ export async function extractBlFromDocument(
     maxPdfPages: 4,
     preferHighDetail: true,
   });
-  return mapBl(parsed);
+  const mapped = mapBl(parsed);
+  if (!mapped.numero_bl) {
+    mapped.numero_bl = await resolveNumeroBlFromDocument(
+      buffer,
+      mimeType,
+      mapped.numero_bl
+    );
+  }
+  return mapped;
 }
 
 export function facturaToFormFields(
@@ -841,6 +957,11 @@ Responde SOLO JSON:
 
 const BL_MULTI_PROMPT = `Analiza este Bill of Lading / BL / conocimiento de embarque (puede listar UNO o VARIOS vehículos / VINs).
 Incluye TODOS los VIN o chasis listados en "vehiculos".
+
+PRIORIDAD ABSOLUTA: "numero_bl" está casi siempre en la esquina SUPERIOR DERECHA de la 1ª página
+(B/L No., BL No., Bill of Lading No., Document No., Nº BL). Léelo ahí primero.
+NO uses como numero_bl: container number, seal, voyage, booking genérico, ni VIN/chasis.
+
 Responde SOLO JSON con:
 {
   "numero_bl": string|null,
@@ -876,6 +997,12 @@ modalidad_transito: "transito" si hay tránsito/transshipment; "uso24" si mencio
 aduana = aduana SENIAT o, si no hay, el puerto de descarga.
 pais_origen = país (o país del puerto de carga).
 Si la descripción es genérica sin VIN, "vehiculos" puede ser [].`;
+
+/** Pasada enfocada: solo nº BL en cabecera superior derecha. */
+const BL_NUMERO_HEADER_PROMPT = `Lee SOLO la esquina SUPERIOR DERECHA de este Bill of Lading / conocimiento de embarque.
+El número de BL / B/L No. / Bill of Lading No. / Document No. / Nº BL o Guía suele estar ahí.
+Responde SOLO JSON: { "numero_bl": string|null }
+NO uses container no., seal, voyage, VIN ni motor. Si no se ve claro, null.`;
 
 const CERTIFICADO_ORIGEN_MULTI_PROMPT = `Analiza este CERTIFICADO DE ORIGEN / Certificate of Origin (COO) de vehículos importados.
 Puede listar UNO o VARIOS vehículos (tabla o lista de chasis/VIN/motor).
@@ -2097,15 +2224,25 @@ export async function extractBlMultiFromDocument(
     preferHighDetail: true,
   });
 
-  const shared = blToFormFields(mapBl(parsed));
+  const blMapped = mapBl(parsed);
+  if (!blMapped.numero_bl) {
+    blMapped.numero_bl = await resolveNumeroBlFromDocument(
+      buffer,
+      mimeType,
+      blMapped.numero_bl
+    );
+  }
+  const shared = blToFormFields(blMapped);
   let vehiculos = asRecordArray(parsed.vehiculos).map((v) => {
-    const fields = blToFormFields(mapBl({ ...parsed, ...v }));
+    const fields = blToFormFields(
+      mapBl({ ...parsed, numero_bl: blMapped.numero_bl, ...v })
+    );
     if (!fields.condicion) fields.condicion = "nuevo";
     return fields;
   });
 
   if (vehiculos.length === 0) {
-    const single = blToFormFields(mapBl(parsed));
+    const single = blToFormFields(blMapped);
     if (single.marca || single.serialCarroceria || single.modelo) {
       vehiculos.push(single);
     }
