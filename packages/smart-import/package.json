@@ -31,11 +31,15 @@
     "dev:e2e": "tsx e2e/server.ts",
     "start": "node dist/api/server.js",
     "docker:build": "docker build -t smartimport:latest .",
+    "docker:run": "docker run --rm -p 3000:3000 --env-file .env smartimport:latest",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
     "k8s:apply": "kubectl apply -f k8s/00-namespace.yaml -f k8s/01-configmap.yaml -f k8s/10-redis.yaml -f k8s/20-app.yaml",
-    "k8s:status": "kubectl -n production get pods,svc,hpa"
+    "k8s:deploy": "npm run k8s:apply && kubectl -n production rollout status deploy/smartimport",
+    "k8s:logs": "kubectl -n production logs -l app=smartimport --tail=200 -f",
+    "k8s:status": "kubectl -n production get pods,svc,hpa",
+    "k8s:rollback": "kubectl -n production rollout undo deploy/smartimport && kubectl -n production rollout status deploy/smartimport"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
