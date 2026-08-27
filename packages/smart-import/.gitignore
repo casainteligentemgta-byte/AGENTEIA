@@ -2,3 +2,6 @@ coverage/
 .bin/
 logs/
 *.log
+playwright-report/
+test-results/
+html-report/
