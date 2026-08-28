@@ -55,12 +55,27 @@ export function formatCargaMasivaClientError(err: unknown): string {
   if (isCargaMasivaNetworkError(err) || isAbortError(err)) {
     return "Se cortó la conexión de datos al leer el PDF. Vuelve a tocar Procesar; si ya hay filas, se conservan.";
   }
-  const raw = err instanceof Error ? err.message : String(err);
+  const raw = (
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : err == null
+          ? ""
+          : String(err)
+  ).trim();
   if (/application\/json/i.test(raw) && /not supported|unsupported mime/i.test(raw)) {
     return "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF.";
   }
-  if (err instanceof Error && err.message.trim()) return err.message;
+  if (raw && raw !== "undefined" && raw !== "null" && raw !== "[object Object]") {
+    return raw;
+  }
   return "Error inesperado al procesar la carga masiva";
+}
+
+function rethrowOcrError(err: unknown, fallback: string): never {
+  if (err instanceof Error) throw err;
+  throw new Error(typeof err === "string" && err.trim() ? err : fallback);
 }
 
 async function postOcrOnce<T>(
@@ -257,7 +272,7 @@ export async function postSmartimportOcr<T>(
         "No se pudo iniciar el OCR en datos móviles. Vuelve a tocar Procesar."
       );
     }
-    throw lastError;
+    rethrowOcrError(lastError, "El servidor no respondió al OCR. Reintenta.");
   }
 
   const attempts = Math.max(1, options?.attempts ?? OCR_ATTEMPTS);
@@ -282,7 +297,7 @@ export async function postSmartimportOcr<T>(
       "El OCR tardó demasiado en datos móviles. Se reintentó solo; vuelve a tocar Procesar si hace falta. Si ya hay filas, se conservan."
     );
   }
-  throw lastError;
+  rethrowOcrError(lastError, "El servidor no respondió al OCR. Reintenta.");
 }
 
 export type CargaMasivaStorageDocRef = {
