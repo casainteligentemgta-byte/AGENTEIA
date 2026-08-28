@@ -41,9 +41,9 @@ function FileChip({
   }, [file, image]);
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm">
-      <span className="flex min-w-0 items-center gap-3 text-zinc-200">
-        <span className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950">
+    <li className="flex items-center justify-between gap-3 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-sm">
+      <span className="flex min-w-0 items-center gap-3 text-cyan-50">
+        <span className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-cyan-700/50 bg-cyan-950">
           {image && previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -60,7 +60,7 @@ function FileChip({
         </span>
         <span className="min-w-0">
           <span className="block truncate">{file.name}</span>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-cyan-200/70">
             {(file.size / 1024).toFixed(0)} KB
           </span>
         </span>
@@ -68,7 +68,7 @@ function FileChip({
       <button
         type="button"
         onClick={onRemove}
-        className="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
+        className="rounded-lg p-1 text-cyan-300/70 hover:bg-cyan-900/60 hover:text-red-300"
         aria-label={`Quitar ${file.name}`}
       >
         <Trash2 className="h-4 w-4" />
@@ -148,41 +148,60 @@ export function Step1UploadDocuments({
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium text-zinc-300">Factura comercial</h3>
-        <FileDropZone
-          label={factura ? "Cambiar factura" : "Arrastra o elige la factura"}
-          hint="Un PDF (o foto) con uno o varios vehículos"
-          disabled={extracting}
-          onFiles={takeFactura}
-        />
         {factura ? (
-          <ul className="space-y-2">
-            <FileChip file={factura} onRemove={() => onFactura(null)} />
-          </ul>
-        ) : null}
+          <div className="flex items-center gap-2">
+            <ul className="min-w-0 flex-1 space-y-2">
+              <FileChip file={factura} onRemove={() => onFactura(null)} />
+            </ul>
+            <FileDropZone
+              compact
+              label="Agregar otro"
+              disabled={extracting}
+              onFiles={takeFactura}
+            />
+          </div>
+        ) : (
+          <FileDropZone
+            label="Arrastra o elige la factura"
+            hint="Un PDF (o foto) con uno o varios vehículos"
+            disabled={extracting}
+            onFiles={takeFactura}
+          />
+        )}
       </section>
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium text-zinc-300">Certificados de origen</h3>
-        <FileDropZone
-          label="Arrastra o elige certificados"
-          hint="Uno o más PDF o fotos. Ideal: un certificado por VIN"
-          multiple
-          disabled={extracting}
-          onFiles={takeCertificados}
-        />
         {certificados.length > 0 ? (
-          <ul className="space-y-2">
-            {certificados.map((file, index) => (
-              <FileChip
-                key={`${file.name}-${index}`}
-                file={file}
-                onRemove={() =>
-                  onCertificados(certificados.filter((_, i) => i !== index))
-                }
-              />
-            ))}
-          </ul>
-        ) : null}
+          <div className="flex items-start gap-2">
+            <ul className="min-w-0 flex-1 space-y-2">
+              {certificados.map((file, index) => (
+                <FileChip
+                  key={`${file.name}-${index}`}
+                  file={file}
+                  onRemove={() =>
+                    onCertificados(certificados.filter((_, i) => i !== index))
+                  }
+                />
+              ))}
+            </ul>
+            <FileDropZone
+              compact
+              multiple
+              label="Agregar otro"
+              disabled={extracting}
+              onFiles={takeCertificados}
+            />
+          </div>
+        ) : (
+          <FileDropZone
+            label="Arrastra o elige certificados"
+            hint="Uno o más PDF o fotos. Ideal: un certificado por VIN"
+            multiple
+            disabled={extracting}
+            onFiles={takeCertificados}
+          />
+        )}
       </section>
 
       {alert ? (
