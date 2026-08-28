@@ -35,6 +35,7 @@ import {
 import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 import {
   vehicleImportExtractedSchema,
+  vehicleImportReviewSchema,
   vehicleImportUploadSchema,
 } from "@/lib/validations/vehicle-import";
 
@@ -161,9 +162,8 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
       return;
     }
     const extracted = vehicleImportExtractedSchema.safeParse({
-      factura: parsed.data.factura,
-      certificados: parsed.data.certificados,
       detectedVehicleCount: result.rows.length,
+      vehicles: result.rows,
     });
     if (!extracted.success) {
       setError(extracted.error.errors[0]?.message ?? "Cantidad de vehículos inválida");
@@ -216,14 +216,40 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
     setSaving(true);
     try {
       const { aptos } = resumenSemaforo(rows);
-      const toSave = aptos.map((row) => ({
-        ...row,
-        importadorNombre: importador.nombre,
-        importadorDocumento: importador.documento,
-        importadorTelefono: importador.telefono ?? row.importadorTelefono,
-        importadorEmail: importador.email ?? row.importadorEmail,
-        importadorDireccion: importador.direccion ?? row.importadorDireccion,
-      }));
+      const toSave = aptos.flatMap((row) => {
+        const reviewed = vehicleImportReviewSchema.safeParse({
+          marca: row.marca,
+          modelo: row.modelo,
+          anio: row.anio,
+          color: row.color,
+          vin: row.vin || row.serialCarroceria,
+          serialMotor: row.serialMotor,
+          serialCarroceria: row.serialCarroceria,
+        });
+        if (!reviewed.success) return [];
+        const vin = reviewed.data.vin;
+        return [
+          {
+            ...row,
+            marca: reviewed.data.marca || row.marca,
+            modelo: reviewed.data.modelo || row.modelo,
+            anio: reviewed.data.anio || row.anio,
+            color: reviewed.data.color || row.color,
+            vin,
+            serialCarroceria: reviewed.data.serialCarroceria.trim() || vin,
+            serialMotor: reviewed.data.serialMotor,
+            importadorNombre: importador.nombre,
+            importadorDocumento: importador.documento,
+            importadorTelefono: importador.telefono ?? row.importadorTelefono,
+            importadorEmail: importador.email ?? row.importadorEmail,
+            importadorDireccion: importador.direccion ?? row.importadorDireccion,
+          },
+        ];
+      });
+      if (toSave.length === 0) {
+        setError("Ningún vehículo tiene VIN válido de 17 caracteres");
+        return;
+      }
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: importador.id,
         rows: toSave,
