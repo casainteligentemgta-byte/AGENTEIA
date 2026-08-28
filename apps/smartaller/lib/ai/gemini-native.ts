@@ -139,12 +139,28 @@ const GEMINI_INLINE_MIMES = new Set([
   "application/pdf",
 ]);
 
+function payloadLooksJson(b64: string): boolean {
+  try {
+    const head = Buffer.from(b64.slice(0, 80), "base64")
+      .toString("utf8")
+      .trimStart();
+    return head.startsWith("{") || head.startsWith("[");
+  } catch {
+    return false;
+  }
+}
+
 function toGeminiInline(
   parsed: { mime: string; data: string } | null
 ): { inline_data: { mime_type: string; data: string } } | null {
   if (!parsed?.data) return null;
   const mime = parsed.mime.split(";")[0].trim().toLowerCase();
-  if (mime === "application/json" || mime === "text/html" || mime === "text/plain") {
+  if (
+    mime === "application/json" ||
+    mime === "text/html" ||
+    mime === "text/plain" ||
+    payloadLooksJson(parsed.data)
+  ) {
     return null;
   }
   const mimeType = GEMINI_INLINE_MIMES.has(mime)
@@ -154,6 +170,11 @@ function toGeminiInline(
       : null;
   if (!mimeType) return null;
   return { inline_data: { mime_type: mimeType, data: parsed.data } };
+}
+
+function isJsonMimeUnsupported(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /application\/json/i.test(msg) && /not supported|unsupported mime/i.test(msg);
 }
 
 function contentToParts(content: unknown): GeminiPart[] {
@@ -266,16 +287,16 @@ async function generateOnce(params: {
   apiKey: string;
   model: string;
   contents: Array<{ role: "user" | "model"; parts: GeminiPart[] }>;
-  jsonMode: boolean;
   maxTokens: number;
   temperature: number;
 }): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  // No usar responseMimeType: application/json. Varios Gemini 3 flash-lite
+  // lo rechazan con "mimeType … application/json … is not supported".
   const body: Record<string, unknown> = {
     contents: params.contents,
     generationConfig: {
       temperature: params.temperature,
       maxOutputTokens: Math.min(Math.max(params.maxTokens, 256), 8192),
-      ...(params.jsonMode ? { responseMimeType: "application/json" } : {}),
     },
   };
   const res = await fetch(
@@ -328,7 +349,6 @@ export async function geminiChatCompletion(
   if (!apiKey) {
     throw new Error("Falta GEMINI_API_KEY");
   }
-  const jsonMode = params.response_format?.type === "json_object";
   const maxTokens =
     typeof params.max_tokens === "number" && params.max_tokens > 0
       ? params.max_tokens
@@ -354,28 +374,12 @@ export async function geminiChatCompletion(
         apiKey,
         model,
         contents,
-        jsonMode,
         maxTokens,
         temperature,
       });
     } catch (err) {
       lastError = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (jsonMode && /mime type application\/json is not supported/i.test(msg)) {
-        try {
-          return await generateOnce({
-            apiKey,
-            model,
-            contents,
-            jsonMode: false,
-            maxTokens,
-            temperature,
-          });
-        } catch (retryErr) {
-          lastError = retryErr;
-        }
-      }
-      if (!isNotFound(err)) throw lastError;
+      if (!isNotFound(err) && !isJsonMimeUnsupported(err)) throw lastError;
       if (workingModel === model) workingModel = null;
     }
   }
