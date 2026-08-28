@@ -359,6 +359,10 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
           pending={saving}
           error={error}
           onBack={() => setStep(2)}
+          onSelectVehicle={(index) => {
+            setCurrentIndex(index);
+            setStep(2);
+          }}
           onSave={() => void saveAll()}
         />
       ) : null}

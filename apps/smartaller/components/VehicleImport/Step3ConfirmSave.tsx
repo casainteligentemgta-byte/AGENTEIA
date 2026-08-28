@@ -1,12 +1,10 @@
 "use client";
 
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { VehicleImportSummaryTable } from "@/components/VehicleImport/VehicleImportSummaryTable";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
-import { resumenSemaforo, vehicleSemaforo } from "@/lib/importacion/carga-masiva-ui";
-import {
-  evaluateVinCrossCheck,
-  type VinDocSources,
-} from "@/lib/importacion/vehicle-import-vin";
+import { resumenSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 
 type Props = {
   rows: CargaMasivaRow[];
@@ -16,6 +14,7 @@ type Props = {
   pending: boolean;
   error: string | null;
   onBack: () => void;
+  onSelectVehicle?: (index: number) => void;
   onSave: () => void;
 };
 
@@ -27,6 +26,7 @@ export function Step3ConfirmSave({
   pending,
   error,
   onBack,
+  onSelectVehicle,
   onSave,
 }: Props) {
   const resumen = resumenSemaforo(rows);
@@ -43,37 +43,11 @@ export function Step3ConfirmSave({
         </p>
       </div>
 
-      <ul className="space-y-2">
-        {rows.map((row, index) => {
-          const sem = vehicleSemaforo(row);
-          const vinCheck = evaluateVinCrossCheck(
-            row.vin || row.serialCarroceria,
-            vinSources[row.id]
-          );
-          const vinWarn = vinCheck.items.find((item) => item.status !== "ok");
-          return (
-            <li
-              key={row.id}
-              className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3"
-            >
-              <p className="text-sm font-medium text-zinc-100">
-                {index + 1}. {[row.marca, row.modelo, row.anio].filter(Boolean).join(" ") || "Vehículo"}
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-zinc-400">
-                VIN {row.vin || row.serialCarroceria || "—"}
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">{sem.label}</p>
-              {vinWarn ? (
-                <p className={`mt-1 text-[11px] ${vinWarn.status === "fail" ? "text-red-300" : "text-amber-300"}`}>
-                  {vinWarn.status === "fail" ? "✕" : "⚠️"} {vinWarn.label}
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-emerald-300">✓ VIN cruzado con factura y certificado</p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <VehicleImportSummaryTable
+        rows={rows}
+        vinSources={vinSources}
+        onSelect={onSelectVehicle}
+      />
 
       <div className="rounded-xl border border-zinc-800 px-3 py-3 text-xs text-zinc-400">
         <p>Factura: {facturaName ?? "sin archivo en memoria (se registrará igual)"}</p>

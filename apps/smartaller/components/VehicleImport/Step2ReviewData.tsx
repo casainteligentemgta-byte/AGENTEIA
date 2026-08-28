@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FieldToneLegend } from "@/components/VehicleImport/FieldToneLegend";
+import { VehicleImportSummaryTable } from "@/components/VehicleImport/VehicleImportSummaryTable";
 import { VinCrossCheck } from "@/components/VehicleImport/VinCrossCheck";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { vehicleSemaforo } from "@/lib/importacion/carga-masiva-ui";
@@ -89,6 +90,15 @@ export function Step2ReviewData({
       </div>
 
       <FieldToneLegend />
+
+      {rows.length > 1 ? (
+        <VehicleImportSummaryTable
+          rows={rows}
+          vinSources={vinSources}
+          activeIndex={currentIndex}
+          onSelect={onIndexChange}
+        />
+      ) : null}
 
       {rows.length > 1 ? (
         <div className="flex items-center justify-between gap-2">
