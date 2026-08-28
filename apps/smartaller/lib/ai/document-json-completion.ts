@@ -10,10 +10,7 @@ import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
-
-function isPdfMime(mimeType: string): boolean {
-  return mimeType.toLowerCase().includes("pdf");
-}
+import { isPdfDocument } from "@/lib/mime-document";
 
 function stripJsonFence(raw: string): string {
   return raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
@@ -268,9 +265,11 @@ export async function createDocumentJsonCompletion(params: {
   const maxPdfPages = params.maxPdfPages ?? 4;
   const preferHighDetail = params.preferHighDetail ?? true;
   const renderScale = params.renderScale ?? 2;
-  const mime = params.mimeType || "application/octet-stream";
+  const mime = isPdfDocument(params.buffer, params.mimeType)
+    ? "application/pdf"
+    : params.mimeType || "application/octet-stream";
 
-  if (!isPdfMime(mime)) {
+  if (!isPdfDocument(params.buffer, mime)) {
     return createVisionJsonCompletion({
       prompt: params.prompt,
       imageBuffer: params.buffer,

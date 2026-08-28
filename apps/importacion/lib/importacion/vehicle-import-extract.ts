@@ -189,7 +189,9 @@ export async function runVehicleImportExtract(params: {
           if (!result.success) {
             return {
               ok: false,
-              error: `Certificado «${ref.fileName}»: ${result.error}`,
+              error: formatCargaMasivaClientError(
+                `Certificado «${ref.fileName}»: ${result.error}`
+              ),
               rows: currentRows,
               warnings,
               vinSources: vinSourcesOf(currentRows),
@@ -245,7 +247,7 @@ export async function runVehicleImportExtract(params: {
       if (!result.success) {
         return {
           ok: false,
-          error: result.error,
+          error: formatCargaMasivaClientError(result.error),
           rows: currentRows,
           warnings,
           vinSources: vinSourcesOf(currentRows),

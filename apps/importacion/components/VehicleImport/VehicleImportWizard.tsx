@@ -155,7 +155,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
     });
     setExtracting(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(formatCargaMasivaClientError(result.error));
       if (result.rows.length > 0) {
         applyRows(result.rows, result.vinSources);
       }
