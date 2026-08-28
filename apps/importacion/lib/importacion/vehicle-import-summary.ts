@@ -81,3 +81,40 @@ export function vehicleImportEstado(
     className: "text-amber-300",
   };
 }
+
+export type VehicleImportCountSummaryData = {
+  total: number;
+  complete: number;
+  incomplete: number;
+  critical: number;
+  incompleteReason: string | null;
+};
+
+export function summarizeVehicleImport(
+  rows: CargaMasivaRow[],
+  vinSources: Record<string, VinDocSources>
+): VehicleImportCountSummaryData {
+  const estados = rows.map((row) => vehicleImportEstado(row, vinSources[row.id]));
+  const complete = estados.filter((item) => item.icon === "ok");
+  const incomplete = estados.filter((item) => item.icon === "warn");
+  const critical = estados.filter((item) => item.icon === "critical");
+
+  let incompleteReason: string | null = null;
+  if (incomplete.length === 1) {
+    incompleteReason = incomplete[0]!.label.toLowerCase();
+  } else if (incomplete.length > 1) {
+    const labels = incomplete.map((item) => item.label);
+    const first = labels[0]!;
+    incompleteReason = labels.every((label) => label === first)
+      ? first.toLowerCase()
+      : "datos pendientes";
+  }
+
+  return {
+    total: rows.length,
+    complete: complete.length,
+    incomplete: incomplete.length,
+    critical: critical.length,
+    incompleteReason,
+  };
+}

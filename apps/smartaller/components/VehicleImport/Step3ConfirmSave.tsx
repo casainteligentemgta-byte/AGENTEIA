@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { VehicleImportCountSummary } from "@/components/VehicleImport/VehicleImportCountSummary";
 import { VehicleImportSummaryTable } from "@/components/VehicleImport/VehicleImportSummaryTable";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { resumenSemaforo } from "@/lib/importacion/carga-masiva-ui";
@@ -36,12 +37,11 @@ export function Step3ConfirmSave({
       <div>
         <h2 className="text-lg font-semibold text-zinc-50">Confirmar y guardar</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Se crearán {resumen.aptos.length} expediente{resumen.aptos.length === 1 ? "" : "s"}.
-          {resumen.bloqueados.length > 0
-            ? ` ${resumen.bloqueados.length} sin VIN no se registran.`
-            : ""}
+          Revisa el lote y registra los que tengan VIN válido.
         </p>
       </div>
+
+      <VehicleImportCountSummary rows={rows} vinSources={vinSources} />
 
       <VehicleImportSummaryTable
         rows={rows}
@@ -52,9 +52,6 @@ export function Step3ConfirmSave({
       <div className="rounded-xl border border-zinc-800 px-3 py-3 text-xs text-zinc-400">
         <p>Factura: {facturaName ?? "sin archivo en memoria (se registrará igual)"}</p>
         <p className="mt-1">Certificados: {certificadoCount}</p>
-        <p className="mt-1">
-          Semáforo: {resumen.verde} verde, {resumen.ambar} ámbar, {resumen.rojo} rojo
-        </p>
       </div>
 
       {error ? (
