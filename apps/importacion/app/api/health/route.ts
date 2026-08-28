@@ -28,6 +28,8 @@ export async function GET() {
     {
       status: healthy ? "ok" : "degraded",
       service: "importacion",
+      env: process.env.VERCEL_ENV ?? "local",
+      sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
       timestamp: new Date().toISOString(),
       checks,
     },
