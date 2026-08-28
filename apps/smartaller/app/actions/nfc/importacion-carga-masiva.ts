@@ -9,7 +9,7 @@ import {
   assertLlmBudgetAllows,
   bindLlmUsageContext,
 } from "@/lib/ai/llm-usage";
-import { resolveImageMimeType } from "@/lib/mime-image";
+import { sniffDocumentMime } from "@/lib/mime-document";
 import {
   CARGA_MASIVA_MAX_ROWS,
   cargaMasivaRowToAltaInput,
@@ -285,16 +285,11 @@ function dedupeCargaMasivaRowsBySerial(rows: CargaMasivaRow[]): CargaMasivaRow[]
 }
 
 function resolveDocMime(file: File, buffer: Buffer): string {
-  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-    return "application/pdf";
-  }
-  return (
-    resolveImageMimeType({
-      declaredMime: file.type,
-      fileName: file.name,
-      buffer,
-    }) ?? "image/jpeg"
-  );
+  return sniffDocumentMime({
+    buffer,
+    declaredMime: file.type,
+    fileName: file.name,
+  });
 }
 
 export type ParseCargaMasivaResult =
@@ -686,10 +681,23 @@ async function loadCargaMasivaDocsFromForm(
       }
       const buffer = Buffer.from(await data.arrayBuffer());
       const fileName = ref.fileName || path.split("/").pop() || "documento.pdf";
-      const file = new File([buffer], fileName, {
-        type: data.type || "application/pdf",
-      });
-      const mimeType = resolveDocMime(file, buffer);
+      let mimeType: string;
+      try {
+        mimeType = sniffDocumentMime({
+          buffer,
+          declaredMime: data.type,
+          fileName,
+        });
+      } catch (err) {
+        return {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo leer el documento desde Storage",
+        };
+      }
+      const file = new File([buffer], fileName, { type: mimeType });
       pushByTipo(String(ref.tipo || guessTipoFromName(fileName)), {
         file,
         buffer,
@@ -721,7 +729,16 @@ async function loadCargaMasivaDocsFromForm(
       continue;
     }
     const buffer = Buffer.from(await file.arrayBuffer());
-    const mimeType = resolveDocMime(file, buffer);
+    let mimeType: string;
+    try {
+      mimeType = resolveDocMime(file, buffer);
+    } catch (err) {
+      return {
+        ok: false,
+        error:
+          err instanceof Error ? err.message : "No se pudo leer el documento",
+      };
+    }
     pushByTipo(tipoRaw, { file, buffer, mimeType });
   }
   return { ok: true, facturas, certs, bls };

@@ -130,6 +130,32 @@ function parseDataUrl(url: string): { mime: string; data: string } | null {
   return { mime: m[1], data: m[2] };
 }
 
+const GEMINI_INLINE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
+
+function toGeminiInline(
+  parsed: { mime: string; data: string } | null
+): { inline_data: { mime_type: string; data: string } } | null {
+  if (!parsed?.data) return null;
+  const mime = parsed.mime.split(";")[0].trim().toLowerCase();
+  if (mime === "application/json" || mime === "text/html" || mime === "text/plain") {
+    return null;
+  }
+  const mimeType = GEMINI_INLINE_MIMES.has(mime)
+    ? mime
+    : mime.startsWith("image/")
+      ? "image/jpeg"
+      : null;
+  if (!mimeType) return null;
+  return { inline_data: { mime_type: mimeType, data: parsed.data } };
+}
+
 function contentToParts(content: unknown): GeminiPart[] {
   if (typeof content === "string") return [{ text: content }];
   if (!Array.isArray(content)) return [{ text: String(content ?? "") }];
@@ -151,21 +177,15 @@ function contentToParts(content: unknown): GeminiPart[] {
             ? String((image as { url?: string }).url ?? "")
             : "";
       const parsed = parseDataUrl(url);
-      if (parsed) {
-        parts.push({
-          inline_data: { mime_type: parsed.mime, data: parsed.data },
-        });
-      }
+      const inline = toGeminiInline(parsed);
+      if (inline) parts.push(inline);
       continue;
     }
     if (type === "file") {
       const file = item.file as { file_data?: string } | undefined;
       const parsed = file?.file_data ? parseDataUrl(file.file_data) : null;
-      if (parsed) {
-        parts.push({
-          inline_data: { mime_type: parsed.mime, data: parsed.data },
-        });
-      }
+      const inline = toGeminiInline(parsed);
+      if (inline) parts.push(inline);
     }
   }
   return parts.length > 0 ? parts : [{ text: "" }];
@@ -340,7 +360,22 @@ export async function geminiChatCompletion(
       });
     } catch (err) {
       lastError = err;
-      if (!isNotFound(err)) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (jsonMode && /mime type application\/json is not supported/i.test(msg)) {
+        try {
+          return await generateOnce({
+            apiKey,
+            model,
+            contents,
+            jsonMode: false,
+            maxTokens,
+            temperature,
+          });
+        } catch (retryErr) {
+          lastError = retryErr;
+        }
+      }
+      if (!isNotFound(err)) throw lastError;
       if (workingModel === model) workingModel = null;
     }
   }
