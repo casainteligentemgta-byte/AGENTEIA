@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { FileText, Upload } from "lucide-react";
+import { FileText, Plus, Upload } from "lucide-react";
 
 type Props = {
   label: string;
-  hint: string;
+  hint?: string;
   multiple?: boolean;
   disabled?: boolean;
+  compact?: boolean;
   onFiles: (files: File[]) => void;
 };
 
@@ -19,6 +20,7 @@ export function FileDropZone({
   hint,
   multiple = false,
   disabled = false,
+  compact = false,
   onFiles,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +38,35 @@ export function FileDropZone({
     setOver(false);
     if (disabled) return;
     take(event.dataTransfer.files);
+  }
+
+  const picker = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept={ACCEPT}
+      multiple={multiple}
+      className="sr-only"
+      onChange={(event) => {
+        take(event.target.files);
+        event.target.value = "";
+      }}
+    />
+  );
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-3 py-2 text-xs font-medium text-cyan-100 hover:border-cyan-400 hover:bg-cyan-900/40 disabled:opacity-50"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {label}
+        {picker}
+      </button>
+    );
   }
 
   return (
@@ -60,18 +91,8 @@ export function FileDropZone({
         <FileText className="h-4 w-4" />
         {label}
       </span>
-      <span className="max-w-xs text-xs text-zinc-500">{hint}</span>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        multiple={multiple}
-        className="sr-only"
-        onChange={(event) => {
-          take(event.target.files);
-          event.target.value = "";
-        }}
-      />
+      {hint ? <span className="max-w-xs text-xs text-zinc-500">{hint}</span> : null}
+      {picker}
     </button>
   );
 }
