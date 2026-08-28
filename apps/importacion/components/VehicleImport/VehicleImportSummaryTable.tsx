@@ -40,6 +40,23 @@ export function VehicleImportSummaryTable({
                   active ? "bg-cyan-950/40" : "bg-zinc-950/40"
                 } ${onSelect ? "cursor-pointer hover:bg-zinc-900/80" : ""}`}
                 onClick={onSelect ? () => onSelect(index) : undefined}
+                onKeyDown={
+                  onSelect
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelect(index);
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={onSelect ? 0 : undefined}
+                role={onSelect ? "button" : undefined}
+                aria-label={
+                  onSelect
+                    ? `Revisar vehículo ${index + 1}, ${estado.label}`
+                    : undefined
+                }
               >
                 <td className="px-3 py-2 tabular-nums text-zinc-500">{index + 1}</td>
                 <td className="max-w-[8rem] truncate px-3 py-2 font-medium text-zinc-100">

@@ -5,6 +5,10 @@ import { VehicleImportCountSummary } from "@/components/VehicleImport/VehicleImp
 import { VehicleImportSummaryTable } from "@/components/VehicleImport/VehicleImportSummaryTable";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { resumenSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import {
+  summarizeVehicleImport,
+  vehicleImportConfirmBanner,
+} from "@/lib/importacion/vehicle-import-summary";
 import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 
 type Props = {
@@ -31,6 +35,9 @@ export function Step3ConfirmSave({
   onSave,
 }: Props) {
   const resumen = resumenSemaforo(rows);
+  const banner = vehicleImportConfirmBanner(
+    summarizeVehicleImport(rows, vinSources)
+  );
 
   return (
     <div className="space-y-5">
@@ -40,6 +47,19 @@ export function Step3ConfirmSave({
           Revisa el lote y registra los que tengan VIN válido.
         </p>
       </div>
+
+      {banner ? (
+        <p
+          className={`rounded-xl border px-3 py-2 text-sm ${
+            banner.tone === "red"
+              ? "border-red-900/50 bg-red-950/30 text-red-100"
+              : "border-amber-900/50 bg-amber-950/30 text-amber-100"
+          }`}
+          role="status"
+        >
+          {banner.message} Pulsa una fila para volver a ese vehículo.
+        </p>
+      ) : null}
 
       <VehicleImportCountSummary rows={rows} vinSources={vinSources} />
 

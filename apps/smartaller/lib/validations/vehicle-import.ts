@@ -17,6 +17,7 @@ const fileLike = z.custom<File>(
   { message: "Archivo requerido" }
 );
 
+/** Paso 1, antes del OCR: solo archivos. PDF o foto (iOS a menudo manda MIME vacío o HEIC). El conteo va en vehicleImportExtractedSchema. */
 export const vehicleImportUploadSchema = z.object({
   factura: fileLike.refine(
     (file) => isPdfOrImageFile(file),

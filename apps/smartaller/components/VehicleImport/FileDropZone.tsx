@@ -11,7 +11,8 @@ type Props = {
   onFiles: (files: File[]) => void;
 };
 
-const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp";
+const ACCEPT =
+  "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif";
 
 export function FileDropZone({
   label,

@@ -99,7 +99,11 @@ export function Step1UploadDocuments({
       setLocalError("La factura debe ser PDF o una foto nítida");
       return;
     }
-    setLocalError(null);
+    setLocalError(
+      valid.length < files.length
+        ? "Se omitieron archivos que no son PDF o foto"
+        : null
+    );
     onFactura(valid[0] ?? null);
   }
 
@@ -109,7 +113,11 @@ export function Step1UploadDocuments({
       setLocalError("Los certificados deben ser PDF o foto");
       return;
     }
-    setLocalError(null);
+    setLocalError(
+      valid.length < files.length
+        ? "Se omitieron archivos que no son PDF o foto"
+        : null
+    );
     const seen = new Set(certificados.map((file) => `${file.name}:${file.size}`));
     const next = [...certificados];
     for (const file of valid) {
@@ -157,7 +165,7 @@ export function Step1UploadDocuments({
         <h3 className="text-sm font-medium text-zinc-300">Certificados de origen</h3>
         <FileDropZone
           label="Arrastra o elige certificados"
-          hint="Uno o más PDF. Ideal: un certificado por VIN"
+          hint="Uno o más PDF o fotos. Ideal: un certificado por VIN"
           multiple
           disabled={extracting}
           onFiles={takeCertificados}

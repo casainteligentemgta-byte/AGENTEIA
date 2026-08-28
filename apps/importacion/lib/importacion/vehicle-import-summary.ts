@@ -118,3 +118,29 @@ export function summarizeVehicleImport(
     incompleteReason,
   };
 }
+
+export type VehicleImportConfirmBanner = {
+  tone: "amber" | "red";
+  message: string;
+};
+
+/** Aviso del paso 3: no bloquea guardar los aptos; sí pide revisar el resto. */
+export function vehicleImportConfirmBanner(
+  summary: VehicleImportCountSummaryData
+): VehicleImportConfirmBanner | null {
+  const pending = summary.incomplete + summary.critical;
+  if (pending === 0) return null;
+
+  const noun = pending === 1 ? "vehículo" : "vehículos";
+  if (summary.critical > 0 && summary.incomplete === 0) {
+    return {
+      tone: "red",
+      message: `Hay ${pending} ${noun} con error crítico. Corrígelos o no se registrarán al guardar.`,
+    };
+  }
+
+  return {
+    tone: summary.critical > 0 ? "red" : "amber",
+    message: `Hay ${pending} ${noun} con datos incompletos. Revisa antes de guardar.`,
+  };
+}
