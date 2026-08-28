@@ -188,6 +188,12 @@ export function formatLlmAuthError(err: unknown): string {
     }
     return "Límite de la API de IA alcanzado. Espera un momento e intenta de nuevo.";
   }
+  if (
+    /application\/json/i.test(msg) &&
+    /not supported|unsupported mime/i.test(msg)
+  ) {
+    return "La IA rechazó el formato JSON. Vuelve a tocar Procesar; si falla, recarga la página.";
+  }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN
     if (/Sin VIN|raster:|pagina-1|col-code|json-harvest|tesseract/i.test(msg)) {
