@@ -383,6 +383,11 @@ export async function geminiChatCompletion(
       if (workingModel === model) workingModel = null;
     }
   }
+  if (isJsonMimeUnsupported(lastError)) {
+    throw new Error(
+      "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF."
+    );
+  }
   const tried = [...seen].slice(0, 6).join(", ");
   throw lastError instanceof Error
     ? new Error(
