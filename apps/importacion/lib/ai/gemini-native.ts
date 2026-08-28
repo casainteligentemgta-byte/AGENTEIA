@@ -174,12 +174,16 @@ function toGeminiInline(
   return { inline_data: { mime_type: mimeType, data: parsed.data } };
 }
 
+type GeminiRestPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
 function toGeminiRestContents(
   contents: Array<{ role: "user" | "model"; parts: GeminiPart[] }>
-): Array<{ role: "user" | "model"; parts: Array<Record<string, unknown>> }> {
+): Array<{ role: "user" | "model"; parts: GeminiRestPart[] }> {
   return contents.map((c) => ({
     role: c.role,
-    parts: c.parts.flatMap((p) => {
+    parts: c.parts.flatMap((p): GeminiRestPart[] => {
       if ("text" in p) {
         return p.text ? [{ text: p.text }] : [];
       }
