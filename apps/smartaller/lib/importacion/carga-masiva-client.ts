@@ -2,6 +2,8 @@
 export const OCR_UI_UNLOCK_MS = 40_000;
 
 const OCR_ATTEMPTS = 3;
+const OCR_POLL_MS = 280_000;
+const OCR_POLL_EVERY_MS = 2000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -96,9 +98,91 @@ export type PostSmartimportOcrOptions = {
   onRetry?: (attempt: number, total: number) => void;
 };
 
+function isPendingOcrJob(value: unknown): value is { pending: true; jobId: string } {
+  if (!value || typeof value !== "object") return false;
+  const o = value as { pending?: unknown; jobId?: unknown };
+  return o.pending === true && typeof o.jobId === "string" && o.jobId.length > 8;
+}
+
+function cargaJobStorageKey(fd: FormData): string {
+  return `st-ocr-job:${String(fd.get("etapa") ?? "")}:${String(fd.get("storageDocs") ?? "")}`;
+}
+
+function readSavedJobId(fd: FormData): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const id = sessionStorage.getItem(cargaJobStorageKey(fd));
+    return id && id.length > 8 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveJobId(fd: FormData, jobId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(cargaJobStorageKey(fd), jobId);
+  } catch {
+    /* private mode */
+  }
+}
+
+function clearJobId(fd: FormData): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(cargaJobStorageKey(fd));
+  } catch {
+    /* ignore */
+  }
+}
+
+async function pollOcrJob<T>(
+  path: "/api/smartimport/ocr-carga-masiva",
+  jobId: string,
+  options?: PostSmartimportOcrOptions
+): Promise<T> {
+  const started = Date.now();
+  const totalTicks = Math.ceil(OCR_POLL_MS / OCR_POLL_EVERY_MS);
+  let tick = 0;
+  while (Date.now() - started < OCR_POLL_MS) {
+    tick += 1;
+    options?.onRetry?.(tick, totalTicks);
+    try {
+      const res = await fetch(`${path}?job=${encodeURIComponent(jobId)}`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        signal: timeoutSignal(15_000),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as {
+          status?: string;
+          result?: T;
+          error?: string | null;
+        };
+        if (data.status === "done" && data.result) return data.result;
+        if (data.status === "error") {
+          if (data.result) return data.result;
+          throw new Error(data.error || "El OCR falló");
+        }
+      }
+    } catch (err) {
+      if (isAbortError(err) || isCargaMasivaNetworkError(err)) {
+        await sleep(OCR_POLL_EVERY_MS);
+        continue;
+      }
+      throw err;
+    }
+    await sleep(OCR_POLL_EVERY_MS);
+  }
+  throw new Error(
+    "El celular dejó de esperar, pero el servidor puede seguir leyendo. Vuelve a tocar Procesar en unos segundos; si ya hay filas, se conservan."
+  );
+}
+
 /**
- * POST a Route Handler (hasta 300s). En datos móviles Safari suele cortar a ~60s:
- * reintenta la etapa sin pedir Wi‑Fi.
+ * POST a Route Handler. Carga masiva: el servidor trabaja en segundo plano y el
+ * celular solo consulta el estado (peticiones cortas, aptas para LTE/Safari).
  */
 export async function postSmartimportOcr<T>(
   path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
@@ -106,6 +190,72 @@ export async function postSmartimportOcr<T>(
   fallback: (fd: FormData) => Promise<T>,
   options?: PostSmartimportOcrOptions
 ): Promise<T> {
+  if (path === "/api/smartimport/ocr-carga-masiva") {
+    const savedId = readSavedJobId(fd);
+    if (savedId) {
+      try {
+        const existing = await pollOcrJob<T>(path, savedId, options);
+        clearJobId(fd);
+        return existing;
+      } catch (err) {
+        if (!(isAbortError(err) || isCargaMasivaNetworkError(err))) {
+          const msg = err instanceof Error ? err.message : "";
+          if (/dejó de esperar|puede seguir leyendo/i.test(msg)) {
+            throw err;
+          }
+          clearJobId(fd);
+        }
+      }
+    }
+
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(path, {
+          method: "POST",
+          body: cloneFormData(fd),
+          credentials: "include",
+          signal: timeoutSignal(20_000),
+        });
+        if (res.status === 404) return fallback(fd);
+        if (res.status === 413) {
+          throw new Error(
+            "El PDF supera el límite del servidor. Usa un archivo más liviano (< 8 MB)."
+          );
+        }
+        const text = await res.text();
+        if (!text.trim()) {
+          throw new Error("El servidor no respondió al OCR. Reintenta.");
+        }
+        let data: unknown;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("El servidor no respondió al OCR. Reintenta.");
+        }
+        if (isPendingOcrJob(data)) {
+          saveJobId(fd, data.jobId);
+          const result = await pollOcrJob<T>(path, data.jobId, options);
+          clearJobId(fd);
+          return result;
+        }
+        return data as T;
+      } catch (err) {
+        lastError = err;
+        const retryable = isAbortError(err) || isCargaMasivaNetworkError(err);
+        if (!retryable || attempt >= 3) break;
+        options?.onRetry?.(attempt + 1, 3);
+        await sleep(700 * attempt);
+      }
+    }
+    if (isAbortError(lastError)) {
+      throw new Error(
+        "No se pudo iniciar el OCR en datos móviles. Vuelve a tocar Procesar."
+      );
+    }
+    throw lastError;
+  }
+
   const attempts = Math.max(1, options?.attempts ?? OCR_ATTEMPTS);
   const deadlineMs = options?.deadlineMs;
   let lastError: unknown;
