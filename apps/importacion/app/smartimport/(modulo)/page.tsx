@@ -617,9 +617,6 @@ export default async function PuertoLibrePage() {
               <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
               Cómo llenar una importación
             </Link>
-            {llmUsage?.success ? (
-              <LlmUsagePanel summary={llmUsage.summary} />
-            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -772,6 +769,11 @@ export default async function PuertoLibrePage() {
           }
         />
       </div>
+      {puedeMutar && llmUsage?.success ? (
+        <div className="mt-3">
+          <LlmUsagePanel summary={llmUsage.summary} />
+        </div>
+      ) : null}
     </PuertoLibreShell>
   );
 }
