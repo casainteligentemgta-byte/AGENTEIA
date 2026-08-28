@@ -1,6 +1,35 @@
 /** Si el OCR no responde, se desbloquea la UI y la lectura sigue en segundo plano. */
 export const OCR_UI_UNLOCK_MS = 40_000;
 
+const OCR_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function cloneFormData(fd: FormData): FormData {
+  const next = new FormData();
+  fd.forEach((value, key) => {
+    next.append(key, value);
+  });
+  return next;
+}
+
+function timeoutSignal(ms: number | undefined): AbortSignal | undefined {
+  if (!ms || ms <= 0) return undefined;
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  return undefined;
+}
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = "name" in err ? String(err.name) : "";
+  const msg = "message" in err ? String(err.message) : String(err);
+  return name === "AbortError" || name === "TimeoutError" || /aborted|timeout/i.test(msg);
+}
+
 /** Errores de red típicos (Safari iOS: "Load failed") al llamar Server Actions. */
 export function isCargaMasivaNetworkError(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
@@ -21,8 +50,8 @@ export function formatCargaMasivaClientError(err: unknown): string {
   if (isStaleDeployOcrError(err)) {
     return "La página quedó desactualizada tras el deploy (404). Recarga sin caché (en el móvil: cerrar pestaña y abrir de nuevo) y vuelve a Extraer vehículos.";
   }
-  if (isCargaMasivaNetworkError(err)) {
-    return "Se cortó la conexión al leer el PDF (en el móvil el OCR puede tardar). Reintenta con Wi‑Fi; si usas varios certificados, súbelos de uno en uno.";
+  if (isCargaMasivaNetworkError(err) || isAbortError(err)) {
+    return "Se cortó la conexión de datos al leer el PDF. Vuelve a tocar Procesar; si ya hay filas, se conservan.";
   }
   if (err instanceof Error && err.message.trim()) return err.message;
   return "Error inesperado al procesar la carga masiva";
@@ -60,38 +89,46 @@ async function postOcrOnce<T>(
   }
 }
 
+export type PostSmartimportOcrOptions = {
+  signal?: AbortSignal;
+  deadlineMs?: number;
+  attempts?: number;
+  onRetry?: (attempt: number, total: number) => void;
+};
+
 /**
- * POST a Route Handler (120s, URL estable).
- * Solo cae a Server Action si la ruta no existe en ese deploy (404 / cuerpo vacío).
- * Un fallo de red no debe usar Server Action: en móvil suele cortarse antes.
+ * POST a Route Handler (hasta 300s). En datos móviles Safari suele cortar a ~60s:
+ * reintenta la etapa sin pedir Wi‑Fi.
  */
 export async function postSmartimportOcr<T>(
   path: "/api/smartimport/ocr-documento" | "/api/smartimport/ocr-carga-masiva",
   fd: FormData,
   fallback: (fd: FormData) => Promise<T>,
-  options?: { signal?: AbortSignal; deadlineMs?: number }
+  options?: PostSmartimportOcrOptions
 ): Promise<T> {
+  const attempts = Math.max(1, options?.attempts ?? OCR_ATTEMPTS);
   const deadlineMs = options?.deadlineMs;
-  const signal =
-    options?.signal ??
-    (deadlineMs && deadlineMs > 0 ? AbortSignal.timeout(deadlineMs) : undefined);
-  try {
-    return await postOcrOnce(path, fd, fallback, signal);
-  } catch (first) {
-    if (signal?.aborted) {
-      throw new Error(
-        "El OCR tardó demasiado. Suele pasar con PDFs pesados o Wi‑Fi lento: reintenta; si ya hay filas, se conservan."
-      );
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const signal = options?.signal ?? timeoutSignal(deadlineMs);
+    try {
+      return await postOcrOnce(path, cloneFormData(fd), fallback, signal);
+    } catch (err) {
+      lastError = err;
+      const retryable = isAbortError(err) || isCargaMasivaNetworkError(err);
+      if (!retryable || attempt >= attempts) break;
+      options?.onRetry?.(attempt + 1, attempts);
+      await sleep(700 * attempt);
     }
-    if (isCargaMasivaNetworkError(first)) {
-      try {
-        return await postOcrOnce(path, fd, fallback, signal);
-      } catch {
-        throw first;
-      }
-    }
-    throw first;
   }
+
+  if (isAbortError(lastError)) {
+    throw new Error(
+      "El OCR tardó demasiado en datos móviles. Se reintentó solo; vuelve a tocar Procesar si hace falta. Si ya hay filas, se conservan."
+    );
+  }
+  throw lastError;
 }
 
 export type CargaMasivaStorageDocRef = {

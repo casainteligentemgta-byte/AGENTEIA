@@ -5,6 +5,7 @@ import {
   safeStorageFileName,
   type CargaMasivaStorageDocRef,
 } from "@/lib/importacion/carga-masiva-client";
+import { compressImportDocForCellular } from "@/lib/importacion/compress-import-doc";
 import {
   CARGA_MASIVA_ETAPA_HINTS,
   CARGA_MASIVA_ETAPA_LABELS,
@@ -28,6 +29,10 @@ export type VehicleImportDoc = {
 
 export type ExtractProgressFn = (progress: CargaMasivaEtapaProgress) => void;
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function uploadDocs(
   tallerId: string,
   docs: VehicleImportDoc[],
@@ -36,16 +41,26 @@ async function uploadDocs(
   const supabase = createClient();
   const refs: CargaMasivaStorageDocRef[] = [];
   for (const doc of docs) {
-    const fileName = safeStorageFileName(doc.file.name);
+    const file = await compressImportDocForCellular(doc.file);
+    const fileName = safeStorageFileName(file.name);
     const path = `${tallerId}/carga-masiva-temp/${batchId}/${fileName}`;
-    const { error } = await supabase.storage
-      .from(VEHICULO_DOCS_BUCKET)
-      .upload(path, doc.file, {
-        upsert: false,
-        contentType: doc.file.type || "application/pdf",
-      });
-    if (error) {
-      throw new Error(`${doc.file.name}: ${error.message}`);
+    let lastError = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error } = await supabase.storage
+        .from(VEHICULO_DOCS_BUCKET)
+        .upload(path, file, {
+          upsert: true,
+          contentType: file.type || "application/pdf",
+        });
+      if (!error) {
+        lastError = "";
+        break;
+      }
+      lastError = error.message;
+      await sleep(600 * attempt);
+    }
+    if (lastError) {
+      throw new Error(`${doc.file.name}: ${lastError}`);
     }
     refs.push({ path, tipo: doc.tipo, fileName: doc.file.name });
   }
@@ -154,7 +169,21 @@ export async function runVehicleImportExtract(params: {
             "/api/smartimport/ocr-carga-masiva",
             fd,
             extractCargaMasivaEtapaAction,
-            { deadlineMs: 100_000 }
+            {
+              deadlineMs: 90_000,
+              onRetry: (attempt, total) =>
+                params.onProgress({
+                  etapa: "certs",
+                  label: `Certificado ${c + 1}/${storageDocs.length}`,
+                  hint: `Datos móviles: reintento ${attempt}/${total}…`,
+                  vinsEncontrados: rowVinCount(currentRows),
+                  filasCompletas: currentRows.filter(
+                    (row) => vehicleCompleteness(row).complete
+                  ).length,
+                  totalFilas: currentRows.length,
+                  pct: Math.round(70 + ((c + 1) / storageDocs.length) * 25),
+                }),
+            }
           );
           if (!result.success) {
             return {
@@ -196,7 +225,21 @@ export async function runVehicleImportExtract(params: {
         "/api/smartimport/ocr-carga-masiva",
         fd,
         extractCargaMasivaEtapaAction,
-        { deadlineMs: 110_000 }
+        {
+          deadlineMs: 90_000,
+          onRetry: (attempt, total) =>
+            params.onProgress({
+              etapa,
+              label: CARGA_MASIVA_ETAPA_LABELS[etapa],
+              hint: `Datos móviles: reintento ${attempt}/${total}…`,
+              vinsEncontrados: rowVinCount(currentRows),
+              filasCompletas: currentRows.filter((row) =>
+                vehicleCompleteness(row).complete
+              ).length,
+              totalFilas: currentRows.length,
+              pct: Math.round((i / etapas.length) * 70),
+            }),
+        }
       );
       if (!result.success) {
         return {
