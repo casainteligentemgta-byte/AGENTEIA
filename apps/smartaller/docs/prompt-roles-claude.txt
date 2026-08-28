@@ -1,0 +1,150 @@
+Mejora el sistema de roles y flags de SmartTaller / SmartImport.
+
+Responde en espanol. Stack: Next.js 14 App Router, Supabase, Zod. Server-first. No inventes tablas, columnas ni variables de entorno: verifica el codigo.
+
+Problema
+Hoy se mezclan tres conceptos distintos:
+1. Rol de persona: que puede hacer.
+2. Alcance de datos: que puede ver.
+3. Tipo de industria del taller: que negocio es.
+
+Eso duplica taller vs concesionario vs tipo_industria, infiere roles en silencio y hace los gates dificiles de razonar.
+
+No pidas confirmacion para leer. Primero mapea el codigo real. Luego propone el modelo limpio. Luego implementa el cambio minimo sin romper portales ni importacion.
+
+Archivos fuente (apps/smartaller; hay duplicado en apps/importacion, no divergir)
+lib/portal/roles.ts
+lib/importacion/access.ts
+lib/importacion/taller-auth.ts
+lib/platform/types.ts
+app/portales/page.tsx
+app/portales/master/page.tsx
+app/portales/aduanera/page.tsx
+app/portales/concesionario/page.tsx
+app/actions/portal.ts
+app/actions/portal-master.ts
+supabase/migrations/20260806180000_portal_accesos.sql
+supabase/migrations/20260809120000_importacion_roles_login_logs.sql
+supabase/migrations/20260810140000_portal_aislamiento.sql
+docs/REVISION-CODIGO-PL.md
+
+Modelo actual
+Identidad: auth.users.
+
+Tabla portal_accesos, una fila por user_id.
+Campos: roles (array), ver_todo (boolean, default false), taller_ids (array uuid), org_nombre, aislado_at, aislado_por.
+RLS: SELECT propio para authenticated. ALL solo service_role. Las actions usan createAdminClient.
+
+Roles permitidos en el CHECK: master, admin, aduanera, taller, concesionario, usuario.
+Un usuario puede tener varios.
+
+Que hace cada rol hoy
+master: Administrador master. Data global si ver_todo. Mutar si. Logs y aislar/borrar solo si ver_todo.
+admin: Administrador. Data global si ver_todo, o acotada a taller_ids. Mutar si. Sin logs ni aislamiento.
+aduanera: Aduanera. Misma lectura que admin. NO muta. Solo monitoreo.
+taller: Operador de taller. Solo taller_ids. Mutar data de sus clientes. Home: /dashboard.
+concesionario: Operador de concesionario. Solo taller_ids. Mutar data de sus clientes. Home: modulo importacion.
+usuario: Duenio de vehiculo. Solo propios o compartidos. No muta. Hoy se asigna a TODO login.
+
+Reglas especiales
+hasPortalRole: si tiene master, tambien pasa el gate de admin y aduanera.
+requirePortalRole de master, admin o aduanera FALLA si no hay ver_todo y taller_ids esta vacio.
+isMasterAdmin = rol master Y ver_todo. Sin ver_todo el master no es master real.
+canAccessAllImportacionData: master+ver_todo, o admin+ver_todo, o aduanera+ver_todo.
+canMutateImportacionData: master/admin ok. aduanera+ver_todo = false. taller/concesionario solo si hay taller_ids.
+isImportacionUsuarioOnly: true solo si no es master, admin, taller, concesionario ni aduanera.
+canViewLoginLogs y aislamiento: solo isMasterAdmin.
+
+Inferencia en resolvePortalAccess (no crea taller)
+Si es owner de un taller no aislado: anade rol taller y mete el id en taller_ids.
+Si ese taller.tipo_industria es concesionario: anade TAMBIEN rol concesionario.
+Si tiene vehiculos como user_id: anade usuario.
+Si aun no tiene usuario: se lo pone igual. Todo autenticado es usuario.
+Si portal_accesos.aislado_at no es null: no infiere nada. Acceso vacio.
+
+Alcance (flags, no roles)
+ver_todo true = vision global para master/admin/aduanera.
+ver_todo false + taller_ids = vision acotada a esos talleres.
+ver_todo false + taller_ids vacio + rol privilegiado = BLOQUEADO.
+usuario no usa taller_ids. Usa vehiculos.user_id y vehiculo_compartidos.
+
+Industria (no es rol de persona)
+talleres.tipo_industria: concesionario, bicicletas, constructora.
+Constructora y bicicletas no tienen rol propio. Hoy caen en rol taller.
+
+Hub /portales
+Botones: master, admin, aduanera, Taller o concesionario, usuario.
+El boton taller/concesionario redirige a importacion o a /dashboard segun roles.
+No existe /portales/taller.
+Master puede abrir admin y aduanera aunque no tenga esos roles en el array.
+
+Aislamiento
+Solo master+ver_todo puede aislar o borrar.
+Taller aislado: invisible para el resto. get_my_taller_id ignora filas con aislado_at.
+
+Segundo sistema de auth
+Mutaciones Puerto Libre usan requireTallerAuth, que llama ensureTallerForUser. No usa resolvePortalAccess.
+Eso puede crear o usar un taller incluso para un usuario puro. Hay que convergirlo o dejarlo explicitamente separado por modulo.
+
+Que esta mal
+concesionario es rol de persona Y tipo_industria del taller.
+Rol taller y rol concesionario tienen el mismo permiso: operar su flota. La diferencia real es industria.
+usuario se pega a todos los logins, asi que un master tambien es usuario.
+ver_todo es un flag critico escondido: sin el, master no es master.
+Hay dos gates: portal roles vs requireTallerAuth.
+Codigo duplicado entre apps/smartaller y apps/importacion.
+No hay /portales/taller.
+
+Modelo objetivo
+Separar 3 ejes y no volver a mezclarlos.
+
+Eje 1. Rol de persona (capability), pocos y estables:
+master = plataforma: logs, aislamiento y data.
+admin = data importacion, sin supervision.
+aduanera = data importacion, solo lectura.
+operador = flota de sus talleres o concesionarios.
+usuario = duenio de vehiculo, consulta y compartir.
+
+Unificar taller + concesionario en operador.
+Mantener aduanera por compatibilidad. No borrar el string en DB sin migracion.
+
+Eje 2. Alcance (scope), flags, nunca roles:
+ver_todo boolean.
+taller_ids array.
+master/admin/aduanera sin ver_todo y sin taller_ids = sin acceso, igual que ahora.
+operador siempre acotado a taller_ids. Nunca ver_todo.
+usuario acotado a vehiculos propios y vehiculo_compartidos.
+
+Eje 3. Industria, solo en talleres.tipo_industria:
+concesionario, bicicletas, constructora.
+La UI Taller vs Concesionario se deriva del taller, no de un rol de persona.
+
+Compatibilidad
+Migracion SQL: aceptar operador en el CHECK.
+Mapear filas existentes taller/concesionario a operador, o aceptar ambos temporalmente y normalizar en resolvePortalAccess.
+Inferencia: owner de taller no aislado = rol operador + id en taller_ids.
+YA NO empujar rol concesionario porque tipo_industria sea concesionario.
+Hub: un boton Operador cuyo href y titulo dependan de tipo_industria del taller propio.
+hasPortalRole: master sigue abriendo admin y aduanera.
+Reescribir access.ts sobre capability + scope, no sobre 6 strings.
+No romper: logs solo master+ver_todo. Aislamiento solo master+ver_todo. Aduanera solo lectura. Usuario no muta expedientes. RLS existente. Server Actions con getUser y Zod.
+
+Restricciones
+TypeScript strict, sin any.
+No API routes nuevas.
+Validar en el servidor. Cliente solo para UI.
+Si tocas consultas Supabase, indica el estado de RLS. portal_accesos ya tiene RLS. authenticated solo SELECT propio.
+Cambios minimos y completos.
+Si es barato, extrae duplicacion smartaller/importacion. Si no, cambia smartaller y replica el mismo contrato.
+No refactors cosmeticos ajenos.
+No implementes un RBAC generico ni un sistema de permisos abstracto. Mejora ESTE modelo.
+El script audit:importacion-auth debe seguir pasando. Anade cobertura si cambias el CHECK o los helpers.
+
+Entrega, en este orden
+1. Mapa corto de AS-IS: roles, flags, inferencias, archivos que los usan.
+2. Diff conceptual TO-BE: matriz rol x ver_todo x taller_ids x industria.
+3. Plan de migracion DB + codigo + hub, sin downtime. Strings viejos aceptados, lectura normalizada.
+4. Implementa.
+5. Lista de rutas y gates tocados y como verificarlos: hub /portales, master, aduanera, operador, smartimport, aislamiento.
+
+Empieza leyendo los archivos listados.
