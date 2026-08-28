@@ -10,9 +10,13 @@ export function FieldToneLegend() {
       {ORDER.map((tone) => {
         const meta = REVIEW_FIELD_TONE_META[tone];
         return (
-          <li key={tone} className="flex items-start gap-1.5 text-zinc-400">
-            <span aria-hidden>{meta.emoji}</span>
-            <span>{meta.label}</span>
+          <li key={tone}>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 ${meta.badgeClass}`}
+            >
+              <span aria-hidden>{meta.emoji}</span>
+              <span>{meta.label}</span>
+            </span>
           </li>
         );
       })}

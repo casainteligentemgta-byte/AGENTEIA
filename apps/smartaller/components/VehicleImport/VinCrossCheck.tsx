@@ -17,22 +17,22 @@ function mark(status: "ok" | "warn" | "fail"): string {
 }
 
 function tone(status: "ok" | "warn" | "fail"): string {
-  if (status === "ok") return "text-emerald-300";
-  if (status === "warn") return "text-amber-300";
-  return "text-red-300";
+  if (status === "ok") return "text-emerald-900";
+  if (status === "warn") return "text-amber-900";
+  return "text-red-900";
 }
 
 export function VinCrossCheck({ vin, sources }: Props) {
   const check = evaluateVinCrossCheck(vin, sources);
   const border = check.items.some((item) => item.status === "fail")
-    ? "border-red-900/50 bg-red-950/20"
+    ? "border-red-200 bg-red-50 text-red-900"
     : check.items.some((item) => item.status === "warn")
-      ? "border-amber-900/40 bg-amber-950/20"
-      : "border-emerald-900/40 bg-emerald-950/20";
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-emerald-200 bg-emerald-50 text-emerald-900";
 
   return (
     <div className={`mt-2 rounded-xl border px-3 py-2 ${border}`}>
-      <p className="font-mono text-sm text-zinc-100">
+      <p className="font-mono text-sm">
         VIN: [{check.display || "—"}]
       </p>
       <ul className="mt-1.5 space-y-0.5 text-xs">
