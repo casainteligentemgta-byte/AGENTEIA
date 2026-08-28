@@ -30,6 +30,7 @@ import {
   writeVehicleImportDraft,
   type VehicleImportDraft,
 } from "@/lib/importacion/vehicle-import-draft";
+import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 import {
   vehicleImportExtractedSchema,
   vehicleImportUploadSchema,
@@ -50,6 +51,9 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
   const [extractedFieldKeys, setExtractedFieldKeys] = useState<
     Record<string, string[]>
   >({});
+  const [vinSources, setVinSources] = useState<
+    Record<string, VinDocSources>
+  >({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState<CargaMasivaEtapaProgress | null>(null);
@@ -69,6 +73,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
         certificadoNames: certificados.map((file) => file.name),
         rows,
         extractedFieldKeys,
+        vinSources,
         updatedAt: new Date().toISOString(),
         ...partial,
       };
@@ -87,6 +92,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
       rows,
       step,
       tallerId,
+      vinSources,
     ]
   );
 
@@ -95,6 +101,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
     if (local?.rows.length) {
       setRows(local.rows);
       setExtractedFieldKeys(local.extractedFieldKeys);
+      setVinSources(local.vinSources ?? {});
       setStep(local.step === 1 && local.rows.length > 0 ? 2 : local.step);
       setCurrentIndex(
         Math.min(local.currentVehicleIndex, Math.max(local.rows.length - 1, 0))
@@ -106,6 +113,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
       if (!result.ok || !result.draft?.rows.length) return;
       setRows(result.draft.rows);
       setExtractedFieldKeys(result.draft.extractedFieldKeys);
+      setVinSources(result.draft.vinSources ?? {});
       setStep(result.draft.step === 1 ? 2 : result.draft.step);
       setCurrentIndex(result.draft.currentVehicleIndex);
       setFoundCount(result.draft.rows.length);
@@ -142,7 +150,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
     if (!result.ok) {
       setError(result.error);
       if (result.rows.length > 0) {
-        applyRows(result.rows);
+        applyRows(result.rows, result.vinSources);
       }
       return;
     }
@@ -155,20 +163,24 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
       setError(extracted.error.errors[0]?.message ?? "Cantidad de vehículos inválida");
       return;
     }
-    applyRows(result.rows);
+    applyRows(result.rows, result.vinSources);
     setFoundCount(result.rows.length);
     await new Promise((resolve) => setTimeout(resolve, 800));
     setStep(2);
     setCurrentIndex(0);
   }
 
-  function applyRows(next: CargaMasivaRow[]) {
+  function applyRows(
+    next: CargaMasivaRow[],
+    sources: Record<string, VinDocSources> = {}
+  ) {
     const keys: Record<string, string[]> = {};
     for (const row of next) {
       keys[row.id] = extractedKeysFromRow(row);
     }
     setRows(next);
     setExtractedFieldKeys(keys);
+    setVinSources(sources);
   }
 
   function handleFieldChange(
@@ -327,6 +339,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
           rows={rows}
           currentIndex={currentIndex}
           extractedFieldKeys={extractedFieldKeys}
+          vinSources={vinSources}
           onIndexChange={setCurrentIndex}
           onChange={handleFieldChange}
           onNext={() => {
@@ -342,6 +355,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
           rows={rows}
           facturaName={factura?.name ?? null}
           certificadoCount={certificados.length}
+          vinSources={vinSources}
           pending={saving}
           error={error}
           onBack={() => setStep(2)}

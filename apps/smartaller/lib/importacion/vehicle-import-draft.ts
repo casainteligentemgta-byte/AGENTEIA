@@ -1,4 +1,5 @@
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
+import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 
 export const VEHICLE_IMPORT_DRAFT_KEY = "pl-vehicle-import-draft-v1";
 
@@ -10,6 +11,7 @@ export type VehicleImportDraft = {
   certificadoNames: string[];
   rows: CargaMasivaRow[];
   extractedFieldKeys: Record<string, string[]>;
+  vinSources: Record<string, VinDocSources>;
   updatedAt: string;
 };
 

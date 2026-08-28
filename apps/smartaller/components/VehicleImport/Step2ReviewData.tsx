@@ -1,13 +1,16 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { VinCrossCheck } from "@/components/VehicleImport/VinCrossCheck";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { vehicleSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 
 type Props = {
   rows: CargaMasivaRow[];
   currentIndex: number;
   extractedFieldKeys: Record<string, string[]>;
+  vinSources: Record<string, VinDocSources>;
   onIndexChange: (index: number) => void;
   onChange: (rowId: string, field: keyof CargaMasivaRow, value: string) => void;
   onNext: () => void;
@@ -49,6 +52,7 @@ export function Step2ReviewData({
   rows,
   currentIndex,
   extractedFieldKeys,
+  vinSources,
   onIndexChange,
   onChange,
   onNext,
@@ -153,6 +157,9 @@ export function Step2ReviewData({
                 <span className="mt-1 block text-[11px] text-red-300">
                   VIN demasiado corto. Completa 17 caracteres.
                 </span>
+              ) : null}
+              {field.key === "vin" ? (
+                <VinCrossCheck vin={value} sources={vinSources[row.id]} />
               ) : null}
             </label>
           );

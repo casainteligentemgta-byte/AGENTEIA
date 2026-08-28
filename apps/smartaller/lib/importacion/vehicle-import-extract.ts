@@ -13,6 +13,11 @@ import {
 } from "@/lib/importacion/carga-masiva-etapas";
 import { vehicleCompleteness } from "@/lib/importacion/carga-masiva-ui";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
+import {
+  buildVinSources,
+  snapshotFacturaVins,
+  type VinDocSources,
+} from "@/lib/importacion/vehicle-import-vin";
 import { createClient } from "@/lib/supabase/client";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 
@@ -59,8 +64,19 @@ export async function runVehicleImportExtract(params: {
   certificados: File[];
   onProgress: ExtractProgressFn;
 }): Promise<
-  | { ok: true; rows: CargaMasivaRow[]; warnings: string[] }
-  | { ok: false; error: string; rows: CargaMasivaRow[]; warnings: string[] }
+  | {
+      ok: true;
+      rows: CargaMasivaRow[];
+      warnings: string[];
+      vinSources: Record<string, VinDocSources>;
+    }
+  | {
+      ok: false;
+      error: string;
+      rows: CargaMasivaRow[];
+      warnings: string[];
+      vinSources: Record<string, VinDocSources>;
+    }
 > {
   const docs: VehicleImportDoc[] = [
     { file: params.factura, tipo: "factura_comercial" },
@@ -89,6 +105,11 @@ export async function runVehicleImportExtract(params: {
 
   let currentRows: CargaMasivaRow[] = [];
   const warnings: string[] = [];
+  let facturaByRowId: Record<string, string> = {};
+  const certSerials: string[] = [];
+
+  const vinSourcesOf = (rows: CargaMasivaRow[]) =>
+    buildVinSources({ rows, facturaByRowId, certSerials });
 
   try {
     const allRefs = await uploadDocs(params.tallerId, docs, batchId);
@@ -107,6 +128,7 @@ export async function runVehicleImportExtract(params: {
           error: "Falta la factura comercial para extraer VIN",
           rows: currentRows,
           warnings,
+          vinSources: vinSourcesOf(currentRows),
         };
       }
 
@@ -140,10 +162,14 @@ export async function runVehicleImportExtract(params: {
               error: `Certificado «${ref.fileName}»: ${result.error}`,
               rows: currentRows,
               warnings,
+              vinSources: vinSourcesOf(currentRows),
             };
           }
           currentRows = result.rows;
           warnings.push(...result.warnings);
+          for (const match of result.certMatches) {
+            if (match.serial) certSerials.push(match.serial);
+          }
         }
         continue;
       }
@@ -178,10 +204,12 @@ export async function runVehicleImportExtract(params: {
           error: result.error,
           rows: currentRows,
           warnings,
+          vinSources: vinSourcesOf(currentRows),
         };
       }
       currentRows = result.rows;
       warnings.push(...result.warnings);
+      facturaByRowId = snapshotFacturaVins(currentRows);
     }
 
     params.onProgress({
@@ -196,13 +224,19 @@ export async function runVehicleImportExtract(params: {
       pct: 100,
     });
 
-    return { ok: true, rows: currentRows, warnings };
+    return {
+      ok: true,
+      rows: currentRows,
+      warnings,
+      vinSources: vinSourcesOf(currentRows),
+    };
   } catch (err) {
     return {
       ok: false,
       error: formatCargaMasivaClientError(err),
       rows: currentRows,
       warnings,
+      vinSources: vinSourcesOf(currentRows),
     };
   }
 }

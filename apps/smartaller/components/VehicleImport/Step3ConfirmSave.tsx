@@ -3,11 +3,16 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { resumenSemaforo, vehicleSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import {
+  evaluateVinCrossCheck,
+  type VinDocSources,
+} from "@/lib/importacion/vehicle-import-vin";
 
 type Props = {
   rows: CargaMasivaRow[];
   facturaName: string | null;
   certificadoCount: number;
+  vinSources: Record<string, VinDocSources>;
   pending: boolean;
   error: string | null;
   onBack: () => void;
@@ -18,6 +23,7 @@ export function Step3ConfirmSave({
   rows,
   facturaName,
   certificadoCount,
+  vinSources,
   pending,
   error,
   onBack,
@@ -40,6 +46,11 @@ export function Step3ConfirmSave({
       <ul className="space-y-2">
         {rows.map((row, index) => {
           const sem = vehicleSemaforo(row);
+          const vinCheck = evaluateVinCrossCheck(
+            row.vin || row.serialCarroceria,
+            vinSources[row.id]
+          );
+          const vinWarn = vinCheck.items.find((item) => item.status !== "ok");
           return (
             <li
               key={row.id}
@@ -52,6 +63,13 @@ export function Step3ConfirmSave({
                 VIN {row.vin || row.serialCarroceria || "—"}
               </p>
               <p className="mt-1 text-[11px] text-zinc-500">{sem.label}</p>
+              {vinWarn ? (
+                <p className={`mt-1 text-[11px] ${vinWarn.status === "fail" ? "text-red-300" : "text-amber-300"}`}>
+                  {vinWarn.status === "fail" ? "✕" : "⚠️"} {vinWarn.label}
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-emerald-300">✓ VIN cruzado con factura y certificado</p>
+              )}
             </li>
           );
         })}

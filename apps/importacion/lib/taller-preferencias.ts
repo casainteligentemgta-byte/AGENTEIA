@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseImportacion } from "@/lib/schemas/vehiculo-documentos";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import type { VehicleImportDraft } from "@/lib/importacion/vehicle-import-draft";
+import { parseVinSources } from "@/lib/importacion/vehicle-import-vin";
 
 export type UltimoImportador = {
   importadorNombre: string;
@@ -67,6 +68,7 @@ export function parseVehicleImportDraftPref(
       o.extractedFieldKeys && typeof o.extractedFieldKeys === "object"
         ? (o.extractedFieldKeys as Record<string, string[]>)
         : {},
+    vinSources: parseVinSources(o.vinSources),
     updatedAt: asString(o.updatedAt) || new Date().toISOString(),
   };
 }
