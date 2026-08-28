@@ -19,6 +19,7 @@ import {
   snapshotFacturaVins,
   type VinDocSources,
 } from "@/lib/importacion/vehicle-import-vin";
+import { contentTypeForImportDoc } from "@/lib/validations/vehicle-import";
 import { createClient } from "@/lib/supabase/client";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 
@@ -50,7 +51,7 @@ async function uploadDocs(
         .from(VEHICULO_DOCS_BUCKET)
         .upload(path, file, {
           upsert: true,
-          contentType: file.type || "application/pdf",
+          contentType: contentTypeForImportDoc(file),
         });
       if (!error) {
         lastError = "";
