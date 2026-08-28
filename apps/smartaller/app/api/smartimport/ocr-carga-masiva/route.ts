@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { extractCargaMasivaEtapaAction } from "@/app/actions/nfc/importacion-carga-masiva";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function GET() {
   return NextResponse.json({ ok: true, service: "ocr-carga-masiva" });

@@ -3,7 +3,7 @@ import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion
 
 export const dynamic = "force-dynamic";
 /** Una pasada de visión + PDF; las Server Actions no pueden exportar maxDuration. */
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function GET() {
   return NextResponse.json({ ok: true, service: "ocr-documento" });
