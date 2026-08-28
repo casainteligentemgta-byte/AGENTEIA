@@ -9,8 +9,8 @@ import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-
 import {
   clearVehicleImportDraftAction,
   loadVehicleImportDraftAction,
-  saveVehicleImportDraftAction,
-} from "@/app/actions/nfc/vehicle-import-draft";
+  saveVehicleImportDraft,
+} from "@/app/actions/vehicle-import";
 import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
 import { VehicleImportStepIndicator } from "@/components/VehicleImport/StepIndicator";
 import { Step1UploadDocuments } from "@/components/VehicleImport/Step1UploadDocuments";
@@ -80,7 +80,7 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
       writeVehicleImportDraft(tallerId, draft);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        void saveVehicleImportDraftAction(draft);
+        void saveVehicleImportDraft(draft);
       }, 800);
     },
     [

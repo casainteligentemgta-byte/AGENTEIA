@@ -43,3 +43,28 @@ export const vehicleImportExtractedSchema = vehicleImportUploadSchema.extend({
 });
 
 export type VehicleImportUploadInput = z.infer<typeof vehicleImportUploadSchema>;
+
+const vehicleDraftRowSchema = z
+  .object({
+    id: z.string().min(1),
+    marca: z.string().optional(),
+    modelo: z.string().optional(),
+    vin: z.string().optional(),
+  })
+  .passthrough();
+
+export const vehicleDraftInputSchema = z.object({
+  importadorId: z.string().min(1, "Falta el cliente de la importación"),
+  step: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  currentVehicleIndex: z.number().int().min(0),
+  facturaName: z.string().nullable(),
+  certificadoNames: z.array(z.string()),
+  rows: z
+    .array(vehicleDraftRowSchema)
+    .max(VEHICLE_IMPORT_MAX, `Máximo ${VEHICLE_IMPORT_MAX} vehículos por carga`),
+  extractedFieldKeys: z.record(z.array(z.string())).default({}),
+  vinSources: z.record(z.unknown()).default({}),
+  updatedAt: z.string().optional(),
+});
+
+export type VehicleDraftInput = z.infer<typeof vehicleDraftInputSchema>;
