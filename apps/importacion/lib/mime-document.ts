@@ -8,6 +8,13 @@ export function isPdfMagic(buffer: Buffer): boolean {
   return buffer.length >= 4 && buffer.toString("ascii", 0, 4) === "%PDF";
 }
 
+/** PDF real: magic bytes ganan al Content-Type (iOS manda application/json). */
+export function isPdfDocument(buffer: Buffer, mimeType?: string | null): boolean {
+  if (isPdfMagic(buffer)) return true;
+  if (isJsonOrHtmlPayload(buffer)) return false;
+  return (mimeType ?? "").toLowerCase().includes("pdf");
+}
+
 /** Cuerpos de error de Storage / HTML en lugar del PDF o la foto. */
 export function isJsonOrHtmlPayload(buffer: Buffer): boolean {
   const head = buffer

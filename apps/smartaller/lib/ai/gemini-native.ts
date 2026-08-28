@@ -12,16 +12,18 @@ function getGeminiApiKey(): string {
 
 const GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta";
 
-/** Orden de preferencia; ListModels decide cuáles existen en esta clave. */
+/** Modelos que sí aceptan PDF/visión. flash-lite rechaza JSON y varios MIME. */
 const GEMINI_PREFERRED_MODELS = [
-  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
   "gemini-3-flash-preview",
   "gemini-3-flash",
-  "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
   "gemini-flash-latest",
   "gemini-2.0-flash",
+  "gemini-3.1-flash-lite",
 ] as const;
+
+const GEMINI_STABLE_VISION = "gemini-2.5-flash";
 
 type GeminiPart =
   | { text: string }
@@ -170,6 +172,18 @@ function toGeminiInline(
       : null;
   if (!mimeType) return null;
   return { inline_data: { mime_type: mimeType, data: parsed.data } };
+}
+
+function isLiteModel(id: string): boolean {
+  return /lite/i.test(id);
+}
+
+function hasInlineMedia(
+  contents: Array<{ parts: GeminiPart[] }>
+): boolean {
+  return contents.some((c) =>
+    c.parts.some((p) => "inline_data" in p && Boolean(p.inline_data))
+  );
 }
 
 function isJsonMimeUnsupported(err: unknown): boolean {
@@ -356,14 +370,23 @@ export async function geminiChatCompletion(
   const temperature =
     typeof params.temperature === "number" ? params.temperature : 0;
   const { contents } = messagesToGeminiContents(params.messages);
-  const preferred =
+  const media = hasInlineMedia(contents);
+  const preferredRaw =
     typeof params.model === "string" ? params.model : undefined;
+  const preferred =
+    preferredRaw && media && isLiteModel(preferredRaw) ? undefined : preferredRaw;
 
   const first = await resolveGeminiModelId(preferred);
   const fromPreferred = listedIds?.length
     ? GEMINI_PREFERRED_MODELS.filter((id) => listedIds!.includes(id))
     : [...GEMINI_PREFERRED_MODELS];
-  const queue = [...new Set([first, ...fromPreferred])].slice(0, 3);
+  const candidates = [...new Set([first, GEMINI_STABLE_VISION, ...fromPreferred])];
+  const withoutLite = media
+    ? candidates.filter((id) => id && !isLiteModel(id))
+    : candidates;
+  const queue = (withoutLite.length > 0 ? withoutLite : candidates)
+    .filter((id): id is string => Boolean(id))
+    .slice(0, 4);
   const seen = new Set<string>();
   let lastError: unknown;
   for (const model of queue) {
@@ -379,8 +402,11 @@ export async function geminiChatCompletion(
       });
     } catch (err) {
       lastError = err;
-      if (!isNotFound(err) && !isJsonMimeUnsupported(err)) throw lastError;
-      if (workingModel === model) workingModel = null;
+      if (isJsonMimeUnsupported(err) || isNotFound(err)) {
+        if (workingModel === model) workingModel = null;
+        continue;
+      }
+      throw lastError;
     }
   }
   if (isJsonMimeUnsupported(lastError)) {

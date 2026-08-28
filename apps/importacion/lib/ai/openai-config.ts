@@ -48,8 +48,18 @@ export function isGeminiProvider(): boolean {
   return getLlmProvider() === "gemini";
 }
 
-/** Preferencia si ListModels no responde; las claves nuevas suelen exigir Gemini 3. */
-export const GEMINI_DEFAULT_MODEL = "gemini-3-flash-preview";
+/** Preferencia si ListModels no responde. No usar flash-lite: rechaza JSON/PDF. */
+export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
+
+function envModel(keys: Array<string | undefined>): string | undefined {
+  for (const raw of keys) {
+    const id = raw?.trim();
+    if (!id) continue;
+    if (/lite/i.test(id)) continue;
+    return id;
+  }
+  return undefined;
+}
 
 export function isModelNotFoundError(err: unknown): boolean {
   const status = err instanceof OpenAI.APIError ? err.status : undefined;
@@ -85,9 +95,10 @@ export function getOpenAIBaseURL(): string | undefined {
 
 /** Modelo de chat según proveedor. */
 export function getChatModelId(): string {
-  const custom =
-    process.env.OPENAI_CHAT_MODEL?.trim() ||
-    process.env.GEMINI_CHAT_MODEL?.trim();
+  const custom = envModel([
+    process.env.OPENAI_CHAT_MODEL,
+    process.env.GEMINI_CHAT_MODEL,
+  ]);
   if (custom) return custom;
   const provider = getLlmProvider();
   if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
@@ -97,9 +108,10 @@ export function getChatModelId(): string {
 
 /** Modelo de visión (placa, tablero, facturas). */
 export function getVisionModelId(): string {
-  const custom =
-    process.env.OPENAI_VISION_MODEL?.trim() ||
-    process.env.GEMINI_VISION_MODEL?.trim();
+  const custom = envModel([
+    process.env.OPENAI_VISION_MODEL,
+    process.env.GEMINI_VISION_MODEL,
+  ]);
   if (custom) return custom;
   const provider = getLlmProvider();
   if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
