@@ -727,6 +727,11 @@ async function loadCargaMasivaDocsFromForm(
   return { ok: true, facturas, certs, bls };
 }
 
+export type CargaMasivaEtapaAuthOverride = {
+  taller: { id: string };
+  userId: string;
+};
+
 /**
  * Extracción por etapas (Fase B):
  * 1. vins — cosecha VIN de facturas
@@ -738,12 +743,15 @@ async function loadCargaMasivaDocsFromForm(
  * - storageDocs JSON [{path,tipo,fileName}] (recomendado: upload directo a Storage)
  */
 export async function extractCargaMasivaEtapaAction(
-  formData: FormData
+  formData: FormData,
+  authOverride?: CargaMasivaEtapaAuthOverride
 ): Promise<
   | ({ success: true } & CargaMasivaEtapaResult)
   | { success: false; error: string }
 > {
-  const auth = await requireTallerAuth();
+  const auth = authOverride
+    ? { error: null, taller: authOverride.taller, userId: authOverride.userId }
+    : await requireTallerAuth();
   if (auth.error || !auth.taller) {
     return { success: false, error: auth.error ?? "No autorizado" };
   }

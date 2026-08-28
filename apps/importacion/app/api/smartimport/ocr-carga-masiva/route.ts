@@ -1,24 +1,23 @@
-import { NextResponse } from "next/server";
-import { extractCargaMasivaEtapaAction } from "@/app/actions/nfc/importacion-carga-masiva";
+import { handleOcrCargaGet, handleOcrCargaPost } from "@/lib/importacion/ocr-carga-masiva-http";
+import { getUser } from "@/lib/supabase/server";
+import { getMyTaller } from "@/lib/taller";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export async function GET() {
-  return NextResponse.json({ ok: true, service: "ocr-carga-masiva" });
+async function getAuth() {
+  const user = await getUser();
+  if (!user) return { error: "No autenticado" as const };
+  const taller = await getMyTaller();
+  if (!taller) return { error: "No se encontró tu taller" as const };
+  return { error: null, tallerId: taller.id, userId: user.id };
+}
+
+export async function GET(request: Request) {
+  return handleOcrCargaGet(request, getAuth);
 }
 
 export async function POST(request: Request) {
-  try {
-    const formData = await request.formData();
-    const result = await extractCargaMasivaEtapaAction(formData);
-    return NextResponse.json(result);
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "No se pudo extraer la carga masiva";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
+  return handleOcrCargaPost(request, getAuth);
 }

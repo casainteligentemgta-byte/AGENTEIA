@@ -171,11 +171,11 @@ export async function runVehicleImportExtract(params: {
             extractCargaMasivaEtapaAction,
             {
               deadlineMs: 90_000,
-              onRetry: (attempt, total) =>
+              onRetry: (attempt) =>
                 params.onProgress({
                   etapa: "certs",
                   label: `Certificado ${c + 1}/${storageDocs.length}`,
-                  hint: `Datos móviles: reintento ${attempt}/${total}…`,
+                  hint: `Leyendo en el servidor… ${attempt * 2}s`,
                   vinsEncontrados: rowVinCount(currentRows),
                   filasCompletas: currentRows.filter(
                     (row) => vehicleCompleteness(row).complete
@@ -227,11 +227,11 @@ export async function runVehicleImportExtract(params: {
         extractCargaMasivaEtapaAction,
         {
           deadlineMs: 90_000,
-          onRetry: (attempt, total) =>
+          onRetry: (attempt) =>
             params.onProgress({
               etapa,
               label: CARGA_MASIVA_ETAPA_LABELS[etapa],
-              hint: `Datos móviles: reintento ${attempt}/${total}…`,
+              hint: `Leyendo en el servidor… ${attempt * 2}s`,
               vinsEncontrados: rowVinCount(currentRows),
               filasCompletas: currentRows.filter((row) =>
                 vehicleCompleteness(row).complete
