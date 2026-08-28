@@ -48,18 +48,8 @@ export function isGeminiProvider(): boolean {
   return getLlmProvider() === "gemini";
 }
 
-/** Preferencia si ListModels no responde. No usar flash-lite: rechaza JSON/PDF. */
-export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
-
-function envModel(keys: Array<string | undefined>): string | undefined {
-  for (const raw of keys) {
-    const id = raw?.trim();
-    if (!id) continue;
-    if (/lite/i.test(id)) continue;
-    return id;
-  }
-  return undefined;
-}
+/** Preferencia si ListModels no responde; las claves nuevas suelen exigir Gemini 3. */
+export const GEMINI_DEFAULT_MODEL = "gemini-3-flash-preview";
 
 export function isModelNotFoundError(err: unknown): boolean {
   const status = err instanceof OpenAI.APIError ? err.status : undefined;
@@ -95,10 +85,9 @@ export function getOpenAIBaseURL(): string | undefined {
 
 /** Modelo de chat según proveedor. */
 export function getChatModelId(): string {
-  const custom = envModel([
-    process.env.OPENAI_CHAT_MODEL,
-    process.env.GEMINI_CHAT_MODEL,
-  ]);
+  const custom =
+    process.env.OPENAI_CHAT_MODEL?.trim() ||
+    process.env.GEMINI_CHAT_MODEL?.trim();
   if (custom) return custom;
   const provider = getLlmProvider();
   if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
@@ -108,10 +97,9 @@ export function getChatModelId(): string {
 
 /** Modelo de visión (placa, tablero, facturas). */
 export function getVisionModelId(): string {
-  const custom = envModel([
-    process.env.OPENAI_VISION_MODEL,
-    process.env.GEMINI_VISION_MODEL,
-  ]);
+  const custom =
+    process.env.OPENAI_VISION_MODEL?.trim() ||
+    process.env.GEMINI_VISION_MODEL?.trim();
   if (custom) return custom;
   const provider = getLlmProvider();
   if (provider === "gemini") return GEMINI_DEFAULT_MODEL;
@@ -204,7 +192,7 @@ export function formatLlmAuthError(err: unknown): string {
     /application\/json/i.test(msg) &&
     /not supported|unsupported mime/i.test(msg)
   ) {
-    return "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF.";
+    return "La IA rechazó el formato JSON. Vuelve a tocar Procesar; si falla, recarga la página.";
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN

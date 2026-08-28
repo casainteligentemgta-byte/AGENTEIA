@@ -30,7 +30,6 @@ import {
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
-import { isPdfDocument } from "@/lib/mime-document";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
@@ -608,7 +607,7 @@ export async function extractFacturaComercialFromDocument(
     Boolean(mapped.marca?.trim()) ||
     Boolean(mapped.serial_carroceria?.trim()) ||
     Boolean(mapped.modelo?.trim());
-  if (!hasCritical && isPdfDocument(buffer, mimeType)) {
+  if (!hasCritical && mimeType.toLowerCase().includes("pdf")) {
     const retry = await createDocumentJsonCompletion({
       prompt: FACTURA_PROMPT,
       buffer,
@@ -665,7 +664,7 @@ async function resolveNumeroBlFromDocument(
   const already = normalizeNumeroBlCandidate(current);
   if (already) return already;
 
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   if (isPdf) {
     try {
       const fromText = harvestNumeroBlFromText(await getPdfPlainText(buffer));
@@ -1368,7 +1367,7 @@ async function extractFacturaMultiOnce(
   mimeType: string,
   prompt: string = FACTURA_MULTI_PROMPT
 ): Promise<DocMultiExtracted> {
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   const parsed = await createDocumentJsonCompletion({
     prompt,
     buffer,
@@ -1520,7 +1519,7 @@ async function extractFacturaLocalFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   try {
     const page = isPdf
       ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]
@@ -1547,7 +1546,7 @@ export async function extractFacturaRapidoFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   let fromText: DocMultiExtracted = { shared: {}, vehiculos: [] };
 
   if (isPdf) {
@@ -1601,7 +1600,7 @@ export async function extractFacturaMultiFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   const candidates: DocMultiExtracted[] = [];
   let facturaPlainText: string | null = null;
 
@@ -1762,7 +1761,7 @@ export async function extractFacturaVinsStageFromDocument(
   buffer: Buffer,
   mimeType: string
 ): Promise<DocMultiExtracted> {
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
   const diagnostics: string[] = [];
   const vinSet = new Set<string>();
   const mavState: { rows: DocMultiExtracted | null } = { rows: null };
@@ -2124,7 +2123,7 @@ export async function enrichFacturaRowsStageFromDocument(
 ): Promise<DocMultiExtracted> {
   const prompt = buildEnrichPrompt(knownVins.slice(0, 40));
   const candidates: DocMultiExtracted[] = [];
-  const isPdf = isPdfDocument(buffer, mimeType);
+  const isPdf = mimeType.toLowerCase().includes("pdf");
 
   // OCR local primero (útil con OpenRouter sin créditos)
   try {
@@ -2308,7 +2307,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
 
     // Reintento: si el PDF es escaneado y el primer parse casi no detectó
     // seriales/motor (los campos quedan null), fuerza raster+visión.
-    const isPdf = isPdfDocument(buffer, mimeType);
+    const isPdf = mimeType.toLowerCase().includes("pdf");
     if (isPdf && !llmError) {
       const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
       const hasCritical = vehiculosRaw.some((v) => {

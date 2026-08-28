@@ -4,14 +4,16 @@ import {
   createOpenAIClient,
   getChatModelId,
   getVisionModelId,
-  isGeminiProvider,
 } from "@/lib/ai/openai-config";
 import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
-import { isPdfDocument } from "@/lib/mime-document";
+
+function isPdfMime(mimeType: string): boolean {
+  return mimeType.toLowerCase().includes("pdf");
+}
 
 function stripJsonFence(raw: string): string {
   return raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
@@ -108,7 +110,7 @@ async function jsonFromTextPrompt(
   const model = getChatModelId();
   const response = await createChatCompletion(openai, {
     model,
-    ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
+    response_format: { type: "json_object" },
     temperature: 0,
     max_tokens: maxTokens,
     messages: [
@@ -161,7 +163,7 @@ async function jsonFromPdfPageImages(
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
+      response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
@@ -193,7 +195,7 @@ async function jsonFromPdfPageImages(
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
+      response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: lowContent }],
@@ -266,11 +268,9 @@ export async function createDocumentJsonCompletion(params: {
   const maxPdfPages = params.maxPdfPages ?? 4;
   const preferHighDetail = params.preferHighDetail ?? true;
   const renderScale = params.renderScale ?? 2;
-  const mime = isPdfDocument(params.buffer, params.mimeType)
-    ? "application/pdf"
-    : params.mimeType || "application/octet-stream";
+  const mime = params.mimeType || "application/octet-stream";
 
-  if (!isPdfDocument(params.buffer, mime)) {
+  if (!isPdfMime(mime)) {
     return createVisionJsonCompletion({
       prompt: params.prompt,
       imageBuffer: params.buffer,
@@ -319,7 +319,7 @@ export async function createDocumentJsonCompletion(params: {
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
+      response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,
       messages: [
