@@ -4,6 +4,7 @@ import {
   createOpenAIClient,
   getChatModelId,
   getVisionModelId,
+  isGeminiProvider,
 } from "@/lib/ai/openai-config";
 import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { compressImageForVision } from "@/lib/ai/image-orient";
@@ -107,7 +108,7 @@ async function jsonFromTextPrompt(
   const model = getChatModelId();
   const response = await createChatCompletion(openai, {
     model,
-    response_format: { type: "json_object" },
+    ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
     temperature: 0,
     max_tokens: maxTokens,
     messages: [
@@ -160,7 +161,7 @@ async function jsonFromPdfPageImages(
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      response_format: { type: "json_object" },
+      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content }],
@@ -192,7 +193,7 @@ async function jsonFromPdfPageImages(
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      response_format: { type: "json_object" },
+      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
       temperature: 0,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: lowContent }],
@@ -318,7 +319,7 @@ export async function createDocumentJsonCompletion(params: {
     const model = getVisionModelId();
     const response = await createChatCompletion(openai, {
       model,
-      response_format: { type: "json_object" },
+      ...(isGeminiProvider() ? {} : { response_format: { type: "json_object" as const } }),
       temperature: 0,
       max_tokens: maxTokens,
       messages: [
