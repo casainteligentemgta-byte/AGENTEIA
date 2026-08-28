@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseImportacion } from "@/lib/schemas/vehiculo-documentos";
+import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
+import type { VehicleImportDraft } from "@/lib/importacion/vehicle-import-draft";
+import { parseVinSources } from "@/lib/importacion/vehicle-import-vin";
 
 export type UltimoImportador = {
   importadorNombre: string;
@@ -11,6 +14,7 @@ export type UltimoImportador = {
 
 export type TallerPreferencias = {
   ultimoImportador?: UltimoImportador | null;
+  vehicleImportDraft?: VehicleImportDraft | null;
 };
 
 function asString(value: unknown): string {
@@ -41,11 +45,44 @@ export function parseUltimoImportador(raw: unknown): UltimoImportador | null {
   };
 }
 
+export function parseVehicleImportDraftPref(
+  raw: unknown
+): VehicleImportDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (!Array.isArray(o.rows) || o.rows.length === 0) return null;
+  const importadorId = asString(o.importadorId);
+  if (!importadorId) return null;
+  const stepRaw = Number(o.step);
+  const step: 1 | 2 | 3 = stepRaw === 3 ? 3 : stepRaw === 2 ? 2 : 1;
+  return {
+    importadorId,
+    step,
+    currentVehicleIndex: Math.max(0, Number(o.currentVehicleIndex) || 0),
+    facturaName: typeof o.facturaName === "string" ? o.facturaName : null,
+    certificadoNames: Array.isArray(o.certificadoNames)
+      ? o.certificadoNames.filter((n): n is string => typeof n === "string")
+      : [],
+    rows: o.rows as CargaMasivaRow[],
+    extractedFieldKeys:
+      o.extractedFieldKeys && typeof o.extractedFieldKeys === "object"
+        ? (o.extractedFieldKeys as Record<string, string[]>)
+        : {},
+    vinSources: parseVinSources(o.vinSources),
+    updatedAt: asString(o.updatedAt) || new Date().toISOString(),
+  };
+}
+
 export function parseTallerPreferencias(raw: unknown): TallerPreferencias {
   if (!raw || typeof raw !== "object") return {};
   const o = raw as Record<string, unknown>;
   return {
-    ultimoImportador: parseUltimoImportador(o.ultimoImportador ?? o.ultimo_importador),
+    ultimoImportador: parseUltimoImportador(
+      o.ultimoImportador ?? o.ultimo_importador
+    ),
+    vehicleImportDraft: parseVehicleImportDraftPref(
+      o.vehicleImportDraft ?? o.vehicle_import_draft
+    ),
   };
 }
 

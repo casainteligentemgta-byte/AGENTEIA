@@ -111,11 +111,11 @@ const TIPS = [
   },
   {
     icon: Upload,
-    titulo: "Carga masiva",
+    titulo: "Varios vehículos",
     texto:
-      "Sube la factura (1 o N vehículos) o varios certificados de origen. Cada VIN es un expediente; los certificados se emparejan por serial. Excel/CSV queda como atajo.",
-    href: "/smartimport/carga-masiva",
-    cta: "Abrir carga masiva",
+      "En Nueva importación: cliente → factura + certificados (1 a 50 VIN) → revisar → guardar. Cada VIN es un expediente. Excel/CSV queda como atajo (?masiva=1).",
+    href: "/smartimport/importaciones/nueva",
+    cta: "Nueva importación",
   },
   {
     icon: LayoutDashboard,
@@ -204,7 +204,7 @@ export default function InstructivoImportacionPage() {
               >
                 nueva importación
               </Link>{" "}
-              o carga masiva.
+              (factura + certificados, 1 o varios VIN; Excel queda como atajo).
             </span>
           </p>
         </section>

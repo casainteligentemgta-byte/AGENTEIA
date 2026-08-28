@@ -17,7 +17,8 @@ import { existsSync, readdirSync, readFileSync } from "fs";
 import { join, relative, resolve } from "path";
 import { pathToFileURL } from "url";
 
-const ACTIONS_DIR = resolve(process.cwd(), "app/actions/nfc");
+const ACTIONS_NFC_DIR = resolve(process.cwd(), "app/actions/nfc");
+const ACTIONS_ROOT = resolve(process.cwd(), "app/actions");
 
 /** Archivos públicos o sin mutación de expediente PL. */
 const FILE_EXEMPT = new Set([
@@ -36,10 +37,13 @@ type Finding = {
 };
 
 function listActionFiles(): string[] {
-  if (!existsSync(ACTIONS_DIR)) return [];
-  return readdirSync(ACTIONS_DIR)
-    .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"))
-    .map((f) => join(ACTIONS_DIR, f));
+  const nfc = existsSync(ACTIONS_NFC_DIR)
+    ? readdirSync(ACTIONS_NFC_DIR)
+        .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"))
+        .map((f) => join(ACTIONS_NFC_DIR, f))
+    : [];
+  const extra = ["vehicle-import.ts"].map((f) => join(ACTIONS_ROOT, f));
+  return [...nfc, ...extra.filter((f) => existsSync(f))];
 }
 
 /** Extrae bloques `export async function name(...) { ... }` a profundidad de llaves. */
@@ -143,13 +147,14 @@ function hasMutateRoleGate(body: string): boolean {
 }
 
 function auditFile(filePath: string): Finding[] {
-  const base = relative(ACTIONS_DIR, filePath) || filePath.split("/").pop()!;
-  if (FILE_EXEMPT.has(base)) return [];
+  const base = relative(ACTIONS_ROOT, filePath).replace(/\\/g, "/");
+  const fileName = filePath.split("/").pop()!;
+  if (FILE_EXEMPT.has(fileName) || FILE_EXEMPT.has(base)) return [];
 
   const source = readFileSync(filePath, "utf8");
   const fns = extractExportedAsyncFunctions(source);
   const findings: Finding[] = [];
-  const exemptFns = FN_EXEMPT[base] ?? new Set();
+  const exemptFns = FN_EXEMPT[fileName] ?? FN_EXEMPT[base] ?? new Set();
 
   for (const { name, body } of fns) {
     if (exemptFns.has(name)) continue;
