@@ -64,6 +64,46 @@ async function savePreferencias(
   if (error) throw new Error(error.message);
 }
 
+async function draftFromPreferencias(
+  tallerId: string,
+  importadorId?: string
+): Promise<VehicleImportDraft | null> {
+  const current = await loadPreferencias(tallerId);
+  const draft = current.vehicleImportDraft ?? null;
+  if (draft && importadorId && draft.importadorId !== importadorId) {
+    return null;
+  }
+  return draft;
+}
+
+async function promotePreferenciasDraft(params: {
+  userId: string;
+  tallerId: string;
+  draft: VehicleImportDraft;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const columns = draftToDbColumns(params.draft);
+  const { error } = await admin.from("vehicle_import_drafts").upsert(
+    {
+      user_id: params.userId,
+      taller_id: params.tallerId,
+      step: columns.step,
+      vehicles: columns.vehicles,
+      documents: columns.documents,
+      updated_at: params.draft.updatedAt,
+    },
+    { onConflict: "user_id,taller_id" }
+  );
+  if (error) return;
+  const current = await loadPreferencias(params.tallerId);
+  if (current.vehicleImportDraft) {
+    await savePreferencias(params.tallerId, {
+      ...current,
+      vehicleImportDraft: null,
+    });
+  }
+}
+
 function toDraft(input: VehicleDraftInput): VehicleImportDraft {
   return {
     importadorId: input.importadorId,
@@ -174,20 +214,28 @@ export async function loadVehicleImportDraftAction(
       .maybeSingle();
 
     if (error && isMissingDraftTableError(error.message)) {
-      const current = await loadPreferencias(auth.taller.id);
-      const draft = current.vehicleImportDraft ?? null;
-      if (draft && importadorId && draft.importadorId !== importadorId) {
-        return { ok: true, draft: null };
-      }
-      return { ok: true, draft };
+      return {
+        ok: true,
+        draft: await draftFromPreferencias(auth.taller.id, importadorId),
+      };
     }
     if (error) return { ok: false, error: error.message };
 
-    const draft = data ? dbRowToDraft(data) : null;
-    if (draft && importadorId && draft.importadorId !== importadorId) {
+    const fromTable = data ? dbRowToDraft(data) : null;
+    if (fromTable && importadorId && fromTable.importadorId !== importadorId) {
       return { ok: true, draft: null };
     }
-    return { ok: true, draft };
+    if (fromTable) return { ok: true, draft: fromTable };
+
+    const fallback = await draftFromPreferencias(auth.taller.id, importadorId);
+    if (fallback) {
+      await promotePreferenciasDraft({
+        userId: auth.user.id,
+        tallerId: auth.taller.id,
+        draft: fallback,
+      });
+    }
+    return { ok: true, draft: fallback };
   } catch (err) {
     return {
       ok: false,

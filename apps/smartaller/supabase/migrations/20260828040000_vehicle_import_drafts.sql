@@ -1,5 +1,8 @@
 -- Borrador del flujo de 3 pasos para importar vehículos.
 -- Un draft por usuario y taller. Server Actions usan service_role + requireTallerAuth.
+-- Aplicar en el SQL Editor de Supabase (proyecto SmartTaller / SmartImport) si aún no corre:
+--   apps/smartaller/supabase/migrations/20260828040000_vehicle_import_drafts.sql
+-- Idempotente (IF NOT EXISTS + drop policy if exists). RLS: propio + service_role.
 
 create table if not exists public.vehicle_import_drafts (
   id uuid primary key default gen_random_uuid(),
