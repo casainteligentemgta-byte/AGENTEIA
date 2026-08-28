@@ -1,9 +1,14 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FieldToneLegend } from "@/components/VehicleImport/FieldToneLegend";
 import { VinCrossCheck } from "@/components/VehicleImport/VinCrossCheck";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { vehicleSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import {
+  REVIEW_FIELD_TONE_META,
+  reviewFieldTone,
+} from "@/lib/importacion/vehicle-import-field-tone";
 import type { VinDocSources } from "@/lib/importacion/vehicle-import-vin";
 
 type Props = {
@@ -38,16 +43,6 @@ const REVIEW_FIELDS: {
   { key: "numeroCertificadoOrigen", label: "Nº certificado de origen" },
 ];
 
-function inputClass(extracted: boolean, invalid: boolean): string {
-  if (invalid) {
-    return "w-full rounded-xl border border-red-500/70 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none";
-  }
-  if (extracted) {
-    return "w-full rounded-xl border border-cyan-700/70 bg-cyan-950/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400";
-  }
-  return "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-500";
-}
-
 export function Step2ReviewData({
   rows,
   currentIndex,
@@ -66,7 +61,6 @@ export function Step2ReviewData({
   }
   const sem = vehicleSemaforo(row);
   const extracted = new Set(extractedFieldKeys[row.id] ?? []);
-  const vinOk = (row.vin || row.serialCarroceria).replace(/\s/g, "").length >= 11;
   const sameSerial =
     row.vin.trim() !== "" &&
     row.serialCarroceria.trim() !== "" &&
@@ -78,7 +72,7 @@ export function Step2ReviewData({
         <div>
           <h2 className="text-lg font-semibold text-zinc-50">Revisar datos extraídos</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Los campos en cyan salieron del OCR. Corrígelos ahora, no al final.
+            El color del campo indica qué tan seguro está el dato. VIN y seriales: verificar dos veces.
           </p>
         </div>
         <span
@@ -93,6 +87,8 @@ export function Step2ReviewData({
           {sem.label}
         </span>
       </div>
+
+      <FieldToneLegend />
 
       {rows.length > 1 ? (
         <div className="flex items-center justify-between gap-2">
@@ -130,33 +126,38 @@ export function Step2ReviewData({
             );
           }
           const value = String(row[field.key] ?? "");
-          const invalid =
-            (field.key === "vin" && !vinOk) ||
-            ((field.key === "marca" || field.key === "modelo") && !value.trim());
+          const tone = reviewFieldTone({
+            key: field.key,
+            value,
+            extracted: extracted.has(field.key),
+          });
+          const meta = REVIEW_FIELD_TONE_META[tone];
           return (
-            <label key={field.key} className="block text-xs text-zinc-500">
+            <label key={field.key} className="block text-xs text-zinc-400">
               <span className="flex items-center gap-2">
                 {field.label}
-                {extracted.has(field.key) ? (
-                  <span className="rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-cyan-200">
-                    Extraído
-                  </span>
-                ) : null}
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${meta.badgeClass}`}
+                >
+                  {meta.emoji}{" "}
+                  {tone === "auto"
+                    ? "Auto"
+                    : tone === "input"
+                      ? "Tu dato"
+                      : tone === "optional"
+                        ? "Recomendado"
+                        : "Verificar 2x"}
+                </span>
               </span>
               <input
                 value={value}
                 onChange={(event) =>
                   onChange(row.id, field.key, event.target.value)
                 }
-                className={`mt-1 ${inputClass(extracted.has(field.key), invalid)}`}
+                className={`mt-1 ${meta.inputClass}`}
               />
               {field.hint ? (
                 <span className="mt-1 block text-[11px] text-zinc-600">{field.hint}</span>
-              ) : null}
-              {invalid && field.key === "vin" ? (
-                <span className="mt-1 block text-[11px] text-red-300">
-                  VIN demasiado corto. Completa 17 caracteres.
-                </span>
               ) : null}
               {field.key === "vin" ? (
                 <VinCrossCheck vin={value} sources={vinSources[row.id]} />
