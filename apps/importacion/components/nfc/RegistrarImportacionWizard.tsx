@@ -1,10 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, Plus, Search, UserRound } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  CheckCircle2,
+  Plus,
+  Search,
+  UserRound,
+} from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
-import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
+import { PuertoLibreCargaMasiva } from "@/components/nfc/PuertoLibreCargaMasiva";
+import { VehicleImportWizard } from "@/components/VehicleImport/VehicleImportWizard";
+import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
+import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
+import { mergeCargaMasivaRowsByVin } from "@/lib/importacion/carga-masiva-ui";
 import {
   IMPORTADOR_TIPO_LABELS,
   formatImportadorDocumentoLine,
@@ -12,19 +21,51 @@ import {
 
 type Props = {
   initialImportadores: ImportadorListItem[];
+  tallerId: string;
+  startInMasiva?: boolean;
 };
 
 type Step = "cliente" | "importacion";
+type ImportModo = "individual" | "masiva";
+type MasivaTabMode = "plantilla" | "documentos";
+
+type MasivaDocSeed = {
+  file: File;
+  tipo: "factura_comercial" | "bl_guia" | "certificado_origen";
+};
 
 /**
- * Alta de importación: 1) cliente importador → 2) datos del vehículo / régimen.
+ * Alta de importación: 1) cliente importador → 2) datos del vehículo / carga masiva inline.
  */
-export function RegistrarImportacionWizard({ initialImportadores }: Props) {
+export function RegistrarImportacionWizard({
+  initialImportadores,
+  tallerId,
+  startInMasiva = false,
+}: Props) {
   const [step, setStep] = useState<Step>("cliente");
   const [mode, setMode] = useState<"buscar" | "nuevo">("buscar");
   const [query, setQuery] = useState("");
   const [clientes, setClientes] = useState(initialImportadores);
   const [selected, setSelected] = useState<ImportadorListItem | null>(null);
+  const [importModo, setImportModo] = useState<ImportModo>(
+    startInMasiva ? "masiva" : "individual"
+  );
+  const [masivaRows, setMasivaRows] = useState<CargaMasivaRow[] | undefined>(
+    undefined
+  );
+  const [masivaMessage, setMasivaMessage] = useState<string | null>(null);
+  const [masivaTabMode, setMasivaTabMode] = useState<MasivaTabMode>("documentos");
+  const [masivaInstance, setMasivaInstance] = useState(0);
+  const [certMergeRequest, setCertMergeRequest] = useState<{
+    files: File[];
+    requestId: number;
+  } | null>(null);
+  const [masivaInitialDocs, setMasivaInitialDocs] = useState<MasivaDocSeed[]>(
+    []
+  );
+  const masivaRowsRef = useRef<CargaMasivaRow[] | undefined>(masivaRows);
+  const masivaDocsRef = useRef<MasivaDocSeed[]>([]);
+  masivaRowsRef.current = masivaRows;
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -39,49 +80,140 @@ export function RegistrarImportacionWizard({ initialImportadores }: Props) {
     );
   }, [clientes, query]);
 
+  function openMasivaPlantilla() {
+    setMasivaRows(undefined);
+    masivaRowsRef.current = undefined;
+    setMasivaMessage(null);
+    setMasivaInitialDocs([]);
+    masivaDocsRef.current = [];
+    setCertMergeRequest(null);
+    setMasivaTabMode("plantilla");
+    setImportModo("masiva");
+    setMasivaInstance((n) => n + 1);
+  }
+
+  function handleMultiDetected(payload: MultiDocDetectedPayload) {
+    const { rows, message, docTipo, file } = payload;
+    const certFiles = [
+      ...(docTipo === "certificado_origen" && file ? [file] : []),
+      ...(payload.extraCertFiles ?? []),
+    ].filter((item, index, all) => all.indexOf(item) === index);
+    const incomingDocs: MasivaDocSeed[] = [];
+    const factura =
+      payload.facturaFile ??
+      (docTipo === "factura_comercial" ? file : undefined);
+    if (factura) {
+      incomingDocs.push({ file: factura, tipo: "factura_comercial" });
+    }
+    for (const cert of certFiles) {
+      incomingDocs.push({ file: cert, tipo: "certificado_origen" });
+    }
+
+    const mergedRows = mergeCargaMasivaRowsByVin(
+      masivaRowsRef.current ?? [],
+      rows
+    );
+    masivaRowsRef.current = mergedRows.length > 0 ? mergedRows : masivaRowsRef.current;
+
+    const seen = new Set(
+      masivaDocsRef.current.map((d) => `${d.tipo}:${d.file.name}:${d.file.size}`)
+    );
+    for (const doc of incomingDocs) {
+      const key = `${doc.tipo}:${doc.file.name}:${doc.file.size}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      masivaDocsRef.current.push(doc);
+    }
+
+    if (
+      docTipo === "certificado_origen" &&
+      (masivaRowsRef.current?.length ?? 0) > 0
+    ) {
+      setMasivaInitialDocs(masivaDocsRef.current);
+      setCertMergeRequest({ files: certFiles, requestId: Date.now() });
+      setMasivaMessage(
+        "Certificado detectado. Emparejando con las filas por VIN…"
+      );
+      setImportModo("masiva");
+      return;
+    }
+
+    setMasivaInitialDocs(masivaDocsRef.current);
+    setMasivaRows(masivaRowsRef.current);
+    setMasivaMessage(message);
+    setMasivaTabMode("documentos");
+    setImportModo("masiva");
+    setMasivaInstance((n) => n + 1);
+    // Siempre re-emparejar certificados en la planilla masiva (precarga por VIN).
+    if (certFiles.length > 0) {
+      setCertMergeRequest({ files: certFiles, requestId: Date.now() });
+    } else {
+      setCertMergeRequest(null);
+    }
+  }
+
+  function switchToIndividual() {
+    setImportModo("individual");
+  }
+
   if (step === "importacion" && selected) {
+    const clienteBanner = (
+      <div className="rounded-2xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-emerald-400/90">
+          Cliente de la importación
+        </p>
+        <p className="mt-1 text-sm font-semibold text-zinc-50">{selected.nombre}</p>
+        <p className="mt-0.5 font-mono text-xs text-zinc-400">
+          {formatImportadorDocumentoLine(selected)}
+          {" · "}
+          {IMPORTADOR_TIPO_LABELS[selected.tipo]}
+        </p>
+        {selected.tipo === "juridica" && selected.registroPuertoLibre ? (
+          <p className="mt-0.5 text-[11px] text-zinc-500">
+            Registro PL {selected.registroPuertoLibre}
+            {selected.registroPlVence
+              ? ` · vence ${selected.registroPlVence}`
+              : ""}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setStep("cliente")}
+          className="mt-2 text-xs text-cyan-400 hover:underline"
+        >
+          Cambiar cliente
+        </button>
+      </div>
+    );
+
+    if (importModo === "masiva") {
+      return (
+        <div className="space-y-4">
+          {clienteBanner}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
+            <PuertoLibreCargaMasiva
+              key={masivaInstance}
+              embedded
+              hideClienteSection
+              initialSelectedImportador={selected}
+              initialRows={masivaRows}
+              initialMode={masivaTabMode}
+              initialMessage={masivaMessage}
+              initialDocs={masivaInitialDocs}
+              certMergeRequest={certMergeRequest}
+              onSwitchToIndividual={switchToIndividual}
+              initialImportadores={clientes}
+              tallerId={tallerId}
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-400/90">
-            Cliente de la importación
-          </p>
-          <p className="mt-1 text-sm font-semibold text-zinc-50">{selected.nombre}</p>
-          <p className="mt-0.5 font-mono text-xs text-zinc-400">
-            {formatImportadorDocumentoLine(selected)}
-            {" · "}
-            {IMPORTADOR_TIPO_LABELS[selected.tipo]}
-          </p>
-          {selected.tipo === "juridica" && selected.registroPuertoLibre ? (
-            <p className="mt-0.5 text-[11px] text-zinc-500">
-              Registro PL {selected.registroPuertoLibre}
-              {selected.registroPlVence
-                ? ` · vence ${selected.registroPlVence}`
-                : ""}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setStep("cliente")}
-            className="mt-2 text-xs text-cyan-400 hover:underline"
-          >
-            Cambiar cliente
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-          <PlanillaAltaPuertoLibre
-            importadorId={selected.id}
-            initialImportador={{
-              importadorNombre: selected.nombre,
-              importadorDocumento: selected.documento,
-              importadorTelefono: selected.telefono ?? "",
-              importadorEmail: selected.email ?? "",
-              importadorDireccion: selected.direccion ?? "",
-            }}
-            lockImportador
-          />
-        </div>
+        {clienteBanner}
+        <VehicleImportWizard importador={selected} tallerId={tallerId} />
       </div>
     );
   }

@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
-import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
 import { PuertoLibreCargaMasiva } from "@/components/nfc/PuertoLibreCargaMasiva";
+import { VehicleImportWizard } from "@/components/VehicleImport/VehicleImportWizard";
 import type { MultiDocDetectedPayload } from "@/components/nfc/PuertoLibreDocScan";
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { mergeCargaMasivaRowsByVin } from "@/lib/importacion/carga-masiva-ui";
@@ -213,22 +213,7 @@ export function RegistrarImportacionWizard({
     return (
       <div className="space-y-4">
         {clienteBanner}
-
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-          <PlanillaAltaPuertoLibre
-            importadorId={selected.id}
-            initialImportador={{
-              importadorNombre: selected.nombre,
-              importadorDocumento: selected.documento,
-              importadorTelefono: selected.telefono ?? "",
-              importadorEmail: selected.email ?? "",
-              importadorDireccion: selected.direccion ?? "",
-            }}
-            lockImportador
-            onMultiDetected={handleMultiDetected}
-            onOpenExcelCsv={openMasivaPlantilla}
-          />
-        </div>
+        <VehicleImportWizard importador={selected} tallerId={tallerId} />
       </div>
     );
   }
