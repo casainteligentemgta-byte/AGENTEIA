@@ -113,9 +113,9 @@ const TIPS = [
     icon: Upload,
     titulo: "Varios vehículos",
     texto:
-      "En Nueva importación sube la factura (1 o N vehículos) o usa «Varios vehículos». Cada VIN es un expediente. Los certificados de origen se añaden y se emparejan por serial. Excel/CSV queda como atajo.",
-    href: "/smartimport/importaciones/nueva?masiva=1",
-    cta: "Nueva importación (varios)",
+      "En Nueva importación: cliente → factura + certificados (1 a 50 VIN) → revisar → guardar. Cada VIN es un expediente. Excel/CSV queda como atajo (?masiva=1).",
+    href: "/smartimport/importaciones/nueva",
+    cta: "Nueva importación",
   },
   {
     icon: LayoutDashboard,
@@ -204,7 +204,7 @@ export default function InstructivoImportacionPage() {
               >
                 nueva importación
               </Link>{" "}
-              (un vehículo o varios con Excel / factura multi-VIN).
+              (factura + certificados, 1 o varios VIN; Excel queda como atajo).
             </span>
           </p>
         </section>
