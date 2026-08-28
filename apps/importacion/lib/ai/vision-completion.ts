@@ -2,7 +2,6 @@ import {
   createChatCompletion,
   createOpenAIClient,
   getVisionModelId,
-  isGeminiProvider,
 } from "@/lib/ai/openai-config";
 import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
@@ -10,10 +9,7 @@ import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
 function isProviderVisionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return (
-    /400|provider returned error|image|too large|invalid/i.test(msg) ||
-    (/application\/json/i.test(msg) && /not supported|unsupported mime/i.test(msg))
-  );
+  return /400|provider returned error|image|too large|invalid/i.test(msg);
 }
 
 function parseJsonOrSalvageVins(raw: string): Record<string, unknown> {
@@ -49,7 +45,7 @@ async function requestVisionCompletion(params: {
   const model = getVisionModelId();
   const response = await createChatCompletion(openai, {
     model,
-    ...(params.jsonMode && !isGeminiProvider()
+    ...(params.jsonMode
       ? { response_format: { type: "json_object" as const } }
       : {}),
     temperature: 0,

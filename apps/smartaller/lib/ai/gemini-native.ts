@@ -12,16 +12,16 @@ function getGeminiApiKey(): string {
 
 const GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta";
 
-/** Modelos que sí aceptan PDF/visión. flash-lite rechaza JSON y varios MIME. */
+/** Orden de preferencia; ListModels decide cuáles existen en esta clave. */
 const GEMINI_PREFERRED_MODELS = [
-  "gemini-2.5-flash",
+  "gemini-3.1-flash-lite",
   "gemini-3-flash-preview",
   "gemini-3-flash",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
   "gemini-flash-latest",
   "gemini-2.0-flash",
 ] as const;
-
-const GEMINI_STABLE_VISION = "gemini-2.5-flash";
 
 type GeminiPart =
   | { text: string }
@@ -56,7 +56,7 @@ function stripModelsPrefix(name: string): string {
 function isUsableGenerateModel(id: string): boolean {
   const n = stripModelsPrefix(id).toLowerCase();
   if (!n.includes("gemini")) return false;
-  if (/embed|image|tts|aqa|gemma|robotics|lite/i.test(n)) return false;
+  if (/embed|image|tts|aqa|gemma|robotics/i.test(n)) return false;
   return true;
 }
 
@@ -91,10 +91,9 @@ function pickFromAvailable(available: string[], preferred?: string): string | nu
     (x): x is string => Boolean(x)
   );
   for (const id of tryIds) {
-    if (isLiteModel(id)) continue;
     if (set.has(id)) return id;
   }
-  const flash = available.find((id) => /flash/i.test(id) && !isLiteModel(id));
+  const flash = available.find((id) => /flash/i.test(id));
   return flash ?? available[0] ?? null;
 }
 
@@ -103,7 +102,6 @@ export async function resolveGeminiModelId(preferred?: string): Promise<string> 
   if (!apiKey) {
     throw new Error("Falta GEMINI_API_KEY");
   }
-  if (workingModel && isLiteModel(workingModel)) workingModel = null;
   if (workingModel && (!preferred || preferred === workingModel)) {
     return workingModel;
   }
@@ -172,55 +170,6 @@ function toGeminiInline(
       : null;
   if (!mimeType) return null;
   return { inline_data: { mime_type: mimeType, data: parsed.data } };
-}
-
-type GeminiRestPart =
-  | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
-
-function toGeminiRestContents(
-  contents: Array<{ role: "user" | "model"; parts: GeminiPart[] }>
-): Array<{ role: "user" | "model"; parts: GeminiRestPart[] }> {
-  return contents.map((c) => ({
-    role: c.role,
-    parts: c.parts.flatMap((p): GeminiRestPart[] => {
-      if ("text" in p) {
-        return p.text ? [{ text: p.text }] : [];
-      }
-      const mime = (p.inline_data.mime_type || "")
-        .split(";")[0]
-        .trim()
-        .toLowerCase();
-      if (
-        !p.inline_data.data ||
-        mime === "application/json" ||
-        mime === "text/html" ||
-        mime === "text/plain" ||
-        mime === "text/json" ||
-        payloadLooksJson(p.inline_data.data)
-      ) {
-        return [];
-      }
-      const mimeType = GEMINI_INLINE_MIMES.has(mime)
-        ? mime
-        : mime.startsWith("image/")
-          ? "image/jpeg"
-          : null;
-      if (!mimeType) return [];
-      return [
-        {
-          inlineData: {
-            mimeType,
-            data: p.inline_data.data,
-          },
-        },
-      ];
-    }),
-  }));
-}
-
-function isLiteModel(id: string): boolean {
-  return /lite/i.test(id);
 }
 
 function isJsonMimeUnsupported(err: unknown): boolean {
@@ -341,10 +290,10 @@ async function generateOnce(params: {
   maxTokens: number;
   temperature: number;
 }): Promise<OpenAI.Chat.Completions.ChatCompletion> {
-  // REST oficial: inlineData.mimeType. Nunca responseMimeType ni application/json.
-  const contents = toGeminiRestContents(params.contents);
-  const body = {
-    contents,
+  // No usar responseMimeType: application/json. Varios Gemini 3 flash-lite
+  // lo rechazan con "mimeType … application/json … is not supported".
+  const body: Record<string, unknown> = {
+    contents: params.contents,
     generationConfig: {
       temperature: params.temperature,
       maxOutputTokens: Math.min(Math.max(params.maxTokens, 256), 8192),
@@ -407,23 +356,14 @@ export async function geminiChatCompletion(
   const temperature =
     typeof params.temperature === "number" ? params.temperature : 0;
   const { contents } = messagesToGeminiContents(params.messages);
-  const preferredRaw =
-    typeof params.model === "string" ? params.model : undefined;
   const preferred =
-    preferredRaw && isLiteModel(preferredRaw) ? undefined : preferredRaw;
+    typeof params.model === "string" ? params.model : undefined;
 
   const first = await resolveGeminiModelId(preferred);
   const fromPreferred = listedIds?.length
     ? GEMINI_PREFERRED_MODELS.filter((id) => listedIds!.includes(id))
     : [...GEMINI_PREFERRED_MODELS];
-  const withoutLite = [...new Set([first, GEMINI_STABLE_VISION, ...fromPreferred])].filter(
-    (id): id is string => Boolean(id) && !isLiteModel(id)
-  );
-  const queue = (
-    withoutLite.length > 0
-      ? withoutLite
-      : [GEMINI_STABLE_VISION, "gemini-3-flash-preview"]
-  ).slice(0, 4);
+  const queue = [...new Set([first, ...fromPreferred])].slice(0, 3);
   const seen = new Set<string>();
   let lastError: unknown;
   for (const model of queue) {
@@ -439,17 +379,9 @@ export async function geminiChatCompletion(
       });
     } catch (err) {
       lastError = err;
-      if (isJsonMimeUnsupported(err) || isNotFound(err)) {
-        if (workingModel === model) workingModel = null;
-        continue;
-      }
-      throw lastError;
+      if (!isNotFound(err) && !isJsonMimeUnsupported(err)) throw lastError;
+      if (workingModel === model) workingModel = null;
     }
-  }
-  if (isJsonMimeUnsupported(lastError)) {
-    throw new Error(
-      "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF."
-    );
   }
   const tried = [...seen].slice(0, 6).join(", ");
   throw lastError instanceof Error
