@@ -192,7 +192,7 @@ export function formatLlmAuthError(err: unknown): string {
     /application\/json/i.test(msg) &&
     /not supported|unsupported mime/i.test(msg)
   ) {
-    return "La IA rechazó el formato JSON. Vuelve a tocar Procesar; si falla, recarga la página.";
+    return "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF.";
   }
   if (/400|provider returned error|image|too large|invalid image|payload/i.test(msg)) {
     // Conservar diagnósticos de carga masiva / VIN

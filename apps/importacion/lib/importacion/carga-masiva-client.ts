@@ -55,6 +55,10 @@ export function formatCargaMasivaClientError(err: unknown): string {
   if (isCargaMasivaNetworkError(err) || isAbortError(err)) {
     return "Se cortó la conexión de datos al leer el PDF. Vuelve a tocar Procesar; si ya hay filas, se conservan.";
   }
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/application\/json/i.test(raw) && /not supported|unsupported mime/i.test(raw)) {
+    return "No se pudo leer el documento: el celular lo etiquetó mal. Cerrá la pestaña, abrí de nuevo y tocá Procesar. Si sigue, usá una foto en vez del PDF.";
+  }
   if (err instanceof Error && err.message.trim()) return err.message;
   return "Error inesperado al procesar la carga masiva";
 }
