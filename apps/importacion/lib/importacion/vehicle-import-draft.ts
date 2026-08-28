@@ -63,6 +63,17 @@ export function clearVehicleImportDraft(
   }
 }
 
+export function pickNewerDraft(
+  a: VehicleImportDraft | null,
+  b: VehicleImportDraft | null
+): VehicleImportDraft | null {
+  if (!a) return b;
+  if (!b) return a;
+  const aTime = Date.parse(a.updatedAt) || 0;
+  const bTime = Date.parse(b.updatedAt) || 0;
+  return aTime >= bTime ? a : b;
+}
+
 export function extractedKeysFromRow(row: CargaMasivaRow): string[] {
   const skip = new Set(["id", "fuente", "error", "kilometraje"]);
   const keys: string[] = [];

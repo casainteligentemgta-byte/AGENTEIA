@@ -12,6 +12,7 @@ import {
   saveVehicleImportDraft,
 } from "@/app/actions/vehicle-import";
 import { PlanillaAltaPuertoLibre } from "@/components/nfc/PlanillaAltaPuertoLibre";
+import { VehicleImportDraftPrompt } from "@/components/VehicleImport/VehicleImportDraftPrompt";
 import { VehicleImportStepIndicator } from "@/components/VehicleImport/StepIndicator";
 import { Step1UploadDocuments } from "@/components/VehicleImport/Step1UploadDocuments";
 import { Step2ReviewData } from "@/components/VehicleImport/Step2ReviewData";
@@ -26,6 +27,7 @@ import { runVehicleImportExtract } from "@/lib/importacion/vehicle-import-extrac
 import {
   clearVehicleImportDraft,
   extractedKeysFromRow,
+  pickNewerDraft,
   readVehicleImportDraft,
   writeVehicleImportDraft,
   type VehicleImportDraft,
@@ -61,6 +63,10 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<VehicleImportDraft | null>(
+    null
+  );
+  const [lookingDraft, setLookingDraft] = useState(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistDraft = useCallback(
@@ -96,28 +102,28 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
     ]
   );
 
+  function applyDraft(draft: VehicleImportDraft) {
+    setRows(draft.rows);
+    setExtractedFieldKeys(draft.extractedFieldKeys);
+    setVinSources(draft.vinSources ?? {});
+    setStep(draft.step === 1 && draft.rows.length > 0 ? 2 : draft.step);
+    setCurrentIndex(
+      Math.min(draft.currentVehicleIndex, Math.max(draft.rows.length - 1, 0))
+    );
+    setFoundCount(draft.rows.length);
+    setPendingDraft(null);
+  }
+
   useEffect(() => {
     const local = readVehicleImportDraft(tallerId, importador.id);
-    if (local?.rows.length) {
-      setRows(local.rows);
-      setExtractedFieldKeys(local.extractedFieldKeys);
-      setVinSources(local.vinSources ?? {});
-      setStep(local.step === 1 && local.rows.length > 0 ? 2 : local.step);
-      setCurrentIndex(
-        Math.min(local.currentVehicleIndex, Math.max(local.rows.length - 1, 0))
-      );
-      setFoundCount(local.rows.length);
-      return;
-    }
-    void loadVehicleImportDraftAction(importador.id).then((result) => {
-      if (!result.ok || !result.draft?.rows.length) return;
-      setRows(result.draft.rows);
-      setExtractedFieldKeys(result.draft.extractedFieldKeys);
-      setVinSources(result.draft.vinSources ?? {});
-      setStep(result.draft.step === 1 ? 2 : result.draft.step);
-      setCurrentIndex(result.draft.currentVehicleIndex);
-      setFoundCount(result.draft.rows.length);
-    });
+    void loadVehicleImportDraftAction()
+      .then((result) => {
+        const remote = result.ok ? result.draft : null;
+        const draft = pickNewerDraft(local, remote);
+        if (!draft?.rows.length) return;
+        setPendingDraft(draft);
+      })
+      .finally(() => setLookingDraft(false));
   }, [importador.id, tallerId]);
 
   useEffect(() => {
@@ -308,6 +314,34 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
           Ir al panel
         </Link>
       </div>
+    );
+  }
+
+  if (lookingDraft) {
+    return (
+      <p className="text-sm text-zinc-500">Buscando borrador guardado…</p>
+    );
+  }
+
+  if (pendingDraft) {
+    return (
+      <VehicleImportDraftPrompt
+        vehicleCount={pendingDraft.rows.length}
+        step={pendingDraft.step}
+        updatedAt={pendingDraft.updatedAt}
+        onContinue={() => applyDraft(pendingDraft)}
+        onStartNew={() => {
+          clearVehicleImportDraft(tallerId, importador.id);
+          void clearVehicleImportDraftAction();
+          setPendingDraft(null);
+          setRows([]);
+          setExtractedFieldKeys({});
+          setVinSources({});
+          setStep(1);
+          setCurrentIndex(0);
+          setFoundCount(null);
+        }}
+      />
     );
   }
 

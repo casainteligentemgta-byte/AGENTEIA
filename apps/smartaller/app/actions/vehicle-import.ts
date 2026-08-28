@@ -144,7 +144,7 @@ export async function saveVehicleImportDraftAction(
 }
 
 export async function loadVehicleImportDraftAction(
-  importadorId: string
+  importadorId?: string
 ): Promise<
   | { ok: true; draft: VehicleImportDraft | null }
   | { ok: false; error: string }
@@ -165,7 +165,7 @@ export async function loadVehicleImportDraftAction(
     if (error && isMissingDraftTableError(error.message)) {
       const current = await loadPreferencias(auth.taller.id);
       const draft = current.vehicleImportDraft ?? null;
-      if (draft && draft.importadorId !== importadorId) {
+      if (draft && importadorId && draft.importadorId !== importadorId) {
         return { ok: true, draft: null };
       }
       return { ok: true, draft };
