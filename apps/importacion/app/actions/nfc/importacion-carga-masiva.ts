@@ -1053,7 +1053,7 @@ export async function extractCargaMasivaEtapaAction(
         extracted.engineNos?.length
       ) {
         warnings.push(
-          `${f.file.name}: cert — ${extracted.engineNos?.length ?? extracted.enginePairs.length} ENGINE No`
+          `${f.file.name}: cert — ${extracted.engineNos?.length ?? extracted.enginePairs?.length ?? 0} ENGINE No`
         );
       } else if (Object.keys(extracted.shared).length > 0) {
         warnings.push(`${f.file.name}: certificado (datos compartidos)`);
