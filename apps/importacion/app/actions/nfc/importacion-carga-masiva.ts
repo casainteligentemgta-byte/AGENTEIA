@@ -1062,39 +1062,10 @@ export async function extractCargaMasivaEtapaAction(
       }
     }
 
-    for (const f of bls) {
-      try {
-        const extracted = await extractBlMultiFromDocument(f.buffer, f.mimeType);
-        sharedFromBl = mergeScanFields(sharedFromBl, extracted.shared);
-        warnings.push(
-          extracted.vehiculos.length > 0
-            ? `${f.file.name}: BL — ${extracted.vehiculos.length} VIN`
-            : `${f.file.name}: BL leído (embarque)`
-        );
-        for (const v of extracted.vehiculos) {
-          const fields = mergeScanFields(
-            mergeScanFields(extracted.shared, sharedFromBl),
-            v
-          );
-          const serial = normalizarSerialCarroceria(
-            fields.serialCarroceria ?? fields.vin ?? ""
-          );
-          if (!serial) continue;
-          const idx = rows.findIndex(
-            (r) =>
-              normalizarSerialCarroceria(r.serialCarroceria || r.vin) === serial
-          );
-          if (idx >= 0) {
-            rows[idx] = mergeRowByVin(rows[idx]!, fields, "BL");
-          } else {
-            rows.push(scanFieldsToRow(fields, `BL · ${f.file.name}`));
-          }
-        }
-      } catch (err) {
-        warnings.push(
-          `${f.file.name}: BL omitido para no trabar ENGINE No — ${formatLlmAuthError(err)}`
-        );
-      }
+    if (bls.length > 0) {
+      warnings.push(
+        `${bls.length} BL adjunto(s): no se lee con IA aquí (eso demoraba Extraer). Escribe el nº de BL o úsalo en datos.`
+      );
     }
 
     let matched = 0;
