@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ImportacionClientesPage() {
   const user = await getUser();
-  if (!user) redirect("/login?next=/smartimport/clientes");
+  if (!user) redirect("/smartimport/login?redirectTo=/smartimport/clientes");
 
   const { taller, error } = await ensureTallerForUser(user.id);
   if (!taller) {
