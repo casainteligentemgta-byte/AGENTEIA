@@ -40,7 +40,7 @@ type MasivaDocSeed = {
 export function RegistrarImportacionWizard({
   initialImportadores,
   tallerId,
-  startInMasiva = false,
+  startInMasiva = true,
 }: Props) {
   const [step, setStep] = useState<Step>("cliente");
   const [mode, setMode] = useState<"buscar" | "nuevo">("buscar");
@@ -156,6 +156,11 @@ export function RegistrarImportacionWizard({
     setImportModo("individual");
   }
 
+  function switchToMasiva() {
+    setMasivaTabMode("documentos");
+    setImportModo("masiva");
+  }
+
   if (step === "importacion" && selected) {
     const clienteBanner = (
       <div className="rounded-2xl border border-emerald-700/55 bg-[#071412] px-4 py-4">
@@ -213,7 +218,11 @@ export function RegistrarImportacionWizard({
     return (
       <div className="space-y-4">
         {clienteBanner}
-        <VehicleImportWizard importador={selected} tallerId={tallerId} />
+        <VehicleImportWizard
+          importador={selected}
+          tallerId={tallerId}
+          onSwitchToMasiva={switchToMasiva}
+        />
       </div>
     );
   }

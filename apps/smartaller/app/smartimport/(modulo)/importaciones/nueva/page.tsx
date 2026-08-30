@@ -59,7 +59,7 @@ export default async function NuevaImportacionPage({ searchParams }: Props) {
         <RegistrarImportacionWizard
           initialImportadores={importadores}
           tallerId={taller.id}
-          startInMasiva={params.masiva === "1"}
+          startInMasiva={params.masiva !== "0"}
         />
       </div>
     </main>

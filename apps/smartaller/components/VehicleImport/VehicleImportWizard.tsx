@@ -42,9 +42,14 @@ import {
 type Props = {
   importador: ImportadorListItem;
   tallerId: string;
+  onSwitchToMasiva?: () => void;
 };
 
-export function VehicleImportWizard({ importador, tallerId }: Props) {
+export function VehicleImportWizard({
+  importador,
+  tallerId,
+  onSwitchToMasiva,
+}: Props) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [manual, setManual] = useState(false);
@@ -373,6 +378,17 @@ export function VehicleImportWizard({ importador, tallerId }: Props) {
 
   return (
     <div className="space-y-6 rounded-2xl border border-white/[0.06] bg-[#08141c] p-5 sm:p-6">
+      {onSwitchToMasiva ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onSwitchToMasiva}
+            className="text-sm text-cyan-400 hover:underline"
+          >
+            Factura con varios vehículos
+          </button>
+        </div>
+      ) : null}
       <VehicleImportStepIndicator
         step={step}
         vehicleIndex={currentIndex}
