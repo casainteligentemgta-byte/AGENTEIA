@@ -1,5 +1,6 @@
 import {
   createDocumentJsonCompletion,
+  getPdfPagePlainTexts,
   getPdfPlainText,
   PDF_RASTER_MAX_PAGES,
   PDF_VISION_MAX_PAGES,
@@ -34,7 +35,10 @@ import {
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
-import { parseCertEngineNosFromText } from "@/lib/importacion/cert-engine-text";
+import {
+  parseCertEngineNosFromPages,
+  parseCertEngineNosFromText,
+} from "@/lib/importacion/cert-engine-text";
 import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
 import { matchSerialKeyAmong } from "@/lib/importacion/serial-match";
 import { preferCompleteVin, salvageCheryVin } from "@/lib/importacion/vin-text";
@@ -1170,7 +1174,7 @@ IMPORTANTE:
 - Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
-- ENGINE NO / Engine Serial suele estar en la PÁGINA 2 (hoja anexa o detalle). Lee esa página y empareja cada motor con su VIN.
+- serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial. Está en la PÁGINA 2 (segunda imagen). La página 1 es carátula y NO trae ENGINE No. Lee la página 2 y empareja cada motor con su VIN. No lo saques de la factura comercial.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -2568,21 +2572,78 @@ function applyCertEnginePairs(
   return next;
 }
 
+async function ocrPdfPageText(
+  buffer: Buffer,
+  pageNumber: number
+): Promise<string> {
+  const pages = await renderPdfPagesAsPng(buffer, {
+    startPage: pageNumber,
+    maxPages: 1,
+    scale: 2.6,
+  });
+  if (!pages[0]) return "";
+  return extractInvoicePlainTextWithTesseract(pages[0]);
+}
+
+async function harvestCertEngineNos(
+  buffer: Buffer,
+  mimeType: string
+): Promise<{ vin: string; serialMotor: string }[]> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  if (!isPdf) {
+    try {
+      const ocr = await extractInvoicePlainTextWithTesseract(buffer);
+      return parseCertEngineNosFromText(ocr);
+    } catch {
+      return [];
+    }
+  }
+
+  let pageTexts: string[] = [];
+  try {
+    pageTexts = await getPdfPagePlainTexts(buffer);
+  } catch {
+    pageTexts = [];
+  }
+  let engines = parseCertEngineNosFromPages(pageTexts);
+  if (engines.length > 0) return engines;
+
+  // Página 2: columna ENGINE No (la carátula no la trae).
+  try {
+    const page2Ocr = await ocrPdfPageText(buffer, 2);
+    engines = parseCertEngineNosFromText(page2Ocr);
+    if (engines.length > 0) return engines;
+  } catch {
+    // sigue con el resto de páginas
+  }
+
+  try {
+    const rest = await renderPdfPagesAsPng(buffer, {
+      startPage: 1,
+      maxPages: PDF_RASTER_MAX_PAGES,
+      scale: 2.4,
+    });
+    const chunks: string[] = [];
+    for (const page of rest) {
+      try {
+        chunks.push(await extractInvoicePlainTextWithTesseract(page));
+      } catch {
+        // página ilegible
+      }
+    }
+    return parseCertEngineNosFromPages(chunks);
+  } catch {
+    return [];
+  }
+}
+
 export async function extractCertificadoOrigenMultiFromDocument(
   buffer: Buffer,
   mimeType: string,
   options?: { rapido?: boolean }
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
-  let certPlain = "";
-  if (isPdf) {
-    try {
-      certPlain = await getPdfPlainText(buffer);
-    } catch {
-      certPlain = "";
-    }
-  }
-  const enginesFromText = parseCertEngineNosFromText(certPlain);
+  const enginesFromText = await harvestCertEngineNos(buffer, mimeType);
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
@@ -2594,9 +2655,10 @@ export async function extractCertificadoOrigenMultiFromDocument(
         mimeType,
         maxTokens: options?.rapido ? 3500 : 4500,
         maxTextChars: 32000,
-        // Página 2 suele traer ENGINE No; nunca quedarse solo en la carátula.
+        // Página 2 = ENGINE No; no quedarse en texto de la carátula.
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
+        forceRasterVision: isPdf,
       });
     } catch (err) {
       llmError = err;

@@ -54,7 +54,13 @@ function fillEmptyRowFields(
       if (preferred) (next[key] as string) = preferred;
       return;
     }
-    if (typeof currentVal === "string" && currentVal.trim()) return;
+    if (
+      typeof currentVal === "string" &&
+      currentVal.trim() &&
+      !isPlaceholderDato(currentVal)
+    ) {
+      return;
+    }
     (next[key] as string) = incomingVal;
   });
   if (!next.fuente && incoming.fuente) next.fuente = incoming.fuente;

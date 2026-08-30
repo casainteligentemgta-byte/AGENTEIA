@@ -65,6 +65,22 @@ export async function getPdfPlainText(buffer: Buffer): Promise<string> {
   return extractTextFromPdf(buffer);
 }
 
+function keepPdfPageLines(text: string): string {
+  return String(text ?? "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Una cadena por página, con saltos de línea (tablas ENGINE No en página 2). */
+export async function getPdfPagePlainTexts(buffer: Buffer): Promise<string[]> {
+  const { extractText } = await import("unpdf");
+  const result = await extractText(new Uint8Array(buffer), { mergePages: false });
+  const raw = result.text as unknown;
+  const pages = Array.isArray(raw) ? raw : [raw];
+  return pages.map((t) => keepPdfPageLines(String(t ?? "")));
+}
+
 /**
  * Raster para Tesseract / recortes. 20 páginas a 2.6× agotaba el timeout
  * (~110s) y Extraer devolvía 0 filas. El texto embebido sí lee todo el PDF.
@@ -105,16 +121,19 @@ export function isUsefulPdfText(text: string): boolean {
  */
 export async function renderPdfPagesAsPng(
   buffer: Buffer,
-  options?: { maxPages?: number; scale?: number }
+  options?: { maxPages?: number; scale?: number; startPage?: number }
 ): Promise<Buffer[]> {
   const maxPages = options?.maxPages ?? PDF_RASTER_MAX_PAGES;
   const scale = options?.scale ?? 2;
+  const startPage = Math.max(1, options?.startPage ?? 1);
   const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
-  const total = Math.min(pdf.numPages ?? 1, maxPages);
+  const numPages = pdf.numPages ?? 1;
+  if (startPage > numPages) return [];
+  const last = Math.min(numPages, startPage + maxPages - 1);
   const pages: Buffer[] = [];
 
-  for (let page = 1; page <= total; page++) {
+  for (let page = startPage; page <= last; page++) {
     const ab = await renderPageAsImage(pdf, page, {
       scale,
       canvasImport: () => import("@napi-rs/canvas"),
@@ -165,7 +184,7 @@ async function jsonFromPdfPageImages(
       type: "text",
       text:
         pagePngs.length > 1
-          ? `${prompt}\n\nLas imágenes siguientes son páginas consecutivas del mismo documento (escaneado). Lee el texto visible en TODAS las páginas. No inventes datos que no se vean.`
+          ? `${prompt}\n\nLas imágenes siguientes son páginas consecutivas (imagen 1 = página 1, imagen 2 = página 2). Lee TODAS. No inventes datos que no se vean.`
           : `${prompt}\n\nLee el texto visible en la imagen. No inventes datos que no se vean.`,
     },
   ];
