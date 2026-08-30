@@ -11,8 +11,19 @@ export const VEHICULO_DOCS_BUCKET = "vehiculos-documentos";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
+const IOS_MISLABELED_DOC_MIMES = new Set([
+  "application/json",
+  "text/plain",
+  "text/html",
+]);
+
 export function validateVehiculoDocumentoFile(file: File): string | null {
-  if (file.type === "application/pdf") {
+  const declared = (file.type || "").split(";")[0].trim().toLowerCase();
+  if (
+    declared === "application/pdf" ||
+    /\.pdf$/i.test(file.name) ||
+    IOS_MISLABELED_DOC_MIMES.has(declared)
+  ) {
     if (file.size > MAX_BYTES) return "El archivo supera 10 MB";
     if (file.size === 0) return "Archivo vacío";
     return null;

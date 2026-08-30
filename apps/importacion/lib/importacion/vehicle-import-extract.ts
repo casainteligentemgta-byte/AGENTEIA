@@ -258,6 +258,17 @@ export async function runVehicleImportExtract(params: {
       facturaByRowId = snapshotFacturaVins(currentRows);
     }
 
+    if (currentRows.length === 0) {
+      return {
+        ok: false,
+        error:
+          "No se detectaron VIN en los documentos. La factura debe ser PDF o foto (si el celular la etiquetó como JSON, recarga y vuelve a subir).",
+        rows: [],
+        warnings,
+        vinSources: vinSourcesOf([]),
+      };
+    }
+
     params.onProgress({
       etapa: "certs",
       label: "Listo",

@@ -10,9 +10,26 @@ import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
 import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
+import { isJsonOrHtmlPayload, sniffDocumentMime } from "@/lib/mime-document";
 
 function isPdfMime(mimeType: string): boolean {
   return mimeType.toLowerCase().includes("pdf");
+}
+
+function resolveCompletionMime(buffer: Buffer, declared: string): string {
+  try {
+    return sniffDocumentMime({
+      buffer,
+      declaredMime: declared === "application/json" ? "" : declared,
+    });
+  } catch {
+    if (buffer.length >= 4 && buffer.toString("ascii", 0, 4) === "%PDF") {
+      return "application/pdf";
+    }
+    return declared && declared !== "application/json"
+      ? declared
+      : "application/pdf";
+  }
 }
 
 function stripJsonFence(raw: string): string {
@@ -268,7 +285,15 @@ export async function createDocumentJsonCompletion(params: {
   const maxPdfPages = params.maxPdfPages ?? 4;
   const preferHighDetail = params.preferHighDetail ?? true;
   const renderScale = params.renderScale ?? 2;
-  const mime = params.mimeType || "application/octet-stream";
+  if (isJsonOrHtmlPayload(params.buffer)) {
+    throw new Error(
+      "El documento no es un PDF ni una foto (llegó JSON). Vuelve a subir el archivo y toca Extraer vehículos."
+    );
+  }
+  const mime = resolveCompletionMime(
+    params.buffer,
+    params.mimeType || "application/octet-stream"
+  );
 
   if (!isPdfMime(mime)) {
     return createVisionJsonCompletion({

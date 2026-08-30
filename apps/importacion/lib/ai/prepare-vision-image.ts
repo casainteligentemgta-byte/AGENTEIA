@@ -33,8 +33,17 @@ export function prepareImageForVision(
   mimeType: string,
   options?: PrepareVisionImageOptions
 ): PreparedVisionImage {
+  const declared = (mimeType || "").split(";")[0].trim().toLowerCase();
   const resolved =
-    resolveImageMimeType({ declaredMime: mimeType, buffer }) ?? "image/jpeg";
+    resolveImageMimeType({
+      declaredMime:
+        declared === "application/json" ||
+        declared === "text/plain" ||
+        declared === "text/html"
+          ? ""
+          : mimeType,
+      buffer,
+    }) ?? "image/jpeg";
 
   if (options?.forceDetail) {
     return { buffer, mimeType: resolved, detail: options.forceDetail };

@@ -87,7 +87,10 @@ import { createClient } from "@/lib/supabase/client";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import { IMPORTADOR_TIPO_LABELS, formatImportadorDocumentoLine } from "@/lib/schemas/importador";
-import { isPdfOrImageFile } from "@/lib/validations/vehicle-import";
+import {
+  contentTypeForImportDoc,
+  isPdfOrImageFile,
+} from "@/lib/validations/vehicle-import";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
   modelosDeMarca,
@@ -701,7 +704,7 @@ export function PuertoLibreCargaMasiva({
         .from(VEHICULO_DOCS_BUCKET)
         .upload(path, d.file, {
           upsert: false,
-          contentType: d.file.type || "application/pdf",
+          contentType: contentTypeForImportDoc(d.file),
         });
       if (error) {
         throw new Error(`${d.file.name}: ${error.message}`);

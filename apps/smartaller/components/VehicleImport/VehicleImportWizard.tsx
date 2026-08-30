@@ -166,12 +166,20 @@ export function VehicleImportWizard({
       }
       return;
     }
+    if (result.rows.length === 0) {
+      setError("No se detectaron VIN en los documentos");
+      return;
+    }
     const extracted = vehicleImportExtractedSchema.safeParse({
       detectedVehicleCount: result.rows.length,
       vehicles: result.rows,
     });
     if (!extracted.success) {
-      setError(extracted.error.errors[0]?.message ?? "Cantidad de vehículos inválida");
+      setError(
+        formatCargaMasivaClientError(
+          extracted.error.errors[0]?.message ?? "No se detectaron VIN en los documentos"
+        )
+      );
       return;
     }
     applyRows(result.rows, result.vinSources);
