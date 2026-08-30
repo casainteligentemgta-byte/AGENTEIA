@@ -165,6 +165,27 @@ describe("parseCertEngineNosFromText", () => {
     assert.deepEqual(harvested.motors, ["SQRE4G15C1234567", "C16TD98765432"]);
   });
 
+  it("empareja VIN y SQRE4G15C en la misma fila (COO Chery pág. 2)", () => {
+    const text = `
+      ITEM VIN NO. ENGINE NO. COLOUR
+      1 LVVDB21B9VE033523 SQRE4G15CB0TC60412 NASDAQ SILVER
+      2 LVVDB21B1VE033189 SQRE4G15CB0TC60341 CELADON GRAY
+      3 LVVDB21B9VE033215 SQRE4G15CB0TC60200 CELADON GRAY
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 3);
+    assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60412");
+    assert.equal(pairs[1]?.vin, "LVVDB21B1VE033189");
+    assert.equal(pairs[1]?.serialMotor, "SQRE4G15CB0TC60341");
+  });
+
+  it("repara OCR S0RE → SQRE", () => {
+    const pairs = parseCertEngineNosFromText(
+      "LVVDB21B5VE033213 S0RE4G15CB0TC60173"
+    );
+    assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60173");
+  });
+
   it("si la pág. 2 está vacía, busca ENGINE No en otra página", () => {
     const harvested = harvestCertEnginesFromPages([
       "CERTIFICATE OF ORIGIN",

@@ -27,6 +27,7 @@ import {
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
 import {
+  extractCertificatePagePlainTextOriented,
   extractCertificatePagePlainTextWithTesseract,
   extractInvoicePlainTextWithTesseract,
   extractVinsFromOcrText,
@@ -2628,6 +2629,9 @@ async function ocrPdfPageText(
     scale: options?.fast ? 2.0 : 2.6,
   });
   if (!pages[0]) return "";
+  if (options?.fast) {
+    return extractCertificatePagePlainTextOriented(pages[0]);
+  }
   return extractCertificatePagePlainTextWithTesseract(pages[0], {
     fast: options?.fast,
   });
@@ -2654,13 +2658,12 @@ async function harvestCertEngineNos(
     }
   }
   const fromEmbedded = harvestCertEnginesFromPages(pageTexts);
-  // Extraer (certs): solo texto embebido. Tesseract de pág. 2 tarda 1–2 min.
-  if (fast) return fromEmbedded;
   if (fromEmbedded.pairs.length > 0) return fromEmbedded;
+  // Pág. 2 escaneada (COO Chery): sin texto embebido. Una pasada OCR + rotación.
 
   if (!isPdf) {
     try {
-      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer);
+      const ocr = await extractCertificatePagePlainTextOriented(buffer);
       return harvestCertEnginesFromText(ocr);
     } catch {
       return emptyCertHarvest();

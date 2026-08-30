@@ -20,6 +20,9 @@ const ENGINE_LABELED_RE =
 
 const ENGINE_HEADER_RE = /\bENGINE\s*(?:SERIAL\s*)?(?:NO|N[°º.]|NUMBER|#)\b/i;
 
+/** Chery Tiggo 2 Pro: ENGINE No al lado del VIN (pág. 2 del COO). */
+const CHERY_ENGINE_RE = /\b(S[O0Q]RE[A-Z0-9]{8,16})\b/gi;
+
 const VIN_TOKEN_RE = /\b(L[VWY][A-HJ-NPR-Z0-9]{13,16}|MF3[A-HJ-NPR-Z0-9]{14})\b/g;
 
 const SECTION_STOP_RE =
@@ -42,7 +45,18 @@ function isVinLike(raw: string): boolean {
   return compact.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact);
 }
 
+function salvageCheryEngine(raw: string | null | undefined): string | null {
+  const compact = (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (compact.length < 10) return null;
+  let m = compact;
+  if (/^S[O0Q]RE/.test(m)) m = `SQRE${m.slice(4)}`;
+  if (!/^SQRE[A-Z0-9]{8,16}$/.test(m)) return null;
+  return m;
+}
+
 function plausibleMotor(raw: string | null | undefined): string | null {
+  const chery = salvageCheryEngine(raw);
+  if (chery) return chery;
   const motor = normalizeMotor(raw);
   if (!motor) return null;
   if (isVinLike(motor)) return null;
@@ -98,7 +112,15 @@ function extractMotorsUnderEngineHeader(text: string): string[] {
   return out;
 }
 
+function extractCheryEngines(text: string): string[] {
+  return [...text.toUpperCase().matchAll(CHERY_ENGINE_RE)]
+    .map((m) => salvageCheryEngine(m[1]))
+    .filter((m): m is string => Boolean(m));
+}
+
 function firstPlausibleMotorIn(text: string): string | null {
+  const chery = extractCheryEngines(text);
+  if (chery[0]) return chery[0];
   const labeled = extractLabeledMotors(text);
   if (labeled[0]) return labeled[0];
   for (const tok of text.split(/[\s,;|]+/)) {
@@ -195,6 +217,7 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
   const motors = uniqueMotors([
     ...extractMotorsUnderEngineHeader(text),
     ...extractLabeledMotors(compact),
+    ...extractCheryEngines(text),
     ...byVin.values(),
   ]);
   assignLeftoverMotors(vins, byVin, motors);
@@ -210,6 +233,7 @@ export function collectEngineNosInOrder(text: string): string[] {
   return uniqueMotors([
     ...extractMotorsUnderEngineHeader(text),
     ...extractLabeledMotors(text),
+    ...extractCheryEngines(text),
   ]);
 }
 
