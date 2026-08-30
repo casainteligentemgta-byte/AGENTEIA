@@ -42,8 +42,7 @@ export function nextCargaMasivaEtapa(
   current: CargaMasivaEtapaId,
   hasCertOrBl: boolean
 ): CargaMasivaEtapaId | null {
-  if (current === "vins") return hasCertOrBl ? "certs" : "datos";
-  if (current === "certs") return "datos";
+  if (current === "vins") return hasCertOrBl ? "certs" : null;
   return null;
 }
 

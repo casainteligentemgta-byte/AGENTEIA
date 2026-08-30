@@ -2,7 +2,9 @@
 export const OCR_UI_UNLOCK_MS = 40_000;
 
 const OCR_ATTEMPTS = 3;
-const OCR_POLL_MS = 280_000;
+/** VIN puede tardar; certs es texto. Más de esto = job colgado, no seguir bloqueando. */
+const OCR_POLL_MS = 90_000;
+const OCR_SAVED_JOB_MS = 12_000;
 const OCR_POLL_EVERY_MS = 2000;
 
 function sleep(ms: number): Promise<void> {
@@ -114,8 +116,15 @@ export type PostSmartimportOcrOptions = {
   signal?: AbortSignal;
   deadlineMs?: number;
   attempts?: number;
+  /** Tope de espera del job en segundo plano. */
+  pollMs?: number;
   onRetry?: (attempt: number, total: number) => void;
 };
+
+export function isOcrPollTimeoutError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /dejó de esperar|puede seguir leyendo/i.test(msg);
+}
 
 function isPendingOcrJob(value: unknown): value is { pending: true; jobId: string } {
   if (!value || typeof value !== "object") return false;
@@ -161,9 +170,10 @@ async function pollOcrJob<T>(
   options?: PostSmartimportOcrOptions
 ): Promise<T> {
   const started = Date.now();
-  const totalTicks = Math.ceil(OCR_POLL_MS / OCR_POLL_EVERY_MS);
+  const limitMs = options?.pollMs ?? OCR_POLL_MS;
+  const totalTicks = Math.ceil(limitMs / OCR_POLL_EVERY_MS);
   let tick = 0;
-  while (Date.now() - started < OCR_POLL_MS) {
+  while (Date.now() - started < limitMs) {
     tick += 1;
     options?.onRetry?.(tick, totalTicks);
     try {
@@ -213,17 +223,14 @@ export async function postSmartimportOcr<T>(
     const savedId = readSavedJobId(fd);
     if (savedId) {
       try {
-        const existing = await pollOcrJob<T>(path, savedId, options);
+        const existing = await pollOcrJob<T>(path, savedId, {
+          ...options,
+          pollMs: Math.min(options?.pollMs ?? OCR_SAVED_JOB_MS, OCR_SAVED_JOB_MS),
+        });
         clearJobId(fd);
         return existing;
-      } catch (err) {
-        if (!(isAbortError(err) || isCargaMasivaNetworkError(err))) {
-          const msg = err instanceof Error ? err.message : "";
-          if (/dejó de esperar|puede seguir leyendo/i.test(msg)) {
-            throw err;
-          }
-          clearJobId(fd);
-        }
+      } catch {
+        clearJobId(fd);
       }
     }
 
