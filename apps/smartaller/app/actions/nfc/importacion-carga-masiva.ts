@@ -1141,7 +1141,23 @@ export async function extractCargaMasivaEtapaAction(
         appended += 1;
       }
     }
+    const motorsBeforeVin = rows.filter(
+      (r) =>
+        (r.serialMotor ?? "").trim() &&
+        r.serialMotor.trim().toUpperCase() !== "POR-COMPLETAR"
+    ).length;
     rows = applyEngineNosByVin(rows, enginePairs);
+    const filledByVin =
+      rows.filter(
+        (r) =>
+          (r.serialMotor ?? "").trim() &&
+          r.serialMotor.trim().toUpperCase() !== "POR-COMPLETAR"
+      ).length - motorsBeforeVin;
+    if (filledByVin > 0) {
+      warnings.push(
+        `ENGINE No emparejados por VIN: ${filledByVin} fila(s)`
+      );
+    }
     const beforeFill = rows.filter(
       (r) => (r.serialMotor ?? "").trim() && r.serialMotor.trim().toUpperCase() !== "POR-COMPLETAR"
     ).length;
