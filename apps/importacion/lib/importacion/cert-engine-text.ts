@@ -157,3 +157,16 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
 
   return [...byVin.entries()].map(([vin, serialMotor]) => ({ vin, serialMotor }));
 }
+
+/**
+ * La columna ENGINE No está en la página 2 del certificado.
+ * Si esa página tiene pares, no mezclar con la carátula.
+ */
+export function parseCertEngineNosFromPages(pages: string[]): CertEnginePair[] {
+  const page2 = pages[1]?.trim() ?? "";
+  if (page2) {
+    const fromPage2 = parseCertEngineNosFromText(page2);
+    if (fromPage2.length > 0) return fromPage2;
+  }
+  return parseCertEngineNosFromText(pages.filter(Boolean).join("\n\n"));
+}
