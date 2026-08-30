@@ -32,6 +32,7 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
+import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
@@ -291,7 +292,7 @@ function compactSerial(value: string | null): string | null {
 }
 
 const SERIAL_MOTOR_FOLDED_RE =
-  /^(serialmotor|engineserial(no|number|#)?|engine(no|number)|motorserial|motor(no|number)|numeromotor|nodemotor|nmotor)$/;
+  /^(serialmotor|engineserial(no|number|#)?|engine(no|number|nro|num)|motorserial|motor(no|number)|numeromotor|nodemotor|nmotor)$/;
 
 /** Lee serial de motor bajo nombres ES/EN (Engine Serial, ENGINE NO, etc.). */
 function pickSerialMotorRaw(parsed: Record<string, unknown>): string | null {
@@ -308,8 +309,11 @@ function pickSerialMotorRaw(parsed: Record<string, unknown>): string | null {
     "engine_number",
     "engine_no",
     "engineNo",
+    "ENGINE No",
+    "ENGINE NO",
     "engine number",
     "engine no",
+    "engine nro",
     "no_de_motor",
     "numero_motor",
     "motor_serial",
@@ -322,7 +326,11 @@ function pickSerialMotorRaw(parsed: Record<string, unknown>): string | null {
   if (preferred) return preferred;
   for (const [key, val] of Object.entries(parsed)) {
     const collapsed = foldFieldKey(key);
-    if (SERIAL_MOTOR_FOLDED_RE.test(collapsed) || collapsed.startsWith("engineserial")) {
+    if (
+      SERIAL_MOTOR_FOLDED_RE.test(collapsed) ||
+      collapsed.startsWith("engineserial") ||
+      collapsed.startsWith("engineno")
+    ) {
       const v = parseString(val);
       if (v) return v;
     }
@@ -354,6 +362,85 @@ function resolveVinCandidate(v: Record<string, unknown>): string | null {
   return null;
 }
 
+function looksLikeSerialNotColor(raw: string): boolean {
+  const compact = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (compact.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) return true;
+  if (!/\s/.test(raw.trim()) && compact.length >= 8 && compact.length <= 16) {
+    return /[A-Z]/i.test(compact) && /\d/.test(compact);
+  }
+  return false;
+}
+
+/** VIN y color a menudo van en la misma celda o en columnas vecinas (Code | Color). */
+function splitVinAdjacentColor(raw: string | null): {
+  vin: string | null;
+  color: string | null;
+} {
+  if (!raw) return { vin: null, color: null };
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^([A-HJ-NPR-Z0-9]{17})\s+(.+)$/i);
+  if (match) {
+    const vin = compactSerial(match[1]);
+    const rest = match[2]!.trim();
+    if (vin && rest && !isGenericModelo(rest) && !looksLikeSerialNotColor(rest)) {
+      return { vin, color: rest };
+    }
+    return { vin, color: null };
+  }
+  const compact = compactSerial(trimmed);
+  if (compact && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) {
+    return { vin: compact, color: null };
+  }
+  return { vin: null, color: null };
+}
+
+function isPlausibleFacturaColor(raw: string | null): boolean {
+  if (!raw) return false;
+  const t = raw.trim();
+  if (t.length < 3 || t.length > 40) return false;
+  if (isGenericModelo(t) || looksLikeSerialNotColor(t)) return false;
+  if (isModeloFragmentInColor(t)) return false;
+  return true;
+}
+
+/** Color: columna al lado del VIN (Description, Colour, Color). */
+function pickColorRaw(parsed: Record<string, unknown>): string | null {
+  const direct = pickByFoldedKeys(parsed, [
+    "color",
+    "colour",
+    "color_name",
+    "exterior_color",
+    "paint",
+    "paint_color",
+    "description",
+    "description_of_goods",
+    "descriptionofgoods",
+    "goods_description",
+    "desc",
+  ]);
+  if (isPlausibleFacturaColor(direct)) return direct;
+  for (const [key, val] of Object.entries(parsed)) {
+    const folded = foldFieldKey(key);
+    if (
+      folded === "color" ||
+      folded === "colour" ||
+      folded.includes("descriptionofgoods") ||
+      folded === "description"
+    ) {
+      const v = parseString(val);
+      if (isPlausibleFacturaColor(v)) return v;
+    }
+  }
+  const vinField = pickByFoldedKeys(parsed, [
+    "code",
+    "vin",
+    "serial_carroceria",
+    "chasis",
+  ]);
+  const split = splitVinAdjacentColor(vinField);
+  return isPlausibleFacturaColor(split.color) ? split.color : null;
+}
+
 /** Año desde factura/COO (columna year/model year) o dígito 10 del VIN. */
 function resolveAnioFromSources(
   parsed: Record<string, unknown>,
@@ -375,7 +462,10 @@ function resolveAnioFromSources(
 }
 
 function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
-  const vinFromCode = resolveVinCandidate(parsed);
+  const adjacent = splitVinAdjacentColor(
+    pickByFoldedKeys(parsed, ["code", "vin", "serial_carroceria", "chasis"])
+  );
+  const vinFromCode = resolveVinCandidate(parsed) ?? adjacent.vin;
   const serial_carroceria =
     compactSerial(
       parseString(
@@ -390,7 +480,7 @@ function mapFactura(parsed: Record<string, unknown>): FacturaComercialExtraida {
   return {
     marca: parseString(parsed.marca),
     modelo: parseString(parsed.modelo),
-    color: parseString(parsed.color),
+    color: pickColorRaw(parsed) ?? adjacent.color,
     anio: resolveAnioFromSources(parsed, serial_carroceria),
     serial_motor: compactSerial(pickSerialMotorRaw(parsed)),
     serial_carroceria,
@@ -869,8 +959,8 @@ A) Carátula multipágina Chery / Intercontinental: Marks and numbers | Code | D
    - "Marks and numbers" = MODELO (ej. ARRIZO 5 PRO, TIGGO 7) → vehiculos[].modelo. NO es marca.
    - vehiculos[].marca = null en tablas Chery (la marca va en shared.marca del membrete).
    - "Code" / "CODE" = VIN de 17 caracteres (ej. LVVDC21B5VD713650). Cópialo a serial_carroceria y a vin. NO es un código de fábrica corto.
-   - "ENGINE SERIAL" / "Engine Serial" / "Engine No." = serial_motor (no es VIN).
-   - "Description of goods" = COLOR (ej. NASDAQ SILVER).
+   - "ENGINE SERIAL" / "Engine Serial" / "ENGINE No" / "ENGINE NO" / "Engine No." = serial_motor (no es VIN).
+   - El COLOR está en la columna pegada al VIN/Code (Description / Colour / Color). Ej. NASDAQ SILVER. No uses PASSENGER CAR como color.
    - Cada fila con Qty=1 es UN vehículo. Si hay 15–20 filas, vehiculos.length debe ser 15–20.
 B) HOJA ANEXA / Attached Sheet (MAV TRADE): No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
 
@@ -964,7 +1054,7 @@ JSON:
 
 /** Segunda pasada: solo tabla, máxima fidelidad de celdas. */
 const FACTURA_MULTI_TABLA_PROMPT = `Transcribe ÚNICAMENTE la tabla de vehículos de esta factura / hoja anexa / commercial invoice.
-Chery / Intercontinental: Marks and numbers = modelo (NO marca), Code = VIN (17), Description = color, Unit Price = valor. marca=null en filas.
+Chery / Intercontinental: Marks and numbers = modelo (NO marca), Code = VIN (17), columna al lado del VIN = color, ENGINE No / Engine Serial = serial_motor, Unit Price = valor. marca=null en filas.
 MAV hoja anexa: No., Chasis/VIN (17), Motor, Llave, Color, Codigo.
 Incluye TODAS las filas con Qty=1 o con VIN. No te detengas en 2 filas. No inventes. Si está rotada, lee igual.
 Responde SOLO JSON:
@@ -989,7 +1079,7 @@ Responde SOLO JSON:
 /** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
 const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
 Facturas multi suelen traer varias unidades (p. ej. 8 vehículos): vehiculos.length debe coincidir con todas las filas visibles.
-También anota modelo y color de la misma fila si se ven.
+También anota modelo y el color que está al lado del VIN, y el serial_motor si ves ENGINE No / Engine Serial.
 NO omitas filas del medio ni del final. Si hay 8 VIN, vehiculos.length debe ser 8; si hay 18, debe ser 18.
 Responde SOLO JSON:
 {
@@ -1120,8 +1210,15 @@ function mapFacturaMultiVehiculo(
   const codigoEsVin =
     !!codigoRaw &&
     /^[A-HJ-NPR-Z0-9]{17}$/i.test(codigoRaw.replace(/[\s\-]/g, ""));
+  const adjacent = splitVinAdjacentColor(
+    pickByFoldedKeys(v, ["code", "vin", "serial_carroceria", "chasis"]) ??
+      pickByFoldedKeys(merged, ["code", "vin", "serial_carroceria", "chasis"])
+  );
   const { color, codigo } = splitColorAndCodigo(
-    parseString(v.color ?? merged.color),
+    pickColorRaw(v) ??
+      pickColorRaw(merged) ??
+      adjacent.color ??
+      parseString(v.color ?? merged.color),
     codigoEsVin ? null : codigoRaw
   );
   const data = mapFactura({
