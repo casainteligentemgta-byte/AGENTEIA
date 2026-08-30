@@ -71,6 +71,17 @@ describe("parseCheryInvoiceHeader", () => {
     assert.ok(lineas.some((r) => r.vin === "LVVDB21B9VE033523"));
     assert.ok(lineas.some((r) => r.vin === "LVVDB2187VE033214"));
   });
+
+  it("tolera OCR ruidoso (I→1, Guamache, factura compacta)", () => {
+    const noisy =
+      "CONSIGNEE I1KSAN MOTORS S.A. RIF J-500353343 DESTINATION El GU4MACHE INVOICE 18364-Z202603N0205 CIF 11.014 TIGGO 2 PRO MAX LVVDB21B9VE033523 NASDAQ SILVER";
+    const header = parseCheryInvoiceHeader(noisy);
+    assert.match(header.consignatario ?? "", /Iksan/i);
+    assert.equal(header.rif, "J-500353343");
+    assert.equal(header.destino, "El Guamache");
+    assert.equal(header.numeroFactura, "18364-Z202603N0205");
+    assert.equal(header.cifUnitario, 11014);
+  });
 });
 
 describe("applyCheryCommercialInvoice", () => {
