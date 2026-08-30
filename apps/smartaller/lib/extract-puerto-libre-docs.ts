@@ -1864,8 +1864,8 @@ export async function extractFacturaVinsStageFromDocument(
   const vinSet = new Set<string>();
   const mavState: { rows: DocMultiExtracted | null } = { rows: null };
   let visionCreditsBlocked = false;
-  /** Lotes Chery/MAV suelen ser 8–18 unidades; 8 cortaba la visión demasiado pronto. */
-  const MULTI_VIN_TARGET = 20;
+  /** Umbral para dejar de gastar visión. 20 hacía raster+Tesseract hasta timeout. */
+  const MULTI_VIN_TARGET = 8;
   /**
    * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
    * Devolver VIN parcial > quedar en 0 por timeout.
@@ -1904,7 +1904,7 @@ export async function extractFacturaVinsStageFromDocument(
   ) => {
     if (!text?.trim()) return;
     const lineas = parseCheryInvoiceLineas(text);
-    if (lineas.length === 0) return;
+    if (lineas.length > 0) {
     addVins(
       lineas.map((r) => r.vin),
       source
@@ -1916,6 +1916,7 @@ export async function extractFacturaVinsStageFromDocument(
         color: r.color || prev.color,
         serialMotor: r.serialMotor || prev.serialMotor,
       });
+    }
     }
     for (const pair of parseCertEngineNosFromText(text)) {
       addVins([pair.vin], `${source}-engine`);

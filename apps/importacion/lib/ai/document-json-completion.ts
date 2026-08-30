@@ -65,10 +65,13 @@ export async function getPdfPlainText(buffer: Buffer): Promise<string> {
   return extractTextFromPdf(buffer);
 }
 
-/** Lee todas las páginas del PDF, con tope para no tumbar Vercel. */
-export const PDF_RASTER_MAX_PAGES = 20;
-/** Imágenes que se mandan juntas a la IA (payload). */
-export const PDF_VISION_MAX_PAGES = 8;
+/**
+ * Raster para Tesseract / recortes. 20 páginas a 2.6× agotaba el timeout
+ * (~110s) y Extraer devolvía 0 filas. El texto embebido sí lee todo el PDF.
+ */
+export const PDF_RASTER_MAX_PAGES = 4;
+/** Imágenes que se mandan juntas a Gemini (payload). */
+export const PDF_VISION_MAX_PAGES = 4;
 
 /** Marcas de escáner / basura típica que no es el contenido del documento. */
 const SCANNER_JUNK_RE =
