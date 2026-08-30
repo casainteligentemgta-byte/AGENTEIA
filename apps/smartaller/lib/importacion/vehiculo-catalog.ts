@@ -125,6 +125,8 @@ export const VEHICULO_MARCAS_MODELOS: Record<string, string[]> = {
   Audi: ["A3", "A4", "A6", "Q3", "Q5", "Q7", "Q8"],
   Chery: [
     "Tiggo 2",
+    "Tiggo 2 Pro",
+    "Tiggo 2 Pro Max",
     "Tiggo 3",
     "Tiggo 4",
     "Tiggo 7",

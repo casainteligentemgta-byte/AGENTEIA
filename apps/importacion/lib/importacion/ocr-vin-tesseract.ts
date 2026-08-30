@@ -3,9 +3,11 @@
  * Cubre Chery (columna Code) y hoja anexa MAV (No. de Chasis), con rotación.
  */
 
+import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
 import {
   extractVinStringsFromText,
   normalizeVinLoose,
+  salvageCheryVin,
 } from "@/lib/importacion/vin-text";
 
 /** Cuerpo Chery completo tras WMI: DC21B5VD713650 / DB21B9VE033518 */
@@ -99,13 +101,13 @@ export function extractVinsFromOcrText(text: string): string[] {
   const found = new Set<string>();
 
   const add = (raw: string | null | undefined) => {
-    let vin = normalizeVinLoose(raw);
+    let vin = salvageCheryVin(raw) ?? normalizeVinLoose(raw, { strict: true });
     if (!vin || vin.length !== 17 || !isPlausibleOcrVin(vin)) return;
-    vin = repairCheryOcrVin(vin);
     found.add(vin);
   };
 
   for (const v of extractVinStringsFromText(text)) add(v);
+  for (const row of parseCheryInvoiceLineas(text)) add(row.vin);
 
   // OCR a menudo pega "00001MF3PB8121TJ219731" sin espacios → buscar WMI embebidos
   const upper = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -114,6 +116,11 @@ export function extractVinsFromOcrText(text: string): string[] {
     "LVV",
     "LVT",
     "LVD",
+    "LWV",
+    "LWD",
+    "LVW",
+    "LYV",
+    "LWW",
     "LSG",
     "LFB",
     "LFV",

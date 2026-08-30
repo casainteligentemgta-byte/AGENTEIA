@@ -3,7 +3,7 @@
  * No importar canvas / OCR aquí.
  */
 
-import { compactAlnumVin } from "@/lib/importacion/vin-text";
+import { compactAlnumVin, salvageCheryVin } from "./vin-text";
 
 /** Fragmentos de modelo Chery que el OCR mete en la columna Color. */
 const MODELO_EN_COLOR_RE =
@@ -42,8 +42,16 @@ export function inferCheryModelo(
     if (/PRO/.test(joined) || /\b7\b/.test(joined)) return "Tiggo 7 Pro";
     return "Tiggo 7";
   }
-  if (/TIGGO\s*4/.test(joined)) return "Tiggo 4";
-  if (/TIGGO\s*2/.test(joined)) return "Tiggo 2";
+  if (/TIGGO\s*4/.test(joined)) {
+    if (/PRO\s*MAX|\bMAX\b/.test(joined)) return "Tiggo 4 Pro Max";
+    if (/PRO/.test(joined)) return "Tiggo 4 Pro";
+    return "Tiggo 4";
+  }
+  if (/TIGGO\s*2/.test(joined)) {
+    if (/PRO\s*MAX|\bMAX\b/.test(joined)) return "Tiggo 2 Pro Max";
+    if (/PRO/.test(joined)) return "Tiggo 2 Pro";
+    return "Tiggo 2";
+  }
   if (/ARRIZO\s*8/.test(joined)) return "Arrizo 8";
   if (/ARRIZO\s*5|ARRIZO/.test(joined)) return "Arrizo 5";
   if (/TIGGO/.test(joined)) return parts[0]!;
@@ -56,8 +64,8 @@ export function inferCheryModelo(
 }
 
 export function looksLikeCheryVin(vin: string | null | undefined): boolean {
-  const v = compactAlnumVin(vin);
-  return /^LVV|^LVT|^LVD/.test(v);
+  const repaired = salvageCheryVin(vin) ?? compactAlnumVin(vin);
+  return /^LVV|^LVT|^LVD/.test(repaired);
 }
 
 /** OCR suele poner Tiggo/Arrizo en la columna Marca en lugar de Chery. */

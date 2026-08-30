@@ -31,7 +31,8 @@ import {
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
-import { preferCompleteVin } from "@/lib/importacion/vin-text";
+import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
+import { preferCompleteVin, salvageCheryVin } from "@/lib/importacion/vin-text";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
   inferCheryModelo,
@@ -283,6 +284,8 @@ function parseFechaIso(value: unknown): string | null {
 
 function compactSerial(value: string | null): string | null {
   if (!value) return null;
+  const salvaged = salvageCheryVin(value);
+  if (salvaged) return salvaged;
   const compact = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   // OCR Chery: LWV / LVW → LVV
   if (/^LWV|^LV[WY]|^LYV|^LWW/.test(compact)) {
@@ -1574,25 +1577,31 @@ function docFromLocalVins(vins: string[]): DocMultiExtracted {
 }
 
 function docFromCheryPlainText(plain: string): DocMultiExtracted | null {
-  const vins = extractVinsFromOcrText(plain).filter((v) =>
-    /^LVV|^LVT|^LVD/.test(v)
-  );
+  const lineas = parseCheryInvoiceLineas(plain);
+  const vins =
+    lineas.length > 0
+      ? lineas.map((r) => r.vin)
+      : extractVinsFromOcrText(plain).filter((v) => /^LVV|^LVT|^LVD/.test(v));
   if (vins.length === 0) return null;
   const marca = extractMarcaFromFacturaText(plain) ?? "Chery";
+  const extra = new Map(lineas.map((r) => [r.vin, r]));
   return sanitizeFacturaMulti(
     {
       shared: { marca },
-      vehiculos: vins.map((vin) =>
-        sanitizeVehiculoRowLocal({
+      vehiculos: vins.map((vin) => {
+        const row = extra.get(vin);
+        return sanitizeVehiculoRowLocal({
           serialCarroceria: vin,
           vin,
           marca,
+          modelo: row?.modelo ?? undefined,
+          color: row?.color ?? undefined,
           serialMotor: "POR-COMPLETAR",
           condicion: "nuevo",
           kilometraje: "0",
           anio: anioFromVin(vin)?.toString(),
-        })
-      ),
+        });
+      }),
     },
     plain
   );
@@ -1888,18 +1897,47 @@ export async function extractFacturaVinsStageFromDocument(
   const remainingMs = () => STAGE_BUDGET_MS - (Date.now() - startedAt);
   const withinBudget = (needMs: number) => remainingMs() >= needMs;
 
+  const cheryLineasByVin = new Map<
+    string,
+    { modelo?: string; color?: string }
+  >();
+
   const addVins = (vins: string[], source: string) => {
     let added = 0;
     for (const v of vins) {
-      let n = v.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
-      // OCR Chery: LVV → LVW / LYV
-      if (/^LV[WY]/.test(n)) n = `LVV${n.slice(3)}`;
+      const n =
+        salvageCheryVin(v) ??
+        (() => {
+          let raw = v.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
+          if (/^LWV|^LV[WY]|^LYV|^LWW/.test(raw)) raw = `LVV${raw.slice(3)}`;
+          return raw;
+        })();
       if (n.length !== 17 || vinSet.has(n)) continue;
       if (!isPlausibleOcrVin(n) && !/^MF3|^LVV|^LVT|^LVD/.test(n)) continue;
       vinSet.add(n);
       added += 1;
     }
     diagnostics.push(`${source}: +${added} (total ${vinSet.size})`);
+  };
+
+  const rememberCheryLineas = (
+    text: string | null | undefined,
+    source: string
+  ) => {
+    if (!text?.trim()) return;
+    const lineas = parseCheryInvoiceLineas(text);
+    if (lineas.length === 0) return;
+    addVins(
+      lineas.map((r) => r.vin),
+      source
+    );
+    for (const r of lineas) {
+      const prev = cheryLineasByVin.get(r.vin) ?? {};
+      cheryLineasByVin.set(r.vin, {
+        modelo: r.modelo || prev.modelo,
+        color: r.color || prev.color,
+      });
+    }
   };
 
   const noteVisionError = (label: string, err: unknown) => {
@@ -1975,6 +2013,7 @@ export async function extractFacturaVinsStageFromDocument(
         .match(/\b[A-HJ-NPR-Z0-9]{17}\b/g);
       if (fromPlain?.length) addVins(fromPlain, "texto-pdf");
       addVins(extractVinsFromOcrText(plain), "texto-pdf-chery");
+      rememberCheryLineas(plain, "texto-pdf-lineas-chery");
       tryMavFromText(plain, "parser-mav");
     } catch (err) {
       diagnostics.push(
@@ -1984,7 +2023,12 @@ export async function extractFacturaVinsStageFromDocument(
   }
 
   // Raster + Tesseract (local) + visión acotada
-  try {
+  if (vinSet.size >= MULTI_VIN_TARGET) {
+    diagnostics.push(
+      `ocr: omitido (texto PDF ya tiene ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
+    );
+  } else {
+    try {
     const pages = isPdf
       ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.6 })
       : [buffer];
@@ -1994,10 +2038,11 @@ export async function extractFacturaVinsStageFromDocument(
     } else {
       diagnostics.push(`raster: ok ${page1.length} bytes`);
 
-      // Recortes prioritarios (menos bandas = menos Tesseract/visión)
+      // Recortes: tabla completa primero (Code no siempre está en 19–35%).
       const cropSpecs = [
         { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
         { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
+        { label: "col-code-mid", region: { x: 0.28, y: 0.32, w: 0.28, h: 0.55 } },
         { label: "col-chasis", region: { x: 0.08, y: 0.18, w: 0.28, h: 0.7 } },
       ] as const;
 
@@ -2020,13 +2065,16 @@ export async function extractFacturaVinsStageFromDocument(
 
       const runTesseract = async () => {
         try {
-          const tessImages = croppedBuffers
-            .filter(
-              (c) =>
-                c.label.startsWith("col-code") ||
-                c.label.startsWith("col-chasis")
-            )
-            .map((c) => c.buffer);
+          const tabla = croppedBuffers.find((c) => c.label === "tabla")?.buffer;
+          const tessImages = isPdf
+            ? [tabla, page1].filter((b): b is Buffer => Boolean(b))
+            : croppedBuffers
+                .filter(
+                  (c) =>
+                    c.label.startsWith("col-code") ||
+                    c.label.startsWith("col-chasis")
+                )
+                .map((c) => c.buffer);
 
           const tess = isPdf
             ? await extractVinsWithTesseract(
@@ -2037,10 +2085,12 @@ export async function extractFacturaVinsStageFromDocument(
           if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
             const extra = await extractVinsWithTesseract(tessImages);
             addVins(extra.vins, "tesseract-crops");
+            rememberCheryLineas(extra.fullText, "tesseract-lineas-crops");
             tryMavFromText(extra.fullText, "tesseract-mav-crops");
           }
 
           addVins(tess.vins, "tesseract");
+          rememberCheryLineas(tess.fullText, "tesseract-lineas-chery");
           tryMavFromText(tess.fullText, "tesseract-mav");
           if (tess.textSample) {
             diagnostics.push(
@@ -2095,10 +2145,11 @@ export async function extractFacturaVinsStageFromDocument(
         );
       }
     }
-  } catch (err) {
+    } catch (err) {
     diagnostics.push(
       `raster: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
     );
+    }
   }
 
   // JSON harvest solo si casi no hay VIN y aún cabe en el presupuesto
@@ -2162,13 +2213,22 @@ export async function extractFacturaVinsStageFromDocument(
     const rows = mavState.rows;
     const byVin = new Map<string, PuertoLibreRegistroScanFields>();
     for (const v of rows.vehiculos) {
-      let vin = (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
-      if (/^LV[WY]/.test(vin)) vin = `LVV${vin.slice(3)}`;
+      let vin = salvageCheryVin(v.serialCarroceria ?? v.vin) ??
+        (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
+      if (/^LWV|^LV[WY]/.test(vin)) vin = `LVV${vin.slice(3)}`;
       if (vin.length !== 17 || !isPlausibleOcrVin(vin)) continue;
-      byVin.set(vin, { ...v, serialCarroceria: vin, vin });
+      const extra = cheryLineasByVin.get(vin);
+      byVin.set(vin, {
+        ...v,
+        serialCarroceria: vin,
+        vin,
+        modelo: v.modelo || extra?.modelo,
+        color: v.color || extra?.color,
+      });
     }
     for (const vin of vinSet) {
       if (!byVin.has(vin)) {
+        const extra = cheryLineasByVin.get(vin);
         byVin.set(
           vin,
           sanitizeVehiculoRowLocal({
@@ -2178,6 +2238,8 @@ export async function extractFacturaVinsStageFromDocument(
             condicion: "nuevo",
             kilometraje: "0",
             anio: anioFromVin(vin)?.toString(),
+            ...(extra?.modelo ? { modelo: extra.modelo } : {}),
+            ...(extra?.color ? { color: extra.color } : {}),
           })
         );
       }
@@ -2194,8 +2256,9 @@ export async function extractFacturaVinsStageFromDocument(
     (v) => v.startsWith("LVV") || v.startsWith("LVT") || v.startsWith("LVD")
   );
   const looksMav = [...vinSet].some((v) => v.startsWith("MF3"));
-  const vehiculos = [...vinSet].map((vin) =>
-    sanitizeVehiculoRowLocal({
+  const vehiculos = [...vinSet].map((vin) => {
+    const extra = cheryLineasByVin.get(vin);
+    return sanitizeVehiculoRowLocal({
       serialCarroceria: vin,
       vin,
       serialMotor: "POR-COMPLETAR",
@@ -2203,8 +2266,10 @@ export async function extractFacturaVinsStageFromDocument(
       kilometraje: "0",
       anio: anioFromVin(vin)?.toString(),
       ...(looksChery ? { marca: "Chery" } : {}),
-    })
-  );
+      ...(extra?.modelo ? { modelo: extra.modelo } : {}),
+      ...(extra?.color ? { color: extra.color } : {}),
+    });
+  });
 
   return {
     shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
