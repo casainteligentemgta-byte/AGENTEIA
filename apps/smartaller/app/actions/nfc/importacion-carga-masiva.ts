@@ -69,6 +69,7 @@ import {
   saveUltimoImportadorTaller,
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
+import { assignEngineNosByRowOrder } from "@/lib/importacion/cert-engine-text";
 import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
 import {
   matchSerialKeyAmong,
@@ -1005,6 +1006,7 @@ export async function extractCargaMasivaEtapaAction(
     let sharedFromCert: PuertoLibreRegistroScanFields = {};
     const certMatches: CertMatch[] = [];
     const certBySerial = new Map<string, PuertoLibreRegistroScanFields>();
+    const motorsInOrder: string[] = [];
 
     for (const f of certs) {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
@@ -1019,6 +1021,10 @@ export async function extractCargaMasivaEtapaAction(
         );
         for (const v of extracted.vehiculos) {
           const fields = mergeScanFields(extracted.shared, v);
+          const motor = (fields.serialMotor ?? "").trim();
+          if (motor && motor.toUpperCase() !== "POR-COMPLETAR") {
+            motorsInOrder.push(motor);
+          }
           const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
           );
@@ -1103,6 +1109,21 @@ export async function extractCargaMasivaEtapaAction(
       );
       existingKeys.push(serial);
       appended += 1;
+    }
+    const beforeFill = rows.filter(
+      (r) => (r.serialMotor ?? "").trim() && r.serialMotor.trim().toUpperCase() !== "POR-COMPLETAR"
+    ).length;
+    rows = assignEngineNosByRowOrder(rows, motorsInOrder);
+    const filledByOrder =
+      rows.filter(
+        (r) =>
+          (r.serialMotor ?? "").trim() &&
+          r.serialMotor.trim().toUpperCase() !== "POR-COMPLETAR"
+      ).length - beforeFill;
+    if (filledByOrder > 0) {
+      warnings.push(
+        `ENGINE No de página 2 asignados por orden: ${filledByOrder} fila(s)`
+      );
     }
     if (certs.length > 0) {
       warnings.push(
@@ -1288,6 +1309,14 @@ export async function completarCargaMasivaConCertificadosAction(
       );
       existingKeys.push(serial);
       appended += 1;
+    }
+
+    const motorsFromCert = certVehicles
+      .map((c) => (c.fields.serialMotor ?? "").trim())
+      .filter((m) => m && m.toUpperCase() !== "POR-COMPLETAR");
+    const filledRows = assignEngineNosByRowOrder(vehicleRows, motorsFromCert);
+    for (let i = 0; i < vehicleRows.length; i++) {
+      vehicleRows[i] = filledRows[i]!;
     }
 
     if (matched > 0) {

@@ -174,6 +174,9 @@ type TessWorker = Awaited<ReturnType<typeof import("tesseract.js").createWorker>
 const INVOICE_SIGNAL_RE =
   /CONSIGNEE|INVOICE|DESTINATION|IKSAN|TIGGO|ARRIZO|OMODA|CIF|CHERY|RIF|GUAMACHE/i;
 
+const CERT_PAGE2_SIGNAL_RE =
+  /ENGINE\s*(NO|SERIAL|NUMBER)|CHASSIS|\bVIN\b|SQRE|C16TD|G4FL/i;
+
 /**
  * OCR de factura completa (sin whitelist de VIN) para consignatario,
  * destino, nº factura y CIF. La pasada de VIN excluye I/espacios.
@@ -200,6 +203,40 @@ export async function extractInvoicePlainTextWithTesseract(
       .map((t) => ({
         t,
         score: t.length + (INVOICE_SIGNAL_RE.test(t) ? 4000 : 0),
+      }))
+      .sort((a, b) => b.score - a.score);
+    return (ranked[0]?.t ?? texts.join("\n")).trim();
+  } finally {
+    await worker.terminate();
+  }
+}
+
+/** OCR de la página 2 del COO: prioriza la columna ENGINE No, no la factura. */
+export async function extractCertificatePagePlainTextWithTesseract(
+  imageBuffer: Buffer
+): Promise<string> {
+  const { createWorker, PSM } = await import("tesseract.js");
+  const worker = await createWorker("eng", 1, {
+    logger: () => undefined,
+  });
+  try {
+    const prepared = await upscaleForOcr(imageBuffer, 1800);
+    const texts: string[] = [];
+    for (const psm of [PSM.AUTO, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]) {
+      await worker.setParameters({
+        preserve_interword_spaces: "1",
+        tessedit_pageseg_mode: psm as never,
+      });
+      const result = await worker.recognize(prepared);
+      texts.push(result.data.text ?? "");
+    }
+    const ranked = texts
+      .map((t) => ({
+        t,
+        score:
+          t.length +
+          (CERT_PAGE2_SIGNAL_RE.test(t) ? 8000 : 0) +
+          ((t.match(/\bENGINE\b/gi) ?? []).length * 400),
       }))
       .sort((a, b) => b.score - a.score);
     return (ranked[0]?.t ?? texts.join("\n")).trim();

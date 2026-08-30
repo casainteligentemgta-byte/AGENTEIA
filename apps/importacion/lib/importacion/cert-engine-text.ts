@@ -203,6 +203,43 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
     .map((vin) => ({ vin, serialMotor: byVin.get(vin)! }));
 }
 
+/** Seriales de la columna ENGINE No, en el orden de la página 2. */
+export function collectEngineNosInOrder(text: string): string[] {
+  if (!text?.trim()) return [];
+  return uniqueMotors([
+    ...extractMotorsUnderEngineHeader(text),
+    ...extractLabeledMotors(text),
+  ]);
+}
+
+/**
+ * Si el VIN del COO no coincide con el de la factura, reparte los ENGINE No
+ * huérfanos en el mismo orden de las filas (1ª fila ← 1er motor, etc.).
+ */
+export function assignEngineNosByRowOrder<T extends { serialMotor?: string }>(
+  rows: T[],
+  motorsInOrder: string[]
+): T[] {
+  const used = new Set<string>();
+  for (const row of rows) {
+    const m = normalizeMotor(row.serialMotor);
+    if (m) used.add(m);
+  }
+  const leftover = motorsInOrder.filter((m) => {
+    const motor = normalizeMotor(m);
+    if (!motor || used.has(motor)) return false;
+    used.add(motor);
+    return true;
+  });
+  let i = 0;
+  return rows.map((row) => {
+    if (normalizeMotor(row.serialMotor)) return row;
+    if (i >= leftover.length) return row;
+    const next = leftover[i++]!;
+    return { ...row, serialMotor: next };
+  });
+}
+
 /**
  * La columna ENGINE No está en la página 2 del certificado.
  * Si esa página tiene pares, no mezclar con la carátula.
