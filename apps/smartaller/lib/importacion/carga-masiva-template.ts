@@ -264,6 +264,7 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   motorno: "serial_motor",
   motornumber: "serial_motor",
   vin: "vin",
+  code: "vin",
   serial_carroceria: "serial_carroceria",
   serialcarroceria: "serial_carroceria",
   "serial carroceria": "serial_carroceria",

@@ -30,6 +30,7 @@ import {
   isPlausibleOcrVin,
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
+import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
   inferCheryModelo,
@@ -38,13 +39,6 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
-
-/** Normaliza HS a 10 dígitos (sin puntos). Local: importacion no tiene lib/arancel. */
-function normalizePartida10(raw: string | null | undefined): string | null {
-  const digits = (raw ?? "").replace(/\D/g, "");
-  if (digits.length < 6) return null;
-  return digits.padEnd(10, "0").slice(0, 10);
-}
 
 export type { PuertoLibreRegistroScanFields } from "@/lib/importacion/scan-fields";
 
@@ -187,7 +181,31 @@ Extrae en JSON con estas claves exactas:
 Si no encuentras un dato, usa null. Responde solo JSON.`;
 
 function parseString(value: unknown): string | null {
-  return typeof value === "string" ? value.trim() || null : null;
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function foldFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Busca un campo ignorando mayúsculas, espacios y guiones (Code, ENGINE SERIAL…). */
+function pickByFoldedKeys(
+  parsed: Record<string, unknown>,
+  aliases: string[]
+): string | null {
+  const byFold = new Map<string, unknown>();
+  for (const [key, val] of Object.entries(parsed)) {
+    const folded = foldFieldKey(key);
+    if (!folded || byFold.has(folded)) continue;
+    byFold.set(folded, val);
+  }
+  for (const alias of aliases) {
+    const v = parseString(byFold.get(foldFieldKey(alias)));
+    if (v) return v;
+  }
+  return null;
 }
 
 function parseNumber(value: unknown): number | null {
@@ -272,50 +290,39 @@ function compactSerial(value: string | null): string | null {
   return compact || null;
 }
 
-const SERIAL_MOTOR_KEY_RE =
-  /^(serial_?motor|engine_?serial|engine_?(no|number|#)?|motor_?(serial|no|number)|no_?de_?motor|numero_?motor|n_?motor)$/i;
+const SERIAL_MOTOR_FOLDED_RE =
+  /^(serialmotor|engineserial(no|number|#)?|engine(no|number)|motorserial|motor(no|number)|numeromotor|nodemotor|nmotor)$/;
 
-/** Lee serial de motor bajo nombres ES/EN habituales en factura/COO/Excel. */
+/** Lee serial de motor bajo nombres ES/EN (Engine Serial, ENGINE NO, etc.). */
 function pickSerialMotorRaw(parsed: Record<string, unknown>): string | null {
-  const preferred = [
+  const preferred = pickByFoldedKeys(parsed, [
     "serial_motor",
     "serialMotor",
     "engine_serial",
     "engineSerial",
+    "engine_serial_no",
+    "engine_serial_number",
+    "engine serial",
+    "engine serial no",
+    "engine serial number",
     "engine_number",
     "engine_no",
     "engineNo",
-    "engine",
+    "engine number",
+    "engine no",
     "no_de_motor",
     "numero_motor",
     "motor_serial",
     "motorSerial",
-    "motor_no",
-    "motorNo",
     "serial motor",
-    "engine serial",
-    "engine number",
-    "engine no",
     "motor serial",
-  ];
-  for (const key of preferred) {
-    const v = parseString(parsed[key]);
-    if (v) return v;
-  }
+    "motor_no",
+    "motor number",
+  ]);
+  if (preferred) return preferred;
   for (const [key, val] of Object.entries(parsed)) {
-    const collapsed = key.toLowerCase().replace(/[^a-z0-9]+/g, "");
-    if (
-      collapsed === "serialmotor" ||
-      collapsed === "engineserial" ||
-      collapsed === "enginenumber" ||
-      collapsed === "engineno" ||
-      collapsed === "motorserial" ||
-      collapsed === "motornumber" ||
-      collapsed === "motorno" ||
-      collapsed === "numeromotor" ||
-      collapsed === "nodemotor" ||
-      SERIAL_MOTOR_KEY_RE.test(collapsed)
-    ) {
+    const collapsed = foldFieldKey(key);
+    if (SERIAL_MOTOR_FOLDED_RE.test(collapsed) || collapsed.startsWith("engineserial")) {
       const v = parseString(val);
       if (v) return v;
     }
@@ -335,9 +342,9 @@ function resolveVinCandidate(v: Record<string, unknown>): string | null {
     "code",
     "codigo",
     "codigo_modelo",
-  ] as const;
+  ];
   for (const key of keys) {
-    const raw = parseString(v[key]);
+    const raw = pickByFoldedKeys(v, [key]);
     if (!raw) continue;
     const compact = compactSerial(raw);
     if (compact && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) {
@@ -861,7 +868,8 @@ A) Carátula multipágina Chery / Intercontinental: Marks and numbers | Code | D
    - MARCA (fabricante): solo del MEMBRETE / cabecera (ej. «CHERY AUTOMOBILE CO., LTD») → campo raíz "marca".
    - "Marks and numbers" = MODELO (ej. ARRIZO 5 PRO, TIGGO 7) → vehiculos[].modelo. NO es marca.
    - vehiculos[].marca = null en tablas Chery (la marca va en shared.marca del membrete).
-   - "Code" = VIN de 17 caracteres (ej. LVVDC21B5VD713650). NO es un código de fábrica corto.
+   - "Code" / "CODE" = VIN de 17 caracteres (ej. LVVDC21B5VD713650). Cópialo a serial_carroceria y a vin. NO es un código de fábrica corto.
+   - "ENGINE SERIAL" / "Engine Serial" / "Engine No." = serial_motor (no es VIN).
    - "Description of goods" = COLOR (ej. NASDAQ SILVER).
    - Cada fila con Qty=1 es UN vehículo. Si hay 15–20 filas, vehiculos.length debe ser 15–20.
 B) HOJA ANEXA / Attached Sheet (MAV TRADE): No. | No. de Chasis (VIN) | No. de Motor | No. Llave | Color | Codigo.
@@ -2368,9 +2376,11 @@ export async function extractCertificadoOrigenMultiFromDocument(
         ...v,
         // En multi-unidad no heredar VIN/motor de cabecera (clonaba 1 motor a las 8 filas)
         serial_carroceria:
+          resolveVinCandidate(v) ??
           v.serial_carroceria ??
           v.vin ??
           v.chasis ??
+          v.code ??
           (multi ? null : parsed.serial_carroceria),
         serial_motor:
           pickSerialMotorRaw(v) ??
