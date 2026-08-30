@@ -1170,7 +1170,7 @@ IMPORTANTE:
 - Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
-- ENGINE NO / Engine Serial suele estar en la PÁGINA 2 (hoja anexa o detalle). Lee esa página y empareja cada motor con su VIN.
+- serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial del certificado (suele estar en la PÁGINA 2). Empareja cada motor con su VIN. No lo saques de la factura comercial.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -2568,6 +2568,28 @@ function applyCertEnginePairs(
   return next;
 }
 
+async function ocrCertificatePlainText(
+  buffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  const pages = isPdf
+    ? await renderPdfPagesAsPng(buffer, {
+        maxPages: PDF_RASTER_MAX_PAGES,
+        scale: 2.4,
+      })
+    : [buffer];
+  const chunks: string[] = [];
+  for (const page of pages) {
+    try {
+      chunks.push(await extractInvoicePlainTextWithTesseract(page));
+    } catch {
+      // página ilegible
+    }
+  }
+  return chunks.filter(Boolean).join("\n");
+}
+
 export async function extractCertificadoOrigenMultiFromDocument(
   buffer: Buffer,
   mimeType: string,
@@ -2582,7 +2604,18 @@ export async function extractCertificadoOrigenMultiFromDocument(
       certPlain = "";
     }
   }
-  const enginesFromText = parseCertEngineNosFromText(certPlain);
+  let enginesFromText = parseCertEngineNosFromText(certPlain);
+  if (enginesFromText.length === 0) {
+    try {
+      const ocr = await ocrCertificatePlainText(buffer, mimeType);
+      if (ocr.trim()) {
+        certPlain = `${certPlain}\n${ocr}`.trim();
+        enginesFromText = parseCertEngineNosFromText(certPlain);
+      }
+    } catch {
+      // sin Tesseract / raster: sigue Gemini
+    }
+  }
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
