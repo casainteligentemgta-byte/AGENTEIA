@@ -105,7 +105,7 @@ export async function runVehicleImportExtract(params: {
     })),
   ];
   const etapas: CargaMasivaEtapaId[] =
-    params.certificados.length > 0 ? ["vins", "datos", "certs"] : ["vins", "datos"];
+    params.certificados.length > 0 ? ["vins", "certs", "datos"] : ["vins", "datos"];
 
   const batchId =
     typeof crypto !== "undefined" && "randomUUID" in crypto

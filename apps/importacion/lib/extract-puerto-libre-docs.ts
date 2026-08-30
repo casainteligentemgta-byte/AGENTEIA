@@ -2644,10 +2644,13 @@ export async function extractCertificadoOrigenMultiFromDocument(
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const enginesFromText = await harvestCertEngineNos(buffer, mimeType);
+  const skipLlmForEngines =
+    enginesFromText.length >= 2 ||
+    Boolean(options?.rapido && enginesFromText.length > 0);
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
-  if (isLlmConfigured()) {
+  if (isLlmConfigured() && !skipLlmForEngines) {
     try {
       parsed = await createDocumentJsonCompletion({
         prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
@@ -2658,7 +2661,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
         // Página 2 = ENGINE No; no quedarse en texto de la carátula.
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
-        forceRasterVision: isPdf,
+        forceRasterVision: isPdf && enginesFromText.length === 0,
       });
     } catch (err) {
       llmError = err;
@@ -2666,7 +2669,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
 
     // Reintento: si el PDF es escaneado y el primer parse casi no detectó
     // seriales/motor (los campos quedan null), fuerza raster+visión.
-    if (isPdf && !llmError) {
+    if (isPdf && !llmError && enginesFromText.length === 0) {
       const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
       const hasCritical = vehiculosRaw.some((v) => {
         const vinOrChassis = parseString(

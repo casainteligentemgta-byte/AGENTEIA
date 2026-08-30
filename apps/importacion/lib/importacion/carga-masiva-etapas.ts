@@ -3,13 +3,13 @@ import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
 import { vehicleCompleteness } from "@/lib/importacion/carga-masiva-ui";
 
 /** Etapas de extracción multi-documento (Fase B). */
-export const CARGA_MASIVA_ETAPAS = ["vins", "datos", "certs"] as const;
+export const CARGA_MASIVA_ETAPAS = ["vins", "certs", "datos"] as const;
 export type CargaMasivaEtapaId = (typeof CARGA_MASIVA_ETAPAS)[number];
 
 export const CARGA_MASIVA_ETAPA_LABELS: Record<CargaMasivaEtapaId, string> = {
   vins: "1. Cosechar VIN",
-  datos: "2. Enriquecer datos",
-  certs: "3. Certificados y BL",
+  certs: "2. Certificados y BL (ENGINE No)",
+  datos: "3. Enriquecer datos",
 };
 
 export const CARGA_MASIVA_ETAPA_HINTS: Record<CargaMasivaEtapaId, string> = {
@@ -42,8 +42,8 @@ export function nextCargaMasivaEtapa(
   current: CargaMasivaEtapaId,
   hasCertOrBl: boolean
 ): CargaMasivaEtapaId | null {
-  if (current === "vins") return "datos";
-  if (current === "datos") return hasCertOrBl ? "certs" : null;
+  if (current === "vins") return hasCertOrBl ? "certs" : "datos";
+  if (current === "certs") return "datos";
   return null;
 }
 
