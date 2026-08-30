@@ -177,6 +177,17 @@ const INVOICE_SIGNAL_RE =
 const CERT_PAGE2_SIGNAL_RE =
   /ENGINE\s*(NO|SERIAL|NUMBER)|CHASSIS|\bVIN\b|SQRE|C16TD|G4FL/i;
 
+export function scoreCertificatePageOcrText(text: string): number {
+  const t = text ?? "";
+  return (
+    t.length +
+    (CERT_PAGE2_SIGNAL_RE.test(t) ? 8000 : 0) +
+    ((t.match(/\bENGINE\b/gi) ?? []).length * 400) +
+    ((t.match(/SQRE/gi) ?? []).length * 800) +
+    ((t.match(/\bLVV/gi) ?? []).length * 200)
+  );
+}
+
 /**
  * OCR de factura completa (sin whitelist de VIN) para consignatario,
  * destino, nº factura y CIF. La pasada de VIN excluye I/espacios.
@@ -237,16 +248,50 @@ export async function extractCertificatePagePlainTextWithTesseract(
     const ranked = texts
       .map((t) => ({
         t,
-        score:
-          t.length +
-          (CERT_PAGE2_SIGNAL_RE.test(t) ? 8000 : 0) +
-          ((t.match(/\bENGINE\b/gi) ?? []).length * 400),
+        score: scoreCertificatePageOcrText(t),
       }))
       .sort((a, b) => b.score - a.score);
     return (ranked[0]?.t ?? texts.join("\n")).trim();
   } finally {
     await worker.terminate();
   }
+}
+
+/**
+ * Pág. 2 del COO Chery: tabla apaisada en un PDF vertical.
+ * Prueba 90°/270° y se queda con el texto que más SQRE/VIN tenga.
+ */
+export async function extractCertificatePagePlainTextOriented(
+  imageBuffer: Buffer
+): Promise<string> {
+  const { loadImage } = await import("@napi-rs/canvas");
+  const { rotateImageBuffer } = await import("@/lib/ai/image-orient");
+  const meta = await loadImage(imageBuffer);
+  const candidates: Buffer[] = [imageBuffer];
+  if (meta.height >= meta.width * 0.9) {
+    for (const deg of [90, 270] as const) {
+      try {
+        candidates.push((await rotateImageBuffer(imageBuffer, deg)).buffer);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  let best = "";
+  let bestScore = -1;
+  for (const img of candidates) {
+    const text = await extractCertificatePagePlainTextWithTesseract(img, {
+      fast: true,
+    });
+    const score = scoreCertificatePageOcrText(text);
+    if (score > bestScore) {
+      bestScore = score;
+      best = text;
+    }
+    if ((text.match(/SQRE/gi) ?? []).length >= 4) return text;
+  }
+  return best;
 }
 
 async function recognizeText(
