@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
+import { getTasaBcvAction } from "@/app/actions/nfc/tasa-bcv";
 import {
   createPuertoLibreCargaMasivaAction,
   extractCargaMasivaEtapaAction,
@@ -167,6 +168,9 @@ export function PuertoLibreCargaMasiva({
     () => new Set()
   );
   const [blOcrPending, setBlOcrPending] = useState(false);
+  const [tasaBcvPending, setTasaBcvPending] = useState(false);
+  const [tasaBcvHint, setTasaBcvHint] = useState<string | null>(null);
+  const tasaBcvReq = useRef(0);
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
@@ -497,6 +501,28 @@ export function PuertoLibreCargaMasiva({
     });
   }
 
+  async function fillTasaBcvForFecha(fecha: string) {
+    const day = fecha.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      setTasaBcvHint(null);
+      return;
+    }
+    const req = ++tasaBcvReq.current;
+    setTasaBcvPending(true);
+    try {
+      const result = await getTasaBcvAction(day);
+      if (req !== tasaBcvReq.current) return;
+      if (!result.success) {
+        setTasaBcvHint(result.error);
+        return;
+      }
+      setShared((prev) => ({ ...prev, tasaCambioBcv: result.tasa }));
+      setTasaBcvHint(result.hint);
+    } finally {
+      if (req === tasaBcvReq.current) setTasaBcvPending(false);
+    }
+  }
+
   function handleDocsFiles(list: FileList | null) {
     if (!list?.length) return;
     const next: DocItem[] = Array.from(list).map((file) => ({
@@ -567,6 +593,9 @@ export function PuertoLibreCargaMasiva({
       const applied = applySharedShipmentToRows(rowsRef.current, nextShared);
       rowsRef.current = applied;
       setRows(applied);
+      if (nextShared.fechaLlegadaBuque) {
+        void fillTasaBcvForFecha(nextShared.fechaLlegadaBuque);
+      }
       setResultMsg(
         fields.numeroBl?.trim()
           ? `BL leído: ${fields.numeroBl.trim()}. El archivo se adjunta a los expedientes al registrar.`
@@ -1602,12 +1631,14 @@ export function PuertoLibreCargaMasiva({
                   <input
                     type="date"
                     value={shared.fechaLlegadaBuque}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const fecha = e.target.value;
                       setShared((prev) => ({
                         ...prev,
-                        fechaLlegadaBuque: e.target.value,
-                      }))
-                    }
+                        fechaLlegadaBuque: fecha,
+                      }));
+                      void fillTasaBcvForFecha(fecha);
+                    }}
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   />
                 </label>
@@ -1816,15 +1847,37 @@ export function PuertoLibreCargaMasiva({
                     type="text"
                     inputMode="decimal"
                     value={shared.tasaCambioBcv}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setShared((prev) => ({
                         ...prev,
                         tasaCambioBcv: e.target.value.replace(/[^\d.,]/g, ""),
-                      }))
+                      }));
+                      setTasaBcvHint((prev) =>
+                        prev && !prev.includes("editada a mano")
+                          ? `${prev} · editada a mano`
+                          : prev
+                      );
+                    }}
+                    placeholder={
+                      tasaBcvPending ? "Consultando BCV…" : "Se llena al elegir la fecha"
                     }
-                    placeholder="Opcional"
-                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                    disabled={tasaBcvPending}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 disabled:opacity-70"
                   />
+                  {tasaBcvPending ? (
+                    <span className="mt-1 flex items-center gap-1 text-[11px] text-cyan-300">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Leyendo tasa oficial…
+                    </span>
+                  ) : tasaBcvHint ? (
+                    <span className="mt-1 block text-[11px] text-slate-500">
+                      {tasaBcvHint}
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-[11px] text-slate-500">
+                      Se coloca sola al elegir la fecha de llegada
+                    </span>
+                  )}
                 </label>
               </div>
               <button
