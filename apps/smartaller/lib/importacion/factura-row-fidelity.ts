@@ -16,6 +16,10 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
+import {
+  cheryHeaderHasShipmentData,
+  parseCheryCommercialInvoice,
+} from "@/lib/importacion/chery-invoice-lines";
 
 export { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 export {
@@ -378,11 +382,89 @@ export function healCheryFacturaRows(
   };
 }
 
+function fillIfEmpty(
+  current: string | undefined,
+  incoming: string | null | undefined
+): string | undefined {
+  const cur = current?.trim();
+  const next = incoming?.trim();
+  if (cur) return current;
+  return next || undefined;
+}
+
+function mergeFacturaObs(current: string | undefined, extra: string | undefined): string | undefined {
+  const a = current?.trim();
+  const b = extra?.trim();
+  if (!a) return b || undefined;
+  if (!b || a.includes(b)) return a;
+  if (b.includes(a)) return b;
+  return `${a} · ${b}`;
+}
+
+/** Consignatario, RIF, destino, nº factura y CIF unitario de factura Chery. */
+export function applyCheryCommercialInvoice(
+  extracted: FacturaMultiLike,
+  plainText?: string | null
+): FacturaMultiLike {
+  if (!plainText?.trim()) return extracted;
+  const { header, lineas } = parseCheryCommercialInvoice(plainText);
+  if (!cheryHeaderHasShipmentData(header) && lineas.length === 0) {
+    return extracted;
+  }
+
+  const facturaObs = header.numeroFactura
+    ? `Factura ${header.numeroFactura}`
+    : undefined;
+  const cifStr =
+    header.cifUnitario != null ? String(header.cifUnitario) : undefined;
+
+  const shared: PuertoLibreRegistroScanFields = {
+    ...extracted.shared,
+    importadorNombre: fillIfEmpty(
+      extracted.shared.importadorNombre,
+      header.consignatario
+    ),
+    importadorDocumento: fillIfEmpty(
+      extracted.shared.importadorDocumento,
+      header.rif
+    ),
+    puerto: fillIfEmpty(extracted.shared.puerto, header.destino),
+    aduana: fillIfEmpty(extracted.shared.aduana, header.destino),
+    paisOrigen: fillIfEmpty(extracted.shared.paisOrigen, header.paisOrigen),
+    observaciones: mergeFacturaObs(extracted.shared.observaciones, facturaObs),
+  };
+
+  const extraByVin = new Map(lineas.map((r) => [r.vin, r]));
+
+  const vehiculos = extracted.vehiculos.map((v) => {
+    const vin = (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
+    const extra = extraByVin.get(vin);
+    const rowCif =
+      extra?.valorCif != null ? String(extra.valorCif) : cifStr;
+    return {
+      ...v,
+      importadorNombre: fillIfEmpty(v.importadorNombre, header.consignatario),
+      importadorDocumento: fillIfEmpty(v.importadorDocumento, header.rif),
+      puerto: fillIfEmpty(v.puerto, header.destino),
+      aduana: fillIfEmpty(v.aduana, header.destino),
+      paisOrigen: fillIfEmpty(v.paisOrigen, header.paisOrigen),
+      valorCif: fillIfEmpty(v.valorCif, rowCif),
+      observaciones: mergeFacturaObs(v.observaciones, facturaObs),
+      modelo: fillIfEmpty(v.modelo, extra?.modelo),
+      color: fillIfEmpty(v.color, extra?.color),
+    };
+  });
+
+  return { shared, vehiculos };
+}
+
 export function sanitizeFacturaMulti(
   extracted: FacturaMultiLike,
   plainText?: string | null
 ): FacturaMultiLike {
-  const healed = healCheryFacturaRows(applyFacturaHeaderMarca(extracted, plainText));
+  const withMarca = applyFacturaHeaderMarca(extracted, plainText);
+  const withChery = applyCheryCommercialInvoice(withMarca, plainText);
+  const healed = healCheryFacturaRows(withChery);
   const vehiculos = healed.vehiculos.filter((v) =>
     Boolean(normalizeVin(v.serialCarroceria ?? v.vin))
   );

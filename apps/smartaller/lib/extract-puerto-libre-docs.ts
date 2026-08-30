@@ -1879,6 +1879,7 @@ export async function extractFacturaVinsStageFromDocument(
     string,
     { modelo?: string; color?: string; serialMotor?: string }
   >();
+  let invoiceTextBag = "";
 
   const addVins = (vins: string[], source: string) => {
     let added = 0;
@@ -1903,6 +1904,7 @@ export async function extractFacturaVinsStageFromDocument(
     source: string
   ) => {
     if (!text?.trim()) return;
+    invoiceTextBag = `${invoiceTextBag} ${text}`.trim();
     const lineas = parseCheryInvoiceLineas(text);
     if (lineas.length > 0) {
     addVins(
@@ -2272,10 +2274,13 @@ export async function extractFacturaVinsStageFromDocument(
       }
     }
     if (byVin.size > 0) {
-      return {
-        shared: rows.shared ?? {},
-        vehiculos: [...byVin.values()],
-      };
+      return sanitizeFacturaMulti(
+        {
+          shared: rows.shared ?? {},
+          vehiculos: [...byVin.values()],
+        },
+        invoiceTextBag
+      );
     }
   }
 
@@ -2298,10 +2303,13 @@ export async function extractFacturaVinsStageFromDocument(
     });
   });
 
-  return {
-    shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
-    vehiculos,
-  };
+  return sanitizeFacturaMulti(
+    {
+      shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
+      vehiculos,
+    },
+    invoiceTextBag
+  );
 }
 
 function buildEnrichPrompt(knownVins: string[]): string {
@@ -2328,14 +2336,15 @@ export async function enrichFacturaRowsStageFromDocument(
   const candidates: DocMultiExtracted[] = [];
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const enginePairs: { vin: string; serialMotor: string }[] = [];
+  let invoiceTextBag = "";
 
   // OCR local primero (útil con OpenRouter sin créditos)
   try {
     if (isPdf) {
       try {
-        enginePairs.push(
-          ...parseCertEngineNosFromText(await getPdfPlainText(buffer))
-        );
+        const plain = await getPdfPlainText(buffer);
+        invoiceTextBag = `${invoiceTextBag} ${plain}`.trim();
+        enginePairs.push(...parseCertEngineNosFromText(plain));
       } catch {
         // raster / tesseract abajo
       }
@@ -2350,6 +2359,7 @@ export async function enrichFacturaRowsStageFromDocument(
       const tess = isPdf
         ? await extractVinsWithTesseract(pages)
         : await extractVinsWithTesseractOriented(pages[0]!);
+      invoiceTextBag = `${invoiceTextBag} ${tess.fullText}`.trim();
       enginePairs.push(...parseCertEngineNosFromText(tess.fullText));
       const mav = parseMavHojaAnexaFromText(tess.fullText);
       if (mav && mav.vehiculos.length > 0) {
@@ -2370,22 +2380,25 @@ export async function enrichFacturaRowsStageFromDocument(
 
   if (candidates.length === 0) {
     // Devolver esqueletos por VIN conocidos
-    return {
-      shared: {},
-      vehiculos: knownVins.map((vin) => {
-        const key = compactSerial(vin);
-        const looksChery = /^LVV|^LVT|^LVD/.test(key ?? "");
-        return sanitizeVehiculoRowLocal({
-          serialCarroceria: vin,
-          vin,
-          serialMotor: "POR-COMPLETAR",
-          condicion: "nuevo",
-          kilometraje: "0",
-          anio: anioFromVin(vin)?.toString(),
-          ...(looksChery ? { marca: "Chery" } : {}),
-        });
-      }),
-    };
+    return sanitizeFacturaMulti(
+      {
+        shared: {},
+        vehiculos: knownVins.map((vin) => {
+          const key = compactSerial(vin);
+          const looksChery = /^LVV|^LVT|^LVD/.test(key ?? "");
+          return sanitizeVehiculoRowLocal({
+            serialCarroceria: vin,
+            vin,
+            serialMotor: "POR-COMPLETAR",
+            condicion: "nuevo",
+            kilometraje: "0",
+            anio: anioFromVin(vin)?.toString(),
+            ...(looksChery ? { marca: "Chery" } : {}),
+          });
+        }),
+      },
+      invoiceTextBag
+    );
   }
 
   const picked = pickBestFacturaMulti(candidates);
@@ -2417,10 +2430,13 @@ export async function enrichFacturaRowsStageFromDocument(
       })
     );
   }
-  return sanitizeFacturaMulti({
-    shared: picked.shared,
-    vehiculos: [...byVin.values()],
-  });
+  return sanitizeFacturaMulti(
+    {
+      shared: picked.shared,
+      vehiculos: [...byVin.values()],
+    },
+    invoiceTextBag
+  );
 }
 
 export async function extractBlMultiFromDocument(
