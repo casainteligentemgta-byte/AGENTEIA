@@ -1,5 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import {
+  isStorageMimeRejected,
+  OCR_JOB_CONTENT_TYPES,
+} from "@/lib/importacion/ocr-carga-job-mime";
+
+export { isStorageMimeRejected, OCR_JOB_CONTENT_TYPES } from "@/lib/importacion/ocr-carga-job-mime";
 
 export type OcrCargaJobStatus = "queued" | "running" | "done" | "error";
 
@@ -49,20 +55,22 @@ export async function writeOcrCargaJob(job: OcrCargaJob): Promise<void> {
   const body = Buffer.from(
     JSON.stringify({ ...job, updatedAt: new Date().toISOString() })
   );
-  const options = {
-    upsert: true,
-    contentType: "application/json",
-    cacheControl: "0",
-  } as const;
 
   let lastError = "";
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const { error } = await admin.storage
-      .from(VEHICULO_DOCS_BUCKET)
-      .upload(path, body, options);
-    if (!error) return;
-    lastError = error.message;
-    await admin.storage.from(VEHICULO_DOCS_BUCKET).remove([path]);
+  for (const contentType of OCR_JOB_CONTENT_TYPES) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const { error } = await admin.storage
+        .from(VEHICULO_DOCS_BUCKET)
+        .upload(path, body, {
+          upsert: true,
+          contentType,
+          cacheControl: "0",
+        });
+      if (!error) return;
+      lastError = error.message;
+      await admin.storage.from(VEHICULO_DOCS_BUCKET).remove([path]);
+      if (isStorageMimeRejected(lastError)) break;
+    }
   }
   throw new Error(lastError || "No se pudo guardar el trabajo OCR");
 }
