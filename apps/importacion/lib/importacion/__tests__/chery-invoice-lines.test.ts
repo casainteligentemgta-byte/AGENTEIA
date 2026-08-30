@@ -72,6 +72,13 @@ describe("parseCheryInvoiceHeader", () => {
     assert.ok(lineas.some((r) => r.vin === "LVVDB2187VE033214"));
   });
 
+  it("lee CIF con OCR C1F y miles con espacio", () => {
+    const header = parseCheryInvoiceHeader(
+      "UNIT PRICE C1F 11 014 TIGGO 2 PRO MAX LVVDB21B9VE033523"
+    );
+    assert.equal(header.cifUnitario, 11014);
+  });
+
   it("tolera OCR ruidoso (I→1, Guamache, factura compacta)", () => {
     const noisy =
       "CONSIGNEE I1KSAN MOTORS S.A. RIF J-500353343 DESTINATION El GU4MACHE INVOICE 18364-Z202603N0205 CIF 11.014 TIGGO 2 PRO MAX LVVDB21B9VE033523 NASDAQ SILVER";

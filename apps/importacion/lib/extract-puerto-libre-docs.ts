@@ -40,7 +40,10 @@ import {
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
 } from "@/lib/importacion/cert-engine-text";
-import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
+import {
+  parseCheryInvoiceHeader,
+  parseCheryInvoiceLineas,
+} from "@/lib/importacion/chery-invoice-lines";
 import { matchSerialKeyAmong } from "@/lib/importacion/serial-match";
 import { preferCompleteVin, salvageCheryVin } from "@/lib/importacion/vin-text";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
@@ -1873,6 +1876,22 @@ export async function extractFacturaMultiFromDocument(
   return sanitizeFacturaMulti(best, facturaPlainText);
 }
 
+function stampCifUnitarioOnRows(
+  extracted: DocMultiExtracted,
+  plainText: string
+): DocMultiExtracted {
+  const cif = parseCheryInvoiceHeader(plainText).cifUnitario;
+  if (cif == null) return extracted;
+  const cifStr = String(cif);
+  return {
+    shared: extracted.shared,
+    vehiculos: extracted.vehiculos.map((v) => ({
+      ...v,
+      valorCif: v.valorCif?.trim() ? v.valorCif : cifStr,
+    })),
+  };
+}
+
 /**
  * Etapa 1 — cosecha de VIN (Tesseract local primero; visión solo si hace falta).
  * Si no hay VIN, lanza Error con el diagnóstico de OCR (no lo oculta).
@@ -1899,7 +1918,7 @@ export async function extractFacturaVinsStageFromDocument(
 
   const cheryLineasByVin = new Map<
     string,
-    { modelo?: string; color?: string; serialMotor?: string }
+    { modelo?: string; color?: string; serialMotor?: string; valorCif?: string }
   >();
   let invoiceTextBag = "";
 
@@ -1926,7 +1945,10 @@ export async function extractFacturaVinsStageFromDocument(
     source: string
   ) => {
     if (!text?.trim()) return;
-    invoiceTextBag = `${invoiceTextBag} ${text}`.trim();
+    // El OCR de VIN (whitelist) destroza "CIF 11.014"; no mezclarlo en cabecera.
+    if (!/tesseract-lineas/.test(source)) {
+      invoiceTextBag = `${invoiceTextBag} ${text}`.trim();
+    }
     const lineas = parseCheryInvoiceLineas(text);
     if (lineas.length > 0) {
     addVins(
@@ -1939,6 +1961,9 @@ export async function extractFacturaVinsStageFromDocument(
         modelo: r.modelo || prev.modelo,
         color: r.color || prev.color,
         serialMotor: r.serialMotor || prev.serialMotor,
+        valorCif:
+          prev.valorCif ||
+          (r.valorCif != null ? String(r.valorCif) : undefined),
       });
     }
     }
@@ -2310,16 +2335,20 @@ export async function extractFacturaVinsStageFromDocument(
             anio: anioFromVin(vin)?.toString(),
             ...(extra?.modelo ? { modelo: extra.modelo } : {}),
             ...(extra?.color ? { color: extra.color } : {}),
+            ...(extra?.valorCif ? { valorCif: extra.valorCif } : {}),
           })
         );
       }
     }
     if (byVin.size > 0) {
-      return sanitizeFacturaMulti(
-        {
-          shared: rows.shared ?? {},
-          vehiculos: [...byVin.values()],
-        },
+      return stampCifUnitarioOnRows(
+        sanitizeFacturaMulti(
+          {
+            shared: rows.shared ?? {},
+            vehiculos: [...byVin.values()],
+          },
+          invoiceTextBag
+        ),
         invoiceTextBag
       );
     }
@@ -2341,14 +2370,18 @@ export async function extractFacturaVinsStageFromDocument(
       ...(looksChery ? { marca: "Chery" } : {}),
       ...(extra?.modelo ? { modelo: extra.modelo } : {}),
       ...(extra?.color ? { color: extra.color } : {}),
+      ...(extra?.valorCif ? { valorCif: extra.valorCif } : {}),
     });
   });
 
-  return sanitizeFacturaMulti(
-    {
-      shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
-      vehiculos,
-    },
+  return stampCifUnitarioOnRows(
+    sanitizeFacturaMulti(
+      {
+        shared: looksChery ? { marca: "Chery" } : looksMav ? {} : {},
+        vehiculos,
+      },
+      invoiceTextBag
+    ),
     invoiceTextBag
   );
 }
@@ -2479,11 +2512,14 @@ export async function enrichFacturaRowsStageFromDocument(
       })
     );
   }
-  return sanitizeFacturaMulti(
-    {
-      shared: picked.shared,
-      vehiculos: [...byVin.values()],
-    },
+  return stampCifUnitarioOnRows(
+    sanitizeFacturaMulti(
+      {
+        shared: picked.shared,
+        vehiculos: [...byVin.values()],
+      },
+      invoiceTextBag
+    ),
     invoiceTextBag
   );
 }

@@ -74,17 +74,34 @@ function flattenInvoiceText(text: string): string {
 }
 
 /**
- * 11.014 (miles europeos) → 11014. No interpreta 11.50 como miles.
+ * 11.014 / 11,014 / 11 014 (miles europeos) → 11014. No interpreta 11.50 como miles.
  */
 export function parseEuropeanMoney(raw: string | null | undefined): number | null {
   if (!raw) return null;
-  const s = raw.trim().replace(/\s/g, "");
+  const spaced = raw.trim().replace(/[O]/gi, "0");
+  if (/^\d{1,3}\s\d{3}$/.test(spaced)) return Number(spaced.replace(/\s/g, ""));
+  const s = spaced.replace(/\s/g, "");
   if (/^\d{1,3}\.\d{3}$/.test(s)) return Number(s.replace(".", ""));
   if (/^\d{1,3}\.\d{3}\.\d{3}$/.test(s)) return Number(s.replace(/\./g, ""));
   if (/^\d{1,3},\d{3}(?:\.\d{1,2})?$/.test(s)) {
     return Number(s.replace(/,/g, ""));
   }
   if (/^\d{4,7}(?:\.\d{1,2})?$/.test(s)) return Number(s);
+  return null;
+}
+
+const CIF_LABEL_RE =
+  /\b(?:C[\s.\-]*[I1L|][\s.\-]*F|C\.I\.F|UNIT\s*PRICE|U\.?\s*PRICE|PRICE\s*\/\s*UNIT)\b/i;
+
+const MONEY_TOKEN_RE = /(\d{1,3}(?:[.\s,]\d{3})|\d{4,6})/;
+
+function parseCifAfterLabel(upper: string): number | null {
+  for (const m of upper.matchAll(new RegExp(CIF_LABEL_RE.source, "gi"))) {
+    const after = upper.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 40);
+    const tok = after.match(MONEY_TOKEN_RE);
+    const n = parseEuropeanMoney(tok?.[1] ?? null);
+    if (n != null && n >= 1000 && n <= 500_000) return n;
+  }
   return null;
 }
 
@@ -186,14 +203,12 @@ export function parseCheryInvoiceHeader(text: string): CheryInvoiceHeader {
   const expM = flat.match(/\bINTERCONTINENTAL(?:\s+[A-Z][A-Z ]{2,24})?/i);
   const exportador = expM ? titleName(expM[0].slice(0, 48)) : null;
 
-  const moneyHits = [...upper.matchAll(/\b(\d{1,3}\.\d{3}|\d{4,6})\b/g)]
+  const moneyHits = [...upper.matchAll(/\b(\d{1,3}(?:[.\s,]\d{3})|\d{4,6})\b/g)]
     .map((m) => parseEuropeanMoney(m[1]))
     .filter((n): n is number => n != null && n >= 1000 && n <= 500_000);
 
-  let cifUnitario: number | null = null;
+  let cifUnitario: number | null = parseCifAfterLabel(upper);
   let cifTotal: number | null = null;
-  const cifNear = upper.match(/\bCIF\b[^0-9]{0,28}(\d{1,3}\.\d{3}|\d{4,6})/);
-  if (cifNear) cifUnitario = parseEuropeanMoney(cifNear[1]);
 
   const totalNear = upper.match(
     /\b(?:TOTAL|AMOUNT|CIF\s+TOTAL)\b[^0-9]{0,28}(\d{1,3}\.\d{3}|\d{4,6})/

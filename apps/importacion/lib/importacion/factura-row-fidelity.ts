@@ -8,6 +8,7 @@ import { anioFromVin } from "@/lib/ai/image-orient";
 import {
   compactAlnumVin,
   normalizeVinLoose,
+  salvageCheryVin,
 } from "@/lib/importacion/vin-text";
 import {
   inferCheryModelo,
@@ -437,8 +438,9 @@ export function applyCheryCommercialInvoice(
   const extraByVin = new Map(lineas.map((r) => [r.vin, r]));
 
   const vehiculos = extracted.vehiculos.map((v) => {
-    const vin = (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
-    const extra = extraByVin.get(vin);
+    const rawVin = (v.serialCarroceria ?? v.vin ?? "").toUpperCase();
+    const vin = salvageCheryVin(rawVin) ?? rawVin;
+    const extra = extraByVin.get(vin) ?? extraByVin.get(rawVin);
     const rowCif =
       extra?.valorCif != null ? String(extra.valorCif) : cifStr;
     return {
