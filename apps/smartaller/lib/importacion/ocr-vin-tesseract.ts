@@ -213,16 +213,20 @@ export async function extractInvoicePlainTextWithTesseract(
 
 /** OCR de la página 2 del COO: prioriza la columna ENGINE No, no la factura. */
 export async function extractCertificatePagePlainTextWithTesseract(
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
+  options?: { fast?: boolean }
 ): Promise<string> {
   const { createWorker, PSM } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, {
     logger: () => undefined,
   });
   try {
-    const prepared = await upscaleForOcr(imageBuffer, 1800);
+    const prepared = await upscaleForOcr(imageBuffer, options?.fast ? 1400 : 1800);
     const texts: string[] = [];
-    for (const psm of [PSM.AUTO, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT]) {
+    const psms = options?.fast
+      ? [PSM.AUTO]
+      : [PSM.AUTO, PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT];
+    for (const psm of psms) {
       await worker.setParameters({
         preserve_interword_spaces: "1",
         tessedit_pageseg_mode: psm as never,

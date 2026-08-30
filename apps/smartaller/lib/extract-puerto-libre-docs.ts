@@ -37,8 +37,11 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import {
-  parseCertEngineNosFromPages,
+  harvestCertEnginesFromText,
   parseCertEngineNosFromText,
+  scoreCertEngineHarvest,
+  type CertEngineHarvest,
+  type CertEnginePair,
 } from "@/lib/importacion/cert-engine-text";
 import {
   parseCheryInvoiceHeader,
@@ -1209,6 +1212,10 @@ Responde SOLO JSON con:
 export type DocMultiExtracted = {
   shared: PuertoLibreRegistroScanFields;
   vehiculos: PuertoLibreRegistroScanFields[];
+  /** Pares VIN ↔ ENGINE No de la página 2 (para cruzar con la factura). */
+  enginePairs?: CertEnginePair[];
+  /** Columna ENGINE No en orden de fila. */
+  engineNos?: string[];
 };
 
 function asRecordArray(value: unknown): Record<string, unknown>[] {
@@ -2611,28 +2618,39 @@ function applyCertEnginePairs(
 
 async function ocrPdfPageText(
   buffer: Buffer,
-  pageNumber: number
+  pageNumber: number,
+  options?: { fast?: boolean }
 ): Promise<string> {
   const pages = await renderPdfPagesAsPng(buffer, {
     startPage: pageNumber,
     maxPages: 1,
-    scale: 2.6,
+    scale: options?.fast ? 2.0 : 2.6,
   });
   if (!pages[0]) return "";
-  return extractCertificatePagePlainTextWithTesseract(pages[0]);
+  return extractCertificatePagePlainTextWithTesseract(pages[0], {
+    fast: options?.fast,
+  });
+}
+
+function emptyCertHarvest(): CertEngineHarvest {
+  return { pairs: [], motors: [] };
 }
 
 async function harvestCertEngineNos(
   buffer: Buffer,
-  mimeType: string
-): Promise<{ vin: string; serialMotor: string }[]> {
+  mimeType: string,
+  options?: { rapido?: boolean }
+): Promise<CertEngineHarvest> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  const fast = Boolean(options?.rapido);
   if (!isPdf) {
     try {
-      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer);
-      return parseCertEngineNosFromText(ocr);
+      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer, {
+        fast,
+      });
+      return harvestCertEnginesFromText(ocr);
     } catch {
-      return [];
+      return emptyCertHarvest();
     }
   }
 
@@ -2643,37 +2661,21 @@ async function harvestCertEngineNos(
   } catch {
     embeddedPage2 = "";
   }
-  const fromEmbedded = parseCertEngineNosFromText(embeddedPage2);
+  const fromEmbedded = harvestCertEnginesFromText(embeddedPage2);
+  // Si la pág. 2 ya trae VIN + ENGINE No, no rasterizar (eso traba Extraer).
+  if (fromEmbedded.pairs.length > 0) return fromEmbedded;
+  if (fast && fromEmbedded.motors.length > 0) return fromEmbedded;
 
-  // Siempre raster de la página 2: la carátula no trae ENGINE No.
-  let fromOcr: { vin: string; serialMotor: string }[] = [];
+  let fromOcr = emptyCertHarvest();
   try {
-    const page2Ocr = await ocrPdfPageText(buffer, 2);
-    fromOcr = parseCertEngineNosFromText(page2Ocr);
+    const page2Ocr = await ocrPdfPageText(buffer, 2, { fast: true });
+    fromOcr = harvestCertEnginesFromText(page2Ocr);
   } catch {
-    fromOcr = [];
+    fromOcr = emptyCertHarvest();
   }
-  if (fromOcr.length >= fromEmbedded.length && fromOcr.length > 0) return fromOcr;
-  if (fromEmbedded.length > 0) return fromEmbedded;
-
-  try {
-    const rest = await renderPdfPagesAsPng(buffer, {
-      startPage: 2,
-      maxPages: PDF_RASTER_MAX_PAGES,
-      scale: 2.4,
-    });
-    const chunks: string[] = [];
-    for (const page of rest) {
-      try {
-        chunks.push(await extractCertificatePagePlainTextWithTesseract(page));
-      } catch {
-        // página ilegible
-      }
-    }
-    return parseCertEngineNosFromPages(["", ...chunks]);
-  } catch {
-    return [];
-  }
+  return scoreCertEngineHarvest(fromOcr) >= scoreCertEngineHarvest(fromEmbedded)
+    ? fromOcr
+    : fromEmbedded;
 }
 
 export async function extractCertificadoOrigenMultiFromDocument(
@@ -2682,10 +2684,14 @@ export async function extractCertificadoOrigenMultiFromDocument(
   options?: { rapido?: boolean }
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
-  const enginesFromText = await harvestCertEngineNos(buffer, mimeType);
+  const harvest = await harvestCertEngineNos(buffer, mimeType, {
+    rapido: options?.rapido,
+  });
+  const enginesFromText = harvest.pairs;
   const skipLlmForEngines =
-    enginesFromText.length >= 2 ||
-    Boolean(options?.rapido && enginesFromText.length > 0);
+    Boolean(options?.rapido) ||
+    harvest.pairs.length >= 2 ||
+    harvest.motors.length >= 2;
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
@@ -2700,7 +2706,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
         // Página 2 = ENGINE No; no quedarse en texto de la carátula.
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
-        forceRasterVision: isPdf && enginesFromText.length === 0,
+        forceRasterVision: isPdf && harvest.pairs.length === 0,
       });
     } catch (err) {
       llmError = err;
@@ -2708,7 +2714,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
 
     // Reintento: si el PDF es escaneado y el primer parse casi no detectó
     // seriales/motor (los campos quedan null), fuerza raster+visión.
-    if (isPdf && !llmError && enginesFromText.length === 0) {
+    if (isPdf && !llmError && harvest.pairs.length === 0) {
       const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
       const hasCritical = vehiculosRaw.some((v) => {
         const vinOrChassis = parseString(
@@ -2721,7 +2727,8 @@ export async function extractCertificadoOrigenMultiFromDocument(
         return Boolean(vinOrChassis || motor);
       });
       const hasMotor =
-        enginesFromText.length > 0 ||
+        harvest.pairs.length > 0 ||
+        harvest.motors.length > 0 ||
         vehiculosRaw.some((v) =>
           Boolean(pickSerialMotorRaw(v as Record<string, unknown>))
         );
@@ -2827,7 +2834,19 @@ export async function extractCertificadoOrigenMultiFromDocument(
     dedupeVehiculosBySerial(vehiculos),
     enginesFromText
   );
-  if (vehiculos.length === 0) {
+  if (vehiculos.length === 0 && enginesFromText.length > 0) {
+    vehiculos = applyCertEnginePairs([], enginesFromText);
+  }
+  if (vehiculos.length === 0 && harvest.motors.length > 0) {
+    vehiculos = harvest.motors.map((serialMotor) =>
+      sanitizeVehiculoRowLocal({
+        serialMotor,
+        condicion: "nuevo",
+        kilometraje: "0",
+      })
+    );
+  }
+  if (vehiculos.length === 0 && !options?.rapido) {
     const local = await extractFacturaLocalFromDocument(buffer, mimeType);
     if (local.vehiculos.length > 0) {
       return {
@@ -2840,17 +2859,18 @@ export async function extractCertificadoOrigenMultiFromDocument(
           })),
           enginesFromText
         ),
-      };
-    }
-    if (enginesFromText.length > 0) {
-      return {
-        shared,
-        vehiculos: applyCertEnginePairs([], enginesFromText),
+        enginePairs: harvest.pairs,
+        engineNos: harvest.motors,
       };
     }
     if (llmError) throw llmError;
   }
-  return { shared, vehiculos };
+  return {
+    shared,
+    vehiculos,
+    enginePairs: harvest.pairs,
+    engineNos: harvest.motors,
+  };
 }
 
 /**
