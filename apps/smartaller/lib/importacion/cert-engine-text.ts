@@ -4,6 +4,7 @@
  */
 
 import { normalizeMotor } from "./factura-row-fidelity";
+import { normalizeSerialKey, pairSerialsOneToOne } from "./serial-match";
 import {
   extractVinStringsFromText,
   salvageCheryVin,
@@ -210,6 +211,56 @@ export function collectEngineNosInOrder(text: string): string[] {
     ...extractMotorsUnderEngineHeader(text),
     ...extractLabeledMotors(text),
   ]);
+}
+
+export type CertEngineHarvest = {
+  pairs: CertEnginePair[];
+  motors: string[];
+};
+
+/** Pares VIN↔motor y columna ENGINE No desde una página (texto embebido u OCR). */
+export function harvestCertEnginesFromText(text: string): CertEngineHarvest {
+  if (!text?.trim()) return { pairs: [], motors: [] };
+  const pairs = parseCertEngineNosFromText(text);
+  const motors = uniqueMotors([
+    ...pairs.map((p) => p.serialMotor),
+    ...collectEngineNosInOrder(text),
+  ]);
+  return { pairs, motors };
+}
+
+export function scoreCertEngineHarvest(h: CertEngineHarvest): number {
+  return h.pairs.length * 10 + h.motors.length;
+}
+
+/**
+ * Cruza ENGINE No del certificado con las filas de factura por VIN
+ * (exacto, prefijo o sufijo; repara LWV→LVV).
+ */
+export function applyEngineNosByVin<
+  T extends { vin?: string; serialCarroceria?: string; serialMotor?: string },
+>(rows: T[], pairs: CertEnginePair[]): T[] {
+  if (pairs.length === 0 || rows.length === 0) return rows;
+  const rowKeys = rows.map((r) =>
+    normalizeSerialKey(r.serialCarroceria || r.vin || "")
+  );
+  const rowToCert = pairSerialsOneToOne(
+    rowKeys,
+    pairs.map((p) => p.vin)
+  );
+  const motorByCertVin = new Map(
+    pairs.map((p) => [normalizeSerialKey(p.vin), p.serialMotor] as const)
+  );
+  return rows.map((row, i) => {
+    if (normalizeMotor(row.serialMotor)) return row;
+    const rowKey = rowKeys[i];
+    if (!rowKey) return row;
+    const certVin = rowToCert.get(rowKey);
+    if (!certVin) return row;
+    const motor = motorByCertVin.get(certVin);
+    if (!motor) return row;
+    return { ...row, serialMotor: motor };
+  });
 }
 
 /**

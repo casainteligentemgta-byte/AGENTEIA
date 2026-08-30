@@ -543,7 +543,23 @@ export function PuertoLibreCargaMasiva({
         "/api/smartimport/ocr-carga-masiva",
         fd,
         extractCargaMasivaEtapaAction,
-        { deadlineMs: 100_000 }
+        {
+          deadlineMs: 100_000,
+          onRetry: (attempt) =>
+            setExtractProgress({
+              etapa: "certs",
+              label: `Certificado ${i + 1}/${storageDocs.length}`,
+              hint: `ENGINE No por VIN… ${attempt * 2}s`,
+              vinsEncontrados: currentRows.filter(
+                (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
+              ).length,
+              filasCompletas: currentRows.filter((r) =>
+                vehicleCompleteness(r).complete
+              ).length,
+              totalFilas: currentRows.length,
+              pct: Math.round((i / Math.max(storageDocs.length, 1)) * 100),
+            }),
+        }
       );
       if (!result.success) {
         setError(

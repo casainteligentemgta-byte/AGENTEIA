@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyEngineNosByVin,
   assignEngineNosByRowOrder,
   collectEngineNosInOrder,
+  harvestCertEnginesFromText,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
 } from "../cert-engine-text";
@@ -137,5 +139,28 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(pairs.length, 1);
     assert.equal(pairs[0]?.vin, "LVVDC21B5VD713650");
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15C5556667");
+  });
+
+  it("cruza ENGINE No del COO con VIN de factura (LWV vs LVV)", () => {
+    const rows = [
+      { vin: "LVVDB21B9VE033523", serialCarroceria: "LVVDB21B9VE033523", serialMotor: "" },
+      { vin: "LVVDB2187VE033214", serialCarroceria: "LVVDB2187VE033214", serialMotor: "" },
+    ];
+    const next = applyEngineNosByVin(rows, [
+      { vin: "LWVDB21B9VE033523", serialMotor: "SQRE4G15C1111111" },
+      { vin: "LWVDB2187VE033214", serialMotor: "C16TD2222222" },
+    ]);
+    assert.equal(next[0]?.serialMotor, "SQRE4G15C1111111");
+    assert.equal(next[1]?.serialMotor, "C16TD2222222");
+  });
+
+  it("cosecha pares y columna ENGINE No del mismo texto", () => {
+    const harvested = harvestCertEnginesFromText(`
+      VIN                 ENGINE NO
+      LVVDC21B5VD713650   SQRE4G15C1234567
+      LVVDB21B9VD812001   C16TD98765432
+    `);
+    assert.equal(harvested.pairs.length, 2);
+    assert.deepEqual(harvested.motors, ["SQRE4G15C1234567", "C16TD98765432"]);
   });
 });
