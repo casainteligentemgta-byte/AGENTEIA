@@ -83,7 +83,7 @@ export const vehicleImportUploadSchema = z.object({
   ),
   certificados: z
     .array(fileLike)
-    .min(1, "Al menos 1 certificado de origen")
+    .default([])
     .refine(
       (files) => files.every(isPdfOrImageFile),
       "Los certificados deben ser PDF o foto"

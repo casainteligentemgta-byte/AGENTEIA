@@ -90,27 +90,25 @@ export function Step1UploadDocuments({
   onManual,
 }: Props) {
   const [localError, setLocalError] = useState<string | null>(null);
-  const ready = Boolean(factura) && certificados.length > 0 && !extracting;
+  const ready = Boolean(factura) && !extracting;
   const alert = error ?? localError;
 
   function takeFactura(files: File[]) {
-    const valid = files.filter(isPdfOrImageFile);
-    if (valid.length === 0) {
-      setLocalError("La factura debe ser PDF o una foto nítida");
-      return;
-    }
-    setLocalError(
-      valid.length < files.length
-        ? "Se omitieron archivos que no son PDF o foto"
-        : null
-    );
-    onFactura(valid[0] ?? null);
+    applyIncoming(files, "factura");
   }
 
   function takeCertificados(files: File[]) {
+    applyIncoming(files, "cert");
+  }
+
+  function takeAmbos(files: File[]) {
+    applyIncoming(files, "ambos");
+  }
+
+  function applyIncoming(files: File[], prefer: "factura" | "cert" | "ambos") {
     const valid = files.filter(isPdfOrImageFile);
     if (valid.length === 0) {
-      setLocalError("Los certificados deben ser PDF o foto");
+      setLocalError("Usa PDF o una foto nítida");
       return;
     }
     setLocalError(
@@ -118,15 +116,21 @@ export function Step1UploadDocuments({
         ? "Se omitieron archivos que no son PDF o foto"
         : null
     );
-    const seen = new Set(certificados.map((file) => `${file.name}:${file.size}`));
-    const next = [...certificados];
-    for (const file of valid) {
-      const key = `${file.name}:${file.size}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      next.push(file);
+    const split = splitFacturaYCertificados(valid, prefer);
+    if (split.factura) onFactura(split.factura);
+    if (split.certificados.length > 0) {
+      const seen = new Set(
+        certificados.map((file) => `${file.name}:${file.size}`)
+      );
+      const next = [...certificados];
+      for (const file of split.certificados) {
+        const key = `${file.name}:${file.size}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push(file);
+      }
+      onCertificados(next);
     }
-    onCertificados(next);
   }
 
   return (
@@ -134,17 +138,28 @@ export function Step1UploadDocuments({
       <div>
         <h2 className="text-lg font-semibold text-zinc-50">Subir documentos</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Primero la factura y los certificados. Después extraemos los datos.
+          Sube la factura y, si la tienes, el certificado de origen. Extraemos
+          VIN, marca, modelo, color y motor.
         </p>
       </div>
 
       <aside className="rounded-xl border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100/90">
-        <p className="font-medium text-cyan-50">Varios vehículos en una factura</p>
+        <p className="font-medium text-cyan-50">Factura + certificado juntos</p>
         <p className="mt-0.5 text-cyan-200/80">
-          Un PDF (o foto) puede incluir de 1 a {VEHICLE_IMPORT_MAX} VIN. Sube un
-          certificado por cada vehículo.
+          Puedes elegir varios PDF a la vez. Un PDF puede traer de 1 a{" "}
+          {VEHICLE_IMPORT_MAX} VIN. El certificado completa el serial de motor.
         </p>
       </aside>
+
+      {!factura ? (
+        <FileDropZone
+          multiple
+          label="Arrastra o elige factura y certificado"
+          hint="Uno o varios PDF / fotos. El primero es la factura si el nombre no dice certificado."
+          disabled={extracting}
+          onFiles={takeAmbos}
+        />
+      ) : null}
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium text-zinc-300">Factura comercial</h3>
@@ -196,7 +211,7 @@ export function Step1UploadDocuments({
         ) : (
           <FileDropZone
             label="Arrastra o elige certificados"
-            hint="Uno o más PDF o fotos. Ideal: un certificado por VIN"
+            hint="Opcional. Completa motor y cruza el VIN. Puedes extraer solo con la factura."
             multiple
             disabled={extracting}
             onFiles={takeCertificados}
@@ -260,4 +275,29 @@ export function Step1UploadDocuments({
       </p>
     </div>
   );
+}
+
+function looksLikeCertificado(name: string): boolean {
+  return /certificado|origin|coo|origen/i.test(name);
+}
+
+function splitFacturaYCertificados(
+  files: File[],
+  prefer: "factura" | "cert" | "ambos"
+): { factura: File | null; certificados: File[] } {
+  if (prefer === "cert") {
+    return { factura: null, certificados: files };
+  }
+  if (prefer === "factura" && files.length === 1) {
+    return { factura: files[0] ?? null, certificados: [] };
+  }
+  const certificados: File[] = [];
+  const leftover: File[] = [];
+  for (const file of files) {
+    if (looksLikeCertificado(file.name)) certificados.push(file);
+    else leftover.push(file);
+  }
+  const factura = leftover[0] ?? null;
+  if (leftover.length > 1) certificados.push(...leftover.slice(1));
+  return { factura, certificados };
 }

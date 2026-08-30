@@ -12,7 +12,7 @@ export const maxDuration = 300;
 
 export default async function CargaMasivaPuertoLibrePage() {
   const user = await getUser();
-  if (!user) redirect("/login?next=/smartimport/carga-masiva");
+  if (!user) redirect("/smartimport/login?redirectTo=/smartimport/carga-masiva");
 
   const { taller, error } = await ensureTallerForUser(user.id);
   if (!taller) {

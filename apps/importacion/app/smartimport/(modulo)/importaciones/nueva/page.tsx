@@ -12,7 +12,9 @@ export const maxDuration = 300;
 
 export default async function NuevaImportacionPage() {
   const user = await getUser();
-  if (!user) redirect("/login?next=/smartimport/importaciones/nueva");
+  if (!user) {
+    redirect("/smartimport/login?redirectTo=/smartimport/importaciones/nueva");
+  }
 
   const { taller, error } = await ensureTallerForUser(user.id);
   if (!taller) {

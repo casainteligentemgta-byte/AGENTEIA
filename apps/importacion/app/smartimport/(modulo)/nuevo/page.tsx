@@ -28,7 +28,7 @@ async function loadVehiculosTaller(): Promise<NfcVehiculoOption[]> {
 
 export default async function NuevoPuertoLibrePage() {
   const user = await getUser();
-  if (!user) redirect("/login?next=/smartimport/nuevo");
+  if (!user) redirect("/smartimport/login?redirectTo=/smartimport/nuevo");
 
   const { taller, error } = await ensureTallerForUser(user.id);
   if (!taller) {

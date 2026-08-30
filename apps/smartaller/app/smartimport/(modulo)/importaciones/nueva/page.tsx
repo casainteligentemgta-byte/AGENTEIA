@@ -16,7 +16,9 @@ type Props = {
 
 export default async function NuevaImportacionPage({ searchParams }: Props) {
   const user = await getUser();
-  if (!user) redirect("/login?next=/smartimport/importaciones/nueva");
+  if (!user) {
+    redirect("/smartimport/login?redirectTo=/smartimport/importaciones/nueva");
+  }
 
   const params = await searchParams;
 
@@ -59,7 +61,7 @@ export default async function NuevaImportacionPage({ searchParams }: Props) {
         <RegistrarImportacionWizard
           initialImportadores={importadores}
           tallerId={taller.id}
-          startInMasiva={params.masiva !== "0"}
+          startInMasiva={params.masiva === "1"}
         />
       </div>
     </main>
