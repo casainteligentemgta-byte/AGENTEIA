@@ -169,6 +169,7 @@ export const VEHICLE_FIELD_COLS: VehicleFieldCol[] = [
   { key: "modelo", label: "Modelo" },
   { key: "color", label: "Color" },
   { key: "anio", label: "Año" },
+  { key: "valorCif", label: "CIF / veh." },
   { key: "serialMotor", label: "Serial motor", wide: true, code: true },
   { key: "vin", label: "VIN", wide: true, code: true },
   { key: "serialCarroceria", label: "Serial carrocería", wide: true, code: true },
@@ -184,6 +185,7 @@ const FIELD_INPUT_BASE =
 
 export function vehicleFieldHeaderClass(col: VehicleFieldCol): string {
   if (col.key === "anio") return "min-w-[4ch]";
+  if (col.key === "valorCif") return "min-w-[8ch]";
   if (col.key === "serialMotor") return "min-w-[24ch]";
   if (col.code) return "min-w-[17ch]";
   return "";
@@ -191,6 +193,7 @@ export function vehicleFieldHeaderClass(col: VehicleFieldCol): string {
 
 export function vehicleFieldInputSize(col: VehicleFieldCol): number | undefined {
   if (col.key === "anio") return ANIO_VISIBLE_CHARS;
+  if (col.key === "valorCif") return 8;
   if (col.key === "serialMotor") return SERIAL_MOTOR_VISIBLE_CHARS;
   if (col.code) return VIN_VISIBLE_CHARS;
   return undefined;
@@ -203,6 +206,8 @@ export function vehicleFieldInputClass(
   let base: string;
   if (col.key === "anio") {
     base = `${FIELD_INPUT_BASE} box-content w-[4ch] min-w-[4ch] max-w-[4ch] text-center font-mono text-[13px] tabular-nums`;
+  } else if (col.key === "valorCif") {
+    base = `${FIELD_INPUT_BASE} box-content w-[8ch] min-w-[8ch] max-w-[10ch] text-right font-mono text-[13px] tabular-nums`;
   } else if (col.key === "serialMotor") {
     base = `${FIELD_INPUT_BASE} box-content w-[24ch] min-w-[24ch] max-w-none font-mono text-[13px] tracking-tight`;
   } else if (col.code) {
