@@ -48,7 +48,7 @@ const LINE_RE = new RegExp(
 );
 
 const DESTINO_KNOWN_RE =
-  /\b(El Guamache|Guamache|La Guaira|Puerto Cabello|Guanta|Guamache Port)\b/i;
+  /\b((?:El\s+)?G[UÜ][A4]M[A4]CHE(?:\s+Port)?|La Guaira|Puerto Cabello|Guanta)\b/i;
 
 function titleColor(raw: string): string {
   return raw
@@ -124,8 +124,13 @@ export function parseCheryInvoiceHeader(text: string): CheryInvoiceHeader {
     consignatario = titleName(consRaw.replace(/[,;]+$/, ""));
   }
   if (!consignatario) {
-    const iksan = flat.match(/\b(IKSAN\s+MOTORS(?:\s*,?\s*S\.?\s*A\.?)?)\b/i);
-    if (iksan) consignatario = titleName(iksan[1]);
+    const iksan = flat.match(
+      /\b(I[K1]SAN\s+MOTORS(?:\s*,?\s*S\.?\s*A\.?)?)\b/i
+    );
+    if (iksan) consignatario = titleName(iksan[1].replace(/^I1/i, "Ik"));
+  }
+  if (consignatario) {
+    consignatario = consignatario.replace(/^I1ksan/i, "Iksan").replace(/^1ksan/i, "Iksan");
   }
 
   let rif: string | null = null;
@@ -139,7 +144,10 @@ export function parseCheryInvoiceHeader(text: string): CheryInvoiceHeader {
   let destino: string | null = null;
   const destKnown = flat.match(DESTINO_KNOWN_RE);
   if (destKnown) {
-    destino = titleName(destKnown[1].replace(/\s+Port$/i, ""));
+    const raw = destKnown[1].replace(/\s+Port$/i, "");
+    destino = /g[uü][a4]m[a4]che/i.test(raw)
+      ? "El Guamache"
+      : titleName(raw);
   } else {
     const destRaw = pickLabelValue(
       flat,
@@ -158,6 +166,10 @@ export function parseCheryInvoiceHeader(text: string): CheryInvoiceHeader {
   if (inv) {
     const cand = inv[1].replace(/[.,;]+$/, "");
     if (!/^(NO|NUMBER|DATE)$/i.test(cand)) numeroFactura = cand.toUpperCase();
+  }
+  if (!numeroFactura) {
+    const compactInv = flat.match(/\b(\d{4,6}-Z[A-Z0-9]{8,16})\b/i);
+    if (compactInv) numeroFactura = compactInv[1].toUpperCase();
   }
 
   let paisOrigen: string | null = null;

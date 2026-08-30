@@ -26,6 +26,7 @@ import {
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
 import {
+  extractInvoicePlainTextWithTesseract,
   extractVinsFromOcrText,
   extractVinsWithTesseract,
   extractVinsWithTesseractOriented,
@@ -1654,14 +1655,22 @@ async function extractFacturaLocalFromDocument(
         })
       : [buffer];
     if (pages.length === 0) return { shared: {}, vehiculos: [] };
+    const layoutText = pages[0]
+      ? await extractInvoicePlainTextWithTesseract(pages[0])
+      : "";
+    const chery = layoutText ? docFromCheryPlainText(layoutText) : null;
+    if (chery && chery.vehiculos.length >= 1) return chery;
     const tess = isPdf
       ? await extractVinsWithTesseract(pages)
       : await extractVinsWithTesseractOriented(pages[0]!);
-    const mav = parseMavHojaAnexaFromText(tess.fullText);
+    const combined = [layoutText, tess.fullText].filter(Boolean).join("\n");
+    const mav = parseMavHojaAnexaFromText(combined);
     if (mav && mav.vehiculos.length >= 1) {
-      return sanitizeFacturaMulti(mav);
+      return sanitizeFacturaMulti(mav, combined);
     }
-    if (tess.vins.length >= 1) return docFromLocalVins(tess.vins);
+    if (tess.vins.length >= 1) {
+      return sanitizeFacturaMulti(docFromLocalVins(tess.vins), combined);
+    }
   } catch {
     // vacío
   }
@@ -1784,8 +1793,16 @@ export async function extractFacturaMultiFromDocument(
       });
       if (pages.length > 0) {
         try {
+          const layoutText = await extractInvoicePlainTextWithTesseract(pages[0]!);
+          facturaPlainText = [facturaPlainText, layoutText].filter(Boolean).join("\n");
+          const fromLayout = docFromCheryPlainText(layoutText);
+          if (fromLayout && fromLayout.vehiculos.length > 0) {
+            candidates.push(fromLayout);
+          }
           const tess = await extractVinsWithTesseract(pages);
-          const chery = docFromCheryPlainText(tess.fullText);
+          const chery = docFromCheryPlainText(
+            [layoutText, tess.fullText].filter(Boolean).join("\n")
+          );
           if (chery && chery.vehiculos.length > 0) candidates.push(chery);
           if (tess.vins.length > 0) candidates.push(docFromLocalVins(tess.vins));
         } catch {
@@ -2031,6 +2048,19 @@ export async function extractFacturaVinsStageFromDocument(
     } else {
       diagnostics.push(`raster: ok ${pages.length} página(s)`);
 
+      try {
+        const layoutText = await extractInvoicePlainTextWithTesseract(page1);
+        rememberCheryLineas(layoutText, "tesseract-factura");
+        addVins(extractVinsFromOcrText(layoutText), "tesseract-factura");
+        diagnostics.push(
+          `tesseract-factura: ${layoutText.replace(/\s+/g, " ").trim().slice(0, 90)}`
+        );
+      } catch (err) {
+        diagnostics.push(
+          `tesseract-factura: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
+        );
+      }
+
       // Recortes: tabla completa primero (Code no siempre está en 19–35%).
       const cropSpecs = [
         { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
@@ -2103,13 +2133,19 @@ export async function extractFacturaVinsStageFromDocument(
         !visionCreditsBlocked &&
         vinSet.size < MULTI_VIN_TARGET;
 
-      // Tesseract + 1ª visión en paralelo (antes eran secuenciales y estallaban el timeout)
+      // Tesseract VIN (whitelist) solo si la factura completa no bastó.
+      const needVinTess = vinSet.size < MULTI_VIN_TARGET;
+      if (!needVinTess) {
+        diagnostics.push(
+          `tesseract-vin: omitido (factura completa ya tiene ${vinSet.size} VIN)`
+        );
+      }
       if (canVision && withinBudget(15_000)) {
         await Promise.all([
-          runTesseract(),
+          needVinTess ? runTesseract() : Promise.resolve(),
           fromImageList(page1, pageMime, "pagina-1", 32_000),
         ]);
-      } else {
+      } else if (needVinTess) {
         await runTesseract();
       }
 
@@ -2356,12 +2392,20 @@ export async function enrichFacturaRowsStageFromDocument(
         })
       : [buffer];
     if (pages[0]) {
+      const layoutText = await extractInvoicePlainTextWithTesseract(pages[0]);
+      invoiceTextBag = `${invoiceTextBag} ${layoutText}`.trim();
+      const fromLayout = docFromCheryPlainText(layoutText);
+      if (fromLayout && fromLayout.vehiculos.length > 0) {
+        candidates.push(fromLayout);
+      }
       const tess = isPdf
         ? await extractVinsWithTesseract(pages)
         : await extractVinsWithTesseractOriented(pages[0]!);
       invoiceTextBag = `${invoiceTextBag} ${tess.fullText}`.trim();
       enginePairs.push(...parseCertEngineNosFromText(tess.fullText));
-      const mav = parseMavHojaAnexaFromText(tess.fullText);
+      const mav = parseMavHojaAnexaFromText(
+        [layoutText, tess.fullText].filter(Boolean).join("\n")
+      );
       if (mav && mav.vehiculos.length > 0) {
         candidates.push(mav);
       }
