@@ -68,14 +68,13 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
     if (vin && motor) byVin.set(vin, motor);
   }
 
-  if (byVin.size === 0) {
-    const vins = collectVins(text);
-    const motors = [...compact.matchAll(ENGINE_LABELED_RE)]
-      .map((m) => plausibleMotor(m[1]))
-      .filter((m): m is string => Boolean(m));
-    if (vins.length > 0 && motors.length === vins.length) {
-      vins.forEach((vin, i) => byVin.set(vin, motors[i]!));
-    }
+  const vins = collectVins(text);
+  const motors = [...compact.matchAll(ENGINE_LABELED_RE)]
+    .map((m) => plausibleMotor(m[1]))
+    .filter((m): m is string => Boolean(m));
+  // Página 2 típica: lista de VIN y luego lista de ENGINE NO (mismo orden).
+  if (vins.length > 0 && motors.length === vins.length) {
+    vins.forEach((vin, i) => byVin.set(vin, motors[i]!));
   }
 
   return [...byVin.entries()].map(([vin, serialMotor]) => ({ vin, serialMotor }));

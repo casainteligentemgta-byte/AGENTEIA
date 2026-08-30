@@ -35,6 +35,7 @@ import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import { parseCertEngineNosFromText } from "@/lib/importacion/cert-engine-text";
 import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
+import { matchSerialKeyAmong } from "@/lib/importacion/serial-match";
 import { preferCompleteVin, salvageCheryVin } from "@/lib/importacion/vin-text";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
@@ -1085,7 +1086,7 @@ Responde SOLO JSON:
 /** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
 const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
 Facturas multi suelen traer varias unidades (p. ej. 8 vehículos): vehiculos.length debe coincidir con todas las filas visibles.
-También anota modelo y el color que está al lado del VIN, y el serial_motor si ves ENGINE No / Engine Serial.
+También anota modelo, el color que está al lado del VIN, y serial_motor si ves ENGINE No / Engine Serial.
 NO omitas filas del medio ni del final. Si hay 8 VIN, vehiculos.length debe ser 8; si hay 18, debe ser 18.
 Responde SOLO JSON:
 {
@@ -1094,6 +1095,7 @@ Responde SOLO JSON:
       "modelo": string|null,
       "color": string|null,
       "serial_carroceria": string|null,
+      "serial_motor": string|null,
       "valor_cif": number|null,
       "condicion": "nuevo",
       "kilometraje": 0
@@ -1862,8 +1864,8 @@ export async function extractFacturaVinsStageFromDocument(
   const vinSet = new Set<string>();
   const mavState: { rows: DocMultiExtracted | null } = { rows: null };
   let visionCreditsBlocked = false;
-  /** Facturas multi típicas (p. ej. 8 unidades Chery). */
-  const MULTI_VIN_TARGET = 8;
+  /** Lotes Chery/MAV suelen ser 8–18 unidades; 8 cortaba la visión demasiado pronto. */
+  const MULTI_VIN_TARGET = 20;
   /**
    * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
    * Devolver VIN parcial > quedar en 0 por timeout.
@@ -1875,7 +1877,7 @@ export async function extractFacturaVinsStageFromDocument(
 
   const cheryLineasByVin = new Map<
     string,
-    { modelo?: string; color?: string }
+    { modelo?: string; color?: string; serialMotor?: string }
   >();
 
   const addVins = (vins: string[], source: string) => {
@@ -1912,6 +1914,15 @@ export async function extractFacturaVinsStageFromDocument(
       cheryLineasByVin.set(r.vin, {
         modelo: r.modelo || prev.modelo,
         color: r.color || prev.color,
+        serialMotor: r.serialMotor || prev.serialMotor,
+      });
+    }
+    for (const pair of parseCertEngineNosFromText(text)) {
+      addVins([pair.vin], `${source}-engine`);
+      const prev = cheryLineasByVin.get(pair.vin) ?? {};
+      cheryLineasByVin.set(pair.vin, {
+        ...prev,
+        serialMotor: prev.serialMotor || pair.serialMotor,
       });
     }
   };
@@ -2174,6 +2185,22 @@ export async function extractFacturaVinsStageFromDocument(
         extracted.vehiculos.map((v) => v.serialCarroceria ?? v.vin ?? ""),
         "json-harvest"
       );
+      for (const v of extracted.vehiculos) {
+        const vin =
+          salvageCheryVin(v.serialCarroceria ?? v.vin) ??
+          compactSerial(v.serialCarroceria ?? v.vin ?? null);
+        if (!vin || vin.length < 11) continue;
+        const motor = v.serialMotor?.trim();
+        const prev = cheryLineasByVin.get(vin) ?? {};
+        cheryLineasByVin.set(vin, {
+          modelo: v.modelo || prev.modelo,
+          color: v.color || prev.color,
+          serialMotor:
+            motor && motor.toUpperCase() !== "POR-COMPLETAR"
+              ? motor
+              : prev.serialMotor,
+        });
+      }
     } catch (err) {
       noteVisionError("json-harvest", err);
     }
@@ -2217,6 +2244,12 @@ export async function extractFacturaVinsStageFromDocument(
         vin,
         modelo: v.modelo || extra?.modelo,
         color: v.color || extra?.color,
+        serialMotor:
+          extra?.serialMotor ||
+          (v.serialMotor?.toUpperCase() === "POR-COMPLETAR"
+            ? undefined
+            : v.serialMotor) ||
+          "POR-COMPLETAR",
       });
     }
     for (const vin of vinSet) {
@@ -2227,7 +2260,7 @@ export async function extractFacturaVinsStageFromDocument(
           sanitizeVehiculoRowLocal({
             serialCarroceria: vin,
             vin,
-            serialMotor: "POR-COMPLETAR",
+            serialMotor: extra?.serialMotor || "POR-COMPLETAR",
             condicion: "nuevo",
             kilometraje: "0",
             anio: anioFromVin(vin)?.toString(),
@@ -2254,7 +2287,7 @@ export async function extractFacturaVinsStageFromDocument(
     return sanitizeVehiculoRowLocal({
       serialCarroceria: vin,
       vin,
-      serialMotor: "POR-COMPLETAR",
+      serialMotor: extra?.serialMotor || "POR-COMPLETAR",
       condicion: "nuevo",
       kilometraje: "0",
       anio: anioFromVin(vin)?.toString(),
@@ -2293,9 +2326,19 @@ export async function enrichFacturaRowsStageFromDocument(
   const prompt = buildEnrichPrompt(knownVins.slice(0, 40));
   const candidates: DocMultiExtracted[] = [];
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  const enginePairs: { vin: string; serialMotor: string }[] = [];
 
   // OCR local primero (útil con OpenRouter sin créditos)
   try {
+    if (isPdf) {
+      try {
+        enginePairs.push(
+          ...parseCertEngineNosFromText(await getPdfPlainText(buffer))
+        );
+      } catch {
+        // raster / tesseract abajo
+      }
+    }
     const pages = isPdf
       ? await renderPdfPagesAsPng(buffer, {
           maxPages: PDF_RASTER_MAX_PAGES,
@@ -2306,6 +2349,7 @@ export async function enrichFacturaRowsStageFromDocument(
       const tess = isPdf
         ? await extractVinsWithTesseract(pages)
         : await extractVinsWithTesseractOriented(pages[0]!);
+      enginePairs.push(...parseCertEngineNosFromText(tess.fullText));
       const mav = parseMavHojaAnexaFromText(tess.fullText);
       if (mav && mav.vehiculos.length > 0) {
         candidates.push(mav);
@@ -2343,10 +2387,11 @@ export async function enrichFacturaRowsStageFromDocument(
     };
   }
 
-  const enriched = pickBestFacturaMulti(candidates);
+  const picked = pickBestFacturaMulti(candidates);
+  const enrichedVehiculos = applyCertEnginePairs(picked.vehiculos, enginePairs);
   // Asegurar que no se pierdan VIN de la etapa 1
   const byVin = new Map(
-    enriched.vehiculos
+    enrichedVehiculos
       .map((v) => {
         const vin = compactSerial(v.serialCarroceria ?? v.vin ?? null);
         return vin ? ([vin, v] as const) : null;
@@ -2372,7 +2417,7 @@ export async function enrichFacturaRowsStageFromDocument(
     );
   }
   return sanitizeFacturaMulti({
-    shared: enriched.shared,
+    shared: picked.shared,
     vehiculos: [...byVin.values()],
   });
 }
@@ -2433,12 +2478,15 @@ function applyCertEnginePairs(
 ): PuertoLibreRegistroScanFields[] {
   if (pairs.length === 0) return vehiculos;
   const next = [...vehiculos];
+  const used = new Set<number>();
   for (const pair of pairs) {
-    const idx = next.findIndex((v) => {
-      const key = certVinKey(v.serialCarroceria ?? v.vin);
-      return key && key === pair.vin;
-    });
+    const keys = next.map((v) => certVinKey(v.serialCarroceria ?? v.vin));
+    const matchedKey = matchSerialKeyAmong(pair.vin, keys);
+    const idx = matchedKey
+      ? keys.findIndex((k, i) => !used.has(i) && k === matchedKey)
+      : -1;
     if (idx >= 0) {
+      used.add(idx);
       const row = next[idx]!;
       const current = row.serialMotor?.trim().toUpperCase() ?? "";
       if (!current || current === "POR-COMPLETAR") {
@@ -2648,33 +2696,15 @@ export function pickCertificadoScanForVin(
   extracted: DocMultiExtracted,
   targetVin: string | null | undefined
 ): PuertoLibreRegistroScanFields {
-  const target = (targetVin ?? "")
-    .replace(/[^A-Za-z0-9]/g, "")
-    .toUpperCase();
-  const repairedTarget = /^LWV|^LV[WY]|^LYV|^LWW/.test(target)
-    ? `LVV${target.slice(3)}`
-    : target;
+  const repairedTarget = certVinKey(targetVin);
 
   let matched: PuertoLibreRegistroScanFields | undefined;
   if (repairedTarget && extracted.vehiculos.length > 0) {
-    const keys = extracted.vehiculos.map((v) => {
-      const raw = (v.serialCarroceria || v.vin || "")
-        .replace(/[^A-Za-z0-9]/g, "")
-        .toUpperCase();
-      return /^LWV|^LV[WY]|^LYV|^LWW/.test(raw) ? `LVV${raw.slice(3)}` : raw;
-    });
-
-    let idx = keys.findIndex((k) => k && k === repairedTarget);
-    if (idx < 0 && repairedTarget.length >= 11) {
-      const hits = keys
-        .map((k, i) => ({ k, i }))
-        .filter(
-          ({ k }) =>
-            k.length >= 11 &&
-            (k.startsWith(repairedTarget) || repairedTarget.startsWith(k))
-        );
-      if (hits.length === 1) idx = hits[0]!.i;
-    }
+    const keys = extracted.vehiculos.map((v) =>
+      certVinKey(v.serialCarroceria || v.vin)
+    );
+    const hit = matchSerialKeyAmong(repairedTarget, keys);
+    const idx = hit ? keys.findIndex((k) => k === hit) : -1;
     if (idx >= 0) matched = extracted.vehiculos[idx];
   }
 

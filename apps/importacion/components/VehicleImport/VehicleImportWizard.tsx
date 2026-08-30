@@ -22,7 +22,11 @@ import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import {
   formatCargaMasivaClientError,
 } from "@/lib/importacion/carga-masiva-client";
-import { normalizeSerialKey, resumenSemaforo } from "@/lib/importacion/carga-masiva-ui";
+import {
+  type CertMatch,
+  pickCertFileForSerial,
+  resumenSemaforo,
+} from "@/lib/importacion/carga-masiva-ui";
 import { runVehicleImportExtract } from "@/lib/importacion/vehicle-import-extract";
 import {
   clearVehicleImportDraft,
@@ -62,6 +66,7 @@ export function VehicleImportWizard({
   const [vinSources, setVinSources] = useState<
     Record<string, VinDocSources>
   >({});
+  const [certMatches, setCertMatches] = useState<CertMatch[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState<CargaMasivaEtapaProgress | null>(null);
@@ -162,7 +167,7 @@ export function VehicleImportWizard({
     if (!result.ok) {
       setError(formatCargaMasivaClientError(result.error));
       if (result.rows.length > 0) {
-        applyRows(result.rows, result.vinSources);
+        applyRows(result.rows, result.vinSources, result.certMatches);
       }
       return;
     }
@@ -182,7 +187,7 @@ export function VehicleImportWizard({
       );
       return;
     }
-    applyRows(result.rows, result.vinSources);
+    applyRows(result.rows, result.vinSources, result.certMatches);
     setFoundCount(result.rows.length);
     await new Promise((resolve) => setTimeout(resolve, 800));
     setStep(2);
@@ -191,7 +196,8 @@ export function VehicleImportWizard({
 
   function applyRows(
     next: CargaMasivaRow[],
-    sources: Record<string, VinDocSources> = {}
+    sources: Record<string, VinDocSources> = {},
+    matches: CertMatch[] = []
   ) {
     const keys: Record<string, string[]> = {};
     for (const row of next) {
@@ -200,6 +206,7 @@ export function VehicleImportWizard({
     setRows(next);
     setExtractedFieldKeys(keys);
     setVinSources(sources);
+    setCertMatches(matches);
   }
 
   function handleFieldChange(
@@ -282,15 +289,11 @@ export function VehicleImportWizard({
             fd.set("file", factura);
             await uploadPuertoLibreDocumentoAction(fd);
           }
-          const serial = normalizeSerialKey(created.serial);
-          const cert =
-            certificados.find((file) =>
-              normalizeSerialKey(file.name).includes(serial.slice(-6))
-            ) ??
-            (certificados.length === 1 ? certificados[0] : null) ??
-            (certificados.length === result.created.length
-              ? certificados[result.created.indexOf(created)]
-              : null);
+          const cert = pickCertFileForSerial(
+            created.serial,
+            certificados,
+            certMatches
+          );
           if (cert) {
             const fd = new FormData();
             fd.set("vehiculoId", created.vehiculoId);
