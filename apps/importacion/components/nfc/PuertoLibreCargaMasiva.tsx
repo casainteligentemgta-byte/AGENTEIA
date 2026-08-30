@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  FileText,
   FileUp,
   Loader2,
   Plus,
@@ -17,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
+import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import {
   createPuertoLibreCargaMasivaAction,
   extractCargaMasivaEtapaAction,
@@ -82,7 +84,9 @@ import {
 } from "@/lib/importacion/carga-masiva-client";
 import { createClient } from "@/lib/supabase/client";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import { IMPORTADOR_TIPO_LABELS, formatImportadorDocumentoLine } from "@/lib/schemas/importador";
+import { isPdfOrImageFile } from "@/lib/validations/vehicle-import";
 
 type Mode = "plantilla" | "documentos";
 
@@ -162,9 +166,11 @@ export function PuertoLibreCargaMasiva({
   const [etapasHechas, setEtapasHechas] = useState<Set<CargaMasivaEtapaId>>(
     () => new Set()
   );
+  const [blOcrPending, setBlOcrPending] = useState(false);
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
+  const blRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
   const initialRowsApplied = useRef(false);
   const initialDocsApplied = useRef(false);
@@ -499,6 +505,80 @@ export function PuertoLibreCargaMasiva({
       tipo: guessTipo(file.name),
     }));
     setDocs((prev) => [...prev, ...next].slice(0, 20));
+  }
+
+  async function handleBlFile(file: File | null) {
+    if (!file) return;
+    if (!isPdfOrImageFile(file)) {
+      setError("El BL debe ser PDF o una foto nítida");
+      return;
+    }
+    setError(null);
+    setBlOcrPending(true);
+    try {
+      const prepared =
+        file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+          ? file
+          : await normalizeImageFileForUpload(file);
+      const item: DocItem = {
+        id: `bl-${prepared.name}-${prepared.size}-${Date.now().toString(36)}`,
+        file: prepared,
+        tipo: "bl_guia",
+      };
+      setDocs((prev) => [...prev.filter((d) => d.tipo !== "bl_guia"), item]);
+
+      if (!tallerId) {
+        setError("No se pudo identificar el taller para subir el BL");
+        return;
+      }
+      const batchId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      const storageDocs = await uploadDocsToStorage([item], batchId);
+      const fd = new FormData();
+      fd.set("tipo", "bl_guia");
+      fd.set("storageDocs", JSON.stringify(storageDocs));
+      const result = await postSmartimportOcr(
+        "/api/smartimport/ocr-documento",
+        fd,
+        extractPuertoLibreDocumentoAction
+      );
+      if (!result.success) {
+        setError(
+          `${result.error} El archivo queda adjunto: escribe el nº de BL a mano.`
+        );
+        return;
+      }
+      const fields = result.fields;
+      const nextShared: SharedShipmentFields = {
+        ...shared,
+        numeroBl: fields.numeroBl?.trim() || shared.numeroBl,
+        fechaLlegadaBuque:
+          fields.fechaLlegadaBuque?.trim() || shared.fechaLlegadaBuque,
+        puerto: fields.puerto?.trim() || shared.puerto,
+        aduana: fields.aduana?.trim() || shared.aduana,
+        paisOrigen: fields.paisOrigen?.trim() || shared.paisOrigen,
+        modalidadTransito:
+          fields.modalidadTransito ?? shared.modalidadTransito,
+        aduanaTransito: fields.aduanaTransito?.trim() || shared.aduanaTransito,
+      };
+      setShared(nextShared);
+      const applied = applySharedShipmentToRows(rowsRef.current, nextShared);
+      rowsRef.current = applied;
+      setRows(applied);
+      setResultMsg(
+        fields.numeroBl?.trim()
+          ? `BL leído: ${fields.numeroBl.trim()}. El archivo se adjunta a los expedientes al registrar.`
+          : "BL guardado. No se pudo leer el número: escríbelo y aplica a todas."
+      );
+    } catch (err) {
+      setError(
+        `${formatCargaMasivaClientError(err)} El archivo queda adjunto: escribe el nº a mano.`
+      );
+    } finally {
+      setBlOcrPending(false);
+    }
   }
 
   async function uploadDocsToStorage(
@@ -1531,7 +1611,7 @@ export function PuertoLibreCargaMasiva({
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   />
                 </label>
-                <label className="block text-xs text-slate-400">
+                <div className="block text-xs text-slate-400">
                   Nº BL / guía
                   <input
                     type="text"
@@ -1539,13 +1619,53 @@ export function PuertoLibreCargaMasiva({
                     onChange={(e) =>
                       setShared((prev) => ({
                         ...prev,
-                        numeroBl: e.target.value,
+                        numeroBl: e.target.value.toUpperCase(),
                       }))
                     }
-                    placeholder="Ej. COSU123…"
-                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
+                    placeholder={
+                      blOcrPending ? "Leyendo nº BL del documento…" : "Ej. COSU123…"
+                    }
+                    disabled={blOcrPending}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 font-mono text-sm uppercase text-slate-100 disabled:opacity-70"
                   />
-                </label>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={blOcrPending || extractPending || importPending}
+                      onClick={() => blRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-medium text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50"
+                    >
+                      {blOcrPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      {blOcrPending ? "Leyendo…" : "PDF o foto"}
+                    </button>
+                    {docs.find((d) => d.tipo === "bl_guia") ? (
+                      <span className="flex min-w-0 items-center gap-1 text-[11px] text-emerald-300">
+                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {docs.find((d) => d.tipo === "bl_guia")?.file.name}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        Extrae el nº y se adjunta al registrar
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    ref={blRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      void handleBlFile(e.target.files?.[0] ?? null);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
                 <label className="block text-xs text-slate-400 sm:col-span-2 lg:col-span-3">
                   <span className="font-medium text-slate-300">
                     Puerto de descarga
@@ -1712,6 +1832,7 @@ export function PuertoLibreCargaMasiva({
                 disabled={
                   extractPending ||
                   importPending ||
+                  blOcrPending ||
                   (!shared.fechaLlegadaBuque.trim() &&
                     !shared.numeroBl.trim() &&
                     !shared.puerto.trim() &&
@@ -2054,6 +2175,7 @@ function scrollToCargaMasivaListado() {
 function guessTipo(name: string): DocItem["tipo"] {
   const n = name.toLowerCase();
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
+  if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
   return "factura_comercial";
 }
 
