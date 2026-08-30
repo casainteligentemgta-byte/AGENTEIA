@@ -88,7 +88,6 @@ import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import { IMPORTADOR_TIPO_LABELS, formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 import { isPdfOrImageFile } from "@/lib/validations/vehicle-import";
-import { FileDropZone } from "@/components/VehicleImport/FileDropZone";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
   modelosDeMarca,
@@ -604,26 +603,12 @@ export function PuertoLibreCargaMasiva({
 
   function handleDocsFiles(list: FileList | null) {
     if (!list?.length) return;
-    addTypedDocs(Array.from(list), null);
-  }
-
-  function addTypedDocs(
-    files: File[],
-    tipo: DocItem["tipo"] | null
-  ): DocItem[] {
-    const valid = files.filter(isPdfOrImageFile);
-    if (valid.length === 0) {
-      setError("Debe ser PDF o una foto nítida");
-      return [];
-    }
-    const next: DocItem[] = valid.map((file) => ({
+    const next: DocItem[] = Array.from(list).map((file) => ({
       id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
       file,
-      tipo: tipo ?? guessTipo(file.name),
+      tipo: guessTipo(file.name),
     }));
     setDocs((prev) => [...prev, ...next].slice(0, 20));
-    setError(null);
-    return next;
   }
 
   async function handleBlFile(file: File | null) {
@@ -887,19 +872,24 @@ export function PuertoLibreCargaMasiva({
     });
   }
 
-  function completarConCertificados(list: FileList | File[] | null) {
-    if (!list || ("length" in list && list.length === 0)) return;
-    const files = Array.from(list);
-    if (rowsRef.current.length === 0) {
-      addTypedDocs(files, "certificado_origen");
-      return;
-    }
+  function completarConCertificados(list: FileList | null) {
+    if (!list?.length) return;
     if (!tallerId) {
       setError("No se pudo identificar el taller para subir documentos");
       return;
     }
-    const certDocs = addTypedDocs(files, "certificado_origen");
-    if (certDocs.length === 0) return;
+    if (rowsRef.current.length === 0) {
+      setError(
+        "Primero extrae la factura (Extraer vehículos) para tener VIN. Luego añade certificados."
+      );
+      return;
+    }
+    const certDocs: DocItem[] = Array.from(list).map((file) => ({
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+      file,
+      tipo: "certificado_origen" as const,
+    }));
+    setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
     setError(null);
     setResultMsg(null);
     startExtractTransition(async () => {
@@ -1398,154 +1388,71 @@ export function PuertoLibreCargaMasiva({
             />
           </div>
         ) : (
-          <div className="space-y-4">
-            <section className="space-y-2">
-              <h3 className="text-sm font-medium text-zinc-300">
-                Factura comercial
-              </h3>
-              {docs.some((d) => d.tipo === "factura_comercial") ? (
-                <div className="flex items-start gap-2">
-                  <ul className="min-w-0 flex-1 space-y-2">
-                    {docs
-                      .filter((d) => d.tipo === "factura_comercial")
-                      .map((d) => (
-                        <li
-                          key={d.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-sm"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-cyan-50">
-                              {d.file.name}
-                            </span>
-                            <span className="text-xs text-cyan-200/70">
-                              {(d.file.size / 1024).toFixed(0)} KB
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDocs((prev) =>
-                                prev.filter((x) => x.id !== d.id)
-                              )
-                            }
-                            className="rounded-lg p-1 text-cyan-300/70 hover:bg-cyan-900/60 hover:text-red-300"
-                            aria-label={`Quitar ${d.file.name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                  <FileDropZone
-                    compact
-                    label="Agregar otro"
-                    disabled={pending}
-                    onFiles={(files) =>
-                      addTypedDocs(files, "factura_comercial")
-                    }
-                  />
-                </div>
-              ) : (
-                <FileDropZone
-                  label="Arrastra o elige la factura"
-                  hint="Un PDF (o foto) con uno o varios vehículos"
-                  disabled={pending}
-                  onFiles={(files) => addTypedDocs(files, "factura_comercial")}
-                />
-              )}
-            </section>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => docsRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4 shrink-0" />
+                Agregar PDF
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => certsRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4 shrink-0" />
+                Añadir certificados
+              </button>
+            </div>
 
-            <section className="space-y-2">
-              <h3 className="text-sm font-medium text-zinc-300">
-                Certificados de origen
-              </h3>
-              {docs.some((d) => d.tipo === "certificado_origen") ? (
-                <div className="flex items-start gap-2">
-                  <ul className="min-w-0 flex-1 space-y-2">
-                    {docs
-                      .filter((d) => d.tipo === "certificado_origen")
-                      .map((d) => (
-                        <li
-                          key={d.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-sm"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-cyan-50">
-                              {d.file.name}
-                            </span>
-                            <span className="text-xs text-cyan-200/70">
-                              {(d.file.size / 1024).toFixed(0)} KB
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDocs((prev) =>
-                                prev.filter((x) => x.id !== d.id)
-                              )
-                            }
-                            className="rounded-lg p-1 text-cyan-300/70 hover:bg-cyan-900/60 hover:text-red-300"
-                            aria-label={`Quitar ${d.file.name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                  <FileDropZone
-                    compact
-                    multiple
-                    label="Agregar otro"
-                    disabled={pending}
-                    onFiles={(files) => completarConCertificados(files)}
-                  />
-                </div>
-              ) : (
-                <FileDropZone
-                  label="Arrastra o elige certificados"
-                  hint="Uno o más PDF o fotos. Ideal: un certificado por VIN"
-                  multiple
-                  disabled={pending}
-                  onFiles={(files) => completarConCertificados(files)}
-                />
-              )}
-            </section>
-
-            {docs.some(
-              (d) =>
-                d.tipo !== "factura_comercial" &&
-                d.tipo !== "certificado_origen"
-            ) ? (
+            {docs.length > 0 ? (
               <ul className="space-y-2">
-                {docs
-                  .filter(
-                    (d) =>
-                      d.tipo !== "factura_comercial" &&
-                      d.tipo !== "certificado_origen"
-                  )
-                  .map((d) => (
-                    <li
-                      key={d.id}
-                      className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                      {d.file.name}
+                    </span>
+                    <select
+                      value={d.tipo}
+                      onChange={(e) =>
+                        setDocs((prev) =>
+                          prev.map((x) =>
+                            x.id === d.id
+                              ? {
+                                  ...x,
+                                  tipo: e.target.value as DocItem["tipo"],
+                                }
+                              : x
+                          )
+                        )
+                      }
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                        {d.file.name}
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        {d.tipo === "bl_guia" ? "BL / guía" : d.tipo}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDocs((prev) => prev.filter((x) => x.id !== d.id))
-                        }
-                        className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
-                        aria-label="Quitar documento"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </li>
-                  ))}
+                      <option value="factura_comercial">Factura</option>
+                      <option value="certificado_origen">
+                        Certificado origen
+                      </option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
+                      }
+                      className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
+                      aria-label="Quitar documento"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
               </ul>
             ) : null}
 
