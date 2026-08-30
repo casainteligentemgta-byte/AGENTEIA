@@ -296,10 +296,22 @@ export function assignEngineNosByRowOrder<T extends { serialMotor?: string }>(
  * Si esa página tiene pares, no mezclar con la carátula.
  */
 export function parseCertEngineNosFromPages(pages: string[]): CertEnginePair[] {
-  const page2 = pages[1]?.trim() ?? "";
-  if (page2) {
-    const fromPage2 = parseCertEngineNosFromText(page2);
-    if (fromPage2.length > 0) return fromPage2;
+  return harvestCertEnginesFromPages(pages).pairs;
+}
+
+/** Prefiere pág. 2; si no hay ENGINE No, busca en el resto del PDF. */
+export function harvestCertEnginesFromPages(pages: string[]): CertEngineHarvest {
+  if (!pages.length) return { pairs: [], motors: [] };
+  const page2 = harvestCertEnginesFromText(pages[1] ?? "");
+  if (page2.pairs.length > 0) return page2;
+  let best = page2;
+  for (let i = 0; i < pages.length; i++) {
+    if (i === 1) continue;
+    const harvested = harvestCertEnginesFromText(pages[i] ?? "");
+    if (scoreCertEngineHarvest(harvested) > scoreCertEngineHarvest(best)) {
+      best = harvested;
+    }
   }
-  return parseCertEngineNosFromText(pages.filter(Boolean).join("\n\n"));
+  if (best.pairs.length > 0 || best.motors.length > 0) return best;
+  return harvestCertEnginesFromText(pages.filter(Boolean).join("\n\n"));
 }

@@ -37,6 +37,7 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import {
+  harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   parseCertEngineNosFromText,
   scoreCertEngineHarvest,
@@ -2643,28 +2644,28 @@ async function harvestCertEngineNos(
 ): Promise<CertEngineHarvest> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const fast = Boolean(options?.rapido);
+
+  let pageTexts: string[] = [];
+  if (isPdf) {
+    try {
+      pageTexts = await getPdfPagePlainTexts(buffer);
+    } catch {
+      pageTexts = [];
+    }
+  }
+  const fromEmbedded = harvestCertEnginesFromPages(pageTexts);
+  // Extraer (certs): solo texto embebido. Tesseract de pág. 2 tarda 1–2 min.
+  if (fast) return fromEmbedded;
+  if (fromEmbedded.pairs.length > 0) return fromEmbedded;
+
   if (!isPdf) {
     try {
-      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer, {
-        fast,
-      });
+      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer);
       return harvestCertEnginesFromText(ocr);
     } catch {
       return emptyCertHarvest();
     }
   }
-
-  let embeddedPage2 = "";
-  try {
-    const pageTexts = await getPdfPagePlainTexts(buffer);
-    embeddedPage2 = pageTexts[1] ?? "";
-  } catch {
-    embeddedPage2 = "";
-  }
-  const fromEmbedded = harvestCertEnginesFromText(embeddedPage2);
-  // Si la pág. 2 ya trae VIN + ENGINE No, no rasterizar (eso traba Extraer).
-  if (fromEmbedded.pairs.length > 0) return fromEmbedded;
-  if (fast && fromEmbedded.motors.length > 0) return fromEmbedded;
 
   let fromOcr = emptyCertHarvest();
   try {

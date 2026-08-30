@@ -4,6 +4,7 @@ import {
   applyEngineNosByVin,
   assignEngineNosByRowOrder,
   collectEngineNosInOrder,
+  harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
@@ -162,5 +163,19 @@ describe("parseCertEngineNosFromText", () => {
     `);
     assert.equal(harvested.pairs.length, 2);
     assert.deepEqual(harvested.motors, ["SQRE4G15C1234567", "C16TD98765432"]);
+  });
+
+  it("si la pág. 2 está vacía, busca ENGINE No en otra página", () => {
+    const harvested = harvestCertEnginesFromPages([
+      "CERTIFICATE OF ORIGIN",
+      "",
+      `
+        VIN                 ENGINE NO
+        LVVDC21B5VD713650   SQRE4G15C1234567
+        LVVDB21B9VD812001   C16TD98765432
+      `,
+    ]);
+    assert.equal(harvested.pairs.length, 2);
+    assert.equal(harvested.pairs[0]?.serialMotor, "SQRE4G15C1234567");
   });
 });
