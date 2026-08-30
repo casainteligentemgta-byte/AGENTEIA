@@ -31,6 +31,7 @@ import {
 } from "@/lib/importacion/ocr-vin-tesseract";
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
+import { parseCertEngineNosFromText } from "@/lib/importacion/cert-engine-text";
 import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
 import { preferCompleteVin, salvageCheryVin } from "@/lib/importacion/vin-text";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
@@ -1164,6 +1165,7 @@ IMPORTANTE:
 - Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
+- ENGINE NO / Engine Serial suele estar en la PÁGINA 2 (hoja anexa o detalle). Lee esa página y empareja cada motor con su VIN.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -2459,11 +2461,61 @@ export async function extractBlMultiFromDocument(
   return { shared, vehiculos };
 }
 
+function certVinKey(raw: string | null | undefined): string {
+  return (
+    salvageCheryVin(raw) ??
+    (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase()
+  );
+}
+
+function applyCertEnginePairs(
+  vehiculos: PuertoLibreRegistroScanFields[],
+  pairs: { vin: string; serialMotor: string }[]
+): PuertoLibreRegistroScanFields[] {
+  if (pairs.length === 0) return vehiculos;
+  const next = [...vehiculos];
+  for (const pair of pairs) {
+    const idx = next.findIndex((v) => {
+      const key = certVinKey(v.serialCarroceria ?? v.vin);
+      return key && key === pair.vin;
+    });
+    if (idx >= 0) {
+      const row = next[idx]!;
+      const current = row.serialMotor?.trim().toUpperCase() ?? "";
+      if (!current || current === "POR-COMPLETAR") {
+        next[idx] = { ...row, serialMotor: pair.serialMotor };
+      }
+      continue;
+    }
+    next.push(
+      sanitizeVehiculoRowLocal({
+        serialCarroceria: pair.vin,
+        vin: pair.vin,
+        serialMotor: pair.serialMotor,
+        condicion: "nuevo",
+        kilometraje: "0",
+      })
+    );
+  }
+  return next;
+}
+
 export async function extractCertificadoOrigenMultiFromDocument(
   buffer: Buffer,
   mimeType: string,
   options?: { rapido?: boolean }
 ): Promise<DocMultiExtracted> {
+  const isPdf = mimeType.toLowerCase().includes("pdf");
+  let certPlain = "";
+  if (isPdf) {
+    try {
+      certPlain = await getPdfPlainText(buffer);
+    } catch {
+      certPlain = "";
+    }
+  }
+  const enginesFromText = parseCertEngineNosFromText(certPlain);
+
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
   if (isLlmConfigured()) {
@@ -2473,8 +2525,9 @@ export async function extractCertificadoOrigenMultiFromDocument(
         buffer,
         mimeType,
         maxTokens: options?.rapido ? 3500 : 4500,
-        maxTextChars: options?.rapido ? 16000 : 32000,
-        maxPdfPages: options?.rapido ? 1 : 6,
+        maxTextChars: 32000,
+        // Página 2 suele traer ENGINE No; nunca quedarse solo en la carátula.
+        maxPdfPages: options?.rapido ? 2 : 6,
         preferHighDetail: true,
       });
     } catch (err) {
@@ -2483,7 +2536,6 @@ export async function extractCertificadoOrigenMultiFromDocument(
 
     // Reintento: si el PDF es escaneado y el primer parse casi no detectó
     // seriales/motor (los campos quedan null), fuerza raster+visión.
-    const isPdf = mimeType.toLowerCase().includes("pdf");
     if (isPdf && !llmError) {
       const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
       const hasCritical = vehiculosRaw.some((v) => {
@@ -2496,15 +2548,20 @@ export async function extractCertificadoOrigenMultiFromDocument(
         const motor = pickSerialMotorRaw(v as Record<string, unknown>);
         return Boolean(vinOrChassis || motor);
       });
+      const hasMotor =
+        enginesFromText.length > 0 ||
+        vehiculosRaw.some((v) =>
+          Boolean(pickSerialMotorRaw(v as Record<string, unknown>))
+        );
 
-      if (!hasCritical) {
+      if (!hasCritical || !hasMotor) {
         parsed = await createDocumentJsonCompletion({
           prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
           buffer,
           mimeType,
           maxTokens: options?.rapido ? 3500 : 4500,
-          maxTextChars: options?.rapido ? 16000 : 32000,
-          maxPdfPages: options?.rapido ? 1 : 6,
+          maxTextChars: 32000,
+          maxPdfPages: options?.rapido ? 2 : 6,
           preferHighDetail: true,
           forceRasterVision: true,
         });
@@ -2594,17 +2651,29 @@ export async function extractCertificadoOrigenMultiFromDocument(
     }
   }
 
-  vehiculos = dedupeVehiculosBySerial(vehiculos);
+  vehiculos = applyCertEnginePairs(
+    dedupeVehiculosBySerial(vehiculos),
+    enginesFromText
+  );
   if (vehiculos.length === 0) {
     const local = await extractFacturaLocalFromDocument(buffer, mimeType);
     if (local.vehiculos.length > 0) {
       return {
         shared: { ...local.shared, ...shared },
-        vehiculos: local.vehiculos.map((v) => ({
-          ...v,
-          numeroCertificadoOrigen:
-            shared.numeroCertificadoOrigen ?? v.numeroCertificadoOrigen,
-        })),
+        vehiculos: applyCertEnginePairs(
+          local.vehiculos.map((v) => ({
+            ...v,
+            numeroCertificadoOrigen:
+              shared.numeroCertificadoOrigen ?? v.numeroCertificadoOrigen,
+          })),
+          enginesFromText
+        ),
+      };
+    }
+    if (enginesFromText.length > 0) {
+      return {
+        shared,
+        vehiculos: applyCertEnginePairs([], enginesFromText),
       };
     }
     if (llmError) throw llmError;
