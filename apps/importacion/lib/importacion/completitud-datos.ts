@@ -25,10 +25,22 @@ export type CompletitudDatos = {
 
 const PLACEHOLDER_RE = /^(POR-COMPLETAR|N\/?A|S\/?D|-)?$/i;
 
+/** OCR de factura a veces pone el tipo de carrocería en vez del modelo comercial. */
+const GENERIC_MODELO_RE =
+  /^(PASSENGER(\s*CAR)?|SUV|SEDAN|HATCHBACK|PICK[\s-]?UP|TRUCK|VAN|MPV|CROSSOVER|COUPE|COUPÉ|WAGON|AUTOMOVIL|AUTOM[OÓ]VIL|VEH[IÍ]CULO|VEHICLE|CARRO|CAR)$/i;
+
+export function isGenericModelo(value: string | null | undefined): boolean {
+  return GENERIC_MODELO_RE.test((value ?? "").trim());
+}
+
 export function isPlaceholderDato(value: string | null | undefined): boolean {
   const v = (value ?? "").trim();
   if (!v) return true;
   return PLACEHOLDER_RE.test(v);
+}
+
+export function isModeloPendiente(value: string | null | undefined): boolean {
+  return isPlaceholderDato(value) || isGenericModelo(value);
 }
 
 /** True solo si el texto visible es el marcador POR-COMPLETAR (para pintar en rojo). */
@@ -40,7 +52,7 @@ export function isPorCompletarText(value: string | null | undefined): boolean {
 export function porCompletarTextClass(
   value: string | null | undefined
 ): string {
-  return isPorCompletarText(value)
+  return isPorCompletarText(value) || isGenericModelo(value)
     ? "text-red-400 border-red-800/70 focus:border-red-500/60"
     : "";
 }
@@ -93,7 +105,7 @@ export function computeCompletitudDatos(
   else if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) criticos.push("VIN");
 
   if (isPlaceholderDato(input.marca)) criticos.push("marca");
-  if (isPlaceholderDato(input.modelo)) criticos.push("modelo");
+  if (isModeloPendiente(input.modelo)) criticos.push("modelo");
 
   if (isPlaceholderDato(input.serialMotor)) medios.push("motor");
   if (isPlaceholderDato(input.color)) medios.push("color");

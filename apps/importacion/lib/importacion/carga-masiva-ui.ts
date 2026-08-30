@@ -280,7 +280,7 @@ const STICKY_INDEX_SHADOW = "shadow-[2px_0_6px_rgba(0,0,0,0.45)]";
 
 /** Cabecera de la columna # fija al desplazar la tabla en horizontal (Safari/iOS). */
 export function cargaMasivaStickyIndexHeadClass(): string {
-  return `sticky left-0 z-30 min-w-[2.75rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
+  return `sticky left-0 z-30 min-w-[4.25rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
 }
 
 /** Celda # con fondo opaco según semáforo (sticky requiere color sólido). */
@@ -288,7 +288,7 @@ export function cargaMasivaStickyIndexCellClass(
   nivel: SemaforoNivel,
   hasError: boolean
 ): string {
-  const base = `sticky left-0 z-20 min-w-[2.75rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
+  const base = `sticky left-0 z-20 min-w-[4.25rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
   if (hasError || nivel === "rojo") return `${base} bg-red-950 text-slate-200`;
   if (nivel === "ambar") return `${base} bg-amber-950 text-slate-200`;
   return `${base} bg-slate-950 text-slate-400`;
@@ -368,6 +368,19 @@ function isBlankTech(value: string | null | undefined): boolean {
   return !String(value ?? "").trim() || isPlaceholderDato(value);
 }
 
+export type ApplySharedRowOptions = {
+  force?: boolean;
+  /** Si se indica, solo toca esas filas. */
+  ids?: readonly string[] | ReadonlySet<string>;
+};
+
+function rowIdsFilter(
+  ids?: readonly string[] | ReadonlySet<string>
+): Set<string> | null {
+  if (!ids) return null;
+  return ids instanceof Set ? ids : new Set(ids);
+}
+
 /**
  * Aplica condición / combustible / cilindrada a todas las filas del lote.
  * Campos vacíos en `tech` no se tocan.
@@ -376,16 +389,18 @@ function isBlankTech(value: string | null | undefined): boolean {
 export function applySharedLoteTechToRows(
   rows: CargaMasivaRow[],
   tech: SharedLoteTechFields,
-  options?: { force?: boolean }
+  options?: ApplySharedRowOptions
 ): CargaMasivaRow[] {
   const cond = tech.condicion;
   const fuel = tech.tipoCombustible;
   const cc = tech.cilindradaCc.trim().replace(/[^\d]/g, "");
   const force = options?.force ?? tech.sobrescribir;
+  const only = rowIdsFilter(options?.ids);
 
   if (!cond && !fuel && !cc) return rows;
 
   return rows.map((r) => {
+    if (only && !only.has(r.id)) return r;
     const next: CargaMasivaRow = { ...r, error: null };
 
     if (cond && (force || isBlankTech(r.condicion))) {
@@ -530,9 +545,10 @@ export function rifCoincideConSeleccionado(
 export function applySharedShipmentToRows(
   rows: CargaMasivaRow[],
   shared: SharedShipmentFields,
-  options?: { force?: boolean }
+  options?: ApplySharedRowOptions
 ): CargaMasivaRow[] {
   const force = options?.force ?? shared.sobrescribir;
+  const only = rowIdsFilter(options?.ids);
   const fecha = shared.fechaLlegadaBuque.trim();
   const puerto = shared.puerto.trim();
   const modalidad = shared.modalidadTransito;
@@ -556,6 +572,7 @@ export function applySharedShipmentToRows(
   }
 
   return rows.map((r) => {
+    if (only && !only.has(r.id)) return r;
     const next: CargaMasivaRow = { ...r, error: null };
 
     if (fecha && (force || isBlankTech(r.fechaLlegadaBuque))) {

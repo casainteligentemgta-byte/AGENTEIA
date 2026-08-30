@@ -175,7 +175,27 @@ export const VEHICULO_COLORES = [
 export const VEHICULO_CATALOGO_OTRA = "__otra__";
 
 export function modelosDeMarca(marca: string): string[] {
-  return VEHICULO_MARCAS_MODELOS[marca] ?? [];
+  const resolved = resolveMarcaCatalogo(marca);
+  return (resolved && VEHICULO_MARCAS_MODELOS[resolved]) || [];
+}
+
+/** Empareja «CHERY», «Chery Automobile», etc. con el catálogo. */
+export function resolveMarcaCatalogo(marca: string): string | null {
+  const trimmed = marca.trim();
+  if (!trimmed) return null;
+  const exact = VEHICULO_MARCAS.find((item) => item === trimmed);
+  if (exact) return exact;
+  const folded = trimmed.toLocaleLowerCase("es");
+  const ci = VEHICULO_MARCAS.find(
+    (item) => item.toLocaleLowerCase("es") === folded
+  );
+  if (ci) return ci;
+  return (
+    VEHICULO_MARCAS.find((item) => {
+      const name = item.toLocaleLowerCase("es");
+      return folded.includes(name) || name.includes(folded);
+    }) ?? null
+  );
 }
 
 export function aniosVehiculoCatalogo(anioMax = new Date().getFullYear() + 1): number[] {

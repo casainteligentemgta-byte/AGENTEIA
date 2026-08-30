@@ -88,6 +88,18 @@ import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import { IMPORTADOR_TIPO_LABELS, formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 import { isPdfOrImageFile } from "@/lib/validations/vehicle-import";
+import { isGenericModelo } from "@/lib/importacion/completitud-datos";
+import {
+  modelosDeMarca,
+  resolveMarcaCatalogo,
+} from "@/lib/importacion/vehiculo-catalog";
+import {
+  CargaMasivaBulkModelo,
+  CargaMasivaColorCell,
+  CargaMasivaMarcaCell,
+  CargaMasivaModeloCell,
+  CargaMasivaSelectAllCheckbox,
+} from "@/components/nfc/CargaMasivaCatalogCell";
 
 type Mode = "plantilla" | "documentos";
 
@@ -139,6 +151,7 @@ export function PuertoLibreCargaMasiva({
   const [loteTech, setLoteTech] = useState<SharedLoteTechFields>({
     ...EMPTY_SHARED_LOTE_TECH,
   });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detectedImportador, setDetectedImportador] = useState<DetectedImportador>(
     { ...EMPTY_DETECTED_IMPORTADOR }
   );
@@ -315,6 +328,32 @@ export function PuertoLibreCargaMasiva({
     );
   }, [detectedImportador.documento, selected, trustWizardImportador]);
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const targetIds = useMemo(
+    () => (selectedIds.length > 0 ? selectedIds : rows.map((r) => r.id)),
+    [rows, selectedIds]
+  );
+  const marcaComunSeleccion = useMemo(() => {
+    const source =
+      selectedIds.length > 0
+        ? rows.filter((r) => selectedIdSet.has(r.id))
+        : rows;
+    const keys = new Set<string>();
+    for (const r of source) {
+      const key = resolveMarcaCatalogo(r.marca) || r.marca.trim();
+      if (key) keys.add(key);
+    }
+    return keys.size === 1 ? [...keys][0]! : null;
+  }, [rows, selectedIdSet, selectedIds.length]);
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.length === 0) return prev;
+      const valid = new Set(rows.map((r) => r.id));
+      const next = prev.filter((id) => valid.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [rows]);
+
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
   const incompleteCount = useMemo(
     () => rows.filter((r) => !vehicleCompleteness(r).complete).length,
@@ -380,8 +419,47 @@ export function PuertoLibreCargaMasiva({
     );
   }
 
+  function updateRows(ids: string[], key: keyof CargaMasivaRow, value: string) {
+    const only = new Set(ids);
+    setRows((prev) =>
+      prev.map((r) =>
+        only.has(r.id) ? { ...r, [key]: value, error: null } : r
+      )
+    );
+  }
+
+  function updateRowMarca(id: string, marca: string) {
+    const resolved = resolveMarcaCatalogo(marca) ?? marca;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const modelo = r.modelo.trim();
+        const catalog = modelosDeMarca(resolved);
+        const keep =
+          Boolean(modelo) &&
+          !isGenericModelo(modelo) &&
+          (catalog.length === 0 ||
+            catalog.some((m) => m.toLowerCase() === modelo.toLowerCase()));
+        return {
+          ...r,
+          marca: resolved,
+          modelo: keep ? r.modelo : "",
+          error: null,
+        };
+      })
+    );
+  }
+
+  function toggleRowSelected(id: string, next: boolean) {
+    setSelectedIds((prev) => {
+      if (next) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((item) => item !== id);
+    });
+  }
+
   function removeRow(id: string) {
     setRows((prev) => prev.filter((r) => r.id !== id));
+    setSelectedIds((prev) => prev.filter((item) => item !== id));
   }
 
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
@@ -1896,18 +1974,24 @@ export function PuertoLibreCargaMasiva({
                     !shared.tasaCambioBcv.trim())
                 }
                 onClick={() => {
+                  const ids =
+                    selectedIds.length > 0 ? selectedIds : undefined;
                   const next = applySharedShipmentToRows(rows, shared, {
                     force: true,
+                    ids,
                   });
                   rowsRef.current = next;
                   setRows(next);
+                  const n = ids?.length ?? next.length;
                   setResultMsg(
-                    `Datos de embarque aplicados a ${next.length} vehículo${next.length === 1 ? "" : "s"}.`
+                    `Datos de embarque aplicados a ${n} vehículo${n === 1 ? "" : "s"}.`
                   );
                 }}
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
               >
-                Aplicar a todas ({rows.length})
+                {selectedIds.length > 0
+                  ? `Aplicar a seleccionadas (${selectedIds.length})`
+                  : `Aplicar a todas (${rows.length})`}
               </button>
             </div>
           ) : null}
@@ -1918,8 +2002,9 @@ export function PuertoLibreCargaMasiva({
                 Datos técnicos del lote
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Aplica condición, combustible y cilindrada a las {rows.length}{" "}
-                fila{rows.length === 1 ? "" : "s"} (típico en facturas multi Chery).
+                Aplica condición, combustible y cilindrada a las filas
+                seleccionadas o, si no hay selección, a las {rows.length}{" "}
+                fila{rows.length === 1 ? "" : "s"}.
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label className="block text-xs text-slate-400">
@@ -1989,19 +2074,68 @@ export function PuertoLibreCargaMasiva({
                     !loteTech.cilindradaCc.trim())
                 }
                 onClick={() => {
+                  const ids =
+                    selectedIds.length > 0 ? selectedIds : undefined;
                   const next = applySharedLoteTechToRows(rows, loteTech, {
                     force: true,
+                    ids,
                   });
                   rowsRef.current = next;
                   setRows(next);
+                  const n = ids?.length ?? next.length;
                   setResultMsg(
-                    `Datos técnicos aplicados a ${next.length} vehículo${next.length === 1 ? "" : "s"}.`
+                    `Datos técnicos aplicados a ${n} vehículo${n === 1 ? "" : "s"}.`
                   );
                 }}
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
               >
-                Aplicar a todas ({rows.length})
+                {selectedIds.length > 0
+                  ? `Aplicar a seleccionadas (${selectedIds.length})`
+                  : `Aplicar a todas (${rows.length})`}
               </button>
+            </div>
+          ) : null}
+
+          {rows.length > 0 ? (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <p className="text-sm font-medium text-slate-200">
+                Selección y modelo
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Marca todas o algunas filas. El modelo sale del catálogo de esa
+                marca; serial motor, VIN y carrocería se escriben a mano en cada
+                fila.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(rows.map((r) => r.id))}
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+                >
+                  Seleccionar todas ({rows.length})
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => setSelectedIds([])}
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Ninguna
+                </button>
+                <span className="text-xs text-slate-400">
+                  {selectedIds.length > 0
+                    ? `${selectedIds.length} seleccionada${selectedIds.length === 1 ? "" : "s"}`
+                    : "Sin selección: se aplican a todas"}
+                </span>
+              </div>
+              <div className="mt-3">
+                <CargaMasivaBulkModelo
+                  marcaComun={marcaComunSeleccion}
+                  applyCount={targetIds.length}
+                  onApply={(modelo) => updateRows(targetIds, "modelo", modelo)}
+                  onClear={() => updateRows(targetIds, "modelo", "")}
+                />
+              </div>
             </div>
           ) : null}
 
@@ -2012,7 +2146,22 @@ export function PuertoLibreCargaMasiva({
             <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
-                  <th className={cargaMasivaStickyIndexHeadClass()}>#</th>
+                  <th className={cargaMasivaStickyIndexHeadClass()}>
+                    <div className="flex flex-col items-center gap-1">
+                      <CargaMasivaSelectAllCheckbox
+                        all={rows.length > 0 && selectedIds.length === rows.length}
+                        some={
+                          selectedIds.length > 0 &&
+                          selectedIds.length < rows.length
+                        }
+                        onToggle={(next) =>
+                          setSelectedIds(next ? rows.map((r) => r.id) : [])
+                        }
+                        label="Seleccionar todas las filas"
+                      />
+                      <span>#</span>
+                    </div>
+                  </th>
                   <th className="px-2 py-2 font-medium">Estado</th>
                   {VEHICLE_FIELD_COLS.map((c) => (
                     <th
@@ -2034,15 +2183,30 @@ export function PuertoLibreCargaMasiva({
                       : sem.nivel === "ambar"
                         ? "border-t border-amber-900/30 bg-amber-950/10"
                         : "border-t border-slate-800/80";
+                  const isSelected = selectedIdSet.has(row.id);
                   return (
-                    <tr key={row.id} className={rowTone}>
+                    <tr
+                      key={row.id}
+                      className={`${rowTone}${isSelected ? " ring-1 ring-inset ring-cyan-500/25" : ""}`}
+                    >
                       <td
                         className={cargaMasivaStickyIndexCellClass(
                           sem.nivel,
                           Boolean(row.error)
                         )}
                       >
-                        {idx + 1}
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) =>
+                              toggleRowSelected(row.id, e.target.checked)
+                            }
+                            aria-label={`Seleccionar fila ${idx + 1}`}
+                            className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-cyan-500 accent-cyan-400"
+                          />
+                          {idx + 1}
+                        </div>
                         {row.error ? (
                           <p className="mt-1 max-w-[7rem] text-[10px] text-red-300">
                             {row.error}
@@ -2105,7 +2269,27 @@ export function PuertoLibreCargaMasiva({
                             c.code ? "whitespace-nowrap" : ""
                           } ${vehicleFieldHeaderClass(c)}`}
                         >
-                          {c.key === "condicion" ? (
+                          {c.key === "marca" ? (
+                            <CargaMasivaMarcaCell
+                              value={String(row.marca ?? "")}
+                              onChange={(next) => updateRowMarca(row.id, next)}
+                            />
+                          ) : c.key === "modelo" ? (
+                            <CargaMasivaModeloCell
+                              marca={String(row.marca ?? "")}
+                              value={String(row.modelo ?? "")}
+                              onChange={(next) =>
+                                updateRow(row.id, "modelo", next)
+                              }
+                            />
+                          ) : c.key === "color" ? (
+                            <CargaMasivaColorCell
+                              value={String(row.color ?? "")}
+                              onChange={(next) =>
+                                updateRow(row.id, "color", next)
+                              }
+                            />
+                          ) : c.key === "condicion" ? (
                             (() => {
                               const esSub = (row.esSubasta ?? "")
                                 .toLowerCase()
