@@ -13,9 +13,9 @@ export const CARGA_MASIVA_ETAPA_LABELS: Record<CargaMasivaEtapaId, string> = {
 };
 
 export const CARGA_MASIVA_ETAPA_HINTS: Record<CargaMasivaEtapaId, string> = {
-  vins: "El servidor está leyendo los VIN. El celular solo consulta el estado.",
-  datos: "Completando modelo, color y precios en el servidor…",
-  certs: "Aplicando certificados de origen y BL en el servidor…",
+  vins: "OCR (Tesseract) + IA (Gemini) leyendo VIN de la factura.",
+  datos: "IA completando modelo, color, CIF e importador.",
+  certs: "OCR + IA del certificado: serial motor y cruce por VIN.",
 };
 
 export type CargaMasivaEtapaProgress = {

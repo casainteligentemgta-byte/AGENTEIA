@@ -190,6 +190,7 @@ export function PuertoLibreCargaMasiva({
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
+  const extraerAhoraRef = useRef<HTMLInputElement>(null);
   const blRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
   const initialRowsApplied = useRef(false);
@@ -611,18 +612,35 @@ export function PuertoLibreCargaMasiva({
     }
   }
 
+  function mergeIncomingDocs(incoming: DocItem[]): DocItem[] {
+    const seen = new Set(docs.map((d) => `${d.file.name}:${d.file.size}`));
+    const extra = incoming.filter(
+      (d) => !seen.has(`${d.file.name}:${d.file.size}`)
+    );
+    return [...docs, ...extra].slice(0, 20);
+  }
+
   function handleDocsFiles(list: FileList | null) {
     if (!list?.length) return;
     const next = assignDocTipos(Array.from(list));
-    setDocs((prev) => [...prev, ...next].slice(0, 20));
+    const merged = mergeIncomingDocs(next);
+    setDocs(merged);
     setError(null);
-    const hasFactura = next.some((d) => d.tipo === "factura_comercial");
-    const hasCert = next.some((d) => d.tipo === "certificado_origen");
+    const hasFactura = merged.some((d) => d.tipo === "factura_comercial");
+    const hasCert = merged.some((d) => d.tipo === "certificado_origen");
     if (hasFactura && hasCert) {
       setResultMsg(
-        "Factura y certificado listos. Pulsa Extraer vehículos: se leen juntos (VIN y luego motor)."
+        "Factura y certificado listos. Pulsa Extraer vehículos: OCR + IA leen ambos."
       );
     }
+  }
+
+  function handleCargarYExtraer(list: FileList | null) {
+    if (!list?.length) return;
+    const merged = mergeIncomingDocs(assignDocTipos(Array.from(list)));
+    setDocs(merged);
+    setError(null);
+    extractDocs(merged);
   }
 
   async function handleBlFile(file: File | null) {
@@ -737,8 +755,9 @@ export function PuertoLibreCargaMasiva({
     return allRefs.filter((r) => r.tipo === "factura_comercial");
   }
 
-  function extractDocs() {
-    if (docs.length === 0) {
+  function extractDocs(overrideDocs?: DocItem[]) {
+    const items = overrideDocs ?? docs;
+    if (items.length === 0) {
       setError("Agrega al menos un PDF o foto");
       return;
     }
@@ -753,7 +772,7 @@ export function PuertoLibreCargaMasiva({
     setActiveEtapa(null);
     setEtapasHechas(new Set());
 
-    const hasCertOrBl = docs.some(
+    const hasCertOrBl = items.some(
       (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
     );
     const etapas: CargaMasivaEtapaId[] = hasCertOrBl
@@ -780,7 +799,7 @@ export function PuertoLibreCargaMasiva({
         let lastCertMatches: CertMatch[] = [];
 
         try {
-        const allStorageDocs = await uploadDocsToStorage(docs, batchId);
+        const allStorageDocs = await uploadDocsToStorage(items, batchId);
 
         for (let i = 0; i < etapas.length; i++) {
           const etapa = etapas[i]!;
@@ -1424,10 +1443,20 @@ export function PuertoLibreCargaMasiva({
               </button>
             </div>
             <p className="text-xs leading-5 text-slate-400">
-              Puedes cargar factura y certificado de origen a la vez (elige varios
-              PDF). Luego Extraer vehículos lee ambos: VIN de la factura y motor
-              del certificado. No hace falta extraer primero.
+              Carga el PDF de la factura y el del certificado (varios a la vez).
+              Extraer usa OCR local y Gemini: VIN/modelo/color de la factura y
+              serial de motor del certificado.
             </p>
+
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => extraerAhoraRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+            >
+              <FileUp className="h-4 w-4 shrink-0" />
+              Cargar PDFs y extraer
+            </button>
 
             {docs.length > 0 ? (
               <ul className="space-y-2">
@@ -1489,8 +1518,8 @@ export function PuertoLibreCargaMasiva({
               <button
                 type="button"
                 disabled={importPending || docs.length === 0}
-                onClick={extractDocs}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                onClick={() => extractDocs()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-4 py-2.5 text-sm font-medium text-cyan-50 hover:bg-cyan-900/40 disabled:opacity-50"
               >
                 <FileUp className="h-4 w-4 shrink-0" />
                 Extraer vehículos
@@ -1530,6 +1559,17 @@ export function PuertoLibreCargaMasiva({
               className="hidden"
               onChange={(e) => {
                 completarConCertificados(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={extraerAhoraRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                handleCargarYExtraer(e.target.files);
                 e.target.value = "";
               }}
             />

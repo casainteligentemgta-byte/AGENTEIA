@@ -40,7 +40,7 @@ type MasivaDocSeed = {
 export function RegistrarImportacionWizard({
   initialImportadores,
   tallerId,
-  startInMasiva = false,
+  startInMasiva = true,
 }: Props) {
   const [step, setStep] = useState<Step>("cliente");
   const [mode, setMode] = useState<"buscar" | "nuevo">("buscar");
