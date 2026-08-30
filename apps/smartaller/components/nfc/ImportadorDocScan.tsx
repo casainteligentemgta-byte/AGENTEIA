@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import {
-  Camera,
   CheckCircle2,
-  IdCard,
-  Images,
+  FileText,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { extractImportadorDocumentoAction } from "@/app/actions/nfc/importador-extract";
 import type { ImportadorScanFields } from "@/lib/extract-identidad-ve";
@@ -56,6 +55,7 @@ function ScanChip({
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(existingUrl ?? null);
+  const [over, setOver] = useState(false);
 
   useEffect(() => {
     setUrl(existingUrl ?? null);
@@ -93,32 +93,34 @@ function ScanChip({
 
   const loaded = Boolean(url);
 
+  function onDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setOver(false);
+    if (pending) return;
+    handleFile(event.dataTransfer.files?.[0] ?? null);
+  }
+
   return (
-    <div
-      className={`rounded-xl border border-dashed p-3 ${
-        doneMsg || loaded
-          ? "border-emerald-700/50 bg-emerald-950/20"
-          : "border-slate-700 bg-slate-900/50"
-      }`}
-    >
-      <p className="flex items-center gap-2 text-sm font-medium text-slate-100">
-        {tipoDoc === "rif" ? (
-          <IdCard className="h-4 w-4 shrink-0 text-cyan-400" />
-        ) : (
-          <Camera className="h-4 w-4 shrink-0 text-cyan-400" />
-        )}
-        {label}
-      </p>
-      <p className="mt-0.5 text-[11px] text-zinc-500">{hint}</p>
-      {doneMsg ? (
-        <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-400">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          {doneMsg}
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-[#e9edef]">{label}</p>
+      <div
+        className={`rounded-2xl border border-dashed px-4 py-6 text-center ${
+          doneMsg || loaded
+            ? "border-emerald-700/50 bg-emerald-950/20"
+            : over
+              ? "border-cyan-400 bg-cyan-950/30"
+              : "border-slate-600 bg-[#070f16]"
+        }`}
+      >
+      {pending ? (
+        <p className="inline-flex items-center justify-center gap-2 text-sm text-cyan-100">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Leyendo…
         </p>
-      ) : loaded ? (
-        <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-400">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          Documento guardado
+      ) : doneMsg || loaded ? (
+        <p className="inline-flex items-center justify-center gap-1.5 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {doneMsg ?? "Documento guardado"}
           {existingUrl ? (
             <>
               {" · "}
@@ -133,25 +135,28 @@ function ScanChip({
             </>
           ) : null}
         </p>
-      ) : null}
-      {error ? <p className="mt-1.5 text-xs text-red-300">{error}</p> : null}
-
-      {pending ? (
-        <p className="mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-xs font-medium text-cyan-100">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Leyendo…
-        </p>
       ) : (
         <button
           type="button"
           disabled={pending}
           onClick={() => fileRef.current?.click()}
-          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-950/50 disabled:opacity-50"
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (!pending) setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={onDrop}
+          className="flex w-full flex-col items-center justify-center gap-2 text-center disabled:opacity-50"
         >
-          <Images className="h-3.5 w-3.5 shrink-0" />
-          Cargar
+          <Upload className="h-6 w-6 text-cyan-400" />
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+            <FileText className="h-4 w-4" />
+            Arrastra o elige el documento
+          </span>
+          <span className="text-xs text-slate-500">{hint}</span>
         </button>
       )}
+      {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
 
       <input
         ref={fileRef}
@@ -164,6 +169,7 @@ function ScanChip({
         }}
       />
     </div>
+    </div>
   );
 }
 
@@ -174,10 +180,15 @@ export function ImportadorDocScan({
   onExtracted,
 }: Props) {
   return (
-    <section className="space-y-2.5 rounded-2xl border border-cyan-900/40 bg-cyan-950/20 p-3.5 sm:p-4">
-      <h2 className="text-sm font-semibold text-slate-100">
-        Autocompletar con documento
-      </h2>
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-white">
+          Autocompletar con documento
+        </h2>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Un PDF o una foto para rellenar los datos del cliente.
+        </p>
+      </div>
       <div className="grid gap-2.5 sm:grid-cols-2">
         <ScanChip
           tipoDoc="rif"

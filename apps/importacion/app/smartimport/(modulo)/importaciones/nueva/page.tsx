@@ -34,12 +34,12 @@ export default async function NuevaImportacionPage() {
         <div className="mb-6 flex items-center gap-2">
           <Link
             href="/smartimport"
-            className="inline-flex shrink-0 rounded-full p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            className="inline-flex shrink-0 rounded-full p-2 text-white transition hover:bg-white/5"
             aria-label="Volver"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="smartimport-page-title min-w-0 flex-1 text-zinc-50">
+          <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-white">
             Nueva importación
           </h1>
         </div>

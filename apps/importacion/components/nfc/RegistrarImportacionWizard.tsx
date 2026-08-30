@@ -158,18 +158,18 @@ export function RegistrarImportacionWizard({
 
   if (step === "importacion" && selected) {
     const clienteBanner = (
-      <div className="rounded-2xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-emerald-400/90">
+      <div className="rounded-2xl border border-emerald-700/55 bg-[#071412] px-4 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-400">
           Cliente de la importación
         </p>
-        <p className="mt-1 text-sm font-semibold text-zinc-50">{selected.nombre}</p>
-        <p className="mt-0.5 font-mono text-xs text-zinc-400">
+        <p className="mt-2 text-base font-semibold text-white">{selected.nombre}</p>
+        <p className="mt-1 font-mono text-[13px] text-slate-400">
           {formatImportadorDocumentoLine(selected)}
           {" · "}
           {IMPORTADOR_TIPO_LABELS[selected.tipo]}
         </p>
         {selected.tipo === "juridica" && selected.registroPuertoLibre ? (
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <p className="mt-0.5 text-[12px] text-slate-500">
             Registro PL {selected.registroPuertoLibre}
             {selected.registroPlVence
               ? ` · vence ${selected.registroPlVence}`
@@ -179,7 +179,7 @@ export function RegistrarImportacionWizard({
         <button
           type="button"
           onClick={() => setStep("cliente")}
-          className="mt-2 text-xs text-cyan-400 hover:underline"
+          className="mt-3 text-sm text-cyan-400 hover:text-cyan-300"
         >
           Cambiar cliente
         </button>
@@ -190,7 +190,7 @@ export function RegistrarImportacionWizard({
       return (
         <div className="space-y-4">
           {clienteBanner}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#08141c] p-5 sm:p-6">
             <PuertoLibreCargaMasiva
               key={masivaInstance}
               embedded
@@ -219,126 +219,141 @@ export function RegistrarImportacionWizard({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode("buscar")}
-          className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-            mode === "buscar"
-              ? "bg-cyan-600 text-white"
-              : "border border-zinc-700 text-zinc-300 hover:border-zinc-500"
-          }`}
-        >
-          <Search className="h-4 w-4" />
-          Buscar cliente
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("nuevo")}
-          className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-            mode === "nuevo"
-              ? "bg-cyan-600 text-white"
-              : "border border-zinc-700 text-zinc-300 hover:border-zinc-500"
-          }`}
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo cliente
-        </button>
-      </div>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-white/[0.06] bg-[#08141c] p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-400">
+          Cliente de la importación
+        </p>
+        <h2 className="mt-2 text-lg font-semibold text-white">
+          {mode === "nuevo" ? "Registrar cliente" : "Selecciona el cliente"}
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          {mode === "nuevo"
+            ? "Carga el RIF o la cédula para autocompletar, o llena los datos a mano."
+            : "Elige quién importa. Después subes la factura y los certificados."}
+        </p>
 
-      {mode === "nuevo" ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-zinc-50">
-            <UserRound className="h-5 w-5 text-cyan-400" />
-            Registrar cliente
-          </h2>
-          <ImportadorForm
-            submitLabel="Guardar y continuar"
-            onSaved={(imp) => {
-              const item: ImportadorListItem = {
-                ...imp,
-                tipoLabel: IMPORTADOR_TIPO_LABELS[imp.tipo],
-                documentos: imp.documentos ?? {},
-                activo: true,
-                createdAt: new Date().toISOString(),
-              };
-              setClientes((prev) => {
-                if (prev.some((c) => c.id === item.id)) return prev;
-                return [item, ...prev];
-              });
-              setSelected(item);
-              setStep("importacion");
-            }}
-          />
-        </div>
-      ) : (
-        <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-50">
-            <UserRound className="h-5 w-5 text-cyan-400" />
-            Selecciona el cliente
-          </h2>
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nombre, RIF o teléfono…"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-2.5 pl-10 pr-3 text-sm text-zinc-100 outline-none focus:border-cyan-500/60"
-            />
-          </label>
-
-          {filtrados.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">
-              No hay clientes. Crea uno nuevo para continuar.
-            </p>
-          ) : (
-            <ul className="max-h-80 space-y-2 overflow-y-auto">
-              {filtrados.map((c) => {
-                const active = selected?.id === c.id;
-                return (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(c)}
-                      className={`flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition ${
-                        active
-                          ? "border-cyan-600/60 bg-cyan-950/30"
-                          : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
-                      }`}
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-zinc-100">
-                          {c.nombre}
-                        </span>
-                        <span className="mt-0.5 block font-mono text-xs text-zinc-400">
-                          {c.documento}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] text-zinc-500">
-                          {c.tipoLabel}
-                        </span>
-                      </span>
-                      {active ? (
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-cyan-400" />
-                      ) : null}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
+        <div className="mt-4 flex gap-1 rounded-xl border border-white/[0.06] bg-[#070f16] p-1">
           <button
             type="button"
-            disabled={!selected}
-            onClick={() => selected && setStep("importacion")}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+            onClick={() => setMode("buscar")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+              mode === "buscar"
+                ? "bg-cyan-600 text-white shadow-[0_8px_20px_rgba(8,145,178,0.28)]"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
           >
-            Continuar a la importación
+            <Search className="h-4 w-4" />
+            Buscar cliente
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("nuevo")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+              mode === "nuevo"
+                ? "bg-cyan-600 text-white shadow-[0_8px_20px_rgba(8,145,178,0.28)]"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo cliente
           </button>
         </div>
-      )}
+
+        {mode === "nuevo" ? (
+          <div className="mt-5">
+            <ImportadorForm
+              submitLabel="Guardar y continuar"
+              onSaved={(imp) => {
+                const item: ImportadorListItem = {
+                  ...imp,
+                  tipoLabel: IMPORTADOR_TIPO_LABELS[imp.tipo],
+                  documentos: imp.documentos ?? {},
+                  activo: true,
+                  createdAt: new Date().toISOString(),
+                };
+                setClientes((prev) => {
+                  if (prev.some((c) => c.id === item.id)) return prev;
+                  return [item, ...prev];
+                });
+                setSelected(item);
+                setStep("importacion");
+              }}
+            />
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <aside className="rounded-xl border border-[#183c44] bg-[#0c1a21] px-4 py-3 text-sm">
+              <p className="font-medium text-[#e9edef]">Un cliente por importación</p>
+              <p className="mt-0.5 text-[13px] text-[#70a5ad]">
+                Puedes cambiarlo después, antes de guardar los expedientes.
+              </p>
+            </aside>
+
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar por nombre, RIF o teléfono…"
+                className="w-full rounded-xl border border-slate-700/80 bg-[#070f16] py-3 pl-10 pr-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500/60"
+              />
+            </label>
+
+            {filtrados.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-700 px-4 py-8 text-center text-sm text-slate-500">
+                No hay clientes. Crea uno nuevo para continuar.
+              </p>
+            ) : (
+              <ul className="max-h-80 space-y-2 overflow-y-auto">
+                {filtrados.map((c) => {
+                  const active = selected?.id === c.id;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(c)}
+                        className={`flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
+                          active
+                            ? "border-cyan-500/50 bg-cyan-950/30"
+                            : "border-white/[0.06] bg-[#070f16] hover:border-slate-600"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-white">
+                            {c.nombre}
+                          </span>
+                          <span className="mt-0.5 block font-mono text-xs text-slate-400">
+                            {c.documento}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-slate-500">
+                            {c.tipoLabel}
+                          </span>
+                        </span>
+                        {active ? (
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-cyan-400" />
+                        ) : (
+                          <UserRound className="h-5 w-5 shrink-0 text-slate-600" />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <button
+              type="button"
+              disabled={!selected}
+              onClick={() => selected && setStep("importacion")}
+              className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] transition hover:bg-cyan-500 disabled:opacity-50"
+            >
+              Continuar a la importación
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
