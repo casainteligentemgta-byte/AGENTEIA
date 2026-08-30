@@ -27,6 +27,7 @@ import {
   scoreFacturaMulti,
 } from "@/lib/importacion/factura-row-fidelity";
 import {
+  extractCertificatePagePlainTextWithTesseract,
   extractInvoicePlainTextWithTesseract,
   extractVinsFromOcrText,
   extractVinsWithTesseract,
@@ -2582,7 +2583,7 @@ async function ocrPdfPageText(
     scale: 2.6,
   });
   if (!pages[0]) return "";
-  return extractInvoicePlainTextWithTesseract(pages[0]);
+  return extractCertificatePagePlainTextWithTesseract(pages[0]);
 }
 
 async function harvestCertEngineNos(
@@ -2592,46 +2593,48 @@ async function harvestCertEngineNos(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   if (!isPdf) {
     try {
-      const ocr = await extractInvoicePlainTextWithTesseract(buffer);
+      const ocr = await extractCertificatePagePlainTextWithTesseract(buffer);
       return parseCertEngineNosFromText(ocr);
     } catch {
       return [];
     }
   }
 
-  let pageTexts: string[] = [];
+  let embeddedPage2 = "";
   try {
-    pageTexts = await getPdfPagePlainTexts(buffer);
+    const pageTexts = await getPdfPagePlainTexts(buffer);
+    embeddedPage2 = pageTexts[1] ?? "";
   } catch {
-    pageTexts = [];
+    embeddedPage2 = "";
   }
-  let engines = parseCertEngineNosFromPages(pageTexts);
-  if (engines.length > 0) return engines;
+  const fromEmbedded = parseCertEngineNosFromText(embeddedPage2);
 
-  // Página 2: columna ENGINE No (la carátula no la trae).
+  // Siempre raster de la página 2: la carátula no trae ENGINE No.
+  let fromOcr: { vin: string; serialMotor: string }[] = [];
   try {
     const page2Ocr = await ocrPdfPageText(buffer, 2);
-    engines = parseCertEngineNosFromText(page2Ocr);
-    if (engines.length > 0) return engines;
+    fromOcr = parseCertEngineNosFromText(page2Ocr);
   } catch {
-    // sigue con el resto de páginas
+    fromOcr = [];
   }
+  if (fromOcr.length >= fromEmbedded.length && fromOcr.length > 0) return fromOcr;
+  if (fromEmbedded.length > 0) return fromEmbedded;
 
   try {
     const rest = await renderPdfPagesAsPng(buffer, {
-      startPage: 1,
+      startPage: 2,
       maxPages: PDF_RASTER_MAX_PAGES,
       scale: 2.4,
     });
     const chunks: string[] = [];
     for (const page of rest) {
       try {
-        chunks.push(await extractInvoicePlainTextWithTesseract(page));
+        chunks.push(await extractCertificatePagePlainTextWithTesseract(page));
       } catch {
         // página ilegible
       }
     }
-    return parseCertEngineNosFromPages(chunks);
+    return parseCertEngineNosFromPages(["", ...chunks]);
   } catch {
     return [];
   }

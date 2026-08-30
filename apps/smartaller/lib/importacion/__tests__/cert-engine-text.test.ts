@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assignEngineNosByRowOrder,
+  collectEngineNosInOrder,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
 } from "../cert-engine-text";
@@ -97,6 +99,36 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(pairs.length, 2);
     assert.equal(byVin.LVVDC21B5VD713650, "SQRE4G15C1111111");
     assert.equal(byVin.LVVDB21B9VD812001, "C16TD98765432");
+  });
+
+  it("lista ENGINE No en orden aunque el VIN del COO no coincida", () => {
+    const text = `
+      ENGINE NO
+      SQRE4G15C1111111
+      C16TD2222222
+      SQRE4T15C3333333
+    `;
+    assert.deepEqual(collectEngineNosInOrder(text), [
+      "SQRE4G15C1111111",
+      "C16TD2222222",
+      "SQRE4T15C3333333",
+    ]);
+  });
+
+  it("rellena motores vacíos por orden de fila (cruce VIN fallido)", () => {
+    const rows = [
+      { vin: "LVVDC21B5VD713650", serialMotor: "POR-COMPLETAR" },
+      { vin: "LVVDB21B9VD812001", serialMotor: "" },
+      { vin: "LVVDB21B1VE033189", serialMotor: "C16TD9999999" },
+    ];
+    const next = assignEngineNosByRowOrder(rows, [
+      "SQRE4G15C1111111",
+      "C16TD2222222",
+      "C16TD9999999",
+    ]);
+    assert.equal(next[0]?.serialMotor, "SQRE4G15C1111111");
+    assert.equal(next[1]?.serialMotor, "C16TD2222222");
+    assert.equal(next[2]?.serialMotor, "C16TD9999999");
   });
 
   it("toma el motor tras color en la misma fila que el VIN", () => {
