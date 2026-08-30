@@ -113,6 +113,13 @@ export async function handleOcrCargaPost(
       return json({ success: false, error: auth.error ?? "No autorizado" }, 401);
     }
     const formData = await request.formData();
+    const form = snapshotCargaForm(formData);
+    const runInline = async () =>
+      extractCargaMasivaEtapaAction(formFromSnapshot(form), {
+        taller: { id: auth.tallerId },
+        userId: auth.userId,
+      });
+
     const jobId = crypto.randomUUID();
     const job: OcrCargaJob = {
       id: jobId,
@@ -120,10 +127,15 @@ export async function handleOcrCargaPost(
       userId: auth.userId,
       runToken: crypto.randomUUID(),
       status: "queued",
-      form: snapshotCargaForm(formData),
+      form,
       updatedAt: new Date().toISOString(),
     };
-    await writeOcrCargaJob(job);
+    try {
+      await writeOcrCargaJob(job);
+    } catch {
+      // Bucket de documentos no admite JSON: extraer aquí (Safari/LTE igual ve filas).
+      return json(await runInline());
+    }
 
     const runUrl = new URL("/api/smartimport/ocr-carga-masiva/run", request.url);
     const payload = JSON.stringify({

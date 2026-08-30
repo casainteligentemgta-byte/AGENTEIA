@@ -858,10 +858,11 @@ export function PuertoLibreCargaMasiva({
             { deadlineMs: 110_000 }
           );
           if (!result.success) {
+            const failMsg = formatCargaMasivaClientError(result.error);
             setError(
               currentRows.length > 0
-                ? `${result.error} Las filas ya extraídas se mantienen.`
-                : result.error
+                ? `${failMsg} Las filas ya extraídas se mantienen.`
+                : failMsg
             );
             if (currentRows.length > 0) ingestExtracted(currentRows);
             setActiveEtapa(null);
