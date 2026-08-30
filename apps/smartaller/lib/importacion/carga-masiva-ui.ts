@@ -7,7 +7,7 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
-import { preferCompleteVin, repairCheryWmi } from "@/lib/importacion/vin-text";
+import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
   isPlaceholderDato,
@@ -18,89 +18,21 @@ import {
   formatPuertosDescarga,
   parsePuertosDescarga,
 } from "@/lib/importacion/puertos-venezuela";
+import {
+  lookupBySerialPrefix,
+  matchSerialKeyAmong,
+  normalizeSerialKey,
+  pairSerialsOneToOne,
+  pickCertFileForSerial,
+} from "@/lib/importacion/serial-match";
 
-export function normalizeSerialKey(serial: string): string {
-  return repairCheryWmi(
-    serial.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
-  );
-}
-
-const SERIAL_PREFIX_MIN = 11;
-
-/**
- * Empareja VIN exacto o un prefijo único (≥11). Si el OCR recortó el chasis
- * de la factura, el certificado con 17 caracteres puede completar la fila.
- */
-export function matchSerialKeyAmong(
-  needle: string,
-  haystack: string[]
-): string | null {
-  const n = normalizeSerialKey(needle);
-  if (!n) return null;
-  const keys = [
-    ...new Set(haystack.map((h) => normalizeSerialKey(h)).filter(Boolean)),
-  ];
-  if (keys.includes(n)) return n;
-  if (n.length < SERIAL_PREFIX_MIN) return null;
-  const hits = keys.filter(
-    (k) =>
-      k.length >= SERIAL_PREFIX_MIN && (k.startsWith(n) || n.startsWith(k))
-  );
-  return hits.length === 1 ? hits[0]! : null;
-}
-
-/**
- * Empareja filas↔certificados 1:1 (evita que un solo motor/VIN de cert
- * se copie a las 8 unidades de una factura multi).
- * Prioriza exacto; luego prefijo único entre los que queden libres.
- */
-export function pairSerialsOneToOne(
-  rowSerials: string[],
-  certSerials: string[]
-): Map<string, string> {
-  const rows = [
-    ...new Set(rowSerials.map(normalizeSerialKey).filter(Boolean)),
-  ];
-  const certs = [
-    ...new Set(certSerials.map(normalizeSerialKey).filter(Boolean)),
-  ];
-  /** rowSerial → certSerial */
-  const paired = new Map<string, string>();
-  const usedCert = new Set<string>();
-
-  for (const row of rows) {
-    if (certs.includes(row) && !usedCert.has(row)) {
-      paired.set(row, row);
-      usedCert.add(row);
-    }
-  }
-
-  for (const row of rows) {
-    if (paired.has(row) || row.length < SERIAL_PREFIX_MIN) continue;
-    const candidates = certs.filter(
-      (c) =>
-        !usedCert.has(c) &&
-        c.length >= SERIAL_PREFIX_MIN &&
-        (c.startsWith(row) || row.startsWith(c))
-    );
-    if (candidates.length === 1) {
-      paired.set(row, candidates[0]!);
-      usedCert.add(candidates[0]!);
-    }
-  }
-
-  return paired;
-}
-
-export function lookupBySerialPrefix<T>(
-  map: Map<string, T>,
-  serial: string
-): T | undefined {
-  const n = normalizeSerialKey(serial);
-  if (!n) return undefined;
-  const matched = matchSerialKeyAmong(n, [...map.keys()]);
-  return matched ? map.get(matched) : undefined;
-}
+export {
+  lookupBySerialPrefix,
+  matchSerialKeyAmong,
+  normalizeSerialKey,
+  pairSerialsOneToOne,
+  pickCertFileForSerial,
+};
 
 const ROW_MERGE_SKIP = new Set(["id", "error", "fuente"]);
 

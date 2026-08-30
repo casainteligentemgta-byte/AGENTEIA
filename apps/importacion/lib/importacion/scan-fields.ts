@@ -35,6 +35,10 @@ export type PuertoLibreRegistroScanFields = {
   paisOrigen?: string;
   valorCif?: string;
   tasaCambioBcv?: string;
+  costosArancelariosUsd?: string;
+  gastosPuertoUsd?: string;
+  fleteInternacionalUsd?: string;
+  costoTotalLandedUsd?: string;
   numeroExpedienteSeniat?: string;
   numeroDav?: string;
   numeroCertificadoOrigen?: string;

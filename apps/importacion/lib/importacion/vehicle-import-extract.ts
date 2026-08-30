@@ -5,6 +5,7 @@ import {
   safeStorageFileName,
   type CargaMasivaStorageDocRef,
 } from "@/lib/importacion/carga-masiva-client";
+import type { CertMatch } from "@/lib/importacion/carga-masiva-ui";
 import { compressImportDocForCellular } from "@/lib/importacion/compress-import-doc";
 import {
   CARGA_MASIVA_ETAPA_HINTS,
@@ -85,6 +86,7 @@ export async function runVehicleImportExtract(params: {
       rows: CargaMasivaRow[];
       warnings: string[];
       vinSources: Record<string, VinDocSources>;
+      certMatches: CertMatch[];
     }
   | {
       ok: false;
@@ -92,6 +94,7 @@ export async function runVehicleImportExtract(params: {
       rows: CargaMasivaRow[];
       warnings: string[];
       vinSources: Record<string, VinDocSources>;
+      certMatches: CertMatch[];
     }
 > {
   const docs: VehicleImportDoc[] = [
@@ -123,6 +126,7 @@ export async function runVehicleImportExtract(params: {
   const warnings: string[] = [];
   let facturaByRowId: Record<string, string> = {};
   const certSerials: string[] = [];
+  const certMatches: CertMatch[] = [];
 
   const vinSourcesOf = (rows: CargaMasivaRow[]) =>
     buildVinSources({ rows, facturaByRowId, certSerials });
@@ -145,6 +149,7 @@ export async function runVehicleImportExtract(params: {
           rows: currentRows,
           warnings,
           vinSources: vinSourcesOf(currentRows),
+          certMatches,
         };
       }
 
@@ -195,12 +200,16 @@ export async function runVehicleImportExtract(params: {
               rows: currentRows,
               warnings,
               vinSources: vinSourcesOf(currentRows),
+              certMatches,
             };
           }
           currentRows = result.rows;
           warnings.push(...result.warnings);
           for (const match of result.certMatches) {
-            if (match.serial) certSerials.push(match.serial);
+            if (match.serial) {
+              certSerials.push(match.serial);
+              certMatches.push(match);
+            }
           }
         }
         continue;
@@ -251,6 +260,7 @@ export async function runVehicleImportExtract(params: {
           rows: currentRows,
           warnings,
           vinSources: vinSourcesOf(currentRows),
+          certMatches,
         };
       }
       currentRows = result.rows;
@@ -266,6 +276,7 @@ export async function runVehicleImportExtract(params: {
         rows: [],
         warnings,
         vinSources: vinSourcesOf([]),
+        certMatches,
       };
     }
 
@@ -286,6 +297,7 @@ export async function runVehicleImportExtract(params: {
       rows: currentRows,
       warnings,
       vinSources: vinSourcesOf(currentRows),
+      certMatches,
     };
   } catch (err) {
     return {
@@ -294,6 +306,7 @@ export async function runVehicleImportExtract(params: {
       rows: currentRows,
       warnings,
       vinSources: vinSourcesOf(currentRows),
+      certMatches,
     };
   }
 }
