@@ -70,6 +70,35 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(byVin.LVVDB21B9VD812001, "C16TD98765432");
   });
 
+  it("asigna el primer ENGINE No huérfano bajo el encabezado al primer VIN", () => {
+    const text = `
+      VIN                 ENGINE NO
+      SQRE4G15C1111111
+      LVVDC21B5VD713650   NASDAQ SILVER
+      LVVDB21B9VD812001   NASDAQ SILVER C16TD98765432
+      LVVDB21B1VE033189   NASDAQ SILVER SQRE4T15C2408456
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    const byVin = Object.fromEntries(pairs.map((p) => [p.vin, p.serialMotor]));
+    assert.equal(pairs.length, 3);
+    assert.equal(byVin.LVVDC21B5VD713650, "SQRE4G15C1111111");
+    assert.equal(byVin.LVVDB21B9VD812001, "C16TD98765432");
+    assert.equal(byVin.LVVDB21B1VE033189, "SQRE4T15C2408456");
+  });
+
+  it("toma el motor de la 1ª fila si OCR lo deja en la línea siguiente", () => {
+    const text = `
+      LVVDC21B5VD713650 NASDAQ SILVER
+      SQRE4G15C1111111
+      LVVDB21B9VD812001 NASDAQ SILVER C16TD98765432
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    const byVin = Object.fromEntries(pairs.map((p) => [p.vin, p.serialMotor]));
+    assert.equal(pairs.length, 2);
+    assert.equal(byVin.LVVDC21B5VD713650, "SQRE4G15C1111111");
+    assert.equal(byVin.LVVDB21B9VD812001, "C16TD98765432");
+  });
+
   it("toma el motor tras color en la misma fila que el VIN", () => {
     const text = "LVVDC21B5VD713650 NASDAQ SILVER SQRE4G15C5556667";
     const pairs = parseCertEngineNosFromText(text);
