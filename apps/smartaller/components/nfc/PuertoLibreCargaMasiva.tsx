@@ -288,6 +288,13 @@ export function PuertoLibreCargaMasiva({
     setError(null);
     setResultMsg(null);
 
+    if (rowsRef.current.length === 0) {
+      setResultMsg(
+        "Certificado listo. Pulsa Extraer vehículos para leer factura y certificado juntos."
+      );
+      return;
+    }
+
     startExtractTransition(async () => {
       try {
         if (!tallerId) {
@@ -606,12 +613,16 @@ export function PuertoLibreCargaMasiva({
 
   function handleDocsFiles(list: FileList | null) {
     if (!list?.length) return;
-    const next: DocItem[] = Array.from(list).map((file) => ({
-      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
-      file,
-      tipo: guessTipo(file.name),
-    }));
+    const next = assignDocTipos(Array.from(list));
     setDocs((prev) => [...prev, ...next].slice(0, 20));
+    setError(null);
+    const hasFactura = next.some((d) => d.tipo === "factura_comercial");
+    const hasCert = next.some((d) => d.tipo === "certificado_origen");
+    if (hasFactura && hasCert) {
+      setResultMsg(
+        "Factura y certificado listos. Pulsa Extraer vehículos: se leen juntos (VIN y luego motor)."
+      );
+    }
   }
 
   async function handleBlFile(file: File | null) {
@@ -881,12 +892,6 @@ export function PuertoLibreCargaMasiva({
       setError("No se pudo identificar el taller para subir documentos");
       return;
     }
-    if (rowsRef.current.length === 0) {
-      setError(
-        "Primero extrae la factura (Extraer vehículos) para tener VIN. Luego añade certificados."
-      );
-      return;
-    }
     const certDocs: DocItem[] = Array.from(list).map((file) => ({
       id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
       file,
@@ -894,6 +899,12 @@ export function PuertoLibreCargaMasiva({
     }));
     setDocs((prev) => [...prev, ...certDocs].slice(0, 20));
     setError(null);
+    if (rowsRef.current.length === 0) {
+      setResultMsg(
+        "Certificado añadido. Agrega la factura si falta y pulsa Extraer vehículos: se leen ambos PDF."
+      );
+      return;
+    }
     setResultMsg(null);
     startExtractTransition(async () => {
       try {
@@ -1400,7 +1411,7 @@ export function PuertoLibreCargaMasiva({
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
               >
                 <Upload className="h-4 w-4 shrink-0" />
-                Agregar PDF
+                Agregar factura / PDFs
               </button>
               <button
                 type="button"
@@ -1413,8 +1424,9 @@ export function PuertoLibreCargaMasiva({
               </button>
             </div>
             <p className="text-xs leading-5 text-slate-400">
-              Mejor: agrega la factura y el certificado de origen y luego Extraer
-              vehículos (una sola pasada). Se leen todas las páginas de cada PDF.
+              Puedes cargar factura y certificado de origen a la vez (elige varios
+              PDF). Luego Extraer vehículos lee ambos: VIN de la factura y motor
+              del certificado. No hace falta extraer primero.
             </p>
 
             {docs.length > 0 ? (
@@ -2424,6 +2436,22 @@ function guessTipo(name: string): DocItem["tipo"] {
   if (/certificado|origin|coo|origen/.test(n)) return "certificado_origen";
   if (/\bbl\b|bill|guia|guía|embarque|lading/.test(n)) return "bl_guia";
   return "factura_comercial";
+}
+
+/** Varios PDF a la vez: 1º factura (si no se reconoce) y el resto certificados. */
+function assignDocTipos(files: File[]): DocItem[] {
+  const guessed = files.map((file) => ({
+    id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+    file,
+    tipo: guessTipo(file.name),
+  }));
+  const allLookFactura =
+    guessed.length > 1 &&
+    guessed.every((d) => d.tipo === "factura_comercial");
+  if (!allLookFactura) return guessed;
+  return guessed.map((d, i) =>
+    i === 0 ? d : { ...d, tipo: "certificado_origen" as const }
+  );
 }
 
 
