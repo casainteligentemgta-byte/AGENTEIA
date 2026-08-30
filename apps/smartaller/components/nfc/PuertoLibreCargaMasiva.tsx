@@ -1412,6 +1412,10 @@ export function PuertoLibreCargaMasiva({
                 Añadir certificados
               </button>
             </div>
+            <p className="text-xs leading-5 text-slate-400">
+              Mejor: agrega la factura y el certificado de origen y luego Extraer
+              vehículos (una sola pasada). Se leen todas las páginas de cada PDF.
+            </p>
 
             {docs.length > 0 ? (
               <ul className="space-y-2">

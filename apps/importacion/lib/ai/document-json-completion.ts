@@ -65,6 +65,11 @@ export async function getPdfPlainText(buffer: Buffer): Promise<string> {
   return extractTextFromPdf(buffer);
 }
 
+/** Lee todas las páginas del PDF, con tope para no tumbar Vercel. */
+export const PDF_RASTER_MAX_PAGES = 20;
+/** Imágenes que se mandan juntas a la IA (payload). */
+export const PDF_VISION_MAX_PAGES = 8;
+
 /** Marcas de escáner / basura típica que no es el contenido del documento. */
 const SCANNER_JUNK_RE =
   /cam\s*scanner|scanned\s+by|scan\s*snap|adobe\s+scan|genius\s+scan|microsoft\s+lens|page\s+\d+\s+of\s+\d+/gi;
@@ -99,7 +104,7 @@ export async function renderPdfPagesAsPng(
   buffer: Buffer,
   options?: { maxPages?: number; scale?: number }
 ): Promise<Buffer[]> {
-  const maxPages = options?.maxPages ?? 4;
+  const maxPages = options?.maxPages ?? PDF_RASTER_MAX_PAGES;
   const scale = options?.scale ?? 2;
   const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
@@ -281,8 +286,8 @@ export async function createDocumentJsonCompletion(params: {
   renderScale?: number;
 }): Promise<Record<string, unknown>> {
   const maxTokens = params.maxTokens ?? 800;
-  const maxTextChars = params.maxTextChars ?? 12000;
-  const maxPdfPages = params.maxPdfPages ?? 4;
+  const maxTextChars = params.maxTextChars ?? 32000;
+  const maxPdfPages = params.maxPdfPages ?? PDF_VISION_MAX_PAGES;
   const preferHighDetail = params.preferHighDetail ?? true;
   const renderScale = params.renderScale ?? 2;
   if (isJsonOrHtmlPayload(params.buffer)) {

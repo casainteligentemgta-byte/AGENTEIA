@@ -1,6 +1,8 @@
 import {
   createDocumentJsonCompletion,
   getPdfPlainText,
+  PDF_RASTER_MAX_PAGES,
+  PDF_VISION_MAX_PAGES,
   renderPdfPagesAsPng,
 } from "@/lib/ai/document-json-completion";
 import {
@@ -704,7 +706,7 @@ export async function extractFacturaComercialFromDocument(
     buffer,
     mimeType,
     maxTokens: 1200,
-    maxPdfPages: 4,
+    maxPdfPages: PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
   });
   let mapped = mapFactura(parsed);
@@ -720,7 +722,7 @@ export async function extractFacturaComercialFromDocument(
       buffer,
       mimeType,
       maxTokens: 1200,
-      maxPdfPages: 4,
+      maxPdfPages: PDF_VISION_MAX_PAGES,
       preferHighDetail: true,
       forceRasterVision: true,
     });
@@ -843,7 +845,7 @@ export async function extractBlFromDocument(
     buffer,
     mimeType,
     maxTokens: 1200,
-    maxPdfPages: 4,
+    maxPdfPages: PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
   });
   const mapped = mapBl(parsed);
@@ -944,7 +946,7 @@ export async function extractPolizaTransporteFromDocument(
     buffer,
     mimeType,
     maxTokens: 1200,
-    maxPdfPages: 4,
+    maxPdfPages: PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
   });
   return mapPolizaTransporte(parsed);
@@ -1490,7 +1492,7 @@ async function extractFacturaMultiOnce(
     mimeType,
     maxTokens: 12000,
     maxTextChars: 50000,
-    maxPdfPages: 2,
+    maxPdfPages: PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
     forceRasterVision: isPdf,
     renderScale: 2.4,
@@ -1643,13 +1645,16 @@ async function extractFacturaLocalFromDocument(
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   try {
-    const page = isPdf
-      ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]
-      : buffer;
-    if (!page) return { shared: {}, vehiculos: [] };
+    const pages = isPdf
+      ? await renderPdfPagesAsPng(buffer, {
+          maxPages: PDF_RASTER_MAX_PAGES,
+          scale: 2.2,
+        })
+      : [buffer];
+    if (pages.length === 0) return { shared: {}, vehiculos: [] };
     const tess = isPdf
-      ? await extractVinsWithTesseract(page)
-      : await extractVinsWithTesseractOriented(page);
+      ? await extractVinsWithTesseract(pages)
+      : await extractVinsWithTesseractOriented(pages[0]!);
     const mav = parseMavHojaAnexaFromText(tess.fullText);
     if (mav && mav.vehiculos.length >= 1) {
       return sanitizeFacturaMulti(mav);
@@ -1691,8 +1696,8 @@ export async function extractFacturaRapidoFromDocument(
         buffer,
         mimeType,
         maxTokens: 3500,
-        maxTextChars: 16000,
-        maxPdfPages: 4,
+        maxTextChars: 50000,
+        maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
         renderScale: 2.2,
       });
@@ -1750,38 +1755,12 @@ export async function extractFacturaMultiFromDocument(
     }
   }
 
-  // 2) Página 1 sola (Chery: toda la mercancía está ahí; pág. 2 suele ser totales).
-  if (isPdf) {
-    try {
-      const pages = await renderPdfPagesAsPng(buffer, {
-        maxPages: 1,
-        scale: 2.4,
-      });
-      const page1 = pages[0];
-      if (page1) {
-        try {
-          candidates.push(
-            await extractFacturaMultiFromImage(
-              page1,
-              "image/png",
-              FACTURA_MULTI_PROMPT
-            )
-          );
-        } catch {
-          // ignore
-        }
-      }
-    } catch {
-      // fallback abajo
-    }
-  }
-
-  // 3) Pasada del PDF completo solo si aún hay pocas filas.
+  // 2) Visión de todas las páginas (una llamada) si el texto no cubrió el lote.
   let currentBest = candidates.length
     ? pickBestFacturaMulti(candidates)
     : { shared: {}, vehiculos: [] };
 
-  if (currentBest.vehiculos.length < 4) {
+  if (currentBest.vehiculos.length < 8) {
     try {
       candidates.push(
         await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
@@ -1794,39 +1773,34 @@ export async function extractFacturaMultiFromDocument(
       : currentBest;
   }
 
-  // 4) Cosecha por bandas + prompt VIN si sigue corto (timeout-friendly: máx 3 llamadas).
+  // 3) Cosecha extra por páginas si sigue corto.
   if (isPdf && currentBest.vehiculos.length < 8) {
     try {
       const pages = await renderPdfPagesAsPng(buffer, {
-        maxPages: 1,
+        maxPages: PDF_RASTER_MAX_PAGES,
         scale: 2.4,
       });
-      const page1 = pages[0];
-      if (page1) {
+      if (pages.length > 0) {
         try {
-          candidates.push(
-            await extractFacturaMultiFromImage(
-              page1,
-              "image/png",
-              FACTURA_MULTI_VIN_HARVEST_PROMPT
-            )
-          );
+          const tess = await extractVinsWithTesseract(pages);
+          const chery = docFromCheryPlainText(tess.fullText);
+          if (chery && chery.vehiculos.length > 0) candidates.push(chery);
+          if (tess.vins.length > 0) candidates.push(docFromLocalVins(tess.vins));
         } catch {
           // ignore
         }
-        for (const band of TABLE_BANDS) {
-          if (pickBestFacturaMulti(candidates).vehiculos.length >= 12) break;
+        for (let i = 0; i < Math.min(pages.length, 3); i++) {
+          if (pickBestFacturaMulti(candidates).vehiculos.length >= 8) break;
           try {
-            const cropped = await cropImageBuffer(page1, band);
             candidates.push(
               await extractFacturaMultiFromImage(
-                cropped.buffer,
-                cropped.mimeType,
+                pages[i]!,
+                "image/png",
                 FACTURA_MULTI_VIN_HARVEST_PROMPT
               )
             );
           } catch {
-            // ignore band
+            // ignore
           }
         }
       }
@@ -2032,13 +2006,16 @@ export async function extractFacturaVinsStageFromDocument(
   } else {
     try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.6 })
+      ? await renderPdfPagesAsPng(buffer, {
+          maxPages: PDF_RASTER_MAX_PAGES,
+          scale: 2.6,
+        })
       : [buffer];
     const page1 = pages[0];
     if (!page1) {
-      diagnostics.push("raster: no se pudo renderizar la página 1");
+      diagnostics.push("raster: no se pudo renderizar ninguna página");
     } else {
-      diagnostics.push(`raster: ok ${page1.length} bytes`);
+      diagnostics.push(`raster: ok ${pages.length} página(s)`);
 
       // Recortes: tabla completa primero (Code no siempre está en 19–35%).
       const cropSpecs = [
@@ -2069,7 +2046,7 @@ export async function extractFacturaVinsStageFromDocument(
         try {
           const tabla = croppedBuffers.find((c) => c.label === "tabla")?.buffer;
           const tessImages = isPdf
-            ? [tabla, page1].filter((b): b is Buffer => Boolean(b))
+            ? [tabla, ...pages].filter((b): b is Buffer => Boolean(b))
             : croppedBuffers
                 .filter(
                   (c) =>
@@ -2122,24 +2099,35 @@ export async function extractFacturaVinsStageFromDocument(
         await runTesseract();
       }
 
-      // Un solo recorte extra si aún faltan VIN y queda tiempo
+      // Resto de páginas + recorte de tabla si aún faltan VIN
       if (
         vinSet.size < MULTI_VIN_TARGET &&
         isLlmConfigured() &&
         !visionCreditsBlocked &&
-        withinBudget(18_000)
+        withinBudget(12_000)
       ) {
-        const priority =
-          croppedBuffers.find((c) => c.label === "tabla") ??
-          croppedBuffers.find((c) => c.label.startsWith("col-code")) ??
-          croppedBuffers.find((c) => c.label.startsWith("col-chasis"));
-        if (priority) {
+        for (let i = 1; i < pages.length; i++) {
+          if (vinSet.size >= MULTI_VIN_TARGET || !withinBudget(10_000)) break;
           await fromImageList(
-            priority.buffer,
-            priority.mimeType,
-            priority.label,
-            28_000
+            pages[i]!,
+            pageMime,
+            `pagina-${i + 1}`,
+            24_000
           );
+        }
+        if (vinSet.size < MULTI_VIN_TARGET && withinBudget(10_000)) {
+          const priority =
+            croppedBuffers.find((c) => c.label === "tabla") ??
+            croppedBuffers.find((c) => c.label.startsWith("col-code")) ??
+            croppedBuffers.find((c) => c.label.startsWith("col-chasis"));
+          if (priority) {
+            await fromImageList(
+              priority.buffer,
+              priority.mimeType,
+              priority.label,
+              24_000
+            );
+          }
         }
       } else if (vinSet.size >= MULTI_VIN_TARGET) {
         diagnostics.push(
@@ -2164,7 +2152,10 @@ export async function extractFacturaVinsStageFromDocument(
     try {
       const sized = await compressImageForVision(
         isPdf
-          ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]!
+          ? (await renderPdfPagesAsPng(buffer, {
+              maxPages: PDF_RASTER_MAX_PAGES,
+              scale: 2.2,
+            }))[0]!
           : buffer
       );
       const parsed = await createVisionJsonCompletion({
@@ -2305,13 +2296,16 @@ export async function enrichFacturaRowsStageFromDocument(
 
   // OCR local primero (útil con OpenRouter sin créditos)
   try {
-    const page = isPdf
-      ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.6 }))[0]
-      : buffer;
-    if (page) {
+    const pages = isPdf
+      ? await renderPdfPagesAsPng(buffer, {
+          maxPages: PDF_RASTER_MAX_PAGES,
+          scale: 2.6,
+        })
+      : [buffer];
+    if (pages[0]) {
       const tess = isPdf
-        ? await extractVinsWithTesseract(page)
-        : await extractVinsWithTesseractOriented(page);
+        ? await extractVinsWithTesseract(pages)
+        : await extractVinsWithTesseractOriented(pages[0]!);
       const mav = parseMavHojaAnexaFromText(tess.fullText);
       if (mav && mav.vehiculos.length > 0) {
         candidates.push(mav);
@@ -2323,44 +2317,9 @@ export async function enrichFacturaRowsStageFromDocument(
 
   if (isLlmConfigured()) {
     try {
-      if (isPdf) {
-        const pages = await renderPdfPagesAsPng(buffer, {
-          maxPages: 1,
-          scale: 2.4,
-        });
-        const page1 = pages[0];
-        if (page1) {
-          candidates.push(
-            await extractFacturaMultiFromImage(page1, "image/png", prompt)
-          );
-        }
-      }
+      candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
     } catch {
-      // fallback full doc
-    }
-
-    const coveredKnown =
-      knownVins.length === 0 ||
-      candidates.some((c) => {
-        const found = new Set(
-          c.vehiculos
-            .map((v) => compactSerial(v.serialCarroceria ?? v.vin ?? null))
-            .filter(Boolean)
-        );
-        const hit = knownVins.filter((vin) => {
-          const key = compactSerial(vin);
-          return key && found.has(key);
-        }).length;
-        return hit >= Math.min(knownVins.length, Math.max(1, knownVins.length - 1));
-      });
-
-    // Evitar 2ª pasada LLM (full PDF) si la página ya cubrió los VIN — causa timeout móvil
-    if (!coveredKnown) {
-      try {
-        candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
-      } catch {
-        // ignore
-      }
+      // ignore
     }
   }
 
@@ -2427,8 +2386,8 @@ export async function extractBlMultiFromDocument(
     buffer,
     mimeType,
     maxTokens: 3500,
-    maxTextChars: 24000,
-    maxPdfPages: 4,
+    maxTextChars: 50000,
+    maxPdfPages: PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
   });
 
@@ -2527,7 +2486,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
         maxTokens: options?.rapido ? 3500 : 4500,
         maxTextChars: 32000,
         // Página 2 suele traer ENGINE No; nunca quedarse solo en la carátula.
-        maxPdfPages: options?.rapido ? 2 : 6,
+        maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
       });
     } catch (err) {
@@ -2561,7 +2520,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
           mimeType,
           maxTokens: options?.rapido ? 3500 : 4500,
           maxTextChars: 32000,
-          maxPdfPages: options?.rapido ? 2 : 6,
+          maxPdfPages: PDF_VISION_MAX_PAGES,
           preferHighDetail: true,
           forceRasterVision: true,
         });
