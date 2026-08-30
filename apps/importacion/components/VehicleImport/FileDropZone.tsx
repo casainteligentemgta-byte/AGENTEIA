@@ -80,18 +80,18 @@ export function FileDropZone({
       }}
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
-      className={`flex w-full flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-10 text-center transition ${
+      className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-8 text-center transition ${
         over
-          ? "border-cyan-400 bg-cyan-950/30"
-          : "border-slate-600 bg-[#070f16] hover:border-slate-400"
+          ? "border-cyan-500 bg-cyan-950/30"
+          : "border-zinc-700 bg-zinc-950/40 hover:border-zinc-500"
       } disabled:opacity-50`}
     >
-      <Upload className="h-7 w-7 text-cyan-400" />
-      <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
-        <FileText className="h-4 w-4 text-white" />
+      <Upload className="h-6 w-6 text-cyan-400" />
+      <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-100">
+        <FileText className="h-4 w-4" />
         {label}
       </span>
-      {hint ? <span className="max-w-xs text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="max-w-xs text-xs text-zinc-500">{hint}</span> : null}
       {picker}
     </button>
   );

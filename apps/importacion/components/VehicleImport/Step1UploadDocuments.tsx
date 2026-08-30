@@ -132,22 +132,22 @@ export function Step1UploadDocuments({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-white">Subir documentos</h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <h2 className="text-lg font-semibold text-zinc-50">Subir documentos</h2>
+        <p className="mt-1 text-sm text-zinc-500">
           Primero la factura y los certificados. Después extraemos los datos.
         </p>
       </div>
 
-      <aside className="rounded-xl border border-[#183c44] bg-[#0c1a21] px-4 py-3 text-sm">
-        <p className="font-medium text-[#e9edef]">Varios vehículos en una factura</p>
-        <p className="mt-0.5 text-[13px] text-[#70a5ad]">
+      <aside className="rounded-xl border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100/90">
+        <p className="font-medium text-cyan-50">Varios vehículos en una factura</p>
+        <p className="mt-0.5 text-cyan-200/80">
           Un PDF (o foto) puede incluir de 1 a {VEHICLE_IMPORT_MAX} VIN. Sube un
           certificado por cada vehículo.
         </p>
       </aside>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-medium text-[#e9edef]">Factura comercial</h3>
+        <h3 className="text-sm font-medium text-zinc-300">Factura comercial</h3>
         {factura ? (
           <div className="flex items-center gap-2">
             <ul className="min-w-0 flex-1 space-y-2">
@@ -171,7 +171,7 @@ export function Step1UploadDocuments({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-medium text-[#e9edef]">Certificados de origen</h3>
+        <h3 className="text-sm font-medium text-zinc-300">Certificados de origen</h3>
         {certificados.length > 0 ? (
           <div className="flex items-start gap-2">
             <ul className="min-w-0 flex-1 space-y-2">
@@ -237,7 +237,7 @@ export function Step1UploadDocuments({
         type="button"
         disabled={!ready}
         onClick={onProcess}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(8,145,178,0.28)] hover:bg-cyan-500 disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
       >
         {extracting ? (
           <>

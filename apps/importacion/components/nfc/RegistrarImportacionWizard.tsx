@@ -195,7 +195,7 @@ export function RegistrarImportacionWizard({
       return (
         <div className="space-y-4">
           {clienteBanner}
-          <div className="rounded-2xl border border-white/[0.06] bg-[#08141c] p-5 sm:p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
             <PuertoLibreCargaMasiva
               key={masivaInstance}
               embedded

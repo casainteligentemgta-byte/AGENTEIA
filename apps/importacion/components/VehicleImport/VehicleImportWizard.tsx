@@ -377,7 +377,7 @@ export function VehicleImportWizard({
   }
 
   return (
-    <div className="space-y-6 rounded-2xl border border-white/[0.06] bg-[#08141c] p-5 sm:p-6">
+    <div className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
       {onSwitchToMasiva ? (
         <div className="flex justify-end">
           <button
