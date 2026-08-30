@@ -776,7 +776,7 @@ export function PuertoLibreCargaMasiva({
       (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
     );
     const etapas: CargaMasivaEtapaId[] = hasCertOrBl
-      ? ["vins", "datos", "certs"]
+      ? ["vins", "certs", "datos"]
       : ["vins", "datos"];
 
     startExtractTransition(async () => {
@@ -797,9 +797,10 @@ export function PuertoLibreCargaMasiva({
         let currentRows: CargaMasivaRow[] = [];
         const allWarnings: string[] = [];
         let lastCertMatches: CertMatch[] = [];
+        let allStorageDocs: CargaMasivaStorageDocRef[] = [];
 
         try {
-        const allStorageDocs = await uploadDocsToStorage(items, batchId);
+        allStorageDocs = await uploadDocsToStorage(items, batchId);
 
         for (let i = 0; i < etapas.length; i++) {
           const etapa = etapas[i]!;
@@ -898,6 +899,20 @@ export function PuertoLibreCargaMasiva({
           const msg = formatCargaMasivaClientError(err);
           if (currentRows.length > 0) {
             ingestExtracted(currentRows, lastCertMatches);
+            const certRefs = allStorageDocs.filter(
+              (r) => r.tipo === "certificado_origen" || r.tipo === "bl_guia"
+            );
+            if (certRefs.length > 0) {
+              try {
+                await applyCertsFromStorage(certRefs, currentRows);
+                setError(
+                  `${msg} Se aplicó el certificado (ENGINE No) a las filas VIN.`
+                );
+                return;
+              } catch {
+                // se conserva el error original
+              }
+            }
             setError(`${msg} Las filas ya extraídas se mantienen.`);
           } else {
             setError(msg);
