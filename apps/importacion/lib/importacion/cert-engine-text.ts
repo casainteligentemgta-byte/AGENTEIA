@@ -23,7 +23,15 @@ const ENGINE_HEADER_RE = /\bENGINE\s*(?:SERIAL\s*)?(?:NO|N[°º.]|NUMBER|#)\b/i;
 /** Chery Tiggo 2 Pro: ENGINE No al lado del VIN (pág. 2 del COO). */
 const CHERY_ENGINE_RE = /\b(S[O0Q]RE[A-Z0-9]{8,16})\b/gi;
 
+/** Prefijo motor Chery (también pegados: `…60412SQRE4G15C…`). */
+const CHERY_ENGINE_PREFIX_RE = /S[O0Q]RE/g;
+
 const VIN_TOKEN_RE = /\b(L[VWY][A-HJ-NPR-Z0-9]{13,16}|MF3[A-HJ-NPR-Z0-9]{14})\b/g;
+
+/** `matchAll` / `test` de un regex /g reutilizan `lastIndex` y se saltan filas. */
+function matchAllReset(re: RegExp, text: string): RegExpExecArray[] {
+  return [...text.matchAll(new RegExp(re.source, re.flags))];
+}
 
 const SECTION_STOP_RE =
   /^(DESCRIPTION|MARKS\s*&?\s*NOS|QUANTITY|GROSS|NET\s*WEIGHT|MEASUREMENT|PACKAGE|PACKAGES|REMARKS|TOTAL|CONSIGNEE|SHIPPER)\b/i;
@@ -74,7 +82,7 @@ function plausibleMotor(raw: string | null | undefined): string | null {
 function collectVins(text: string): string[] {
   const found = new Set<string>();
   for (const vin of extractVinStringsFromText(text)) found.add(vin);
-  for (const m of text.toUpperCase().matchAll(VIN_TOKEN_RE)) {
+  for (const m of matchAllReset(VIN_TOKEN_RE, text.toUpperCase())) {
     const vin = salvageCheryVin(m[1]);
     if (vin) found.add(vin);
   }
@@ -82,7 +90,7 @@ function collectVins(text: string): string[] {
 }
 
 function extractLabeledMotors(text: string): string[] {
-  return [...text.toUpperCase().matchAll(ENGINE_LABELED_RE)]
+  return matchAllReset(ENGINE_LABELED_RE, text.toUpperCase())
     .map((m) => plausibleMotor(m[1]))
     .filter((m): m is string => Boolean(m));
 }
@@ -100,22 +108,60 @@ function extractMotorsUnderEngineHeader(text: string): string[] {
       continue;
     }
     if (!collecting) continue;
-    if (SECTION_STOP_RE.test(trimmed)) {
+    // DESCRIPTION/COLOUR son columnas de la misma tabla: no cortar la lista.
+    if (
+      SECTION_STOP_RE.test(trimmed) &&
+      !extractCheryEngines(trimmed).length &&
+      !/\bVIN\b|\bLVV|\bSQRE/i.test(trimmed)
+    ) {
       collecting = false;
       continue;
     }
     for (const tok of trimmed.split(/[\s,;|]+/)) {
       const motor = plausibleMotor(tok);
       if (motor) out.push(motor);
+      else out.push(...splitGluedCheryEngines(tok));
     }
   }
   return out;
 }
 
 function extractCheryEngines(text: string): string[] {
-  return [...text.toUpperCase().matchAll(CHERY_ENGINE_RE)]
+  const upper = text.toUpperCase();
+  const fromWords = matchAllReset(CHERY_ENGINE_RE, upper)
     .map((m) => salvageCheryEngine(m[1]))
     .filter((m): m is string => Boolean(m));
+  return uniqueMotors([...fromWords, ...splitGluedCheryEngines(upper)]);
+}
+
+/**
+ * Parte motores pegados (`…60412SQRE4G15C…`).
+ * No compacta todo el documento: eso une un SQRE con el VIN de la fila siguiente.
+ */
+function splitGluedCheryEngines(text: string): string[] {
+  const compact = text.replace(/[^A-Z0-9]/g, "");
+  const starts = matchAllReset(CHERY_ENGINE_PREFIX_RE, compact).map(
+    (m) => m.index ?? 0
+  );
+  const out: string[] = [];
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i]!;
+    const next = starts[i + 1];
+    if (next != null) {
+      const gap = next - start;
+      if (gap >= 14 && gap <= 18) {
+        const salvaged = salvageCheryEngine(compact.slice(start, next));
+        if (salvaged) out.push(salvaged);
+      }
+      continue;
+    }
+    const rest = compact.slice(start);
+    if (rest.length <= 18 && !/L[VWY]/.test(rest.slice(4))) {
+      const salvaged = salvageCheryEngine(rest);
+      if (salvaged) out.push(salvaged);
+    }
+  }
+  return out;
 }
 
 function firstPlausibleMotorIn(text: string): string | null {
@@ -131,8 +177,9 @@ function firstPlausibleMotorIn(text: string): string | null {
 }
 
 function lineHasVin(line: string): boolean {
-  VIN_TOKEN_RE.lastIndex = 0;
-  return VIN_TOKEN_RE.test(line.toUpperCase());
+  return new RegExp(VIN_TOKEN_RE.source, VIN_TOKEN_RE.flags).test(
+    line.toUpperCase()
+  );
 }
 
 /** Motor suelto en la línea de abajo; no confundir con un bloque `ENGINE NO` listado. */
@@ -156,17 +203,32 @@ function pairVinThenMotorOnSameLine(text: string): CertEnginePair[] {
   const pairs: CertEnginePair[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    VIN_TOKEN_RE.lastIndex = 0;
-    const vinMatch = VIN_TOKEN_RE.exec(line.toUpperCase());
-    if (!vinMatch) continue;
-    const vin = resolveVinToken(vinMatch[1]);
-    if (!vin) continue;
-    const after = line.slice(vinMatch.index + vinMatch[0].length);
-    let motor = firstPlausibleMotorIn(after);
-    if (!motor) {
-      motor = loneMotorOnFollowingLine(lines[i + 1] ?? "");
+    const upper = line.toUpperCase();
+    const vinMatches = matchAllReset(VIN_TOKEN_RE, upper);
+    if (vinMatches.length === 0) continue;
+    const lineVins = vinMatches
+      .map((m) => resolveVinToken(m[1]))
+      .filter((v): v is string => Boolean(v));
+    const lineMotors = extractCheryEngines(upper);
+    if (lineVins.length >= 2 && lineMotors.length === lineVins.length) {
+      for (let z = 0; z < lineVins.length; z++) {
+        pairs.push({ vin: lineVins[z]!, serialMotor: lineMotors[z]! });
+      }
+      continue;
     }
-    if (motor) pairs.push({ vin, serialMotor: motor });
+    for (let v = 0; v < vinMatches.length; v++) {
+      const vinMatch = vinMatches[v]!;
+      const vin = resolveVinToken(vinMatch[1]);
+      if (!vin) continue;
+      const start = (vinMatch.index ?? 0) + vinMatch[0].length;
+      const end = vinMatches[v + 1]?.index ?? upper.length;
+      const after = upper.slice(start, end);
+      let motor = firstPlausibleMotorIn(after);
+      if (!motor && v === vinMatches.length - 1) {
+        motor = loneMotorOnFollowingLine(lines[i + 1] ?? "");
+      }
+      if (motor) pairs.push({ vin, serialMotor: motor });
+    }
   }
   return pairs;
 }
@@ -221,6 +283,12 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
     ...byVin.values(),
   ]);
   assignLeftoverMotors(vins, byVin, motors);
+
+  // OCR aplanó la tabla: 1 par y el resto de motores sueltos.
+  if (byVin.size <= 1 && motors.length >= 2 && vins.length >= 2) {
+    byVin.clear();
+    assignLeftoverMotors(vins, byVin, motors);
+  }
 
   return vins
     .filter((vin) => byVin.has(vin))
