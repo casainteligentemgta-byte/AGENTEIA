@@ -175,6 +175,21 @@ export const VEHICULO_COLORES = [
   "Champagne",
 ] as const;
 
+/** Colores del lote (OCR) primero; luego el catálogo. Se puede escribir cualquiera. */
+export function sugerenciasColorCargaMasiva(
+  loteColores: readonly string[]
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of [...loteColores, ...VEHICULO_COLORES]) {
+    const key = value.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(value.trim());
+  }
+  return out;
+}
+
 export const VEHICULO_CATALOGO_OTRA = "__otra__";
 
 export function modelosDeMarca(marca: string): string[] {

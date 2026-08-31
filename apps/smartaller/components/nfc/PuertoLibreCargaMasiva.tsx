@@ -385,6 +385,11 @@ export function PuertoLibreCargaMasiva({
   }, [rows]);
 
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
+  const coloresLote = useMemo(
+    () =>
+      [...new Set(rows.map((r) => (r.color ?? "").trim()).filter(Boolean))],
+    [rows]
+  );
   const rowsForRegister = useMemo(
     () => applySharedShipmentToRows(rows, shared, { force: true }),
     [rows, shared]
@@ -2484,6 +2489,7 @@ export function PuertoLibreCargaMasiva({
                           ) : c.key === "color" ? (
                             <CargaMasivaColorCell
                               value={String(row.color ?? "")}
+                              sugerencias={coloresLote}
                               onChange={(next) =>
                                 commitVehicleField(row, idx, "color", next)
                               }

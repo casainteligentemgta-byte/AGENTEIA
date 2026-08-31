@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { isGenericModelo } from "@/lib/importacion/completitud-datos";
 import {
   VEHICULO_CATALOGO_OTRA,
-  VEHICULO_COLORES,
   VEHICULO_MARCAS,
   modelosDeMarca,
   resolveMarcaCatalogo,
+  sugerenciasColorCargaMasiva,
 } from "@/lib/importacion/vehiculo-catalog";
 
 const cellClass =
@@ -210,37 +210,37 @@ export function CargaMasivaModeloCell({
 export function CargaMasivaColorCell({
   value,
   onChange,
+  sugerencias = [],
 }: {
   value: string;
   onChange: (next: string) => void;
+  /** Colores ya extraídos en el lote (NASDAQ SILVER, etc.). */
+  sugerencias?: readonly string[];
 }) {
+  const listId = useId();
   const current = value.trim();
-  const inCatalog = VEHICULO_COLORES.some(
-    (c) => c.toLowerCase() === current.toLowerCase()
-  );
-  const options = uniqueOptions([
-    ...VEHICULO_COLORES,
-    ...(current && !inCatalog ? [current] : []),
-  ]);
+  const options = sugerenciasColorCargaMasiva([...sugerencias, current]);
 
   return (
     <div
-      className="w-[7.25rem] max-w-[7.25rem] min-w-0"
+      className="w-[8.5rem] max-w-[8.5rem] min-w-0"
       title={current || undefined}
     >
-      <select
+      <input
+        list={listId}
         className={cellClass}
-        value={current ? matchOption(options, current) : ""}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder="Color…"
         aria-label="Color"
-      >
-        <option value="">Color…</option>
+        autoComplete="off"
+        spellCheck={false}
+      />
+      <datalist id={listId}>
         {options.map((color) => (
-          <option key={color} value={color}>
-            {color}
-          </option>
+          <option key={color} value={color} />
         ))}
-      </select>
+      </datalist>
     </div>
   );
 }

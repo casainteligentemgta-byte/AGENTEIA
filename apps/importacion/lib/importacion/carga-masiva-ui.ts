@@ -190,7 +190,7 @@ const FIELD_INPUT_BASE =
 
 export function vehicleFieldHeaderClass(col: VehicleFieldCol): string {
   if (col.key === "marca") return "w-[6.75rem] max-w-[6.75rem]";
-  if (col.key === "color") return "w-[7.25rem] max-w-[7.25rem]";
+  if (col.key === "color") return "w-[8.5rem] max-w-[8.5rem]";
   if (col.key === "modelo") return "w-[8.25rem] max-w-[8.25rem]";
   if (col.key === "anio") return "min-w-[4ch]";
   if (col.key === "valorCif") return "min-w-[8ch]";
