@@ -74,6 +74,7 @@ import {
   type SharedLoteTechFields,
   type SharedShipmentFields,
 } from "@/lib/importacion/carga-masiva-ui";
+import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import { PAISES } from "@/lib/importacion/paises";
 import {
@@ -1777,9 +1778,19 @@ export function PuertoLibreCargaMasiva({
             <div className="space-y-3 border-t border-emerald-900/30 pt-2">
               {createdGroups.map((bl) => (
                 <div key={bl.numeroBl || "sin-bl"}>
-                  <p className="text-xs font-semibold text-emerald-100">
-                    BL {bl.label} · {bl.total} expediente
-                    {bl.total === 1 ? "" : "s"}
+                  <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-100">
+                    <span>
+                      BL {bl.label} · {bl.total} expediente
+                      {bl.total === 1 ? "" : "s"}
+                    </span>
+                    {bl.numeroBl ? (
+                      <Link
+                        href={cargaBlPath(bl.numeroBl)}
+                        className="font-medium underline hover:text-emerald-50"
+                      >
+                        Cargar docs de la carga
+                      </Link>
+                    ) : null}
                   </p>
                   {bl.contenedores.map((ct) => (
                     <div key={ct.numeroContenedor || "sin-ct"} className="mt-1">

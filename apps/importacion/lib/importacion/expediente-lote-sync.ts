@@ -8,11 +8,15 @@ import {
   type VehiculoDocumentoRef,
 } from "@/lib/schemas/vehiculo-documentos";
 import {
+  DOCUMENTO_TIPOS_LOTE,
   documentosConCopiaLote,
+  fillEmptyImportacionLote,
   isDocumentoLote,
   isSiblingDelMismoLote,
   mergeImportacionLote,
   normalizeLoteBlKey,
+  pickDocumentosLoteFaltantes,
+  pickImportacionLoteFields,
 } from "@/lib/importacion/expediente-lote";
 
 type SiblingRow = {
@@ -168,4 +172,83 @@ export async function syncLoteImportacionToSiblings(params: {
     if (!error) copied += 1;
   }
   return copied;
+}
+
+/**
+ * Si el expediente ya tiene BL, hereda docs y huecos de lote de un hermano.
+ * No cambia planillaFase ni pisa factura/certificado ya cargados.
+ */
+export async function inheritLoteOntoVehiculo(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  targetVehiculoId: string;
+}): Promise<{ inheritedDocs: number; inheritedFields: boolean }> {
+  const { data: target, error } = await params.admin
+    .from("vehiculos")
+    .select("id, importacion, documentos")
+    .eq("id", params.targetVehiculoId)
+    .eq("taller_id", params.tallerId)
+    .maybeSingle();
+  if (error || !target) return { inheritedDocs: 0, inheritedFields: false };
+
+  const targetImp = parseImportacion(target.importacion);
+  if (!normalizeLoteBlKey(targetImp.numeroBl)) {
+    return { inheritedDocs: 0, inheritedFields: false };
+  }
+
+  const siblings = hermanosDelLote(
+    await loadPosiblesHermanos(
+      params.admin,
+      params.tallerId,
+      params.targetVehiculoId
+    ),
+    targetImp
+  );
+  if (siblings.length === 0) {
+    return { inheritedDocs: 0, inheritedFields: false };
+  }
+
+  let best = siblings[0]!;
+  let bestCount = -1;
+  for (const row of siblings) {
+    const docs = parseVehiculosDocumentos(row.documentos);
+    const count = DOCUMENTO_TIPOS_LOTE.filter((tipo) =>
+      Boolean(docs[tipo]?.url)
+    ).length;
+    if (count > bestCount) {
+      best = row;
+      bestCount = count;
+    }
+  }
+
+  const sourceDocs = parseVehiculosDocumentos(best.documentos);
+  const sourceImp = parseImportacion(best.importacion);
+  const currentDocs = parseVehiculosDocumentos(target.documentos);
+  const nextDocs = pickDocumentosLoteFaltantes(currentDocs, sourceDocs);
+  const nextImp = fillEmptyImportacionLote(targetImp, sourceImp);
+
+  const inheritedDocs = DOCUMENTO_TIPOS_LOTE.filter(
+    (tipo) => !currentDocs[tipo]?.url && Boolean(nextDocs[tipo]?.url)
+  ).length;
+  const inheritedFields =
+    JSON.stringify(pickImportacionLoteFields(nextImp)) !==
+    JSON.stringify(pickImportacionLoteFields(targetImp));
+
+  if (inheritedDocs === 0 && !inheritedFields) {
+    return { inheritedDocs: 0, inheritedFields: false };
+  }
+
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (inheritedDocs > 0) patch.documentos = nextDocs;
+  if (inheritedFields) patch.importacion = serializeImportacion(nextImp);
+
+  const { error: updError } = await params.admin
+    .from("vehiculos")
+    .update(patch)
+    .eq("id", params.targetVehiculoId)
+    .eq("taller_id", params.tallerId);
+  if (updError) return { inheritedDocs: 0, inheritedFields: false };
+  return { inheritedDocs, inheritedFields };
 }

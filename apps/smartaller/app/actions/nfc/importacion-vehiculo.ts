@@ -79,6 +79,7 @@ import {
 import { isLlmConfigured } from "@/lib/ai/openai-config";
 import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
 import {
+  inheritLoteOntoVehiculo,
   syncLoteDocumentoToSiblings,
   syncLoteImportacionToSiblings,
 } from "@/lib/importacion/expediente-lote-sync";
@@ -260,6 +261,7 @@ async function assertVehiculoTaller(vehiculoId: string, tallerId: string) {
 
 function revalidateFicha(vehiculoId: string) {
   revalidatePath("/smartimport");
+  revalidatePath("/smartimport/lote");
   revalidatePath(`/smartimport/${vehiculoId}`);
   revalidatePath(`/smartimport/${vehiculoId}/planilla`);
   revalidatePath(`/smartimport/${vehiculoId}/nacionalizar`);
@@ -541,6 +543,12 @@ export async function createPuertoLibreVehiculoAction(
     await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
   }
 
+  await inheritLoteOntoVehiculo({
+    admin,
+    tallerId: auth.taller.id,
+    targetVehiculoId: created.id,
+  });
+
   return { success: true, vehiculoId: created.id, codigoExpediente };
 }
 
@@ -693,6 +701,14 @@ export async function savePuertoLibreFase1RegistroAction(
   const importadorGuardar = ultimoImportadorFromAlta(data);
   if (importadorGuardar) {
     await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
+  }
+
+  if (parsed.data.numeroBl?.trim()) {
+    await inheritLoteOntoVehiculo({
+      admin,
+      tallerId: auth.taller.id,
+      targetVehiculoId: data.vehiculoId,
+    });
   }
 
   return { success: true };
@@ -2531,6 +2547,8 @@ export type PuertoLibreVehiculoListItem = {
   fechaLlegadaBuque: string | null;
   /** Fecha de ingreso físico al PL (YYYY-MM-DD). */
   fechaIngreso: string | null;
+  /** Nº de BL / guía (grupo de carga). */
+  numeroBl: string | null;
   stickerToken: string | null;
   regimen: string | null;
   estadoNacionalizacion: string | null;
@@ -2662,6 +2680,7 @@ function mapListItem(
     planillaFase,
     fechaLlegadaBuque: importacion.fechaLlegadaBuque?.trim() || null,
     fechaIngreso: importacion.fechaIngreso?.trim() || null,
+    numeroBl: importacion.numeroBl?.trim() || null,
     stickerToken: stickers.get(id) ?? null,
     regimen: importacion.regimen ?? null,
     estadoNacionalizacion: importacion.estadoNacionalizacion ?? null,
