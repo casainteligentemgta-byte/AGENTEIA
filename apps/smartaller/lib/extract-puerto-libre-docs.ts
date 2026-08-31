@@ -41,8 +41,10 @@ import {
   certHarvestNeedsMoreOcr,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
+  isVinLikeSerialMotor,
   mergeCertEngineHarvests,
   parseCertEngineNosFromText,
+  rowNeedsCertEngineNo,
   type CertEngineHarvest,
   type CertEnginePair,
 } from "@/lib/importacion/cert-engine-text";
@@ -1487,7 +1489,14 @@ function sanitizeVehiculoRowLocal(
     next.serialCarroceria = vin;
     next.vin = vin;
   }
-  if (!next.serialMotor?.trim()) next.serialMotor = "POR-COMPLETAR";
+  if (
+    !next.serialMotor?.trim() ||
+    isVinLikeSerialMotor(next.serialMotor) ||
+    (vin &&
+      next.serialMotor.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === vin)
+  ) {
+    next.serialMotor = "POR-COMPLETAR";
+  }
   if (!next.condicion) next.condicion = "nuevo";
   if (!next.kilometraje) next.kilometraje = "0";
   if (!next.anio && vin) {
@@ -1976,21 +1985,17 @@ export async function extractFacturaVinsStageFromDocument(
       cheryLineasByVin.set(r.vin, {
         modelo: r.modelo || prev.modelo,
         color: r.color || prev.color,
-        serialMotor: r.serialMotor || prev.serialMotor,
+        serialMotor:
+          r.serialMotor && !isVinLikeSerialMotor(r.serialMotor)
+            ? r.serialMotor
+            : prev.serialMotor,
         valorCif:
           prev.valorCif ||
           (r.valorCif != null ? String(r.valorCif) : undefined),
       });
     }
     }
-    for (const pair of parseCertEngineNosFromText(text)) {
-      addVins([pair.vin], `${source}-engine`);
-      const prev = cheryLineasByVin.get(pair.vin) ?? {};
-      cheryLineasByVin.set(pair.vin, {
-        ...prev,
-        serialMotor: prev.serialMotor || pair.serialMotor,
-      });
-    }
+    // ENGINE No no viene de la factura Chery; no parsear motores aquí.
   };
 
   const noteVisionError = (label: string, err: unknown) => {
@@ -2281,7 +2286,9 @@ export async function extractFacturaVinsStageFromDocument(
           modelo: v.modelo || prev.modelo,
           color: v.color || prev.color,
           serialMotor:
-            motor && motor.toUpperCase() !== "POR-COMPLETAR"
+            motor &&
+            motor.toUpperCase() !== "POR-COMPLETAR" &&
+            !isVinLikeSerialMotor(motor)
               ? motor
               : prev.serialMotor,
         });
@@ -2330,10 +2337,14 @@ export async function extractFacturaVinsStageFromDocument(
         modelo: v.modelo || extra?.modelo,
         color: v.color || extra?.color,
         serialMotor:
-          extra?.serialMotor ||
-          (v.serialMotor?.toUpperCase() === "POR-COMPLETAR"
-            ? undefined
-            : v.serialMotor) ||
+          (extra?.serialMotor && !isVinLikeSerialMotor(extra.serialMotor)
+            ? extra.serialMotor
+            : undefined) ||
+          (v.serialMotor &&
+          v.serialMotor.toUpperCase() !== "POR-COMPLETAR" &&
+          !isVinLikeSerialMotor(v.serialMotor)
+            ? v.serialMotor
+            : undefined) ||
           "POR-COMPLETAR",
       });
     }
@@ -2345,7 +2356,10 @@ export async function extractFacturaVinsStageFromDocument(
           sanitizeVehiculoRowLocal({
             serialCarroceria: vin,
             vin,
-            serialMotor: extra?.serialMotor || "POR-COMPLETAR",
+            serialMotor:
+              extra?.serialMotor && !isVinLikeSerialMotor(extra.serialMotor)
+                ? extra.serialMotor
+                : "POR-COMPLETAR",
             condicion: "nuevo",
             kilometraje: "0",
             anio: anioFromVin(vin)?.toString(),
@@ -2379,7 +2393,10 @@ export async function extractFacturaVinsStageFromDocument(
     return sanitizeVehiculoRowLocal({
       serialCarroceria: vin,
       vin,
-      serialMotor: extra?.serialMotor || "POR-COMPLETAR",
+      serialMotor:
+        extra?.serialMotor && !isVinLikeSerialMotor(extra.serialMotor)
+          ? extra.serialMotor
+          : "POR-COMPLETAR",
       condicion: "nuevo",
       kilometraje: "0",
       anio: anioFromVin(vin)?.toString(),
@@ -2606,8 +2623,7 @@ function applyCertEnginePairs(
     if (idx >= 0) {
       used.add(idx);
       const row = next[idx]!;
-      const current = row.serialMotor?.trim().toUpperCase() ?? "";
-      if (!current || current === "POR-COMPLETAR") {
+      if (rowNeedsCertEngineNo(row.serialMotor)) {
         next[idx] = { ...row, serialMotor: pair.serialMotor };
       }
       continue;

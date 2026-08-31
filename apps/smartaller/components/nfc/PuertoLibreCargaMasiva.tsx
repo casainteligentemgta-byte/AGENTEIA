@@ -654,9 +654,7 @@ export function PuertoLibreCargaMasiva({
     const hasFactura = merged.some((d) => d.tipo === "factura_comercial");
     const hasCert = merged.some((d) => d.tipo === "certificado_origen");
     if (hasFactura && hasCert) {
-      setResultMsg(
-        "Factura y certificado listos. Pulsa Extraer vehículos: OCR + IA leen ambos."
-      );
+      extractDocs(merged);
     }
   }
 

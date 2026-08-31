@@ -147,6 +147,39 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15C5556667");
   });
 
+  it("pisa un VIN copiado como motor de factura con ENGINE No del COO", () => {
+    const rows = [
+      {
+        vin: "LVVDC21B5VD713650",
+        serialCarroceria: "LVVDC21B5VD713650",
+        serialMotor: "LVVDC21B5VD713650",
+      },
+      {
+        vin: "LVVDB21B9VD812001",
+        serialCarroceria: "LVVDB21B9VD812001",
+        serialMotor: "POR-COMPLETAR",
+      },
+    ];
+    const byVin = applyEngineNosByVin(rows, [
+      { vin: "LVVDC21B5VD713650", serialMotor: "SQRE4G15CB0TC60412" },
+      { vin: "LVVDB21B9VD812001", serialMotor: "SQRE4G15CB0TC60413" },
+    ]);
+    assert.equal(byVin[0]?.serialMotor, "SQRE4G15CB0TC60412");
+    assert.equal(byVin[1]?.serialMotor, "SQRE4G15CB0TC60413");
+    const byOrder = assignEngineNosByRowOrder(rows, [
+      "SQRE4G15CB0TC60412",
+      "SQRE4G15CB0TC60413",
+      "SQRE4G15CB0TC60414",
+      "SQRE4G15CB0TC60415",
+      "SQRE4G15CB0TC60416",
+      "SQRE4G15CB0TC60417",
+      "SQRE4G15CB0TC60418",
+      "SQRE4G15CB0TC60419",
+    ]);
+    assert.equal(byOrder[0]?.serialMotor, "SQRE4G15CB0TC60412");
+    assert.equal(byOrder[1]?.serialMotor, "SQRE4G15CB0TC60413");
+  });
+
   it("cruza ENGINE No del COO con VIN de factura (LWV vs LVV)", () => {
     const rows = [
       { vin: "LVVDB21B9VE033523", serialCarroceria: "LVVDB21B9VE033523", serialMotor: "" },
