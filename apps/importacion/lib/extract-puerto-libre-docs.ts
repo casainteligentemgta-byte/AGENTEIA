@@ -1101,10 +1101,10 @@ Responde SOLO JSON:
 }`;
 
 /** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
-const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
-Facturas multi suelen traer varias unidades (p. ej. 8 vehículos): vehiculos.length debe coincidir con todas las filas visibles.
-También anota modelo, el color que está al lado del VIN, y serial_motor si ves ENGINE No / Engine Serial.
-NO omitas filas del medio ni del final. Si hay 8 VIN, vehiculos.length debe ser 8; si hay 18, debe ser 18.
+const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en este documento (PDF o foto de factura).
+Facturas Chery / Intercontinental suelen traer 8, 18 o más unidades: vehiculos.length debe coincidir con TODAS las filas.
+También anota modelo, el color al lado del VIN, y serial_motor SOLO si ves ENGINE No / Engine Serial (no copies el VIN al motor).
+NO omitas filas del medio ni del final. Si hay 18 VIN, vehiculos.length debe ser 18.
 Responde SOLO JSON:
 {
   "vehiculos": [
@@ -1740,6 +1740,7 @@ export async function extractFacturaRapidoFromDocument(
         maxTextChars: 50000,
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
+        forceRasterVision: isPdf,
         renderScale: 2.2,
       });
       const extracted = enrichWithSalvagedVins(
@@ -2080,6 +2081,67 @@ export async function extractFacturaVinsStageFromDocument(
     }
   }
 
+  const applyExtractedVehiculos = (
+    extracted: DocMultiExtracted,
+    source: string
+  ) => {
+    addVins(
+      extracted.vehiculos.map((v) => v.serialCarroceria ?? v.vin ?? ""),
+      source
+    );
+    for (const v of extracted.vehiculos) {
+      const vin =
+        salvageCheryVin(v.serialCarroceria ?? v.vin) ??
+        compactSerial(v.serialCarroceria ?? v.vin ?? null);
+      if (!vin || vin.length < 11) continue;
+      const motor = v.serialMotor?.trim();
+      const prev = cheryLineasByVin.get(vin) ?? {};
+      cheryLineasByVin.set(vin, {
+        modelo: v.modelo || prev.modelo,
+        color: v.color || prev.color,
+        serialMotor:
+          motor &&
+          motor.toUpperCase() !== "POR-COMPLETAR" &&
+          !isVinLikeSerialMotor(motor)
+            ? motor
+            : prev.serialMotor,
+        valorCif: v.valorCif?.trim() ? v.valorCif : prev.valorCif,
+      });
+    }
+  };
+
+  // PDF nativo (Gemini lee el archivo): CamScanner envuelve la foto en PDF y
+  // raster+Tesseract suele devolver 0 filas. Antes del OCR local.
+  if (
+    isPdf &&
+    vinSet.size < MULTI_VIN_TARGET &&
+    isLlmConfigured() &&
+    !visionCreditsBlocked &&
+    withinBudget(16_000)
+  ) {
+    try {
+      const parsed = await createDocumentJsonCompletion({
+        prompt: FACTURA_MULTI_PROMPT,
+        buffer,
+        mimeType,
+        maxTokens: 12000,
+        maxPdfPages: PDF_VISION_MAX_PAGES,
+        preferHighDetail: true,
+        forceRasterVision: true,
+        skipRaster: true,
+        renderScale: 2.2,
+        timeoutMs: Math.min(40_000, Math.max(14_000, remainingMs() - 8_000)),
+      });
+      const extracted = enrichWithSalvagedVins(
+        sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
+        parsed
+      );
+      applyExtractedVehiculos(extracted, "pdf-nativo");
+    } catch (err) {
+      noteVisionError("pdf-nativo", err);
+    }
+  }
+
   // Raster + Tesseract (local) + visión acotada
   if (vinSet.size >= MULTI_VIN_TARGET) {
     diagnostics.push(
@@ -2271,28 +2333,7 @@ export async function extractFacturaVinsStageFromDocument(
         sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
         parsed
       );
-      addVins(
-        extracted.vehiculos.map((v) => v.serialCarroceria ?? v.vin ?? ""),
-        "json-harvest"
-      );
-      for (const v of extracted.vehiculos) {
-        const vin =
-          salvageCheryVin(v.serialCarroceria ?? v.vin) ??
-          compactSerial(v.serialCarroceria ?? v.vin ?? null);
-        if (!vin || vin.length < 11) continue;
-        const motor = v.serialMotor?.trim();
-        const prev = cheryLineasByVin.get(vin) ?? {};
-        cheryLineasByVin.set(vin, {
-          modelo: v.modelo || prev.modelo,
-          color: v.color || prev.color,
-          serialMotor:
-            motor &&
-            motor.toUpperCase() !== "POR-COMPLETAR" &&
-            !isVinLikeSerialMotor(motor)
-              ? motor
-              : prev.serialMotor,
-        });
-      }
+      applyExtractedVehiculos(extracted, "json-harvest");
     } catch (err) {
       noteVisionError("json-harvest", err);
     }
@@ -2760,7 +2801,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
         // 1 o 2 páginas: no quedarse en texto de carátula si hay tabla de ENGINE No.
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
-        forceRasterVision: isPdf && harvest.pairs.length === 0,
+        forceRasterVision: isPdf,
       });
     } catch (err) {
       llmError = err;
