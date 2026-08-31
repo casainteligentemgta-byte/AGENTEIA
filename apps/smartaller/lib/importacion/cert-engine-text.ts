@@ -431,11 +431,16 @@ export function scoreCertEngineHarvest(h: CertEngineHarvest): number {
 }
 
 /**
- * Un solo ENGINE No no basta: el resto está en la misma columna
- * (cuadro vertical o apaisado). Hay que seguir con OCR.
+ * Un lote Chery suele traer 8–18 ENGINE No. Parar a los 2 dejaba el resto
+ * de la columna (y las páginas siguientes) sin leer.
  */
+export const CERT_HARVEST_OCR_TARGET = 8;
+
 export function certHarvestNeedsMoreOcr(h: CertEngineHarvest): boolean {
-  return h.motors.length <= 1 && h.pairs.length <= 1;
+  return (
+    h.motors.length < CERT_HARVEST_OCR_TARGET &&
+    h.pairs.length < CERT_HARVEST_OCR_TARGET
+  );
 }
 
 export function mergeCertEngineHarvests(

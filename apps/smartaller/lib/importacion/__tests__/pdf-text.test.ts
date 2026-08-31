@@ -3,6 +3,9 @@ import { describe, it } from "node:test";
 import {
   isUsefulPdfText,
   pdfJsonExtractIsUsable,
+  pdfRenderScaleForPageCount,
+  PDF_RASTER_MAX_PAGES,
+  PDF_VISION_MAX_PAGES,
   scorePdfJsonExtract,
 } from "../../ai/document-json-completion";
 
@@ -53,5 +56,18 @@ describe("pdfJsonExtractIsUsable", () => {
     };
     assert.ok(scorePdfJsonExtract(data) >= 10);
     assert.equal(pdfJsonExtractIsUsable(data), true);
+  });
+});
+
+describe("límites de páginas PDF", () => {
+  it("raster y visión cubren más de 4 páginas", () => {
+    assert.ok(PDF_RASTER_MAX_PAGES >= 12);
+    assert.ok(PDF_VISION_MAX_PAGES >= 12);
+  });
+
+  it("factura/COO de 1–2 páginas usa escala alta", () => {
+    assert.ok(pdfRenderScaleForPageCount(1) >= 2.6);
+    assert.ok(pdfRenderScaleForPageCount(2) >= 2.6);
+    assert.ok(pdfRenderScaleForPageCount(8) <= 2.2);
   });
 });

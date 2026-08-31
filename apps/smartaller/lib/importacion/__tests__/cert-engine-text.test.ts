@@ -357,7 +357,22 @@ describe("parseCertEngineNosFromText", () => {
     `);
     const merged = mergeCertEngineHarvests(one, rest);
     assert.equal(merged.motors.length, 4);
-    assert.equal(certHarvestNeedsMoreOcr(merged), false);
+    assert.equal(certHarvestNeedsMoreOcr(merged), true);
+  });
+
+  it("8 ENGINE No cierran la cosecha extra de OCR", () => {
+    const eight = harvestCertEnginesFromText(`
+      SQRE4G15CB0TC60412
+      SQRE4G15CB0TC60341
+      SQRE4G15CB0TC60200
+      SQRE4G15CB0TC60173
+      SQRE4G15CB0TC60100
+      SQRE4G15CB0TC60099
+      SQRE4G15CB0TC60088
+      SQRE4G15CB0TC60077
+    `);
+    assert.ok(eight.motors.length >= 8);
+    assert.equal(certHarvestNeedsMoreOcr(eight), false);
   });
 
   it("si la pág. 2 está vacía, busca ENGINE No en otra página", () => {

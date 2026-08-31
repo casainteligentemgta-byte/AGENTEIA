@@ -1,9 +1,10 @@
 import {
   createDocumentJsonCompletion,
+  createDocumentJsonFromPageImages,
   getPdfPagePlainTexts,
   getPdfPlainText,
-  PDF_RASTER_MAX_PAGES,
   PDF_VISION_MAX_PAGES,
+  rasterPdfForOcr,
   renderPdfPagesAsPng,
 } from "@/lib/ai/document-json-completion";
 import {
@@ -38,6 +39,7 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import {
+  CERT_HARVEST_OCR_TARGET,
   certHarvestNeedsMoreOcr,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
@@ -976,6 +978,7 @@ export function countFilledFields(fields: PuertoLibreRegistroScanFields): number
 
 const FACTURA_MULTI_PROMPT = `Eres un transcriptor fiel de FACTURAS COMERCIALES de vehículos (commercial invoice / hoja anexa / attached sheet).
 REGLA DE ORO: copia SOLO lo escrito en el documento. NO inventes, NO completes de memoria, NO “arregles” seriales.
+Si el documento tiene VARIAS PÁGINAS (PDF o varias imágenes), lee TODAS. La tabla de VIN puede empezar en la pág. 1 y continuar en la 2 o 3. No te quedes en la carátula.
 
 Puede ser:
 A) Carátula multipágina Chery / Intercontinental: Marks and numbers | Code | Description | Qty | Unit Price | Amount.
@@ -1187,9 +1190,9 @@ IMPORTANTE:
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
 - serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial. Empareja cada motor con su VIN. No lo saques de la factura comercial.
-- El certificado puede ser 1 o 2 páginas (PDF o fotos).
-  - 2 páginas: la carátula (pág. 1 / 1ª imagen) suele NO traer ENGINE No; léelo en la página 2 (2ª imagen).
-  - 1 página o una sola foto de la tabla (columnas VIN NO. / ENGINE NO / COLOUR): LEE ESA PÁGINA. No esperes una segunda imagen ni asumas que es carátula vacía.
+- El certificado puede tener 1, 2 o más páginas (PDF o fotos). LEE TODAS.
+  - Carátula (pág. 1): a veces NO trae ENGINE No; la tabla VIN / ENGINE NO / COLOUR suele estar en pág. 2 o 3.
+  - Si hay una sola página con la tabla, LÉELA. No asumas que es carátula vacía.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -1679,15 +1682,18 @@ async function extractFacturaLocalFromDocument(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, {
-          maxPages: PDF_RASTER_MAX_PAGES,
-          scale: 2.2,
-        })
+      ? (await rasterPdfForOcr(buffer)).pages
       : [buffer];
     if (pages.length === 0) return { shared: {}, vehiculos: [] };
-    const layoutText = pages[0]
-      ? await extractInvoicePlainTextWithTesseract(pages[0])
-      : "";
+    const layoutParts: string[] = [];
+    for (const page of pages) {
+      try {
+        layoutParts.push(await extractInvoicePlainTextWithTesseract(page));
+      } catch {
+        // página ilegible
+      }
+    }
+    const layoutText = layoutParts.join("\n");
     const chery = layoutText ? docFromCheryPlainText(layoutText) : null;
     if (chery && chery.vehiculos.length >= 1) return chery;
     const tess = isPdf
@@ -1818,13 +1824,18 @@ export async function extractFacturaMultiFromDocument(
   // 3) Cosecha extra por páginas si sigue corto.
   if (isPdf && currentBest.vehiculos.length < 8) {
     try {
-      const pages = await renderPdfPagesAsPng(buffer, {
-        maxPages: PDF_RASTER_MAX_PAGES,
-        scale: 2.4,
-      });
+      const pages = (await rasterPdfForOcr(buffer)).pages;
       if (pages.length > 0) {
         try {
-          const layoutText = await extractInvoicePlainTextWithTesseract(pages[0]!);
+          const layoutParts: string[] = [];
+          for (const page of pages) {
+            try {
+              layoutParts.push(await extractInvoicePlainTextWithTesseract(page));
+            } catch {
+              // página
+            }
+          }
+          const layoutText = layoutParts.join("\n");
           facturaPlainText = [facturaPlainText, layoutText].filter(Boolean).join("\n");
           const fromLayout = docFromCheryPlainText(layoutText);
           if (fromLayout && fromLayout.vehiculos.length > 0) {
@@ -1839,7 +1850,7 @@ export async function extractFacturaMultiFromDocument(
         } catch {
           // ignore
         }
-        for (let i = 0; i < Math.min(pages.length, 3); i++) {
+        for (let i = 0; i < pages.length; i++) {
           if (pickBestFacturaMulti(candidates).vehiculos.length >= 8) break;
           try {
             candidates.push(
@@ -1937,7 +1948,7 @@ export async function extractFacturaVinsStageFromDocument(
    * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
    * Devolver VIN parcial > quedar en 0 por timeout.
    */
-  const STAGE_BUDGET_MS = 70_000;
+  const STAGE_BUDGET_MS = 85_000;
   const startedAt = Date.now();
   const remainingMs = () => STAGE_BUDGET_MS - (Date.now() - startedAt);
   const withinBudget = (needMs: number) => remainingMs() >= needMs;
@@ -2110,39 +2121,7 @@ export async function extractFacturaVinsStageFromDocument(
     }
   };
 
-  // PDF nativo (Gemini lee el archivo): CamScanner envuelve la foto en PDF y
-  // raster+Tesseract suele devolver 0 filas. Antes del OCR local.
-  if (
-    isPdf &&
-    vinSet.size < MULTI_VIN_TARGET &&
-    isLlmConfigured() &&
-    !visionCreditsBlocked &&
-    withinBudget(16_000)
-  ) {
-    try {
-      const parsed = await createDocumentJsonCompletion({
-        prompt: FACTURA_MULTI_PROMPT,
-        buffer,
-        mimeType,
-        maxTokens: 12000,
-        maxPdfPages: PDF_VISION_MAX_PAGES,
-        preferHighDetail: true,
-        forceRasterVision: true,
-        skipRaster: true,
-        renderScale: 2.2,
-        timeoutMs: Math.min(40_000, Math.max(14_000, remainingMs() - 8_000)),
-      });
-      const extracted = enrichWithSalvagedVins(
-        sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
-        parsed
-      );
-      applyExtractedVehiculos(extracted, "pdf-nativo");
-    } catch (err) {
-      noteVisionError("pdf-nativo", err);
-    }
-  }
-
-  // Raster + Tesseract (local) + visión acotada
+  // Raster + Tesseract (local) + visión de TODAS las páginas
   if (vinSet.size >= MULTI_VIN_TARGET) {
     diagnostics.push(
       `ocr: omitido (texto PDF ya tiene ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
@@ -2150,10 +2129,7 @@ export async function extractFacturaVinsStageFromDocument(
   } else {
     try {
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, {
-          maxPages: PDF_RASTER_MAX_PAGES,
-          scale: 2.6,
-        })
+      ? (await rasterPdfForOcr(buffer)).pages
       : [buffer];
     const page1 = pages[0];
     if (!page1) {
@@ -2161,17 +2137,23 @@ export async function extractFacturaVinsStageFromDocument(
     } else {
       diagnostics.push(`raster: ok ${pages.length} página(s)`);
 
-      try {
-        const layoutText = await extractInvoicePlainTextWithTesseract(page1);
-        rememberCheryLineas(layoutText, "tesseract-factura");
-        addVins(extractVinsFromOcrText(layoutText), "tesseract-factura");
-        diagnostics.push(
-          `tesseract-factura: ${layoutText.replace(/\s+/g, " ").trim().slice(0, 90)}`
-        );
-      } catch (err) {
-        diagnostics.push(
-          `tesseract-factura: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
-        );
+      for (let i = 0; i < pages.length; i++) {
+        try {
+          const layoutText = await extractInvoicePlainTextWithTesseract(
+            pages[i]!
+          );
+          rememberCheryLineas(layoutText, `tesseract-factura-p${i + 1}`);
+          addVins(extractVinsFromOcrText(layoutText), `tesseract-factura-p${i + 1}`);
+          if (i === 0) {
+            diagnostics.push(
+              `tesseract-factura: ${layoutText.replace(/\s+/g, " ").trim().slice(0, 90)}`
+            );
+          }
+        } catch (err) {
+          diagnostics.push(
+            `tesseract-factura-p${i + 1}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
+          );
+        }
       }
 
       // Recortes: tabla completa primero (Code no siempre está en 19–35%).
@@ -2246,51 +2228,51 @@ export async function extractFacturaVinsStageFromDocument(
         !visionCreditsBlocked &&
         vinSet.size < MULTI_VIN_TARGET;
 
-      // Tesseract VIN (whitelist) solo si la factura completa no bastó.
       const needVinTess = vinSet.size < MULTI_VIN_TARGET;
       if (!needVinTess) {
         diagnostics.push(
           `tesseract-vin: omitido (factura completa ya tiene ${vinSet.size} VIN)`
         );
       }
-      if (canVision && withinBudget(15_000)) {
-        await Promise.all([
-          needVinTess ? runTesseract() : Promise.resolve(),
-          fromImageList(page1, pageMime, "pagina-1", 32_000),
-        ]);
-      } else if (needVinTess) {
+      if (needVinTess) {
         await runTesseract();
       }
 
-      // Resto de páginas + recorte de tabla si aún faltan VIN
+      // Todas las páginas en una sola llamada de visión (no solo pág. 1).
+      if (canVision && vinSet.size < MULTI_VIN_TARGET && withinBudget(18_000)) {
+        try {
+          const parsed = await createDocumentJsonFromPageImages({
+            prompt: FACTURA_MULTI_PROMPT,
+            pagePngs: pages,
+            maxTokens: 12000,
+            preferHighDetail: true,
+            timeoutMs: Math.min(45_000, Math.max(14_000, remainingMs() - 4_000)),
+          });
+          const extracted = enrichWithSalvagedVins(
+            sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
+            parsed
+          );
+          applyExtractedVehiculos(extracted, `vision-${pages.length}p`);
+        } catch (err) {
+          noteVisionError("vision-paginas", err);
+          await fromImageList(page1, pageMime, "pagina-1", 24_000);
+        }
+      }
+
       if (
         vinSet.size < MULTI_VIN_TARGET &&
         isLlmConfigured() &&
         !visionCreditsBlocked &&
-        withinBudget(12_000)
+        withinBudget(10_000)
       ) {
         for (let i = 1; i < pages.length; i++) {
-          if (vinSet.size >= MULTI_VIN_TARGET || !withinBudget(10_000)) break;
+          if (vinSet.size >= MULTI_VIN_TARGET || !withinBudget(8_000)) break;
           await fromImageList(
             pages[i]!,
             pageMime,
             `pagina-${i + 1}`,
-            24_000
+            20_000
           );
-        }
-        if (vinSet.size < MULTI_VIN_TARGET && withinBudget(10_000)) {
-          const priority =
-            croppedBuffers.find((c) => c.label === "tabla") ??
-            croppedBuffers.find((c) => c.label.startsWith("col-code")) ??
-            croppedBuffers.find((c) => c.label.startsWith("col-chasis"));
-          if (priority) {
-            await fromImageList(
-              priority.buffer,
-              priority.mimeType,
-              priority.label,
-              24_000
-            );
-          }
         }
       } else if (vinSet.size >= MULTI_VIN_TARGET) {
         diagnostics.push(
@@ -2305,27 +2287,24 @@ export async function extractFacturaVinsStageFromDocument(
     }
   }
 
-  // JSON harvest solo si casi no hay VIN y aún cabe en el presupuesto
+  // JSON harvest de TODAS las páginas si aún hay pocos VIN
   if (
     vinSet.size < 3 &&
     isLlmConfigured() &&
     !visionCreditsBlocked &&
-    withinBudget(22_000)
+    withinBudget(18_000)
   ) {
     try {
-      const sized = await compressImageForVision(
-        isPdf
-          ? (await renderPdfPagesAsPng(buffer, {
-              maxPages: PDF_RASTER_MAX_PAGES,
-              scale: 2.2,
-            }))[0]!
-          : buffer
-      );
-      const parsed = await createVisionJsonCompletion({
+      const pagePngs = isPdf
+        ? (await rasterPdfForOcr(buffer)).pages
+        : [buffer];
+      if (pagePngs.length === 0) {
+        throw new Error("raster vacío");
+      }
+      const parsed = await createDocumentJsonFromPageImages({
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
-        imageBuffer: sized.buffer,
-        mimeType: sized.mimeType,
-        maxTokens: 2500,
+        pagePngs,
+        maxTokens: 8000,
         preferHighDetail: true,
         timeoutMs: Math.min(35_000, Math.max(12_000, remainingMs() - 2_000)),
       });
@@ -2341,7 +2320,7 @@ export async function extractFacturaVinsStageFromDocument(
     diagnostics.push(
       `json-harvest: omitido (ya hay ${vinSet.size} VIN; cabecera en etapa 3)`
     );
-  } else if (!withinBudget(22_000)) {
+  } else if (!withinBudget(18_000)) {
     diagnostics.push(
       `json-harvest: omitido (presupuesto ${Math.round(remainingMs() / 1000)}s)`
     );
@@ -2497,13 +2476,18 @@ export async function enrichFacturaRowsStageFromDocument(
       }
     }
     const pages = isPdf
-      ? await renderPdfPagesAsPng(buffer, {
-          maxPages: PDF_RASTER_MAX_PAGES,
-          scale: 2.6,
-        })
+      ? (await rasterPdfForOcr(buffer)).pages
       : [buffer];
     if (pages[0]) {
-      const layoutText = await extractInvoicePlainTextWithTesseract(pages[0]);
+      const layoutParts: string[] = [];
+      for (const page of pages) {
+        try {
+          layoutParts.push(await extractInvoicePlainTextWithTesseract(page));
+        } catch {
+          // página
+        }
+      }
+      const layoutText = layoutParts.join("\n");
       invoiceTextBag = `${invoiceTextBag} ${layoutText}`.trim();
       const fromLayout = docFromCheryPlainText(layoutText);
       if (fromLayout && fromLayout.vehiculos.length > 0) {
@@ -2680,25 +2664,6 @@ function applyCertEnginePairs(
   return next;
 }
 
-async function ocrPdfPageText(
-  buffer: Buffer,
-  pageNumber: number,
-  options?: { fast?: boolean }
-): Promise<string> {
-  const pages = await renderPdfPagesAsPng(buffer, {
-    startPage: pageNumber,
-    maxPages: 1,
-    scale: options?.fast ? 2.0 : 2.6,
-  });
-  if (!pages[0]) return "";
-  if (options?.fast) {
-    return extractCertificatePagePlainTextOriented(pages[0]);
-  }
-  return extractCertificatePagePlainTextWithTesseract(pages[0], {
-    fast: options?.fast,
-  });
-}
-
 function emptyCertHarvest(): CertEngineHarvest {
   return { pairs: [], motors: [] };
 }
@@ -2745,23 +2710,22 @@ async function harvestCertEngineNos(
 
   let fromOcr = emptyCertHarvest();
   try {
-    const pageCountHint = pageTexts.length > 0 ? pageTexts.length : 2;
-    const pageOrder =
-      pageCountHint === 1 ? ([1] as const) : ([2, 1] as const);
-    for (const pageNum of pageOrder) {
+    const { pages } = await rasterPdfForOcr(buffer);
+    for (let i = 0; i < pages.length; i++) {
       if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
         break;
       }
       try {
-        const pageOcr = await ocrPdfPageText(buffer, pageNum, {
-          fast: options?.rapido ?? true,
-        });
+        const pageOcr = await extractCertificatePagePlainTextWithTesseract(
+          pages[i]!,
+          { fast: false }
+        );
         fromOcr = mergeCertEngineHarvests(
           fromOcr,
           harvestCertEnginesFromText(pageOcr)
         );
       } catch {
-        // página inexistente (COO de 1 página) o raster fallido
+        // página ilegible
       }
     }
   } catch {
@@ -2785,24 +2749,34 @@ export async function extractCertificadoOrigenMultiFromDocument(
   // Solo saltar IA si el OCR local ya trajo motores. `rapido` no debe
   // devolver 0 filas cuando Tesseract no leyó la foto (CamScanner 1 pág.).
   const skipLlmForEngines =
-    harvest.pairs.length >= 2 || harvest.motors.length >= 2;
+    harvest.pairs.length >= CERT_HARVEST_OCR_TARGET ||
+    harvest.motors.length >= CERT_HARVEST_OCR_TARGET;
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
   if (isLlmConfigured() && !skipLlmForEngines) {
     try {
-      parsed = await createDocumentJsonCompletion({
-        prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
-        buffer,
-        mimeType,
-        extraImageBuffers: extraPageBuffers,
-        maxTokens: options?.rapido ? 3500 : 4500,
-        maxTextChars: 32000,
-        // 1 o 2 páginas: no quedarse en texto de carátula si hay tabla de ENGINE No.
-        maxPdfPages: PDF_VISION_MAX_PAGES,
-        preferHighDetail: true,
-        forceRasterVision: isPdf,
-      });
+      if (isPdf) {
+        const { pages } = await rasterPdfForOcr(buffer);
+        const allPages = [...pages, ...extraPageBuffers];
+        parsed = await createDocumentJsonFromPageImages({
+          prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+          pagePngs: allPages.length > 0 ? allPages : pages,
+          maxTokens: options?.rapido ? 4500 : 8000,
+          preferHighDetail: true,
+        });
+      } else {
+        parsed = await createDocumentJsonCompletion({
+          prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
+          buffer,
+          mimeType,
+          extraImageBuffers: extraPageBuffers,
+          maxTokens: options?.rapido ? 3500 : 4500,
+          maxTextChars: 32000,
+          maxPdfPages: PDF_VISION_MAX_PAGES,
+          preferHighDetail: true,
+        });
+      }
     } catch (err) {
       llmError = err;
     }
