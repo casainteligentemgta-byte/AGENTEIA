@@ -296,7 +296,8 @@ function uniqueKeepOrder(motors: string[]): string[] {
 async function harvestFullEngineColumn(
   worker: TessWorker,
   psmSingleColumn: unknown,
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
+  options?: { skipCells?: boolean }
 ): Promise<string[]> {
   const prepared = await upscaleForOcr(imageBuffer, 1600);
   const { loadImage } = await import("@napi-rs/canvas");
@@ -331,6 +332,7 @@ async function harvestFullEngineColumn(
     ),
   ]);
   if (motors.length >= 8) return motors;
+  if (options?.skipCells) return motors;
 
   const cells = Math.max(8, motors.length + 2);
   try {
@@ -415,7 +417,23 @@ export async function extractCertificatePagePlainTextWithTesseract(
         score: scoreCertificatePageOcrText(t),
       }))
       .sort((a, b) => b.score - a.score);
-    return (ranked[0]?.t ?? texts.join("\n")).trim();
+    let best = (ranked[0]?.t ?? texts.join("\n")).trim();
+    if (countSqreTokens(best) < 8) {
+      try {
+        const column = await harvestFullEngineColumn(
+          worker,
+          PSM.SINGLE_COLUMN,
+          prepared,
+          { skipCells: Boolean(options?.fast) }
+        );
+        if (column.length > 0) {
+          best = `${best}\nENGINE NO\n${column.join("\n")}`.trim();
+        }
+      } catch {
+        // sin columna
+      }
+    }
+    return best;
   } finally {
     await worker.terminate();
   }

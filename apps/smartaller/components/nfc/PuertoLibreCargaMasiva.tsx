@@ -546,8 +546,8 @@ export function PuertoLibreCargaMasiva({
         fd,
         extractCargaMasivaEtapaAction,
         {
-          deadlineMs: 90_000,
-          pollMs: 90_000,
+          deadlineMs: 50_000,
+          pollMs: 50_000,
           onRetry: (attempt) =>
             setExtractProgress({
               etapa: "certs",
