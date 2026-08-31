@@ -42,6 +42,8 @@ import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import {
   CERT_HARVEST_OCR_TARGET,
   certHarvestNeedsMoreOcr,
+  extractPaisOrigenFromCertPages,
+  extractPaisOrigenFromCertText,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   isVinLikeSerialMotor,
@@ -53,6 +55,7 @@ import {
   type CertEngineHarvest,
   type CertEnginePair,
 } from "@/lib/importacion/cert-engine-text";
+import { resolvePaisCatalog } from "@/lib/importacion/paises";
 import {
   parseCheryInvoiceHeader,
   parseCheryInvoiceLineas,
@@ -2758,11 +2761,17 @@ async function harvestCertEngineNos(
       pageTexts = [];
     }
   }
+  let paisOrigen = extractPaisOrigenFromCertPages(pageTexts);
+  const withPais = (h: CertEngineHarvest): CertEngineHarvest => {
+    const pais = h.paisOrigen || paisOrigen;
+    return pais ? { ...h, paisOrigen: pais } : h;
+  };
+
   const fromEmbedded = harvestCertEnginesFromPages(pageTexts);
-  if (!certHarvestNeedsMoreOcr(fromEmbedded)) return fromEmbedded;
+  if (!certHarvestNeedsMoreOcr(fromEmbedded)) return withPais(fromEmbedded);
 
   let fromOcr = emptyCertHarvest();
-  const merged = () => mergeCertEngineHarvests(fromEmbedded, fromOcr);
+  const merged = () => withPais(mergeCertEngineHarvests(fromEmbedded, fromOcr));
 
   const ocrPage = async (img: Buffer) => {
     const pageOcr = await extractCertificatePagePlainTextWithTesseract(img, {
@@ -2772,6 +2781,7 @@ async function harvestCertEngineNos(
       fromOcr,
       harvestCertEnginesFromText(pageOcr)
     );
+    if (!paisOrigen) paisOrigen = extractPaisOrigenFromCertText(pageOcr);
   };
 
   // Extraer: 1× visión de la tabla (como los 8 VIN). Tesseract solo si Gemini falla.
@@ -2814,10 +2824,11 @@ async function harvestCertEngineNos(
             fromOcr,
             harvestCertEnginesFromText(ocr)
           );
+          if (!paisOrigen) paisOrigen = extractPaisOrigenFromCertText(ocr);
         }
       }
     } catch {
-      return fromEmbedded;
+      return withPais(fromEmbedded);
     }
     return merged();
   }
@@ -2935,7 +2946,12 @@ export async function extractCertificadoOrigenMultiFromDocument(
   }
 
   const shared: PuertoLibreRegistroScanFields = {};
-  const pais = parseString(parsed.pais_origen ?? parsed.country_of_origin);
+  const pais =
+    resolvePaisCatalog(
+      parseString(parsed.pais_origen ?? parsed.country_of_origin)
+    ) ||
+    harvest.paisOrigen ||
+    null;
   if (pais) shared.paisOrigen = pais;
   const marca = normalizeMarcaFabricante(parseString(parsed.marca));
   if (marca && isPlausibleMarcaFabricante(marca)) shared.marca = marca;
@@ -3052,6 +3068,11 @@ export async function extractCertificadoOrigenMultiFromDocument(
       };
     }
     if (llmError) throw llmError;
+  }
+  if (shared.paisOrigen) {
+    vehiculos = vehiculos.map((v) =>
+      v.paisOrigen?.trim() ? v : { ...v, paisOrigen: shared.paisOrigen }
+    );
   }
   return {
     shared,
