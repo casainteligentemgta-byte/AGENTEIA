@@ -34,7 +34,6 @@ import { readCargaMasivaSeed } from "@/lib/importacion/carga-masiva-seed";
 import {
   CARGA_MASIVA_ETAPA_HINTS,
   CARGA_MASIVA_ETAPA_LABELS,
-  CARGA_MASIVA_ETAPAS,
   cargaMasivaEtapasPlan,
   type CargaMasivaEtapaId,
   type CargaMasivaEtapaProgress,
@@ -174,7 +173,7 @@ export function PuertoLibreCargaMasiva({
   const [importPending, startImportTransition] = useTransition();
   const pending = sheetPending || extractPending || importPending;
   const [error, setError] = useState<string | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
   const [createdExpedientes, setCreatedExpedientes] = useState<
     {
@@ -187,11 +186,11 @@ export function PuertoLibreCargaMasiva({
   >([]);
   const [extractProgress, setExtractProgress] =
     useState<CargaMasivaEtapaProgress | null>(null);
-  const [activeEtapa, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
+  const [, setActiveEtapa] = useState<CargaMasivaEtapaId | null>(
     null
   );
   /** Etapas realmente terminadas (evita checks verdes falsos al estar en certs). */
-  const [etapasHechas, setEtapasHechas] = useState<Set<CargaMasivaEtapaId>>(
+  const [, setEtapasHechas] = useState<Set<CargaMasivaEtapaId>>(
     () => new Set()
   );
   const [blOcrPending, setBlOcrPending] = useState(false);
@@ -201,7 +200,6 @@ export function PuertoLibreCargaMasiva({
   const sheetRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
   const certsRef = useRef<HTMLInputElement>(null);
-  const extraerAhoraRef = useRef<HTMLInputElement>(null);
   const blRef = useRef<HTMLInputElement>(null);
   const seedApplied = useRef(false);
   const initialRowsApplied = useRef(false);
@@ -211,6 +209,8 @@ export function PuertoLibreCargaMasiva({
   rowsRef.current = rows;
   const loteTechRef = useRef(loteTech);
   loteTechRef.current = loteTech;
+  const sharedRef = useRef(shared);
+  sharedRef.current = shared;
 
   useEffect(() => {
     if (initialRowsApplied.current || !initialRows?.length) return;
@@ -520,6 +520,22 @@ export function PuertoLibreCargaMasiva({
     }
   }
 
+  function applyShipmentToTable(
+    nextShared: SharedShipmentFields,
+    options?: { force?: boolean }
+  ) {
+    setShared(nextShared);
+    sharedRef.current = nextShared;
+    if (rowsRef.current.length === 0) return;
+    const ids = selectedIds.length > 0 ? selectedIds : undefined;
+    const next = applySharedShipmentToRows(rowsRef.current, nextShared, {
+      force: options?.force ?? true,
+      ids,
+    });
+    rowsRef.current = next;
+    setRows(next);
+  }
+
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
     let healed = healCargaMasivaCheryRows(nextRows);
     if (selected) {
@@ -682,7 +698,10 @@ export function PuertoLibreCargaMasiva({
         setTasaBcvHint(result.error);
         return;
       }
-      setShared((prev) => ({ ...prev, tasaCambioBcv: result.tasa }));
+      applyShipmentToTable(
+        { ...sharedRef.current, tasaCambioBcv: result.tasa },
+        { force: true }
+      );
       setTasaBcvHint(result.hint);
     } finally {
       if (req === tasaBcvReq.current) setTasaBcvPending(false);
@@ -708,14 +727,6 @@ export function PuertoLibreCargaMasiva({
     if (hasFactura && hasCert) {
       extractDocs(merged);
     }
-  }
-
-  function handleCargarYExtraer(list: FileList | null) {
-    if (!list?.length) return;
-    const merged = mergeIncomingDocs(assignDocTipos(Array.from(list)));
-    setDocs(merged);
-    setError(null);
-    extractDocs(merged);
   }
 
   async function handleBlFile(file: File | null) {
@@ -774,17 +785,14 @@ export function PuertoLibreCargaMasiva({
           fields.modalidadTransito ?? shared.modalidadTransito,
         aduanaTransito: fields.aduanaTransito?.trim() || shared.aduanaTransito,
       };
-      setShared(nextShared);
-      const applied = applySharedShipmentToRows(rowsRef.current, nextShared);
-      rowsRef.current = applied;
-      setRows(applied);
+      applyShipmentToTable(nextShared, { force: false });
       if (nextShared.fechaLlegadaBuque) {
         void fillTasaBcvForFecha(nextShared.fechaLlegadaBuque);
       }
       setResultMsg(
         fields.numeroBl?.trim()
           ? `BL leído: ${fields.numeroBl.trim()}. El archivo se adjunta a los expedientes al registrar.`
-          : "BL guardado. No se pudo leer el número: escríbelo y aplica a todas."
+          : "BL guardado. No se pudo leer el número: escríbelo a mano."
       );
     } catch (err) {
       setError(
@@ -1455,57 +1463,56 @@ export function PuertoLibreCargaMasiva({
           {hideClienteSection ? "1.- Factura con varios vehículos" : "2.- Factura con varios vehículos"}
         </h2>
 
-        <div className="grid grid-cols-2 gap-2">
-          <a
-            href="/smartimport/carga-masiva/plantilla.xlsx"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
+        <div className="flex items-center justify-center gap-6">
+          <button
+            type="button"
+            aria-label="Excel o CSV"
+            aria-pressed={mode === "plantilla"}
+            onClick={() => setMode("plantilla")}
+            className={`flex h-16 w-16 items-center justify-center rounded-2xl border transition ${
+              mode === "plantilla"
+                ? "border-cyan-500 bg-cyan-600 text-white"
+                : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+            }`}
           >
-            <Download className="h-4 w-4 shrink-0" />
-            <span className="leading-tight">Plantilla Excel</span>
-          </a>
-          <a
-            href="/smartimport/carga-masiva/plantilla.csv"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
+            <FileSpreadsheet className="h-8 w-8" />
+          </button>
+          <button
+            type="button"
+            aria-label="PDF o fotos"
+            aria-pressed={mode === "documentos"}
+            onClick={() => setMode("documentos")}
+            className={`flex h-16 w-16 items-center justify-center rounded-2xl border transition ${
+              mode === "documentos"
+                ? "border-cyan-500 bg-cyan-600 text-white"
+                : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+            }`}
           >
-            <Download className="h-4 w-4 shrink-0" />
-            <span className="leading-tight">Plantilla CSV</span>
-          </a>
-        </div>
-
-        <div className="flex gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
-          {(
-            [
-              { id: "documentos" as const, label: "PDF / Fotos", icon: FileUp },
-              { id: "plantilla" as const, label: "Excel / CSV", icon: FileSpreadsheet },
-            ] as const
-          ).map((tab) => {
-            const active = mode === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setMode(tab.id)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  active
-                    ? "bg-cyan-600 text-white"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+            <FileText className="h-8 w-8" />
+          </button>
         </div>
 
         {mode === "plantilla" ? (
-          <div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <a
+              href="/smartimport/carga-masiva/plantilla.xlsx"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="leading-tight">Plantilla Excel</span>
+            </a>
+            <a
+              href="/smartimport/carga-masiva/plantilla.csv"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-center text-sm font-medium text-slate-200 hover:border-slate-500"
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="leading-tight">Plantilla CSV</span>
+            </a>
             <button
               type="button"
               disabled={pending}
               onClick={() => sheetRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
             >
               {pending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1526,231 +1533,140 @@ export function PuertoLibreCargaMasiva({
             />
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => docsRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
-              >
-                <Upload className="h-4 w-4 shrink-0" />
-                Agregar factura / PDFs
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => certsRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
-              >
-                <Upload className="h-4 w-4 shrink-0" />
-                Añadir certificados
-              </button>
-            </div>
-            <p className="text-xs leading-5 text-slate-400">
-              Carga el PDF de la factura y el del certificado (varios a la vez).
-              Extraer usa OCR local y Gemini: VIN/modelo/color de la factura y
-              serial de motor del certificado.
-            </p>
-
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               disabled={pending}
-              onClick={() => extraerAhoraRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+              onClick={() => docsRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
             >
-              <FileUp className="h-4 w-4 shrink-0" />
-              Cargar PDFs y extraer
+              <Upload className="h-4 w-4 shrink-0" />
+              Agregar factura / PDFs
             </button>
-
-            {docs.length > 0 ? (
-              <ul className="space-y-2">
-                {docs.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                      {d.file.name}
-                    </span>
-                    <select
-                      value={d.tipo}
-                      onChange={(e) =>
-                        setDocs((prev) =>
-                          prev.map((x) =>
-                            x.id === d.id
-                              ? {
-                                  ...x,
-                                  tipo: e.target.value as DocItem["tipo"],
-                                }
-                              : x
-                          )
-                        )
-                      }
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-                    >
-                      <option value="factura_comercial">Factura</option>
-                      <option value="certificado_origen">
-                        Certificado origen
-                      </option>
-                      <option value="bl_guia">BL / guía</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
-                      }
-                      className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
-                      aria-label="Quitar documento"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {extractPending ? (
-              <div
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/15 px-4 py-2.5 text-sm font-medium text-cyan-100"
-                role="status"
-                aria-live="polite"
-              >
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                {extractProgress?.label ?? "Extrayendo…"}
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={importPending || docs.length === 0}
-                onClick={() => extractDocs()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-4 py-2.5 text-sm font-medium text-cyan-50 hover:bg-cyan-900/40 disabled:opacity-50"
-              >
-                <FileUp className="h-4 w-4 shrink-0" />
-                Extraer vehículos
-              </button>
-            )}
-
             <button
               type="button"
               disabled={pending}
-              onClick={() =>
-                setRows((prev) => [
-                  ...prev,
-                  emptyCargaMasivaRow({ fuente: "Manual" }),
-                ])
-              }
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+              onClick={() => certsRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
             >
-              <Plus className="h-4 w-4 shrink-0" />
-              Añadir fila
+              <Upload className="h-4 w-4 shrink-0" />
+              Añadir certificados
             </button>
-            <input
-              ref={docsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                handleDocsFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <input
-              ref={certsRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                completarConCertificados(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <input
-              ref={extraerAhoraRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                handleCargarYExtraer(e.target.files);
-                e.target.value = "";
-              }}
-            />
-
-            {(extractPending || extractProgress) ? (
-              <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
-                  Extracción por etapas
-                </p>
-                <ol className="mt-2 space-y-1.5">
-                  {CARGA_MASIVA_ETAPAS.map((id) => {
-                    const done = etapasHechas.has(id);
-                    const current = activeEtapa === id;
-                    const skipped =
-                      id === "certs" &&
-                      !docs.some(
-                        (d) =>
-                          d.tipo === "certificado_origen" || d.tipo === "bl_guia"
-                      );
-                    return (
-                      <li
-                        key={id}
-                        className={`flex items-center gap-2 text-sm ${
-                          skipped
-                            ? "text-slate-600"
-                            : current
-                              ? "text-cyan-100"
-                              : done
-                                ? "text-emerald-300/90"
-                                : "text-slate-500"
-                        }`}
-                      >
-                        {current ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                        ) : done ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-current opacity-40" />
-                        )}
-                        <span>
-                          {CARGA_MASIVA_ETAPA_LABELS[id]}
-                          {skipped ? " (omitida)" : ""}
-                          {current ? ` — ${CARGA_MASIVA_ETAPA_HINTS[id]}` : ""}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-                {extractProgress ? (
-                  <div className="mt-3">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-cyan-500 transition-all duration-500"
-                        style={{ width: `${extractProgress.pct}%` }}
-                      />
-                    </div>
-                    <p className="mt-1.5 text-xs text-slate-400">
-                      {extractProgress.vinsEncontrados} VIN ·{" "}
-                      {extractProgress.filasCompletas}/
-                      {extractProgress.totalFilas || "—"} filas completas
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         )}
-      </section>
 
-      {warnings.length > 0 ? (
-        <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
-          {warnings.map((w) => (
-            <p key={w}>{w}</p>
-          ))}
-        </div>
-      ) : null}
+        {docs.length > 0 ? (
+          <ul className="space-y-2">
+            {docs.map((d) => (
+              <li
+                key={d.id}
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                  {d.file.name}
+                </span>
+                <select
+                  value={d.tipo}
+                  onChange={(e) =>
+                    setDocs((prev) =>
+                      prev.map((x) =>
+                        x.id === d.id
+                          ? {
+                              ...x,
+                              tipo: e.target.value as DocItem["tipo"],
+                            }
+                          : x
+                      )
+                    )
+                  }
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                >
+                  <option value="factura_comercial">Factura</option>
+                  <option value="certificado_origen">
+                    Certificado origen
+                  </option>
+                  <option value="bl_guia">BL / guía</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDocs((prev) => prev.filter((x) => x.id !== d.id))
+                  }
+                  className="rounded-md p-1.5 text-slate-500 hover:text-red-300"
+                  aria-label="Quitar documento"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {extractPending ? (
+          <div
+            className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                style={{ width: `${extractProgress?.pct ?? 0}%` }}
+              />
+            </div>
+            <p className="mt-2 text-center text-sm font-semibold tabular-nums text-cyan-100">
+              {extractProgress?.pct ?? 0}%
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={importPending || docs.length === 0}
+            onClick={() => extractDocs()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-4 py-2.5 text-sm font-medium text-cyan-50 hover:bg-cyan-900/40 disabled:opacity-50"
+          >
+            <FileUp className="h-4 w-4 shrink-0" />
+            Extraer vehículos
+          </button>
+        )}
+
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            setRows((prev) => [
+              ...prev,
+              emptyCargaMasivaRow({ fuente: "Manual" }),
+            ])
+          }
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-400 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4 shrink-0" />
+          Añadir fila
+        </button>
+        <input
+          ref={docsRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+          className="hidden"
+          onChange={(e) => {
+            handleDocsFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={certsRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+          className="hidden"
+          onChange={(e) => {
+            completarConCertificados(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </section>
 
       {error ? (
         <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
@@ -1814,68 +1730,31 @@ export function PuertoLibreCargaMasiva({
           id={CARGA_MASIVA_LISTADO_ID}
           className="scroll-mt-4 space-y-3"
         >
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="smartimport-bucket-title text-slate-100">
-                {hideClienteSection ? "2. Revisa y registra" : "3. Revisa y registra"} ({rows.length})
-              </h2>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
-                  ● Verde {semaforo.verde}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-amber-950/60 px-2 py-0.5 text-amber-300">
-                  ● Ámbar {semaforo.ambar}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-red-950/60 px-2 py-0.5 text-red-300">
-                  ● Rojo {semaforo.rojo}
-                </span>
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Semáforo = completitud. Con VIN válido se crea el expediente aunque
-                falten datos (se completan en la ficha). Verde = completo · Ámbar =
-                falten motor/color/año · Rojo = faltan marca/modelo (igual se
-                crea). Sin VIN no se registra.
-                {incompleteCount > 0
-                  ? " Sube certificados para rellenar motor, color y año."
-                  : null}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={!canImport}
-              onClick={importRows}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 sm:w-auto"
-            >
-              {importPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              {importPending
-                ? "Registrando…"
-                : `Registrar ${semaforo.aptos.length} vehículo${semaforo.aptos.length === 1 ? "" : "s"}`}
-            </button>
+          <div>
+            <h2 className="smartimport-bucket-title text-slate-100">
+              {hideClienteSection ? "2. Revisa y registra" : "3. Revisa y registra"} ({rows.length})
+            </h2>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-2 py-0.5 text-emerald-300">
+                ● Verde {semaforo.verde}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-950/60 px-2 py-0.5 text-amber-300">
+                ● Ámbar {semaforo.ambar}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-red-950/60 px-2 py-0.5 text-red-300">
+                ● Rojo {semaforo.rojo}
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Semáforo = completitud. Con VIN válido se crea el expediente aunque
+              falten datos (se completan en la ficha). Verde = completo · Ámbar =
+              falten motor/color/año · Rojo = faltan marca/modelo (igual se
+              crea). Sin VIN no se registra.
+              {incompleteCount > 0
+                ? " Sube certificados para rellenar motor, color y año."
+                : null}
+            </p>
           </div>
-
-          {!canImport && importBlockReason ? (
-            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              {importBlockReason}
-            </p>
-          ) : null}
-
-          {semaforo.bloqueados.length > 0 ? (
-            <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-              {semaforo.bloqueados.length} sin VIN válido (no se crearán). El resto
-              ({semaforo.aptos.length}) sí se registra; el color indica qué falta
-              completar después.
-            </p>
-          ) : semaforo.rojo > 0 || semaforo.ambar > 0 ? (
-            <p className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
-              Se crearán {semaforo.aptos.length} expediente(s). Los de color
-              rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
-              en la ficha.
-            </p>
-          ) : null}
 
           {rows.length > 0 ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1885,7 +1764,7 @@ export function PuertoLibreCargaMasiva({
               <p className="mt-1 text-xs text-slate-500">
                 Mismo BL / buque para las {rows.length} fila
                 {rows.length === 1 ? "" : "s"}. Se rellenan solas al OCR del BL;
-                edítalas aquí y aplica a todas.
+                al cambiar un campo se copian a la tabla.
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="block text-xs text-slate-400">
@@ -1895,10 +1774,10 @@ export function PuertoLibreCargaMasiva({
                     value={shared.fechaLlegadaBuque}
                     onChange={(e) => {
                       const fecha = e.target.value;
-                      setShared((prev) => ({
-                        ...prev,
-                        fechaLlegadaBuque: fecha,
-                      }));
+                      applyShipmentToTable(
+                        { ...shared, fechaLlegadaBuque: fecha },
+                        { force: true }
+                      );
                       void fillTasaBcvForFecha(fecha);
                     }}
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
@@ -1910,10 +1789,13 @@ export function PuertoLibreCargaMasiva({
                     type="text"
                     value={shared.numeroBl}
                     onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        numeroBl: e.target.value.toUpperCase(),
-                      }))
+                      applyShipmentToTable(
+                        {
+                          ...shared,
+                          numeroBl: e.target.value.toUpperCase(),
+                        },
+                        { force: true }
+                      )
                     }
                     placeholder={
                       blOcrPending ? "Leyendo nº BL del documento…" : "Ej. COSU123…"
@@ -1966,10 +1848,10 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={primaryPuertoDescarga(shared.puerto)}
                     onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        puerto: e.target.value,
-                      }))
+                      applyShipmentToTable(
+                        { ...shared, puerto: e.target.value },
+                        { force: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -1998,10 +1880,10 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={shared.aduana}
                     onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        aduana: e.target.value,
-                      }))
+                      applyShipmentToTable(
+                        { ...shared, aduana: e.target.value },
+                        { force: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -2024,10 +1906,10 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={shared.paisOrigen}
                     onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        paisOrigen: e.target.value,
-                      }))
+                      applyShipmentToTable(
+                        { ...shared, paisOrigen: e.target.value },
+                        { force: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -2052,15 +1934,18 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={shared.modalidadTransito}
                     onChange={(e) =>
-                      setShared((prev) => ({
-                        ...prev,
-                        modalidadTransito: e.target
-                          .value as SharedShipmentFields["modalidadTransito"],
-                        aduanaTransito:
-                          e.target.value === "ninguno"
-                            ? ""
-                            : prev.aduanaTransito,
-                      }))
+                      applyShipmentToTable(
+                        {
+                          ...shared,
+                          modalidadTransito: e.target
+                            .value as SharedShipmentFields["modalidadTransito"],
+                          aduanaTransito:
+                            e.target.value === "ninguno"
+                              ? ""
+                              : shared.aduanaTransito,
+                        },
+                        { force: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -2079,10 +1964,10 @@ export function PuertoLibreCargaMasiva({
                     <select
                       value={shared.aduanaTransito}
                       onChange={(e) =>
-                        setShared((prev) => ({
-                          ...prev,
-                          aduanaTransito: e.target.value,
-                        }))
+                        applyShipmentToTable(
+                          { ...shared, aduanaTransito: e.target.value },
+                          { force: true }
+                        )
                       }
                       className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                     >
@@ -2110,10 +1995,13 @@ export function PuertoLibreCargaMasiva({
                     inputMode="decimal"
                     value={shared.tasaCambioBcv}
                     onChange={(e) => {
-                      setShared((prev) => ({
-                        ...prev,
-                        tasaCambioBcv: e.target.value.replace(/[^\d.,]/g, ""),
-                      }));
+                      applyShipmentToTable(
+                        {
+                          ...shared,
+                          tasaCambioBcv: e.target.value.replace(/[^\d.,]/g, ""),
+                        },
+                        { force: true }
+                      );
                       setTasaBcvHint((prev) =>
                         prev && !prev.includes("editada a mano")
                           ? `${prev} · editada a mano`
@@ -2142,41 +2030,6 @@ export function PuertoLibreCargaMasiva({
                   )}
                 </label>
               </div>
-              <button
-                type="button"
-                disabled={
-                  extractPending ||
-                  importPending ||
-                  blOcrPending ||
-                  (!shared.fechaLlegadaBuque.trim() &&
-                    !shared.numeroBl.trim() &&
-                    !shared.puerto.trim() &&
-                    !shared.aduana.trim() &&
-                    !shared.paisOrigen.trim() &&
-                    !shared.modalidadTransito &&
-                    !shared.aduanaTransito.trim() &&
-                    !shared.tasaCambioBcv.trim())
-                }
-                onClick={() => {
-                  const ids =
-                    selectedIds.length > 0 ? selectedIds : undefined;
-                  const next = applySharedShipmentToRows(rows, shared, {
-                    force: true,
-                    ids,
-                  });
-                  rowsRef.current = next;
-                  setRows(next);
-                  const n = ids?.length ?? next.length;
-                  setResultMsg(
-                    `Datos de embarque aplicados a ${n} vehículo${n === 1 ? "" : "s"}.`
-                  );
-                }}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
-              >
-                {selectedIds.length > 0
-                  ? `Aplicar a seleccionadas (${selectedIds.length})`
-                  : `Aplicar a todas (${rows.length})`}
-              </button>
             </div>
           ) : null}
 
@@ -2205,7 +2058,7 @@ export function PuertoLibreCargaMasiva({
                           condicion: e.target
                             .value as SharedLoteTechFields["condicion"],
                         },
-                        { force: true, announce: true }
+                        { force: true }
                       )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
@@ -2227,7 +2080,7 @@ export function PuertoLibreCargaMasiva({
                           tipoCombustible: e.target
                             .value as SharedLoteTechFields["tipoCombustible"],
                         },
-                        { force: true, announce: true }
+                        { force: true }
                       )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
@@ -2260,28 +2113,89 @@ export function PuertoLibreCargaMasiva({
                   />
                 </label>
               </div>
-              <button
-                type="button"
-                disabled={
-                  extractPending ||
-                  importPending ||
-                  (!loteTech.condicion &&
-                    !loteTech.tipoCombustible &&
-                    !loteTech.cilindradaCc.trim())
-                }
-                onClick={() =>
-                  applyLoteTechToTable(loteTech, {
-                    force: true,
-                    announce: true,
-                  })
-                }
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
-              >
-                {selectedIds.length > 0
-                  ? `Aplicar a seleccionadas (${selectedIds.length})`
-                  : `Aplicar a todas (${rows.length})`}
-              </button>
             </div>
+          ) : null}
+
+          {rows.length > 0 ? (
+          <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/70 p-4">
+            <p className="text-sm font-medium text-slate-100">
+              Registrar expedientes
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Se crean todos los que tienen VIN. Quedan agrupados por BL
+              (embarque) y por contenedor del certificado de origen.
+            </p>
+            {registerGroups.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {registerGroups.map((bl) => (
+                  <div
+                    key={bl.numeroBl || "sin-bl"}
+                    className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  >
+                    <p className="text-xs font-semibold text-cyan-100">
+                      BL {bl.label}
+                      <span className="ml-2 font-normal text-slate-400">
+                        {bl.total} vehículo{bl.total === 1 ? "" : "s"} ·{" "}
+                        {bl.contenedores.length} contenedor
+                        {bl.contenedores.length === 1 ? "" : "es"}
+                      </span>
+                    </p>
+                    <ul className="mt-1 space-y-1 text-[11px] text-slate-400">
+                      {bl.contenedores.map((ct) => (
+                        <li key={ct.numeroContenedor || "sin-ct"}>
+                          <span className="font-medium text-slate-200">
+                            {ct.label}
+                          </span>
+                          {" · "}
+                          {ct.items.length} unidad
+                          {ct.items.length === 1 ? "" : "es"}
+                          {ct.items[0]?.vin
+                            ? ` · ${ct.items
+                                .map((r) => (r.vin || r.serialCarroceria || "").slice(-6))
+                                .filter(Boolean)
+                                .join(", ")}`
+                            : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              disabled={!canImport}
+              onClick={importRows}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+            >
+              {importPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {importPending
+                ? "Registrando…"
+                : `Registrar ${semaforo.aptos.length} vehículo${semaforo.aptos.length === 1 ? "" : "s"}`}
+            </button>
+            {!canImport && importBlockReason ? (
+              <p className="mt-2 rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+                {importBlockReason}
+              </p>
+            ) : null}
+            {semaforo.bloqueados.length > 0 ? (
+              <p className="mt-2 rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+                {semaforo.bloqueados.length} sin VIN válido (no se crearán). El resto
+                ({semaforo.aptos.length}) sí se registra; el color indica qué falta
+                completar después.
+              </p>
+            ) : semaforo.rojo > 0 || semaforo.ambar > 0 ? (
+              <p className="mt-2 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+                Se crearán {semaforo.aptos.length} expediente(s). Los de color
+                rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
+                en la ficha.
+              </p>
+            ) : null}
+          </div>
           ) : null}
 
           {rows.length > 0 ? (
@@ -2582,71 +2496,6 @@ export function PuertoLibreCargaMasiva({
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/70 p-4">
-            <p className="text-sm font-medium text-slate-100">
-              Registrar expedientes
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Se crean todos los que tienen VIN. Quedan agrupados por BL
-              (embarque) y por contenedor del certificado de origen.
-            </p>
-            {registerGroups.length > 0 ? (
-              <div className="mt-3 space-y-3">
-                {registerGroups.map((bl) => (
-                  <div
-                    key={bl.numeroBl || "sin-bl"}
-                    className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
-                  >
-                    <p className="text-xs font-semibold text-cyan-100">
-                      BL {bl.label}
-                      <span className="ml-2 font-normal text-slate-400">
-                        {bl.total} vehículo{bl.total === 1 ? "" : "s"} ·{" "}
-                        {bl.contenedores.length} contenedor
-                        {bl.contenedores.length === 1 ? "" : "es"}
-                      </span>
-                    </p>
-                    <ul className="mt-1 space-y-1 text-[11px] text-slate-400">
-                      {bl.contenedores.map((ct) => (
-                        <li key={ct.numeroContenedor || "sin-ct"}>
-                          <span className="font-medium text-slate-200">
-                            {ct.label}
-                          </span>
-                          {" · "}
-                          {ct.items.length} unidad
-                          {ct.items.length === 1 ? "" : "es"}
-                          {ct.items[0]?.vin
-                            ? ` · ${ct.items
-                                .map((r) => (r.vin || r.serialCarroceria || "").slice(-6))
-                                .filter(Boolean)
-                                .join(", ")}`
-                            : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <button
-              type="button"
-              disabled={!canImport}
-              onClick={importRows}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
-            >
-              {importPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              {importPending
-                ? "Registrando…"
-                : `Registrar ${semaforo.aptos.length} expediente${semaforo.aptos.length === 1 ? "" : "s"} · ${registerGroups.length} BL · ${registerGroups.reduce((n, g) => n + g.contenedores.length, 0)} contenedor${registerGroups.reduce((n, g) => n + g.contenedores.length, 0) === 1 ? "" : "es"}`}
-            </button>
-            {!canImport && importBlockReason ? (
-              <p className="mt-2 text-xs text-red-200">{importBlockReason}</p>
-            ) : null}
           </div>
         </section>
       ) : null}
