@@ -624,6 +624,34 @@ function mergeRowByVin(
 
 type LoadedDoc = { file: File; buffer: Buffer; mimeType: string };
 
+/** 1–2 fotos = páginas del mismo COO; más archivos = un certificado por unidad. */
+function certExtractJobs(docs: LoadedDoc[]): {
+  buffer: Buffer;
+  mimeType: string;
+  fileName: string;
+  extraPageBuffers?: Buffer[];
+}[] {
+  const allImages =
+    docs.length >= 1 &&
+    docs.length <= 2 &&
+    docs.every((d) => !d.mimeType.toLowerCase().includes("pdf"));
+  if (allImages && docs.length === 2) {
+    return [
+      {
+        buffer: docs[0]!.buffer,
+        mimeType: docs[0]!.mimeType,
+        fileName: docs.map((d) => d.file.name).join(" + "),
+        extraPageBuffers: [docs[1]!.buffer],
+      },
+    ];
+  }
+  return docs.map((d) => ({
+    buffer: d.buffer,
+    mimeType: d.mimeType,
+    fileName: d.file.name,
+  }));
+}
+
 async function loadCargaMasivaDocsFromForm(
   formData: FormData,
   tallerId: string,
@@ -1013,11 +1041,11 @@ export async function extractCargaMasivaEtapaAction(
     const motorsInOrder: string[] = [];
     const enginePairs: CertEnginePair[] = [];
 
-    for (const f of certs) {
+    for (const job of certExtractJobs(certs)) {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
-        f.buffer,
-        f.mimeType,
-        { rapido: true }
+        job.buffer,
+        job.mimeType,
+        { rapido: true, extraPageBuffers: job.extraPageBuffers }
       );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.enginePairs?.length) {
@@ -1028,7 +1056,7 @@ export async function extractCargaMasivaEtapaAction(
       }
       if (extracted.vehiculos.length > 0) {
         warnings.push(
-          `${f.file.name}: cert — ${extracted.vehiculos.length} unidad(es)`
+          `${job.fileName}: cert — ${extracted.vehiculos.length} unidad(es)`
         );
         for (const v of extracted.vehiculos) {
           const fields = mergeScanFields(extracted.shared, v);
@@ -1045,7 +1073,7 @@ export async function extractCargaMasivaEtapaAction(
           );
           if (serial) {
             certBySerial.set(serial, fields);
-            certMatches.push({ serial, fileName: f.file.name });
+            certMatches.push({ serial, fileName: job.fileName });
           }
         }
       } else if (
@@ -1053,12 +1081,12 @@ export async function extractCargaMasivaEtapaAction(
         extracted.engineNos?.length
       ) {
         warnings.push(
-          `${f.file.name}: cert — ${extracted.engineNos?.length ?? extracted.enginePairs?.length ?? 0} ENGINE No`
+          `${job.fileName}: cert — ${extracted.engineNos?.length ?? extracted.enginePairs?.length ?? 0} ENGINE No`
         );
       } else if (Object.keys(extracted.shared).length > 0) {
-        warnings.push(`${f.file.name}: certificado (datos compartidos)`);
+        warnings.push(`${job.fileName}: certificado (datos compartidos)`);
       } else {
-        warnings.push(`${f.file.name}: certificado sin datos legibles`);
+        warnings.push(`${job.fileName}: certificado sin datos legibles`);
       }
     }
 
@@ -1239,16 +1267,11 @@ export async function completarCargaMasivaConCertificadosAction(
   const certMatches: CertMatch[] = [];
 
   try {
-    for (const { file, buffer, mimeType } of certFiles) {
-      const validationError = validateVehiculoDocumentoFile(file);
-      if (validationError) {
-        warnings.push(`${file.name}: ${validationError}`);
-        continue;
-      }
+    for (const job of certExtractJobs(certFiles)) {
       const extracted = await extractCertificadoOrigenMultiFromDocument(
-        buffer,
-        mimeType,
-        { rapido: true }
+        job.buffer,
+        job.mimeType,
+        { rapido: true, extraPageBuffers: job.extraPageBuffers }
       );
       sharedFromCert = mergeScanFields(sharedFromCert, extracted.shared);
       if (extracted.enginePairs?.length) {
@@ -1259,26 +1282,26 @@ export async function completarCargaMasivaConCertificadosAction(
               vin: p.vin,
               serialMotor: p.serialMotor,
             },
-            fileName: file.name,
+            fileName: job.fileName,
           });
         }
       }
       if (extracted.vehiculos.length > 0) {
         warnings.push(
-          `${file.name}: certificado — ${extracted.vehiculos.length} unidad(es)`
+          `${job.fileName}: certificado — ${extracted.vehiculos.length} unidad(es)`
         );
         for (const v of extracted.vehiculos) {
           const fields = mergeScanFields(extracted.shared, v);
-          certVehicles.push({ fields, fileName: file.name });
+          certVehicles.push({ fields, fileName: job.fileName });
           const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
           );
-          if (serial) certMatches.push({ serial, fileName: file.name });
+          if (serial) certMatches.push({ serial, fileName: job.fileName });
         }
       } else if (Object.keys(extracted.shared).length > 0) {
-        warnings.push(`${file.name}: certificado leído (datos compartidos)`);
+        warnings.push(`${job.fileName}: certificado leído (datos compartidos)`);
       } else {
-        warnings.push(`${file.name}: no se pudieron leer datos del certificado`);
+        warnings.push(`${job.fileName}: no se pudieron leer datos del certificado`);
       }
     }
 

@@ -39,7 +39,7 @@ export function inferCheryModelo(
     (/PRO\s*MAX/.test(joined) && !/TIGGO\s*[248]/.test(joined))
   ) {
     if (/PRO\s*MAX|\bMAX\b/.test(joined)) return "Tiggo 7 Pro Max";
-    if (/PRO/.test(joined) || /\b7\b/.test(joined)) return "Tiggo 7 Pro";
+    if (/\bPRO\b/.test(joined)) return "Tiggo 7 Pro";
     return "Tiggo 7";
   }
   if (/TIGGO\s*4/.test(joined)) {
@@ -53,7 +53,9 @@ export function inferCheryModelo(
     return "Tiggo 2";
   }
   if (/ARRIZO\s*8/.test(joined)) return "Arrizo 8";
-  if (/ARRIZO\s*5|ARRIZO/.test(joined)) return "Arrizo 5";
+  if (/ARRIZO\s*5|ARRIZO/.test(joined)) {
+    return /PRO/.test(joined) ? "Arrizo 5 Pro" : "Arrizo 5";
+  }
   if (/TIGGO/.test(joined)) return parts[0]!;
 
   const first = parts[0]!;

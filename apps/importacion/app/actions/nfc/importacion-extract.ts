@@ -135,11 +135,10 @@ function scanFieldsToRow(
   });
 }
 
-/** PDF con varios VIN: si el extractor rápido deja una sola fila, usa la pasada completa. */
+/** PDF o foto: si el extractor rápido deja 0–1 filas, usa la pasada completa. */
 async function extractFacturaAutofill(buffer: Buffer, mimeType: string) {
-  const isPdf = mimeType.toLowerCase().includes("pdf");
   const rapido = await extractFacturaRapidoFromDocument(buffer, mimeType);
-  if (rapido.vehiculos.length > 1 || !isPdf) return rapido;
+  if (rapido.vehiculos.length > 1) return rapido;
   const full = await extractFacturaMultiFromDocument(buffer, mimeType);
   return full.vehiculos.length > rapido.vehiculos.length ? full : rapido;
 }

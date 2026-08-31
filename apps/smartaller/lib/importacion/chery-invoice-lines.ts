@@ -42,6 +42,9 @@ const COLOR_RE =
 const ENGINE_NEAR_RE =
   /ENGINE\s*(?:SERIAL\s*)?(?:NO|N[°º.]|NUMBER|#)?\.?\s*[:#]?\s*([A-Z0-9\-]{6,20})/i;
 
+/** Precio unitario de la fila: `1 11,153.00` o `$ 11153`. No el TOTAL CIF. */
+const ROW_PRICE_RE = /(?:\b1\s+|(?:USD\s*)?\$\s*)(\d{1,2}[.,\s]\d{3}(?:[.,]\d{2})?)/;
+
 const LINE_RE = new RegExp(
   `${MODEL_RE.source}\\s+${VIN_TOKEN_RE.source}\\s+${COLOR_RE.source}`,
   "gi"
@@ -134,15 +137,15 @@ export function parseCheryInvoiceHeader(text: string): CheryInvoiceHeader {
   let consignatario: string | null = null;
   const consRaw = pickLabelValue(
     flat,
-    /CONSIGNEE\s*[:.]?/i,
-    /\b(?:RIF|J-\d|ADDRESS|NOTIFY|DESTINATION|TEL|PHONE|CARACAS)\b/i
+    /(?:CONSIGNEE|FOR ACCOUNT(?:\s+&\s+RISK)?(?:\s+OF)?(?:\s+MESSRS)?)\s*[:.]?/i,
+    /\b(?:RIF|J-\d|ADDRESS|NOTIFY|DESTINATION|TEL|PHONE|CARACAS|PORT OF|FINAL DESTINATION)\b/i
   );
   if (consRaw && /MOTORS|S\.?\s*A|C\.?\s*A|IMPORT|AUTO/i.test(consRaw)) {
     consignatario = titleName(consRaw.replace(/[,;]+$/, ""));
   }
   if (!consignatario) {
     const iksan = flat.match(
-      /\b(I[K1]SAN\s+MOTORS(?:\s*,?\s*S\.?\s*A\.?)?)\b/i
+      /\b(I[K1]S?AN\s+MOTORS(?:\s*,?\s*S\.?\s*A\.?)?)\b/i
     );
     if (iksan) consignatario = titleName(iksan[1].replace(/^I1/i, "Ik"));
   }
@@ -257,7 +260,8 @@ export function parseCheryInvoiceLineas(text: string): CheryInvoiceLinea[] {
     rawVin: string,
     modeloRaw?: string | null,
     colorRaw?: string | null,
-    motorRaw?: string | null
+    motorRaw?: string | null,
+    cifRaw?: number | null
   ) => {
     const vin = salvageCheryVin(rawVin);
     if (!vin || byVin.has(vin)) return;
@@ -272,15 +276,22 @@ export function parseCheryInvoiceLineas(text: string): CheryInvoiceLinea[] {
         serialMotor && serialMotor.length >= 6 && serialMotor.length <= 20
           ? serialMotor
           : null,
-      valorCif: header.cifUnitario,
+      valorCif: cifRaw ?? header.cifUnitario,
     });
   };
 
   for (const m of upper.matchAll(LINE_RE)) {
     const vinRaw = m[2] ?? "";
     const idx = m.index ?? 0;
-    const after = upper.slice(idx + m[0].length, idx + m[0].length + 48);
-    add(vinRaw, m[1], m[3], after.match(ENGINE_NEAR_RE)?.[1]);
+    const after = upper.slice(idx + m[0].length, idx + m[0].length + 80);
+    const priceM = after.match(ROW_PRICE_RE);
+    add(
+      vinRaw,
+      m[1],
+      m[3],
+      after.match(ENGINE_NEAR_RE)?.[1],
+      parseEuropeanMoney(priceM?.[1] ?? null) ?? header.cifUnitario
+    );
   }
 
   if (byVin.size === 0) {
@@ -289,12 +300,19 @@ export function parseCheryInvoiceLineas(text: string): CheryInvoiceLinea[] {
       const raw = tok[1] ?? "";
       const idx = tok.index ?? 0;
       const before = upper.slice(Math.max(0, idx - 40), idx);
-      const after = upper.slice(idx + raw.length, idx + raw.length + 48);
+      const after = upper.slice(idx + raw.length, idx + raw.length + 80);
       const modelM = before.match(
         /((?:TIGGO|ARRIZO|OMODA)\s+\d+(?:\s+PRO)?(?:\s+MAX)?)\s*$/i
       );
       const colorM = after.match(COLOR_RE);
-      add(raw, modelM?.[1], colorM?.[1], after.match(ENGINE_NEAR_RE)?.[1]);
+      const priceM = after.match(ROW_PRICE_RE);
+      add(
+        raw,
+        modelM?.[1],
+        colorM?.[1],
+        after.match(ENGINE_NEAR_RE)?.[1],
+        parseEuropeanMoney(priceM?.[1] ?? null) ?? header.cifUnitario
+      );
     }
   }
 

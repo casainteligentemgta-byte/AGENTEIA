@@ -176,10 +176,10 @@ export type TesseractVinResult = {
 type TessWorker = Awaited<ReturnType<typeof import("tesseract.js").createWorker>>;
 
 const INVOICE_SIGNAL_RE =
-  /CONSIGNEE|INVOICE|DESTINATION|IKSAN|TIGGO|ARRIZO|OMODA|CIF|CHERY|RIF|GUAMACHE/i;
+  /CONSIGNEE|INVOICE|DESTINATION|IKSAN|IKAN|TIGGO|ARRIZO|OMODA|CIF|CHERY|RIF|GUAMACHE/i;
 
 const CERT_PAGE2_SIGNAL_RE =
-  /ENGINE\s*(NO|SERIAL|NUMBER)|CHASSIS|\bVIN\b|SQRE|C16TD|G4FL/i;
+  /ENGINE\s*(NO|SERIAL|NUMBER)|CHASSIS|\bVIN\b|SQR[EF]|C16TD|G4FL/i;
 
 export function scoreCertificatePageOcrText(text: string): number {
   const t = text ?? "";
@@ -187,13 +187,13 @@ export function scoreCertificatePageOcrText(text: string): number {
     t.length +
     (CERT_PAGE2_SIGNAL_RE.test(t) ? 8000 : 0) +
     ((t.match(/\bENGINE\b/gi) ?? []).length * 400) +
-    ((t.match(/SQRE/gi) ?? []).length * 800) +
+    ((t.match(/SQR[EF]/gi) ?? []).length * 800) +
     ((t.match(/\bLVV/gi) ?? []).length * 200)
   );
 }
 
 export function countSqreTokens(text: string): number {
-  return (text.match(/S[O0Q]RE/gi) ?? []).length;
+  return (text.match(/S[O0Q]R[EF]/gi) ?? []).length;
 }
 
 async function cropPixels(

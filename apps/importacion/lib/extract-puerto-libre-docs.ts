@@ -1184,7 +1184,10 @@ IMPORTANTE:
 - Si hay una sola unidad sin tabla, "vehiculos" tendrá 1 elemento.
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
-- serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial. Está en la PÁGINA 2 (segunda imagen). La página 1 es carátula y NO trae ENGINE No. Lee la página 2 y empareja cada motor con su VIN. No lo saques de la factura comercial.
+- serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial. Empareja cada motor con su VIN. No lo saques de la factura comercial.
+- El certificado puede ser 1 o 2 páginas (PDF o fotos).
+  - 2 páginas: la carátula (pág. 1 / 1ª imagen) suele NO traer ENGINE No; léelo en la página 2 (2ª imagen).
+  - 1 página o una sola foto de la tabla (columnas VIN NO. / ENGINE NO / COLOUR): LEE ESA PÁGINA. No esperes una segunda imagen ni asumas que es carátula vacía.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -1915,8 +1918,11 @@ export async function extractFacturaVinsStageFromDocument(
   const vinSet = new Set<string>();
   const mavState: { rows: DocMultiExtracted | null } = { rows: null };
   let visionCreditsBlocked = false;
-  /** Umbral para dejar de gastar visión. 20 hacía raster+Tesseract hasta timeout. */
-  const MULTI_VIN_TARGET = 8;
+  /**
+   * Umbral para dejar de gastar visión extra. Facturas Chery a menudo traen
+   * 8–18 unidades; 8 cortaba el resto si Tesseract no las vio todas.
+   */
+  const MULTI_VIN_TARGET = 18;
   /**
    * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
    * Devolver VIN parcial > quedar en 0 por timeout.
@@ -2645,9 +2651,10 @@ function emptyCertHarvest(): CertEngineHarvest {
 async function harvestCertEngineNos(
   buffer: Buffer,
   mimeType: string,
-  options?: { rapido?: boolean }
+  options?: { rapido?: boolean; extraPageBuffers?: Buffer[] }
 ): Promise<CertEngineHarvest> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  const extraPages = options?.extraPageBuffers ?? [];
 
   let pageTexts: string[] = [];
   if (isPdf) {
@@ -2664,11 +2671,18 @@ async function harvestCertEngineNos(
 
   if (!isPdf) {
     try {
-      const ocr = await extractCertificatePagePlainTextOriented(buffer);
-      return mergeCertEngineHarvests(
-        fromEmbedded,
-        harvestCertEnginesFromText(ocr)
-      );
+      let fromOcr = emptyCertHarvest();
+      for (const img of [buffer, ...extraPages]) {
+        if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
+          break;
+        }
+        const ocr = await extractCertificatePagePlainTextOriented(img);
+        fromOcr = mergeCertEngineHarvests(
+          fromOcr,
+          harvestCertEnginesFromText(ocr)
+        );
+      }
+      return mergeCertEngineHarvests(fromEmbedded, fromOcr);
     } catch {
       return fromEmbedded;
     }
@@ -2676,8 +2690,25 @@ async function harvestCertEngineNos(
 
   let fromOcr = emptyCertHarvest();
   try {
-    const page2Ocr = await ocrPdfPageText(buffer, 2, { fast: true });
-    fromOcr = harvestCertEnginesFromText(page2Ocr);
+    const pageCountHint = pageTexts.length > 0 ? pageTexts.length : 2;
+    const pageOrder =
+      pageCountHint === 1 ? ([1] as const) : ([2, 1] as const);
+    for (const pageNum of pageOrder) {
+      if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
+        break;
+      }
+      try {
+        const pageOcr = await ocrPdfPageText(buffer, pageNum, {
+          fast: options?.rapido ?? true,
+        });
+        fromOcr = mergeCertEngineHarvests(
+          fromOcr,
+          harvestCertEnginesFromText(pageOcr)
+        );
+      } catch {
+        // página inexistente (COO de 1 página) o raster fallido
+      }
+    }
   } catch {
     fromOcr = emptyCertHarvest();
   }
@@ -2687,17 +2718,19 @@ async function harvestCertEngineNos(
 export async function extractCertificadoOrigenMultiFromDocument(
   buffer: Buffer,
   mimeType: string,
-  options?: { rapido?: boolean }
+  options?: { rapido?: boolean; extraPageBuffers?: Buffer[] }
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
+  const extraPageBuffers = options?.extraPageBuffers ?? [];
   const harvest = await harvestCertEngineNos(buffer, mimeType, {
     rapido: options?.rapido,
+    extraPageBuffers,
   });
   const enginesFromText = harvest.pairs;
+  // Solo saltar IA si el OCR local ya trajo motores. `rapido` no debe
+  // devolver 0 filas cuando Tesseract no leyó la foto (CamScanner 1 pág.).
   const skipLlmForEngines =
-    Boolean(options?.rapido) ||
-    harvest.pairs.length >= 2 ||
-    harvest.motors.length >= 2;
+    harvest.pairs.length >= 2 || harvest.motors.length >= 2;
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
@@ -2707,9 +2740,10 @@ export async function extractCertificadoOrigenMultiFromDocument(
         prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
         buffer,
         mimeType,
+        extraImageBuffers: extraPageBuffers,
         maxTokens: options?.rapido ? 3500 : 4500,
         maxTextChars: 32000,
-        // Página 2 = ENGINE No; no quedarse en texto de la carátula.
+        // 1 o 2 páginas: no quedarse en texto de carátula si hay tabla de ENGINE No.
         maxPdfPages: PDF_VISION_MAX_PAGES,
         preferHighDetail: true,
         forceRasterVision: isPdf && harvest.pairs.length === 0,
@@ -2744,6 +2778,7 @@ export async function extractCertificadoOrigenMultiFromDocument(
           prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
           buffer,
           mimeType,
+          extraImageBuffers: extraPageBuffers,
           maxTokens: options?.rapido ? 3500 : 4500,
           maxTextChars: 32000,
           maxPdfPages: PDF_VISION_MAX_PAGES,

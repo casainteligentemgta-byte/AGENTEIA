@@ -242,6 +242,34 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60173");
   });
 
+  it("lee ENGINE No SQRF (Tiggo 7) en certificado de 1 página", () => {
+    const page1 = `
+      item DESCRIPCION VIN NO. ENGINE NO COLOUR
+      1 TIGGO7 LVVDB21BXVD602983 SQRF4J16ELTC00007 PHANTOM GRAY
+      2 TIGGO7 LVVDB21B1VD602967 SQRF4J16ELTD00083 KHAKI WHITE
+      3 TIGGO8 LVTDB21B5VD010478 SQRF4J16ELTE00011 KHAKI WHITE
+      4 Arrizo 5 Pro LVVDC21B5VD713650 SQRE4G15CALTD00083 NASDAQ SILVER
+    `;
+    const harvested = harvestCertEnginesFromPages([page1]);
+    const byVin = Object.fromEntries(
+      harvested.pairs.map((p) => [p.vin, p.serialMotor])
+    );
+    assert.equal(harvested.pairs.length, 4);
+    assert.equal(byVin.LVVDB21BXVD602983, "SQRF4J16ELTC00007");
+    assert.equal(byVin.LVVDB21B1VD602967, "SQRF4J16ELTD00083");
+    assert.equal(byVin.LVTDB21B5VD010478, "SQRF4J16ELTE00011");
+    assert.equal(byVin.LVVDC21B5VD713650, "SQRE4G15CALTD00083");
+    assert.ok(harvested.motors.includes("SQRF4J16ELTC00007"));
+  });
+
+  it("repara OCR S0RF → SQRF", () => {
+    const pairs = parseCertEngineNosFromText(
+      "LVVDB21BXVD602983 S0RF4J16ELTC00007"
+    );
+    assert.equal(pairs[0]?.vin, "LVVDB21BXVD602983");
+    assert.equal(pairs[0]?.serialMotor, "SQRF4J16ELTC00007");
+  });
+
   it("lee los 8 ENGINE No de la columna desde cajas OCR (fila partida)", () => {
     const colX = 400;
     const rows = [

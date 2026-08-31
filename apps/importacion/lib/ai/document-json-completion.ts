@@ -306,6 +306,8 @@ export async function createDocumentJsonCompletion(params: {
   preferHighDetail?: boolean;
   /** Escala de rasterización PDF (default 2; multi-factura 2.5–3). */
   renderScale?: number;
+  /** Fotos extra del mismo documento (pág. 2 del certificado). */
+  extraImageBuffers?: Buffer[];
 }): Promise<Record<string, unknown>> {
   const maxTokens = params.maxTokens ?? 800;
   const maxTextChars = params.maxTextChars ?? 32000;
@@ -322,7 +324,20 @@ export async function createDocumentJsonCompletion(params: {
     params.mimeType || "application/octet-stream"
   );
 
+  const extraImages = (params.extraImageBuffers ?? []).filter(
+    (b) => b.length > 0
+  );
+
   if (!isPdfMime(mime)) {
+    if (extraImages.length > 0) {
+      const pages = [params.buffer, ...extraImages];
+      return jsonFromPdfPageImages(
+        params.prompt,
+        pages,
+        maxTokens,
+        preferHighDetail
+      );
+    }
     return createVisionJsonCompletion({
       prompt: params.prompt,
       imageBuffer: params.buffer,
