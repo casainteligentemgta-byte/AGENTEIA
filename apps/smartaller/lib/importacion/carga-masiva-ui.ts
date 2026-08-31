@@ -1,6 +1,6 @@
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { normalizeRif } from "@/lib/validations/rif";
-import { anioFromVin } from "@/lib/ai/image-orient";
+import { preferCompleteVin, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
@@ -8,7 +8,6 @@ import {
   looksLikeCheryVin,
   repairCheryMarcaModelo,
 } from "@/lib/importacion/chery-modelo";
-import { preferCompleteVin } from "@/lib/importacion/vin-text";
 import {
   computeCompletitudDatos,
   isPlaceholderDato,

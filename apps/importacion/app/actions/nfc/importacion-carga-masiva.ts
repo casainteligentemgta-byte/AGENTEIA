@@ -9,7 +9,6 @@ import {
   assertLlmBudgetAllows,
   bindLlmUsageContext,
 } from "@/lib/ai/llm-usage";
-import { anioFromVin } from "@/lib/ai/image-orient";
 import {
   CARGA_MASIVA_MAX_ROWS,
   cargaMasivaRowToAltaInput,
@@ -56,7 +55,7 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
-import { repairCheryWmi } from "@/lib/importacion/vin-text";
+import { repairCheryWmi, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
   VEHICULO_DOCS_BUCKET,
