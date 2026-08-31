@@ -1,5 +1,6 @@
 import type { CargaMasivaRow } from "@/lib/importacion/carga-masiva-template";
 import { normalizeRif } from "@/lib/validations/rif";
+import { anioFromVin } from "@/lib/ai/image-orient";
 import {
   inferCheryModelo,
   isModeloFragmentInColor,
@@ -137,12 +138,17 @@ export function healCargaMasivaCheryRows(rows: CargaMasivaRow[]): CargaMasivaRow
       inferCheryModelo(fixedModeloBase, colorWasModelo ? r.color : null) ||
       bestModelo ||
       fixedModeloBase;
+    const vinFinal = vin || r.vin;
+    const anio =
+      r.anio.trim() ||
+      (anioFromVin(vinFinal) != null ? String(anioFromVin(vinFinal)) : "");
     return {
       ...r,
       marca: fixedMarca || "Chery",
       modelo: modelo || fixedModeloBase,
       color: colorWasModelo ? "" : r.color,
-      vin: vin || r.vin,
+      anio,
+      vin: vinFinal,
       serialCarroceria: vin || r.serialCarroceria,
     };
   });

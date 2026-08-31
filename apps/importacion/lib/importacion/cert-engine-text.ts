@@ -13,6 +13,8 @@ import {
 export type CertEnginePair = {
   vin: string;
   serialMotor: string;
+  /** COLOUR de la misma fila del COO (opcional). */
+  color?: string;
 };
 
 const ENGINE_LABELED_RE =
@@ -460,19 +462,20 @@ export function orderPdfPagesEngineTableFirst<T>(pages: T[]): T[] {
 export function mergeCertEngineHarvests(
   ...parts: CertEngineHarvest[]
 ): CertEngineHarvest {
-  const pairByVin = new Map<string, string>();
+  const pairByVin = new Map<string, CertEnginePair>();
   const motors: string[] = [];
   for (const part of parts) {
     for (const pair of part.pairs) {
-      if (!pairByVin.has(pair.vin)) pairByVin.set(pair.vin, pair.serialMotor);
+      const prev = pairByVin.get(pair.vin);
+      if (!prev) pairByVin.set(pair.vin, pair);
+      else if (!prev.color && pair.color) {
+        pairByVin.set(pair.vin, { ...prev, color: pair.color });
+      }
     }
     motors.push(...part.motors);
   }
   return {
-    pairs: [...pairByVin.entries()].map(([vin, serialMotor]) => ({
-      vin,
-      serialMotor,
-    })),
+    pairs: [...pairByVin.values()],
     motors: uniqueMotors(motors),
   };
 }
@@ -505,7 +508,12 @@ export function rowNeedsCertEngineNo(
 }
 
 export function applyEngineNosByVin<
-  T extends { vin?: string; serialCarroceria?: string; serialMotor?: string },
+  T extends {
+    vin?: string;
+    serialCarroceria?: string;
+    serialMotor?: string;
+    color?: string;
+  },
 >(rows: T[], pairs: CertEnginePair[]): T[] {
   if (pairs.length === 0 || rows.length === 0) return rows;
   const rowKeys = rows.map((r) =>
@@ -515,18 +523,35 @@ export function applyEngineNosByVin<
     rowKeys,
     pairs.map((p) => p.vin)
   );
-  const motorByCertVin = new Map(
-    pairs.map((p) => [normalizeSerialKey(p.vin), p.serialMotor] as const)
+  const pairByCertVin = new Map(
+    pairs.map((p) => [normalizeSerialKey(p.vin), p] as const)
   );
   return rows.map((row, i) => {
-    if (!rowNeedsCertEngineNo(row.serialMotor)) return row;
     const rowKey = rowKeys[i];
     if (!rowKey) return row;
     const certVin = rowToCert.get(rowKey);
     if (!certVin) return row;
-    const motor = motorByCertVin.get(certVin);
-    if (!motor || isVinLikeSerialMotor(motor)) return row;
-    return { ...row, serialMotor: motor };
+    const pair = pairByCertVin.get(certVin);
+    if (!pair) return row;
+    let next = row;
+    if (
+      rowNeedsCertEngineNo(row.serialMotor) &&
+      pair.serialMotor &&
+      !isVinLikeSerialMotor(pair.serialMotor)
+    ) {
+      next = { ...next, serialMotor: pair.serialMotor };
+    }
+    const color = pair.color?.trim();
+    const currentColor = (next.color ?? "").trim();
+    if (
+      color &&
+      color.length >= 3 &&
+      (!currentColor ||
+        /^(PRO(\s*MAX)?|MAX|POR-COMPLETAR)$/i.test(currentColor))
+    ) {
+      next = { ...next, color };
+    }
+    return next;
   });
 }
 

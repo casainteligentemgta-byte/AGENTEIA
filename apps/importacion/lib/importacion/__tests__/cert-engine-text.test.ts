@@ -181,6 +181,26 @@ describe("parseCertEngineNosFromText", () => {
     assert.equal(byOrder[1]?.serialMotor, "SQRE4G15CB0TC60413");
   });
 
+  it("aplica ENGINE No y color del COO a las filas de factura", () => {
+    const rows = [
+      {
+        vin: "LVVDC21B5VD713650",
+        serialCarroceria: "LVVDC21B5VD713650",
+        serialMotor: "POR-COMPLETAR",
+        color: "",
+      },
+    ];
+    const next = applyEngineNosByVin(rows, [
+      {
+        vin: "LVVDC21B5VD713650",
+        serialMotor: "SQRE4G15C1234567",
+        color: "WHITE",
+      },
+    ]);
+    assert.equal(next[0]?.serialMotor, "SQRE4G15C1234567");
+    assert.equal(next[0]?.color, "WHITE");
+  });
+
   it("cruza ENGINE No del COO con VIN de factura (LWV vs LVV)", () => {
     const rows = [
       { vin: "LVVDB21B9VE033523", serialCarroceria: "LVVDB21B9VE033523", serialMotor: "" },

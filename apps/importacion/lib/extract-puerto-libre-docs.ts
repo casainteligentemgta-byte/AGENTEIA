@@ -1228,6 +1228,21 @@ Responde SOLO JSON con:
   ]
 }`;
 
+/** Extraer: una imagen (pág. 2) → VIN + ENGINE No + color de cada fila. */
+const CERT_ENGINE_PAIR_HARVEST_PROMPT = `Lee SOLO la tabla de este certificado de origen (página 2 o la foto de la tabla).
+Cada fila tiene VIN NO (17 caracteres) y al LADO el ENGINE No (SQRE / SQRF / C16TD) y COLOUR.
+Si hay 8 vehículos, vehiculos.length debe ser 8. No inventes. No copies el VIN al motor.
+Responde SOLO JSON:
+{
+  "vehiculos": [
+    {
+      "serial_carroceria": string,
+      "serial_motor": string,
+      "color": string|null
+    }
+  ]
+}`;
+
 export type DocMultiExtracted = {
   shared: PuertoLibreRegistroScanFields;
   vehiculos: PuertoLibreRegistroScanFields[];
@@ -2461,16 +2476,14 @@ export async function enrichFacturaRowsStageFromDocument(
       }
     }
     const pages = isPdf
-      ? (await rasterPdfForOcr(buffer)).pages
+      ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.4 })
       : [buffer];
     if (pages[0]) {
       const layoutParts: string[] = [];
-      for (const page of pages) {
-        try {
-          layoutParts.push(await extractInvoicePlainTextWithTesseract(page));
-        } catch {
-          // página
-        }
+      try {
+        layoutParts.push(await extractInvoicePlainTextWithTesseract(pages[0]!));
+      } catch {
+        // página
       }
       const layoutText = layoutParts.join("\n");
       invoiceTextBag = `${invoiceTextBag} ${layoutText}`.trim();
@@ -2495,7 +2508,11 @@ export async function enrichFacturaRowsStageFromDocument(
 
   if (isLlmConfigured()) {
     try {
-      candidates.push(await extractFacturaMultiOnce(buffer, mimeType, prompt));
+      candidates.push(
+        await extractFacturaMultiOnce(buffer, mimeType, prompt, {
+          maxPdfPages: 1,
+        })
+      );
     } catch {
       // ignore
     }
@@ -2617,7 +2634,7 @@ function certVinKey(raw: string | null | undefined): string {
 
 function applyCertEnginePairs(
   vehiculos: PuertoLibreRegistroScanFields[],
-  pairs: { vin: string; serialMotor: string }[]
+  pairs: CertEnginePair[]
 ): PuertoLibreRegistroScanFields[] {
   if (pairs.length === 0) return vehiculos;
   const next = [...vehiculos];
@@ -2631,9 +2648,14 @@ function applyCertEnginePairs(
     if (idx >= 0) {
       used.add(idx);
       const row = next[idx]!;
+      const patch: PuertoLibreRegistroScanFields = { ...row };
       if (rowNeedsCertEngineNo(row.serialMotor)) {
-        next[idx] = { ...row, serialMotor: pair.serialMotor };
+        patch.serialMotor = pair.serialMotor;
       }
+      if (pair.color?.trim() && (!row.color?.trim() || isModeloFragmentInColor(row.color))) {
+        patch.color = pair.color.trim();
+      }
+      next[idx] = patch;
       continue;
     }
     next.push(
@@ -2641,8 +2663,10 @@ function applyCertEnginePairs(
         serialCarroceria: pair.vin,
         vin: pair.vin,
         serialMotor: pair.serialMotor,
+        ...(pair.color?.trim() ? { color: pair.color.trim() } : {}),
         condicion: "nuevo",
         kilometraje: "0",
+        anio: anioFromVin(pair.vin)?.toString(),
       })
     );
   }
@@ -2653,6 +2677,48 @@ function emptyCertHarvest(): CertEngineHarvest {
   return { pairs: [], motors: [] };
 }
 
+function harvestFromVisionJson(
+  parsed: Record<string, unknown>
+): CertEngineHarvest {
+  const fromText = harvestCertEnginesFromText(JSON.stringify(parsed));
+  const pairByVin = new Map<string, CertEnginePair>();
+  for (const p of fromText.pairs) pairByVin.set(p.vin, p);
+  for (const v of asRecordArray(parsed.vehiculos)) {
+    const vinRaw = resolveVinCandidate(v);
+    const vin =
+      salvageCheryVin(vinRaw) ??
+      compactSerial(vinRaw ?? null)?.toUpperCase() ??
+      "";
+    const motor = pickSerialMotorRaw(v);
+    if (vin.length !== 17 || !motor || isVinLikeSerialMotor(motor)) continue;
+    const color = pickColorRaw(v);
+    pairByVin.set(vin, {
+      vin,
+      serialMotor: motor,
+      ...(color && color.length >= 3 ? { color } : {}),
+    });
+  }
+  return mergeCertEngineHarvests(fromText, {
+    pairs: [...pairByVin.values()],
+    motors: [...pairByVin.values()].map((p) => p.serialMotor),
+  });
+}
+
+async function rasterCertTablePage(
+  buffer: Buffer,
+  mimeType: string
+): Promise<Buffer | null> {
+  if (!mimeType.toLowerCase().includes("pdf")) return buffer;
+  const pageCount = await getPdfPageCount(buffer);
+  const startPage = pageCount >= 2 ? 2 : 1;
+  const pages = await renderPdfPagesAsPng(buffer, {
+    startPage,
+    maxPages: 1,
+    scale: 2.2,
+  });
+  return pages[0] ?? null;
+}
+
 async function harvestCertEngineNos(
   buffer: Buffer,
   mimeType: string,
@@ -2661,8 +2727,7 @@ async function harvestCertEngineNos(
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const extraPages = options?.extraPageBuffers ?? [];
   const rapido = options?.rapido === true;
-  /** Extraer se corta ~90s; certificados no pueden rasterizar 12 págs. + Gemini. */
-  const STAGE_BUDGET_MS = rapido ? 40_000 : 70_000;
+  const STAGE_BUDGET_MS = rapido ? 38_000 : 70_000;
   const startedAt = Date.now();
   const withinBudget = (needMs: number) =>
     STAGE_BUDGET_MS - (Date.now() - startedAt) >= needMs;
@@ -2683,7 +2748,7 @@ async function harvestCertEngineNos(
 
   const ocrPage = async (img: Buffer) => {
     const pageOcr = await extractCertificatePagePlainTextWithTesseract(img, {
-      fast: rapido,
+      fast: true,
     });
     fromOcr = mergeCertEngineHarvests(
       fromOcr,
@@ -2691,10 +2756,35 @@ async function harvestCertEngineNos(
     );
   };
 
+  // Extraer: 1× visión de la tabla (como los 8 VIN). Tesseract solo si Gemini falla.
+  if (rapido && isLlmConfigured() && withinBudget(12_000)) {
+    try {
+      const img =
+        extraPages[0] ?? (await rasterCertTablePage(buffer, mimeType));
+      if (img) {
+        const sized = await compressImageForVision(img);
+        const parsed = await createVisionJsonCompletion({
+          prompt: CERT_ENGINE_PAIR_HARVEST_PROMPT,
+          imageBuffer: sized.buffer,
+          mimeType: sized.mimeType,
+          maxTokens: 4000,
+          preferHighDetail: true,
+          timeoutMs: Math.min(28_000, Math.max(12_000, STAGE_BUDGET_MS - (Date.now() - startedAt) - 4_000)),
+        });
+        fromOcr = mergeCertEngineHarvests(fromOcr, harvestFromVisionJson(parsed));
+      }
+    } catch {
+      // Tesseract de respaldo
+    }
+    if (!certHarvestNeedsMoreOcr(merged()) || !withinBudget(10_000)) {
+      return merged();
+    }
+  }
+
   if (!isPdf) {
     try {
       const imgs = rapido
-        ? [buffer, ...extraPages].slice(0, 2)
+        ? [buffer, ...extraPages].slice(0, 1)
         : [buffer, ...extraPages];
       for (const img of imgs) {
         if (!certHarvestNeedsMoreOcr(merged()) || !withinBudget(8_000)) break;
@@ -2714,24 +2804,25 @@ async function harvestCertEngineNos(
     return merged();
   }
 
-  // PDF: pág. 2 (tabla VIN + ENGINE No) y luego pág. 1. Nunca 12 páginas.
   try {
     const pageCount = await getPdfPageCount(buffer);
     const indexes = orderPdfPageIndexesEngineFirst(pageCount);
-    const toRead = rapido ? indexes.slice(0, 2) : indexes.slice(0, 3);
+    const toRead = rapido ? indexes.slice(0, 1) : indexes.slice(0, 3);
     for (const pageIndex of toRead) {
       if (!certHarvestNeedsMoreOcr(merged()) || !withinBudget(10_000)) break;
       const pages = await renderPdfPagesAsPng(buffer, {
         startPage: pageIndex + 1,
         maxPages: 1,
-        scale: rapido ? 2.4 : 2.8,
+        scale: rapido ? 2.2 : 2.8,
       });
       const img = pages[0];
       if (!img) continue;
       await ocrPage(img);
     }
   } catch {
-    fromOcr = emptyCertHarvest();
+    fromOcr = fromOcr.pairs.length + fromOcr.motors.length > 0
+      ? fromOcr
+      : emptyCertHarvest();
   }
   return merged();
 }
@@ -2748,13 +2839,11 @@ export async function extractCertificadoOrigenMultiFromDocument(
     extraPageBuffers,
   });
   const enginesFromText = harvest.pairs;
-  // En Extraer (`rapido`) no llamar a Gemini si el OCR de pág. 2 ya trajo motores:
-  // rasterizar 12 páginas + visión es lo que deja «Certificado 1/1» pegado.
+  // Extraer (`rapido`): la visión de pág. 2 ya corrió en harvest. No repetir.
   const skipLlmForEngines =
+    options?.rapido === true ||
     harvest.pairs.length >= CERT_HARVEST_OCR_TARGET ||
-    harvest.motors.length >= CERT_HARVEST_OCR_TARGET ||
-    (options?.rapido === true &&
-      (harvest.pairs.length > 0 || harvest.motors.length > 0));
+    harvest.motors.length >= CERT_HARVEST_OCR_TARGET;
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
