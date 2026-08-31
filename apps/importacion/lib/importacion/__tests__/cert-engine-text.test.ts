@@ -6,6 +6,7 @@ import {
   certHarvestNeedsMoreOcr,
   collectEngineNosInOrder,
   accumulateEngineNosSequentially,
+  collectEngineNosFromColumnWords,
   firstUnusedEngineNo,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
@@ -239,6 +240,31 @@ describe("parseCertEngineNosFromText", () => {
       "LVVDB21B5VE033213 S0RE4G15CB0TC60173"
     );
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60173");
+  });
+
+  it("lee los 8 ENGINE No de la columna desde cajas OCR (fila partida)", () => {
+    const colX = 400;
+    const rows = [
+      ["SQRE4G15C", "B0TC60412"],
+      ["SQRE4G15C", "B0TC60341"],
+      ["SQRE4G15C", "B0TC60200"],
+      ["SQRE4G15C", "B0TC60173"],
+      ["SQRE4G15C", "B0TC60100"],
+      ["SQRE4G15C", "B0TC60099"],
+      ["SQRE4G15C", "B0TC60098"],
+      ["SQRE4G15C", "B0TC60097"],
+    ];
+    const words = rows.flatMap((parts, i) => {
+      const y = 40 + i * 28;
+      return [
+        { text: parts[0]!, x0: colX, y0: y, x1: colX + 90, y1: y + 16 },
+        { text: parts[1]!, x0: colX + 92, y0: y, x1: colX + 190, y1: y + 16 },
+      ];
+    });
+    const motors = collectEngineNosFromColumnWords(words);
+    assert.equal(motors.length, 8);
+    assert.equal(motors[0], "SQRE4G15CB0TC60412");
+    assert.equal(motors[7], "SQRE4G15CB0TC60097");
   });
 
   it("pega el 2º ENGINE No al releer debajo del primero, y así", () => {

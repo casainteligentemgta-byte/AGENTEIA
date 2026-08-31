@@ -3,7 +3,10 @@
  * Cubre Chery (columna Code) y hoja anexa MAV (No. de Chasis), con rotación.
  */
 
-import { firstUnusedEngineNo } from "@/lib/importacion/cert-engine-text";
+import {
+  collectEngineNosFromColumnWords,
+  collectEngineNosInOrder,
+} from "@/lib/importacion/cert-engine-text";
 import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
 import {
   extractVinStringsFromText,
@@ -257,63 +260,96 @@ async function recognizeWords(
   };
 }
 
-function topEngineWord(words: TessWord[]): TessWord | null {
-  const hits = words.filter((w) => /S[O0Q]RE|C16TD/i.test(w.text ?? ""));
-  hits.sort((a, b) => (a.bbox?.y0 ?? 0) - (b.bbox?.y0 ?? 0));
-  return hits[0] ?? null;
+function glyphsFromTessWords(
+  words: TessWord[]
+): { text: string; x0: number; y0: number; x1: number; y1: number }[] {
+  const out: { text: string; x0: number; y0: number; x1: number; y1: number }[] =
+    [];
+  for (const w of words) {
+    if (!w.bbox || !w.text?.trim()) continue;
+    out.push({
+      text: w.text,
+      x0: w.bbox.x0,
+      y0: w.bbox.y0,
+      x1: w.bbox.x1,
+      y1: w.bbox.y1,
+    });
+  }
+  return out;
 }
 
-const MAX_SEQUENTIAL_ENGINES = 12;
+function uniqueKeepOrder(motors: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of motors) {
+    if (seen.has(m)) continue;
+    seen.add(m);
+    out.push(m);
+  }
+  return out;
+}
 
 /**
- * Llena el 1er ENGINE No, recorta debajo, relee el 2º y lo pega, y así
- * hasta agotar la columna (cuadro vertical o apaisado).
+ * Columna ENGINE No completa: todas las cajas de la franja + recorte
+ * de la columna + una celda por fila. No se detiene en el primer serial.
  */
-async function readEngineNosOneByOne(
+async function harvestFullEngineColumn(
   worker: TessWorker,
+  psmSingleColumn: unknown,
   imageBuffer: Buffer
 ): Promise<string[]> {
   const prepared = await upscaleForOcr(imageBuffer, 1600);
   const { loadImage } = await import("@napi-rs/canvas");
   const meta = await loadImage(prepared);
-  const first = await recognizeWords(worker, prepared);
-  const collected: string[] = [];
-  const firstMotor = firstUnusedEngineNo(first.text, collected);
-  if (firstMotor) collected.push(firstMotor);
+  const page = await recognizeWords(worker, prepared);
+  let motors = uniqueKeepOrder([
+    ...collectEngineNosFromColumnWords(glyphsFromTessWords(page.words)),
+    ...collectEngineNosInOrder(page.text),
+  ]);
 
-  const seed = topEngineWord(first.words);
-  let x0 = Math.floor(meta.width * 0.48);
-  let stripW = Math.ceil(meta.width * 0.52);
-  let yCursor = 0;
-  if (seed?.bbox) {
-    const midX = (seed.bbox.x0 + seed.bbox.x1) / 2;
-    const w = Math.max(80, seed.bbox.x1 - seed.bbox.x0);
-    x0 = Math.max(0, Math.floor(midX - w));
-    stripW = Math.min(meta.width - x0, Math.ceil(w * 2.6));
-    yCursor = seed.bbox.y1 + 6;
+  const seeds = glyphsFromTessWords(page.words).filter((w) =>
+    /S[O0Q]RE|C16TD/i.test(w.text)
+  );
+  let x0 = Math.floor(meta.width * 0.46);
+  let stripW = Math.ceil(meta.width * 0.54);
+  if (seeds.length > 0) {
+    const xs = seeds.map((s) => (s.x0 + s.x1) / 2).sort((a, b) => a - b);
+    const colX = xs[Math.floor(xs.length / 2)]!;
+    const w = Math.max(90, ...seeds.map((s) => s.x1 - s.x0));
+    x0 = Math.max(0, Math.floor(colX - w));
+    stripW = Math.min(meta.width - x0, Math.ceil(w * 2.8));
   }
 
-  let guard = 0;
-  while (collected.length < MAX_SEQUENTIAL_ENGINES && guard++ < MAX_SEQUENTIAL_ENGINES) {
-    const remainH = meta.height - yCursor;
-    if (remainH < 24) break;
-    const window = await cropPixels(prepared, x0, yCursor, stripW, remainH);
-    const pass = await recognizeWords(worker, window);
-    const next = firstUnusedEngineNo(pass.text, collected);
-    if (!next) break;
-    collected.push(next);
-    const hit = topEngineWord(
-      pass.words.filter((w) =>
-        (w.text ?? "").toUpperCase().includes(next.slice(0, 6))
-      )
-    ) ?? topEngineWord(pass.words);
-    if (hit?.bbox) {
-      yCursor += hit.bbox.y1 + 6;
-    } else {
-      yCursor += Math.max(32, Math.floor(remainH / 10));
+  const strip = await cropPixels(prepared, x0, 0, stripW, meta.height);
+  const stripPass = await recognizeWords(worker, strip);
+  motors = uniqueKeepOrder([
+    ...motors,
+    ...collectEngineNosFromColumnWords(glyphsFromTessWords(stripPass.words)),
+    ...collectEngineNosInOrder(stripPass.text),
+    ...collectEngineNosInOrder(
+      await recognizeCertPage(worker, strip, [psmSingleColumn])
+    ),
+  ]);
+  if (motors.length >= 8) return motors;
+
+  const cells = Math.max(8, motors.length + 2);
+  try {
+    for (const band of await sliceHorizontalBands(strip, cells)) {
+      try {
+        motors = uniqueKeepOrder([
+          ...motors,
+          ...collectEngineNosInOrder(
+            await recognizeCertPage(worker, band, [psmSingleColumn])
+          ),
+        ]);
+      } catch {
+        // celda vacía
+      }
     }
+  } catch {
+    // sin celdas
   }
-  return collected;
+  return motors;
 }
 
 /**
@@ -421,13 +457,17 @@ export async function extractCertificatePagePlainTextOriented(
       if (countSqreTokens(text) >= 8) return text;
     }
 
-    // 1er ENGINE No → recortar debajo → 2º → pegar, y así (columna vertical).
+    // Columna completa: todas las cajas + recorte + celdas (no solo el 1º).
     if (countSqreTokens(best) >= 1) {
       try {
-        const sequential = await readEngineNosOneByOne(worker, bestImg);
-        if (sequential.length > 0) {
-          best = `${best}\nENGINE NO\n${sequential.join("\n")}`;
-          if (sequential.length >= 4) return best;
+        const column = await harvestFullEngineColumn(
+          worker,
+          PSM.SINGLE_COLUMN,
+          bestImg
+        );
+        if (column.length > 0) {
+          best = `${best}\nENGINE NO\n${column.join("\n")}`;
+          if (column.length >= 4) return best;
         }
       } catch {
         // sin cajas de palabras
