@@ -305,6 +305,33 @@ export function collectEngineNosInOrder(text: string): string[] {
   ]);
 }
 
+/**
+ * Siguiente ENGINE No en orden de lectura que aún no está en `already`.
+ * Un recorte OCR = un serial (llenar el 1º, releer debajo, pegar el 2º…).
+ */
+export function firstUnusedEngineNo(
+  text: string,
+  already: readonly string[]
+): string | null {
+  const used = new Set(already.map((m) => m.toUpperCase()));
+  for (const motor of collectEngineNosInOrder(text)) {
+    if (!used.has(motor.toUpperCase())) return motor;
+  }
+  return null;
+}
+
+/** Aplica ventanas OCR sucesivas: cada una aporta como máximo el siguiente serial. */
+export function accumulateEngineNosSequentially(
+  windows: readonly string[]
+): string[] {
+  const out: string[] = [];
+  for (const window of windows) {
+    const next = firstUnusedEngineNo(window, out);
+    if (next) out.push(next);
+  }
+  return out;
+}
+
 export type CertEngineHarvest = {
   pairs: CertEnginePair[];
   motors: string[];

@@ -5,6 +5,8 @@ import {
   assignEngineNosByRowOrder,
   certHarvestNeedsMoreOcr,
   collectEngineNosInOrder,
+  accumulateEngineNosSequentially,
+  firstUnusedEngineNo,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   mergeCertEngineHarvests,
@@ -237,6 +239,22 @@ describe("parseCertEngineNosFromText", () => {
       "LVVDB21B5VE033213 S0RE4G15CB0TC60173"
     );
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60173");
+  });
+
+  it("pega el 2º ENGINE No al releer debajo del primero, y así", () => {
+    const win1 = "LVVDB21B9VE033523 SQRE4G15CB0TC60412";
+    const win2 = "SQRE4G15CB0TC60341 SQRE4G15CB0TC60200";
+    const win3 = "SQRE4G15CB0TC60200";
+    assert.equal(firstUnusedEngineNo(win1, []), "SQRE4G15CB0TC60412");
+    assert.equal(
+      firstUnusedEngineNo(win2, ["SQRE4G15CB0TC60412"]),
+      "SQRE4G15CB0TC60341"
+    );
+    assert.deepEqual(accumulateEngineNosSequentially([win1, win2, win3]), [
+      "SQRE4G15CB0TC60412",
+      "SQRE4G15CB0TC60341",
+      "SQRE4G15CB0TC60200",
+    ]);
   });
 
   it("un solo ENGINE No no cierra la cosecha (hay que seguir la columna)", () => {
