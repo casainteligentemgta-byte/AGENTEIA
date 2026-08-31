@@ -10,7 +10,7 @@ import { compressImportDocForCellular } from "@/lib/importacion/compress-import-
 import {
   CARGA_MASIVA_ETAPA_HINTS,
   CARGA_MASIVA_ETAPA_LABELS,
-  type CargaMasivaEtapaId,
+  cargaMasivaEtapasPlan,
   type CargaMasivaEtapaProgress,
 } from "@/lib/importacion/carga-masiva-etapas";
 import { vehicleCompleteness } from "@/lib/importacion/carga-masiva-ui";
@@ -104,8 +104,7 @@ export async function runVehicleImportExtract(params: {
       tipo: "certificado_origen" as const,
     })),
   ];
-  const etapas: CargaMasivaEtapaId[] =
-    params.certificados.length > 0 ? ["vins", "certs"] : ["vins"];
+  const etapas = cargaMasivaEtapasPlan(params.certificados.length > 0);
 
   const batchId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -262,6 +261,12 @@ export async function runVehicleImportExtract(params: {
         }
       );
       if (!result.success) {
+        if (etapa === "datos" && currentRows.length > 0) {
+          warnings.push(
+            `Enriquecer datos: ${formatCargaMasivaClientError(result.error)}`
+          );
+          continue;
+        }
         const canTryCerts =
           params.certificados.length > 0 && currentRows.length === 0;
         if (canTryCerts) {

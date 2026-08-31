@@ -2298,7 +2298,7 @@ export async function extractFacturaVinsStageFromDocument(
     }
   } else if (vinSet.size >= 3) {
     diagnostics.push(
-      `json-harvest: omitido (ya hay ${vinSet.size} VIN; datos en etapa 2)`
+      `json-harvest: omitido (ya hay ${vinSet.size} VIN; cabecera en etapa 3)`
     );
   } else if (!withinBudget(22_000)) {
     diagnostics.push(
@@ -2432,7 +2432,8 @@ Prioriza rellenar modelo, color, valor_cif y datos de cabecera (importador, fact
 }
 
 /**
- * Etapa 2 — enriquecer filas (modelo, color, CIF, cabecera) a partir de VIN conocidos.
+ * Etapa 3 — enriquecer filas (modelo, color, CIF, cabecera) a partir de VIN conocidos.
+ * ENGINE No no sale de la factura: lo deja la etapa de certificados.
  */
 export async function enrichFacturaRowsStageFromDocument(
   buffer: Buffer,
@@ -2442,7 +2443,6 @@ export async function enrichFacturaRowsStageFromDocument(
   const prompt = buildEnrichPrompt(knownVins.slice(0, 40));
   const candidates: DocMultiExtracted[] = [];
   const isPdf = mimeType.toLowerCase().includes("pdf");
-  const enginePairs: { vin: string; serialMotor: string }[] = [];
   let invoiceTextBag = "";
 
   // OCR local primero (útil con OpenRouter sin créditos)
@@ -2451,7 +2451,6 @@ export async function enrichFacturaRowsStageFromDocument(
       try {
         const plain = await getPdfPlainText(buffer);
         invoiceTextBag = `${invoiceTextBag} ${plain}`.trim();
-        enginePairs.push(...parseCertEngineNosFromText(plain));
       } catch {
         // raster / tesseract abajo
       }
@@ -2473,7 +2472,6 @@ export async function enrichFacturaRowsStageFromDocument(
         ? await extractVinsWithTesseract(pages)
         : await extractVinsWithTesseractOriented(pages[0]!);
       invoiceTextBag = `${invoiceTextBag} ${tess.fullText}`.trim();
-      enginePairs.push(...parseCertEngineNosFromText(tess.fullText));
       const mav = parseMavHojaAnexaFromText(
         [layoutText, tess.fullText].filter(Boolean).join("\n")
       );
@@ -2517,7 +2515,7 @@ export async function enrichFacturaRowsStageFromDocument(
   }
 
   const picked = pickBestFacturaMulti(candidates);
-  const enrichedVehiculos = applyCertEnginePairs(picked.vehiculos, enginePairs);
+  const enrichedVehiculos = picked.vehiculos;
   // Asegurar que no se pierdan VIN de la etapa 1
   const byVin = new Map(
     enrichedVehiculos
@@ -3016,6 +3014,7 @@ export function mergeScanFields(
       }
       continue;
     }
+    if (k === "serialMotor" && isVinLikeSerialMotor(String(v))) continue;
     const currentBlank =
       current == null ||
       String(current).trim() === "" ||
