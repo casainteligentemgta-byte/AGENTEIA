@@ -14,6 +14,8 @@ import {
   orderPdfPageIndexesEngineFirst,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
+  attachContainersFromText,
+  normalizeContainerNo,
 } from "../cert-engine-text";
 
 describe("parseCertEngineNosFromText", () => {
@@ -414,5 +416,61 @@ describe("parseCertEngineNosFromText", () => {
     ]);
     assert.equal(harvested.pairs.length, 2);
     assert.equal(harvested.pairs[0]?.serialMotor, "SQRE4G15C1234567");
+  });
+});
+
+describe("contenedor ISO del certificado", () => {
+  it("normaliza CONTAINER NO de 11 caracteres", () => {
+    assert.equal(normalizeContainerNo("cmau-7117837"), "CMAU7117837");
+    assert.equal(normalizeContainerNo("VIN LVVDB21B9VE033523"), null);
+  });
+
+  it("asigna el contenedor vigente a los VIN siguientes", () => {
+    const text = `
+      CONTAINER NO. CMAU7117837 SEAL M7304981
+      LVVDB21B9VE033523 SQRE4G15CBDTC60412 NASDAQ SILVER
+      LVVDB21B1VE033189 SQRE4G15CBDTC60341 CELADON GRAY
+      CONTAINER NO. CMAU6237057 SEAL M7304982
+      LVVDB21B8VE033514 SQRE4G15CBDTC60329 NASDAQ SILVER
+      LVVDB21B5VE033180 SQRE4G15CBDTC60363 CELADON GRAY
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 4);
+    assert.equal(pairs[0]?.contenedor, "CMAU7117837");
+    assert.equal(pairs[1]?.contenedor, "CMAU7117837");
+    assert.equal(pairs[2]?.contenedor, "CMAU6237057");
+    assert.equal(pairs[3]?.contenedor, "CMAU6237057");
+  });
+
+  it("copia el contenedor a la fila por VIN", () => {
+    const rows = applyEngineNosByVin(
+      [
+        {
+          vin: "LVVDB21B9VE033523",
+          serialCarroceria: "LVVDB21B9VE033523",
+          serialMotor: "SQRE4G15CBDTC60412",
+          numeroContenedor: "",
+        },
+      ],
+      [
+        {
+          vin: "LVVDB21B9VE033523",
+          serialMotor: "SQRE4G15CBDTC60412",
+          contenedor: "CMAU7117837",
+        },
+      ]
+    );
+    assert.equal(rows[0]?.numeroContenedor, "CMAU7117837");
+  });
+
+  it("attachContainersFromText no pisa un contenedor ya leído", () => {
+    const next = attachContainersFromText("CONTAINER NO ECMU7238132", [
+      {
+        vin: "LVVDB21B9VE033523",
+        serialMotor: "SQRE4G15CBDTC60412",
+        contenedor: "CMAU7117837",
+      },
+    ]);
+    assert.equal(next[0]?.contenedor, "CMAU7117837");
   });
 });

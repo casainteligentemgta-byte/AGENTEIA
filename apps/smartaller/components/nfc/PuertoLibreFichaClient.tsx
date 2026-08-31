@@ -144,6 +144,7 @@ export function PuertoLibreFichaClient({
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
                 fechaLiquidacion: String(fd.get("fechaLiquidacion") ?? "") || null,
                 numeroBl: String(fd.get("numeroBl") ?? "") || null,
+                numeroContenedor: String(fd.get("numeroContenedor") ?? "") || null,
                 paisOrigen: String(fd.get("paisOrigen") ?? "") || null,
                 valorCif: money("valorCif"),
                 costosArancelariosUsd: money("costosArancelariosUsd"),
@@ -226,6 +227,11 @@ export function PuertoLibreFichaClient({
             label="Nº BL / Guía"
             name="numeroBl"
             defaultValue={ficha.importacion.numeroBl ?? ""}
+          />
+          <Field
+            label="Contenedor"
+            name="numeroContenedor"
+            defaultValue={ficha.importacion.numeroContenedor ?? ""}
           />
           <Field
             label="Fecha llegada del buque"

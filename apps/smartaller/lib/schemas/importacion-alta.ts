@@ -179,6 +179,7 @@ export const puertoLibreAltaSchema = z
       .transform((v) => (v === "" || v == null ? null : v)),
     aduanaTransito: optionalTrimmed(120),
     numeroBl: optionalTrimmed(80),
+    numeroContenedor: optionalTrimmed(20),
     paisOrigen: optionalTrimmed(80),
     valorCif: optionalNonNegNumber,
     /** Tasa de cambio BCV del día de la declaración (Bs/USD). */

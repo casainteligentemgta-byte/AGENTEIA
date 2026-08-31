@@ -32,6 +32,8 @@ export type PuertoLibreRegistroScanFields = {
   aduanaTransito?: string;
   aduana?: string;
   numeroBl?: string;
+  /** CONTAINER NO del certificado (ISO 6346). */
+  numeroContenedor?: string;
   paisOrigen?: string;
   valorCif?: string;
   tasaCambioBcv?: string;

@@ -222,35 +222,16 @@ export function CargaMasivaColorCell({
     ...VEHICULO_COLORES,
     ...(current && !inCatalog ? [current] : []),
   ]);
-  const [otraMode, setOtraMode] = useState(Boolean(current && !inCatalog));
-  useEffect(() => {
-    if (inCatalog) setOtraMode(false);
-  }, [current, inCatalog]);
-  const showOtra = otraMode || Boolean(current && !inCatalog);
-  const selected = !current
-    ? ""
-    : showOtra
-      ? VEHICULO_CATALOGO_OTRA
-      : matchOption(options, current);
 
   return (
     <div
-      className="w-[7.25rem] max-w-[7.25rem] min-w-0 space-y-1"
+      className="w-[7.25rem] max-w-[7.25rem] min-w-0"
       title={current || undefined}
     >
       <select
         className={cellClass}
-        value={selected}
-        onChange={(e) => {
-          const next = e.target.value;
-          if (next === VEHICULO_CATALOGO_OTRA) {
-            setOtraMode(true);
-            if (inCatalog) onChange("");
-            return;
-          }
-          setOtraMode(false);
-          onChange(next);
-        }}
+        value={current ? matchOption(options, current) : ""}
+        onChange={(e) => onChange(e.target.value)}
         aria-label="Color"
       >
         <option value="">Color…</option>
@@ -259,16 +240,7 @@ export function CargaMasivaColorCell({
             {color}
           </option>
         ))}
-        <option value={VEHICULO_CATALOGO_OTRA}>Otro…</option>
       </select>
-      {showOtra ? (
-        <input
-          className={cellClass}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Escribe el color"
-        />
-      ) : null}
     </div>
   );
 }

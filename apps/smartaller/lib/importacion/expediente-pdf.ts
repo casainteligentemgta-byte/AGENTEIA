@@ -527,6 +527,7 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     },
     { label: "Aduana tránsito", value: txt(imp.aduanaTransito) },
     { label: "Nº BL / Guía", value: txt(imp.numeroBl) },
+    { label: "Contenedor", value: txt(imp.numeroContenedor) },
     { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
     { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
     { label: "Fecha liquidación SENIAT", value: txt(imp.fechaLiquidacion) },
@@ -676,6 +677,7 @@ export async function buildDesaduanamientoPdf(
       { label: "Fecha llegada buque", value: txt(imp.fechaLlegadaBuque) },
       { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
       { label: "Nº BL / Guia", value: txt(imp.numeroBl) },
+      { label: "Contenedor", value: txt(imp.numeroContenedor) },
       { label: "Nº DAV", value: txt(imp.numeroDav) },
       { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
       { label: "Importador", value: txt(imp.importadorNombre) },
@@ -809,6 +811,7 @@ export async function buildMatriculacionPdf(
       },
       { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
       { label: "Nº BL / Guia", value: txt(imp.numeroBl) },
+      { label: "Contenedor", value: txt(imp.numeroContenedor) },
     ],
     y
   ));

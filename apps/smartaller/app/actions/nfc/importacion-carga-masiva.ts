@@ -98,6 +98,7 @@ const UNIT_SCAN_FIELD_KEYS = [
   "cilindradaCc",
   "tipoCombustible",
   "partidaArancelaria",
+  "numeroContenedor",
 ] as const satisfies readonly (keyof PuertoLibreRegistroScanFields)[];
 
 function sharedDocHeaderFields(
@@ -214,6 +215,7 @@ function scanFieldsToRow(
     aduanaTransito: fields.aduanaTransito ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
+    numeroContenedor: fields.numeroContenedor ?? "",
     paisOrigen: fields.paisOrigen ?? "",
     valorCif: fields.valorCif ?? "",
     tasaCambioBcv: fields.tasaCambioBcv ?? "",
@@ -1069,7 +1071,14 @@ export async function extractCargaMasivaEtapaAction(
             const vin = normalizeSerialKey(
               fields.serialCarroceria ?? fields.vin ?? ""
             );
-            if (vin) enginePairs.push({ vin, serialMotor: motor });
+            if (vin) {
+              const contenedor = (fields.numeroContenedor ?? "").trim();
+              enginePairs.push({
+                vin,
+                serialMotor: motor,
+                ...(contenedor ? { contenedor } : {}),
+              });
+            }
           }
           const serial = normalizeSerialKey(
             fields.serialCarroceria ?? fields.vin ?? ""
@@ -1444,6 +1453,7 @@ function rowToScanFields(row: CargaMasivaRow): PuertoLibreRegistroScanFields {
     aduanaTransito: row.aduanaTransito || undefined,
     aduana: row.aduana || undefined,
     numeroBl: row.numeroBl || undefined,
+    numeroContenedor: row.numeroContenedor || undefined,
     paisOrigen: row.paisOrigen || undefined,
     valorCif: row.valorCif || undefined,
     numeroCertificadoOrigen: row.numeroCertificadoOrigen || undefined,
@@ -1466,7 +1476,13 @@ function guessTipoFromName(name: string): string {
 export type CargaMasivaCreateResult =
   | {
       success: true;
-      created: { vehiculoId: string; codigoExpediente: string; serial: string }[];
+      created: {
+        vehiculoId: string;
+        codigoExpediente: string;
+        serial: string;
+        numeroBl: string;
+        numeroContenedor: string;
+      }[];
       failed: { index: number; serial: string; error: string }[];
     }
   | { success: false; error: string };
@@ -1597,6 +1613,8 @@ export async function createPuertoLibreCargaMasivaAction(input: {
     vehiculoId: string;
     codigoExpediente: string;
     serial: string;
+    numeroBl: string;
+    numeroContenedor: string;
   }[] = [];
   const failed: { index: number; serial: string; error: string }[] = [];
 
@@ -1643,6 +1661,8 @@ export async function createPuertoLibreCargaMasivaAction(input: {
       vehiculoId: result.vehiculoId,
       codigoExpediente: result.codigoExpediente,
       serial: parsed.data.serialCarroceria,
+      numeroBl: (row.numeroBl ?? "").trim(),
+      numeroContenedor: (row.numeroContenedor ?? "").trim(),
     });
     nextNumero += 1;
   }
@@ -1759,6 +1779,7 @@ async function insertOneVehiculo(params: {
     modalidadTransito: data.modalidadTransito || null,
     aduanaTransito: data.aduanaTransito || null,
     numeroBl: data.numeroBl || null,
+    numeroContenedor: data.numeroContenedor || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
     tasaCambioBcv: data.tasaCambioBcv,

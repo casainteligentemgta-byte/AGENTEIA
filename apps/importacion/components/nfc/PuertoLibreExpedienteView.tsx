@@ -205,6 +205,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           />
           <Dato label="Aduana tránsito" value={imp.aduanaTransito} />
           <Dato label="Nº BL / Guía" value={imp.numeroBl} />
+          <Dato label="Contenedor" value={imp.numeroContenedor} mono />
           <Dato label="Fecha llegada buque" value={imp.fechaLlegadaBuque} />
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
           <Dato label="Valor CIF" value={imp.valorCif} />

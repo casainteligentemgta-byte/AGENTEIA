@@ -155,6 +155,9 @@ function certificadoPatchFromScanFields(
   }
   const pais = resolvePais(fields.paisOrigen);
   if (pais && !existing.paisOrigen?.trim()) patch.paisOrigen = pais;
+  if (fields.numeroContenedor?.trim() && !existing.numeroContenedor?.trim()) {
+    patch.numeroContenedor = fields.numeroContenedor.trim();
+  }
   return patch;
 }
 
@@ -460,6 +463,7 @@ export async function createPuertoLibreVehiculoAction(
     modalidadTransito: data.modalidadTransito || null,
     aduanaTransito: data.aduanaTransito || null,
     numeroBl: data.numeroBl || null,
+    numeroContenedor: data.numeroContenedor || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
     tasaCambioBcv: data.tasaCambioBcv,
@@ -626,6 +630,7 @@ export async function savePuertoLibreFase1RegistroAction(
     modalidadTransito: data.modalidadTransito || null,
     aduanaTransito: data.aduanaTransito || null,
     numeroBl: data.numeroBl || null,
+    numeroContenedor: data.numeroContenedor || null,
     paisOrigen: data.paisOrigen || null,
     valorCif: data.valorCif,
     tasaCambioBcv: data.tasaCambioBcv,

@@ -234,15 +234,30 @@ export function cargaMasivaStickyIndexHeadClass(): string {
   return `sticky left-0 z-30 min-w-[4.25rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
 }
 
-/** Celda # con fondo opaco según semáforo (sticky requiere color sólido). */
+/** Cebra de filas: gris clarito / sin fondo, para distinguir cada vehículo. */
+export function cargaMasivaRowStripeClass(idx: number): string {
+  return idx % 2 === 0
+    ? "border-t border-slate-700/70 bg-slate-800/50"
+    : "border-t border-slate-800/50 bg-transparent";
+}
+
+/** Celda # sticky: mismo cebra que la fila (fondo opaco para que no se vea el scroll). */
 export function cargaMasivaStickyIndexCellClass(
-  nivel: SemaforoNivel,
+  idx: number,
   hasError: boolean
 ): string {
-  const base = `sticky left-0 z-20 min-w-[4.25rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
-  if (hasError || nivel === "rojo") return `${base} bg-red-950 text-slate-200`;
-  if (nivel === "ambar") return `${base} bg-amber-950 text-slate-200`;
-  return `${base} bg-slate-950 text-slate-400`;
+  const zebra = idx % 2 === 0 ? "bg-slate-800" : "bg-slate-950";
+  const text = hasError ? "text-red-300" : "text-slate-300";
+  return `sticky left-0 z-20 min-w-[4.25rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${zebra} ${text} ${STICKY_INDEX_SHADOW}`;
+}
+
+/** Copia el valor de una columna a todas las filas (primera celda + check del título). */
+export function applyColumnValueToRows(
+  rows: CargaMasivaRow[],
+  key: keyof CargaMasivaRow,
+  value: string
+): CargaMasivaRow[] {
+  return rows.map((r) => ({ ...r, [key]: value, error: null }));
 }
 
 export type SharedShipmentFields = {
@@ -420,6 +435,92 @@ export function sharedLoteTechFromRows(rows: CargaMasivaRow[]): SharedLoteTechFi
     cilindradaCc: sameCc ? (first.cilindradaCc ?? "").trim() : "",
     sobrescribir: false,
   };
+}
+
+/**
+ * Conserva combustible/condición/cc que el usuario ya eligió en el lote
+ * y los escribe en las filas (p. ej. tras Extraer, que trae esos campos vacíos).
+ */
+export function persistLoteTechOnRows(
+  rows: CargaMasivaRow[],
+  prev: SharedLoteTechFields
+): { rows: CargaMasivaRow[]; tech: SharedLoteTechFields } {
+  const fromRows = sharedLoteTechFromRows(rows);
+  const tech: SharedLoteTechFields = {
+    condicion: prev.condicion || fromRows.condicion,
+    tipoCombustible: prev.tipoCombustible || fromRows.tipoCombustible,
+    cilindradaCc: prev.cilindradaCc || fromRows.cilindradaCc,
+    sobrescribir: prev.sobrescribir,
+  };
+  return {
+    rows: applySharedLoteTechToRows(rows, tech, {
+      force: tech.sobrescribir,
+    }),
+    tech,
+  };
+}
+
+export const SIN_BL_LABEL = "Sin BL";
+export const SIN_CONTENEDOR_LABEL = "Sin contenedor";
+
+export type CargaMasivaContainerGroup<T> = {
+  numeroContenedor: string;
+  label: string;
+  items: T[];
+};
+
+export type CargaMasivaBlGroup<T> = {
+  numeroBl: string;
+  label: string;
+  contenedores: CargaMasivaContainerGroup<T>[];
+  total: number;
+};
+
+function normGroupKey(raw: string | null | undefined): string {
+  return (raw ?? "").trim().toUpperCase();
+}
+
+/**
+ * Agrupa filas o expedientes: BL → contenedor (orden de primera aparición).
+ */
+export function groupByBlAndContainer<
+  T extends { numeroBl?: string | null; numeroContenedor?: string | null },
+>(items: T[]): CargaMasivaBlGroup<T>[] {
+  const blOrder: string[] = [];
+  const containerOrder = new Map<string, string[]>();
+  const buckets = new Map<string, T[]>();
+
+  for (const item of items) {
+    const bl = normGroupKey(item.numeroBl);
+    const cont = normGroupKey(item.numeroContenedor);
+    if (!containerOrder.has(bl)) {
+      blOrder.push(bl);
+      containerOrder.set(bl, []);
+    }
+    const conts = containerOrder.get(bl)!;
+    if (!conts.includes(cont)) conts.push(cont);
+    const key = `${bl}\0${cont}`;
+    const list = buckets.get(key);
+    if (list) list.push(item);
+    else buckets.set(key, [item]);
+  }
+
+  return blOrder.map((bl) => {
+    const contenedores = (containerOrder.get(bl) ?? []).map((cont) => {
+      const itemsIn = buckets.get(`${bl}\0${cont}`) ?? [];
+      return {
+        numeroContenedor: cont,
+        label: cont || SIN_CONTENEDOR_LABEL,
+        items: itemsIn,
+      };
+    });
+    return {
+      numeroBl: bl,
+      label: bl || SIN_BL_LABEL,
+      contenedores,
+      total: contenedores.reduce((n, c) => n + c.items.length, 0),
+    };
+  });
 }
 
 /** Importador detectado en documentos (solo para certificar vs. cliente elegido). */
