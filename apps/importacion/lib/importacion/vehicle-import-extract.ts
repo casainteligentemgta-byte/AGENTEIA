@@ -263,9 +263,7 @@ export async function runVehicleImportExtract(params: {
       );
       if (!result.success) {
         const canTryCerts =
-          etapa !== "certs" &&
-          params.certificados.length > 0 &&
-          currentRows.length === 0;
+          params.certificados.length > 0 && currentRows.length === 0;
         if (canTryCerts) {
           warnings.push(result.error);
           continue;
