@@ -4,6 +4,7 @@
  * Cabecera: consignatario, RIF, destino, nº factura y CIF unitario.
  */
 
+import { isVinLikeSerialMotor } from "./cert-engine-text";
 import { inferCheryModelo } from "./chery-modelo";
 import { salvageCheryVin } from "./vin-text";
 
@@ -273,7 +274,10 @@ export function parseCheryInvoiceLineas(text: string): CheryInvoiceLinea[] {
       modelo,
       color,
       serialMotor:
-        serialMotor && serialMotor.length >= 6 && serialMotor.length <= 20
+        serialMotor &&
+        serialMotor.length >= 6 &&
+        serialMotor.length <= 20 &&
+        !isVinLikeSerialMotor(serialMotor)
           ? serialMotor
           : null,
       valorCif: cifRaw ?? header.cifUnitario,

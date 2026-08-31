@@ -462,6 +462,29 @@ export function mergeCertEngineHarvests(
  * Cruza ENGINE No del certificado con las filas de factura por VIN
  * (exacto, prefijo o sufijo; repara LWV→LVV).
  */
+/**
+ * Un VIN (17) o WMI Chery/MAV no es ENGINE No. La factura a veces copia
+ * Code/VIN al campo motor y luego el COO no pisa ese valor.
+ */
+export function isVinLikeSerialMotor(raw: string | null | undefined): boolean {
+  const compact = (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (!compact) return false;
+  if (/^S[O0Q]R[EF]/.test(compact) || /^C16TD/.test(compact)) return false;
+  if (/^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) return true;
+  if (/^L[VWY]/.test(compact) && compact.length >= 15 && compact.length <= 18) {
+    return true;
+  }
+  if (/^MF3/.test(compact) && compact.length >= 15) return true;
+  return false;
+}
+
+/** Falta ENGINE No real del certificado (vacío, POR-COMPLETAR o VIN). */
+export function rowNeedsCertEngineNo(
+  serialMotor: string | null | undefined
+): boolean {
+  return !normalizeMotor(serialMotor) || isVinLikeSerialMotor(serialMotor);
+}
+
 export function applyEngineNosByVin<
   T extends { vin?: string; serialCarroceria?: string; serialMotor?: string },
 >(rows: T[], pairs: CertEnginePair[]): T[] {
@@ -477,13 +500,13 @@ export function applyEngineNosByVin<
     pairs.map((p) => [normalizeSerialKey(p.vin), p.serialMotor] as const)
   );
   return rows.map((row, i) => {
-    if (normalizeMotor(row.serialMotor)) return row;
+    if (!rowNeedsCertEngineNo(row.serialMotor)) return row;
     const rowKey = rowKeys[i];
     if (!rowKey) return row;
     const certVin = rowToCert.get(rowKey);
     if (!certVin) return row;
     const motor = motorByCertVin.get(certVin);
-    if (!motor) return row;
+    if (!motor || isVinLikeSerialMotor(motor)) return row;
     return { ...row, serialMotor: motor };
   });
 }
@@ -498,18 +521,19 @@ export function assignEngineNosByRowOrder<T extends { serialMotor?: string }>(
 ): T[] {
   const used = new Set<string>();
   for (const row of rows) {
+    if (rowNeedsCertEngineNo(row.serialMotor)) continue;
     const m = normalizeMotor(row.serialMotor);
     if (m) used.add(m);
   }
   const leftover = motorsInOrder.filter((m) => {
     const motor = normalizeMotor(m);
-    if (!motor || used.has(motor)) return false;
+    if (!motor || isVinLikeSerialMotor(motor) || used.has(motor)) return false;
     used.add(motor);
     return true;
   });
   let i = 0;
   return rows.map((row) => {
-    if (normalizeMotor(row.serialMotor)) return row;
+    if (!rowNeedsCertEngineNo(row.serialMotor)) return row;
     if (i >= leftover.length) return row;
     const next = leftover[i++]!;
     return { ...row, serialMotor: next };
