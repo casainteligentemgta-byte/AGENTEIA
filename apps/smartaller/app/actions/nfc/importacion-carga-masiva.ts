@@ -24,7 +24,11 @@ import {
   placaPendienteDesdeCodigo,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
-import { parseImportacion, serializeImportacion } from "@/lib/schemas/vehiculo-documentos";
+import {
+  parseImportacion,
+  serializeImportacion,
+  type DocumentoTipo,
+} from "@/lib/schemas/vehiculo-documentos";
 import {
   placeholderOValor,
 } from "@/lib/importacion/completitud-datos";
@@ -53,9 +57,12 @@ import {
 } from "@/app/actions/nfc/importadores";
 import {
   findDuplicateSerialCarroceria,
+  findDuplicateSerialInList,
+  listTallerSerialesCarroceria,
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
+import { copyDocumentosToVehiculoIds } from "@/lib/importacion/expediente-lote-sync";
 import { repairCheryWmi, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
@@ -1617,6 +1624,16 @@ export async function createPuertoLibreCargaMasivaAction(input: {
     numeroContenedor: string;
   }[] = [];
   const failed: { index: number; serial: string; error: string }[] = [];
+  const existingSerials = await listTallerSerialesCarroceria(admin, tallerId);
+  const batchSerials: { id: string; serial_carroceria: string | null }[] = [];
+  const pending: {
+    index: number;
+    row: (typeof aptos)[number];
+    data: PuertoLibreAltaInput;
+    numero: number;
+    sem: ReturnType<typeof vehicleSemaforo>;
+    serial: string;
+  }[] = [];
 
   for (let i = 0; i < aptos.length; i++) {
     const row = aptos[i]!;
@@ -1635,36 +1652,65 @@ export async function createPuertoLibreCargaMasivaAction(input: {
       failed.push({ index: i, serial: row.serialCarroceria, error: parsed.error });
       continue;
     }
-
-    const result = await insertOneVehiculo({
-      admin,
-      tallerId,
-      data: { ...parsed.data, importadorId: importador.id },
-      year,
-      month,
-      numero: nextNumero,
-      importadorIdLocked: importador.id,
-      completitudDatos: sem.nivel,
-      datosPendientes: [...sem.criticos, ...sem.avisos],
-    });
-
-    if (!result.ok) {
+    const serial = normalizarSerialCarroceria(parsed.data.serialCarroceria);
+    if (
+      findDuplicateSerialInList(existingSerials, serial) ||
+      findDuplicateSerialInList(batchSerials, serial)
+    ) {
       failed.push({
         index: i,
         serial: row.serialCarroceria,
+        error: SERIAL_CARROCERIA_DUPLICADO,
+      });
+      continue;
+    }
+    batchSerials.push({ id: `pending-${i}`, serial_carroceria: serial });
+    pending.push({
+      index: i,
+      row,
+      data: { ...parsed.data, importadorId: importador.id },
+      numero: nextNumero,
+      sem,
+      serial,
+    });
+    nextNumero += 1;
+  }
+
+  const insertResults = await Promise.all(
+    pending.map((item) =>
+      insertOneVehiculo({
+        admin,
+        tallerId,
+        data: item.data,
+        year,
+        month,
+        numero: item.numero,
+        importadorIdLocked: importador.id,
+        completitudDatos: item.sem.nivel,
+        datosPendientes: [...item.sem.criticos, ...item.sem.avisos],
+        skipDuplicateQuery: true,
+        skipCupo: true,
+      }).then((result) => ({ item, result }))
+    )
+  );
+  insertResults.sort((a, b) => a.item.index - b.item.index);
+
+  for (const { item, result } of insertResults) {
+    if (!result.ok) {
+      failed.push({
+        index: item.index,
+        serial: item.row.serialCarroceria,
         error: result.error,
       });
       continue;
     }
-
     created.push({
       vehiculoId: result.vehiculoId,
       codigoExpediente: result.codigoExpediente,
-      serial: parsed.data.serialCarroceria,
-      numeroBl: (row.numeroBl ?? "").trim(),
-      numeroContenedor: (row.numeroContenedor ?? "").trim(),
+      serial: item.serial,
+      numeroBl: (item.row.numeroBl ?? "").trim(),
+      numeroContenedor: (item.row.numeroContenedor ?? "").trim(),
     });
-    nextNumero += 1;
   }
 
   revalidatePath("/smartimport");
@@ -1685,6 +1731,47 @@ export async function createPuertoLibreCargaMasivaAction(input: {
   return { success: true, created, failed };
 }
 
+/** Copia factura/BL del primer expediente a los demás (mismo path, sin re-subir ni OCR). */
+export async function copyCargaMasivaDocumentosAction(input: {
+  sourceVehiculoId: string;
+  targetVehiculoIds: string[];
+  tipos: DocumentoTipo[];
+}): Promise<
+  { success: true; copied: number } | { success: false; error: string }
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+  const sourceVehiculoId = String(input.sourceVehiculoId ?? "").trim();
+  const targetVehiculoIds = (input.targetVehiculoIds ?? []).filter(
+    (id) => typeof id === "string" && id.trim()
+  );
+  const tipos = (input.tipos ?? []).filter(
+    (t): t is DocumentoTipo => typeof t === "string" && t.length > 0
+  );
+  if (!zUuid(sourceVehiculoId) || targetVehiculoIds.some((id) => !zUuid(id))) {
+    return { success: false, error: "Expediente inválido" };
+  }
+  if (tipos.length === 0 || targetVehiculoIds.length === 0) {
+    return { success: true, copied: 0 };
+  }
+  const copied = await copyDocumentosToVehiculoIds({
+    admin: createAdminClient(),
+    tallerId: auth.taller.id,
+    sourceVehiculoId,
+    targetVehiculoIds,
+    tipos,
+  });
+  return { success: true, copied };
+}
+
+function zUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
 async function insertOneVehiculo(params: {
   admin: SupabaseClient;
   tallerId: string;
@@ -1696,6 +1783,10 @@ async function insertOneVehiculo(params: {
   importadorIdLocked?: string;
   completitudDatos?: "rojo" | "ambar" | "verde";
   datosPendientes?: string[];
+  /** Ya se comprobó el lote en memoria. */
+  skipDuplicateQuery?: boolean;
+  /** Cupo de persona natural ya evaluado en el lote. */
+  skipCupo?: boolean;
 }): Promise<
   | { ok: true; vehiculoId: string; codigoExpediente: string }
   | { ok: false; error: string }
@@ -1710,6 +1801,8 @@ async function insertOneVehiculo(params: {
     importadorIdLocked,
     completitudDatos,
     datosPendientes,
+    skipDuplicateQuery,
+    skipCupo,
   } = params;
   const serialCarroceria = normalizarSerialCarroceria(data.serialCarroceria);
   const serialMotor = normalizarSerialCarroceria(data.serialMotor);
@@ -1735,24 +1828,28 @@ async function insertOneVehiculo(params: {
     importadorId = ensured.importadorId;
   }
 
-  const existingSerial = await findDuplicateSerialCarroceria(
-    admin,
-    tallerId,
-    serialCarroceria
-  );
-  if (existingSerial) {
-    return { ok: false, error: SERIAL_CARROCERIA_DUPLICADO };
+  if (!skipDuplicateQuery) {
+    const existingSerial = await findDuplicateSerialCarroceria(
+      admin,
+      tallerId,
+      serialCarroceria
+    );
+    if (existingSerial) {
+      return { ok: false, error: SERIAL_CARROCERIA_DUPLICADO };
+    }
   }
 
-  const cupo = await evaluarCupoPersonaNatural({
-    admin,
-    tallerId,
-    importadorDocumento: data.importadorDocumento || null,
-    fechaReferenciaNueva: data.fechaLlegadaBuque || null,
-    regimen: data.regimen,
-  });
-  if (!cupo.ok) {
-    return { ok: false, error: cupo.error };
+  if (!skipCupo) {
+    const cupo = await evaluarCupoPersonaNatural({
+      admin,
+      tallerId,
+      importadorDocumento: data.importadorDocumento || null,
+      fechaReferenciaNueva: data.fechaLlegadaBuque || null,
+      regimen: data.regimen,
+    });
+    if (!cupo.ok) {
+      return { ok: false, error: cupo.error };
+    }
   }
 
   const codigoExpediente = formatCodigoExpediente(year, month, numero);

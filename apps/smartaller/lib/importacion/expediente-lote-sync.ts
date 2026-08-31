@@ -79,6 +79,63 @@ export async function syncLoteDocumentoToSiblings(params: {
   return copied;
 }
 
+/** Copia refs de documentos (mismo path de Storage) a IDs concretos. Sin OCR. */
+export async function copyDocumentosToVehiculoIds(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  sourceVehiculoId: string;
+  targetVehiculoIds: readonly string[];
+  tipos: readonly DocumentoTipo[];
+}): Promise<number> {
+  const targets = [...new Set(params.targetVehiculoIds)].filter(
+    (id) => id && id !== params.sourceVehiculoId
+  );
+  if (targets.length === 0 || params.tipos.length === 0) return 0;
+
+  const { data: source, error: sourceError } = await params.admin
+    .from("vehiculos")
+    .select("id, documentos")
+    .eq("id", params.sourceVehiculoId)
+    .eq("taller_id", params.tallerId)
+    .maybeSingle();
+  if (sourceError || !source) return 0;
+
+  const sourceDocs = parseVehiculosDocumentos(source.documentos);
+  const toCopy = params.tipos
+    .map((tipo) => {
+      const ref = sourceDocs[tipo];
+      return ref ? ([tipo, ref] as const) : null;
+    })
+    .filter((x): x is readonly [DocumentoTipo, VehiculoDocumentoRef] =>
+      Boolean(x)
+    );
+  if (toCopy.length === 0) return 0;
+
+  const { data: rows, error } = await params.admin
+    .from("vehiculos")
+    .select("id, documentos")
+    .eq("taller_id", params.tallerId)
+    .in("id", targets);
+  if (error || !rows?.length) return 0;
+
+  let copied = 0;
+  await Promise.all(
+    rows.map(async (row) => {
+      let next = parseVehiculosDocumentos(row.documentos);
+      for (const [tipo, ref] of toCopy) {
+        next = documentosConCopiaLote(next, tipo, ref);
+      }
+      const { error: updError } = await params.admin
+        .from("vehiculos")
+        .update({ documentos: next, updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .eq("taller_id", params.tallerId);
+      if (!updError) copied += 1;
+    })
+  );
+  return copied;
+}
+
 export async function syncLoteImportacionToSiblings(params: {
   admin: SupabaseClient;
   tallerId: string;

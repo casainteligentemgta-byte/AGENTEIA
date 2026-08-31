@@ -37,29 +37,41 @@ export const SERIAL_CARROCERIA_DUPLICADO =
  * (comparación normalizada: mayúsculas, sin espacios).
  * Usar cliente server/admin; siempre filtrar por taller_id (RLS + tenant).
  */
+export function findDuplicateSerialInList(
+  rows: readonly { id: string; serial_carroceria?: string | null }[],
+  serial: string,
+  excludeVehiculoId?: string
+): { id: string } | null {
+  const norm = normalizarSerialCarroceria(serial);
+  if (!norm) return null;
+  const hit = rows.find((row) => {
+    if (excludeVehiculoId && row.id === excludeVehiculoId) return false;
+    return (
+      normalizarSerialCarroceria(String(row.serial_carroceria ?? "")) === norm
+    );
+  });
+  return hit ? { id: hit.id } : null;
+}
+
+export async function listTallerSerialesCarroceria(
+  supabase: SupabaseClient,
+  tallerId: string
+): Promise<{ id: string; serial_carroceria: string | null }[]> {
+  const { data, error } = await supabase
+    .from("vehiculos")
+    .select("id, serial_carroceria")
+    .eq("taller_id", tallerId)
+    .not("serial_carroceria", "is", null);
+  if (error || !data?.length) return [];
+  return data as { id: string; serial_carroceria: string | null }[];
+}
+
 export async function findDuplicateSerialCarroceria(
   supabase: SupabaseClient,
   tallerId: string,
   serial: string,
   excludeVehiculoId?: string
 ): Promise<{ id: string } | null> {
-  const norm = normalizarSerialCarroceria(serial);
-  if (!norm) return null;
-
-  const base = supabase
-    .from("vehiculos")
-    .select("id, serial_carroceria")
-    .eq("taller_id", tallerId)
-    .not("serial_carroceria", "is", null);
-
-  const { data, error } = excludeVehiculoId
-    ? await base.neq("id", excludeVehiculoId)
-    : await base;
-
-  if (error || !data?.length) return null;
-
-  const hit = data.find(
-    (row) => normalizarSerialCarroceria(String(row.serial_carroceria ?? "")) === norm
-  );
-  return hit ? { id: hit.id } : null;
+  const rows = await listTallerSerialesCarroceria(supabase, tallerId);
+  return findDuplicateSerialInList(rows, serial, excludeVehiculoId);
 }
