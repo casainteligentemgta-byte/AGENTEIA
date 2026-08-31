@@ -234,15 +234,30 @@ export function cargaMasivaStickyIndexHeadClass(): string {
   return `sticky left-0 z-30 min-w-[4.25rem] bg-slate-900 px-2 py-2 text-center font-medium ${STICKY_INDEX_SHADOW}`;
 }
 
-/** Celda # con fondo opaco según semáforo (sticky requiere color sólido). */
+/** Cebra de filas: gris clarito / sin fondo, para distinguir cada vehículo. */
+export function cargaMasivaRowStripeClass(idx: number): string {
+  return idx % 2 === 0
+    ? "border-t border-slate-700/70 bg-slate-800/50"
+    : "border-t border-slate-800/50 bg-transparent";
+}
+
+/** Celda # sticky: mismo cebra que la fila (fondo opaco para que no se vea el scroll). */
 export function cargaMasivaStickyIndexCellClass(
-  nivel: SemaforoNivel,
+  idx: number,
   hasError: boolean
 ): string {
-  const base = `sticky left-0 z-20 min-w-[4.25rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${STICKY_INDEX_SHADOW}`;
-  if (hasError || nivel === "rojo") return `${base} bg-red-950 text-slate-200`;
-  if (nivel === "ambar") return `${base} bg-amber-950 text-slate-200`;
-  return `${base} bg-slate-950 text-slate-400`;
+  const zebra = idx % 2 === 0 ? "bg-slate-800" : "bg-slate-950";
+  const text = hasError ? "text-red-300" : "text-slate-300";
+  return `sticky left-0 z-20 min-w-[4.25rem] px-2 py-1.5 align-top text-center text-sm font-semibold tabular-nums ${zebra} ${text} ${STICKY_INDEX_SHADOW}`;
+}
+
+/** Copia el valor de una columna a todas las filas (primera celda + check del título). */
+export function applyColumnValueToRows(
+  rows: CargaMasivaRow[],
+  key: keyof CargaMasivaRow,
+  value: string
+): CargaMasivaRow[] {
+  return rows.map((r) => ({ ...r, [key]: value, error: null }));
 }
 
 export type SharedShipmentFields = {

@@ -42,6 +42,7 @@ import {
   applyImportadorToRows,
   applySharedLoteTechToRows,
   applySharedShipmentToRows,
+  cargaMasivaRowStripeClass,
   cargaMasivaStickyIndexCellClass,
   cargaMasivaStickyIndexHeadClass,
   detectedImportadorFromRows,
@@ -159,6 +160,9 @@ export function PuertoLibreCargaMasiva({
     ...EMPTY_SHARED_LOTE_TECH,
   });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCols, setBulkCols] = useState<Set<keyof CargaMasivaRow>>(
+    () => new Set()
+  );
   const [detectedImportador, setDetectedImportador] = useState<DetectedImportador>(
     { ...EMPTY_DETECTED_IMPORTADOR }
   );
@@ -465,10 +469,15 @@ export function PuertoLibreCargaMasiva({
   }
 
   function updateRowMarca(id: string, marca: string) {
+    updateRowsMarca([id], marca);
+  }
+
+  function updateRowsMarca(ids: string[], marca: string) {
     const resolved = resolveMarcaCatalogo(marca) ?? marca;
+    const only = new Set(ids);
     setRows((prev) =>
       prev.map((r) => {
-        if (r.id !== id) return r;
+        if (!only.has(r.id)) return r;
         const modelo = r.modelo.trim();
         const catalog = modelosDeMarca(resolved);
         const keep =
@@ -484,6 +493,60 @@ export function PuertoLibreCargaMasiva({
         };
       })
     );
+  }
+
+  function applyCondicionToIds(ids: string[], next: string) {
+    const only = new Set(ids);
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!only.has(r.id)) return r;
+        if (next === "usado") {
+          return { ...r, condicion: "usado", esSubasta: "false", error: null };
+        }
+        if (next === "subasta") {
+          return { ...r, condicion: "usado", esSubasta: "true", error: null };
+        }
+        return { ...r, condicion: "nuevo", esSubasta: "false", error: null };
+      })
+    );
+  }
+
+  function toggleBulkCol(key: keyof CargaMasivaRow, on: boolean) {
+    setBulkCols((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  function broadcastIds(rowIndex: number, key: keyof CargaMasivaRow) {
+    if (rowIndex === 0 && bulkCols.has(key)) {
+      return rows.map((r) => r.id);
+    }
+    return null;
+  }
+
+  function commitVehicleField(
+    row: CargaMasivaRow,
+    rowIndex: number,
+    key: keyof CargaMasivaRow,
+    value: string
+  ) {
+    const ids = broadcastIds(rowIndex, key);
+    if (ids) {
+      if (key === "marca") {
+        updateRowsMarca(ids, value);
+        return;
+      }
+      updateRows(ids, key, value);
+      return;
+    }
+    if (key === "marca") {
+      updateRowMarca(row.id, value);
+      return;
+    }
+    updateRow(row.id, key, value);
   }
 
   function toggleRowSelected(id: string, next: boolean) {
@@ -2242,8 +2305,13 @@ export function PuertoLibreCargaMasiva({
           ) : null}
 
           <div className="relative isolate overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-800 [-webkit-overflow-scrolling:touch]">
-            <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500 md:hidden">
-              Desliza → para ver más columnas. La columna # queda fija para ubicar cada vehículo.
+            <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500">
+              Cada fila es un vehículo. Marca el check del título de una columna y
+              escribe en la primera celda para copiar a todas.
+              <span className="md:hidden">
+                {" "}
+                Desliza → para ver más columnas. La columna # queda fija.
+              </span>
             </p>
             <table className="w-full min-w-0 border-separate border-spacing-0 text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
@@ -2270,7 +2338,17 @@ export function PuertoLibreCargaMasiva({
                       key={c.key}
                       className={`whitespace-nowrap px-2 py-2 font-medium ${vehicleFieldHeaderClass(c)}`}
                     >
-                      {c.label}
+                      <div className="flex flex-col items-start gap-1">
+                        <input
+                          type="checkbox"
+                          checked={bulkCols.has(c.key)}
+                          onChange={(e) => toggleBulkCol(c.key, e.target.checked)}
+                          aria-label={`Copiar ${c.label} desde la primera fila`}
+                          title="Marca y escribe en la primera celda para copiar a todas las filas"
+                          className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-cyan-500 accent-cyan-400"
+                        />
+                        <span>{c.label}</span>
+                      </div>
                     </th>
                   ))}
                   <th className="px-2 py-2 font-medium"> </th>
@@ -2279,21 +2357,15 @@ export function PuertoLibreCargaMasiva({
               <tbody>
                 {rows.map((row, idx) => {
                   const sem = vehicleSemaforo(row);
-                  const rowTone =
-                    sem.nivel === "rojo" || row.error
-                      ? "border-t border-red-900/40 bg-red-950/20"
-                      : sem.nivel === "ambar"
-                        ? "border-t border-amber-900/30 bg-amber-950/10"
-                        : "border-t border-slate-800/80";
                   const isSelected = selectedIdSet.has(row.id);
                   return (
                     <tr
                       key={row.id}
-                      className={`${rowTone}${isSelected ? " ring-1 ring-inset ring-cyan-500/25" : ""}`}
+                      className={`${cargaMasivaRowStripeClass(idx)}${isSelected ? " ring-1 ring-inset ring-cyan-500/25" : ""}`}
                     >
                       <td
                         className={cargaMasivaStickyIndexCellClass(
-                          sem.nivel,
+                          idx,
                           Boolean(row.error)
                         )}
                       >
@@ -2369,26 +2441,32 @@ export function PuertoLibreCargaMasiva({
                           key={c.key}
                           className={`px-1 py-1 align-top ${
                             c.code ? "whitespace-nowrap" : ""
-                          } ${vehicleFieldHeaderClass(c)}`}
+                          } ${vehicleFieldHeaderClass(c)}${
+                            idx === 0 && bulkCols.has(c.key)
+                              ? " rounded-md ring-1 ring-inset ring-cyan-500/35"
+                              : ""
+                          }`}
                         >
                           {c.key === "marca" ? (
                             <CargaMasivaMarcaCell
                               value={String(row.marca ?? "")}
-                              onChange={(next) => updateRowMarca(row.id, next)}
+                              onChange={(next) =>
+                                commitVehicleField(row, idx, "marca", next)
+                              }
                             />
                           ) : c.key === "modelo" ? (
                             <CargaMasivaModeloCell
                               marca={String(row.marca ?? "")}
                               value={String(row.modelo ?? "")}
                               onChange={(next) =>
-                                updateRow(row.id, "modelo", next)
+                                commitVehicleField(row, idx, "modelo", next)
                               }
                             />
                           ) : c.key === "color" ? (
                             <CargaMasivaColorCell
                               value={String(row.color ?? "")}
                               onChange={(next) =>
-                                updateRow(row.id, "color", next)
+                                commitVehicleField(row, idx, "color", next)
                               }
                             />
                           ) : c.key === "condicion" ? (
@@ -2406,20 +2484,11 @@ export function PuertoLibreCargaMasiva({
                                 <select
                                   value={currentValue}
                                   onChange={(e) => {
-                                    const next = e.target.value;
-                                    if (next === "nuevo") {
-                                      updateRow(row.id, "condicion", "nuevo");
-                                      updateRow(row.id, "esSubasta", "false");
-                                      return;
-                                    }
-                                    if (next === "usado") {
-                                      updateRow(row.id, "condicion", "usado");
-                                      updateRow(row.id, "esSubasta", "false");
-                                      return;
-                                    }
-                                    // subasta
-                                    updateRow(row.id, "condicion", "usado");
-                                    updateRow(row.id, "esSubasta", "true");
+                                    const ids =
+                                      broadcastIds(idx, "condicion") ?? [
+                                        row.id,
+                                      ];
+                                    applyCondicionToIds(ids, e.target.value);
                                   }}
                                   className={`${vehicleFieldInputClass(
                                     c
@@ -2436,8 +2505,9 @@ export function PuertoLibreCargaMasiva({
                             <select
                               value={String(row.tipoCombustible ?? "")}
                               onChange={(e) =>
-                                updateRow(
-                                  row.id,
+                                commitVehicleField(
+                                  row,
+                                  idx,
                                   "tipoCombustible",
                                   e.target.value
                                 )
@@ -2456,7 +2526,12 @@ export function PuertoLibreCargaMasiva({
                             <input
                               value={String(row[c.key] ?? "")}
                               onChange={(e) =>
-                                updateRow(row.id, c.key, e.target.value)
+                                commitVehicleField(
+                                  row,
+                                  idx,
+                                  c.key,
+                                  e.target.value
+                                )
                               }
                               size={vehicleFieldInputSize(c)}
                               maxLength={

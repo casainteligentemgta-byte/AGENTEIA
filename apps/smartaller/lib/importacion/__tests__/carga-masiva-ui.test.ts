@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { emptyCargaMasivaRow } from "../carga-masiva-template";
 import {
+  applyColumnValueToRows,
   applySharedLoteTechToRows,
+  cargaMasivaRowStripeClass,
+  cargaMasivaStickyIndexCellClass,
   EMPTY_SHARED_LOTE_TECH,
   groupByBlAndContainer,
   persistLoteTechOnRows,
@@ -60,6 +63,37 @@ describe("lote técnico → tabla", () => {
       tipoCombustible: "gasolina",
     });
     assert.equal(rows[0]?.tipoCombustible, "diesel");
+  });
+});
+
+describe("tabla carga masiva", () => {
+  it("alterna gris clarito y transparente por fila", () => {
+    const even = cargaMasivaRowStripeClass(0);
+    const odd = cargaMasivaRowStripeClass(1);
+    assert.match(even, /bg-slate-800/);
+    assert.match(odd, /bg-transparent/);
+    assert.notEqual(even, odd);
+  });
+
+  it("la celda # sticky sigue el cebra, no el semáforo", () => {
+    const even = cargaMasivaStickyIndexCellClass(0, false);
+    const odd = cargaMasivaStickyIndexCellClass(1, false);
+    assert.match(even, /bg-slate-800/);
+    assert.match(odd, /bg-slate-950/);
+    assert.doesNotMatch(even, /bg-red-950|bg-amber-950/);
+  });
+
+  it("copia la primera celda a todas las filas de esa columna", () => {
+    const rows = [
+      emptyCargaMasivaRow({ id: "a", color: "" }),
+      emptyCargaMasivaRow({ id: "b", color: "Rojo" }),
+      emptyCargaMasivaRow({ id: "c", color: "" }),
+    ];
+    const next = applyColumnValueToRows(rows, "color", "Blanco");
+    assert.equal(next[0]?.color, "Blanco");
+    assert.equal(next[1]?.color, "Blanco");
+    assert.equal(next[2]?.color, "Blanco");
+    assert.equal(rows[1]?.color, "Rojo");
   });
 });
 
