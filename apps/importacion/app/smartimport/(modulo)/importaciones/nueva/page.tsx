@@ -32,7 +32,7 @@ export default async function NuevaImportacionPage() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-[90rem]">
         <div className="mb-6 flex items-center gap-2">
           <Link
             href="/smartimport"

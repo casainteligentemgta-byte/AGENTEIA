@@ -11,7 +11,7 @@ import {
 } from "@/lib/importacion/vehiculo-catalog";
 
 const cellClass =
-  "min-w-[7.25rem] w-full rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-[11px] text-slate-100 outline-none focus:border-cyan-500/50";
+  "box-border w-full min-w-0 max-w-full rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-[11px] text-slate-100 outline-none focus:border-cyan-500/50";
 
 function uniqueOptions(values: string[]) {
   const seen = new Set<string>();
@@ -85,7 +85,10 @@ export function CargaMasivaMarcaCell({
       : resolved!;
 
   return (
-    <div className="min-w-[7.25rem] space-y-1">
+    <div
+      className="w-[6.75rem] max-w-[6.75rem] min-w-0 space-y-1"
+      title={current || undefined}
+    >
       <select
         className={cellClass}
         value={selected}
@@ -150,7 +153,7 @@ export function CargaMasivaModeloCell({
       : matchOption(options, current);
 
   return (
-    <div className="min-w-[8.5rem] space-y-1">
+    <div className="w-[8.25rem] max-w-[8.25rem] min-w-0 space-y-1" title={current || undefined}>
       <div className="flex items-center gap-1">
         <select
           className={`${cellClass} flex-1 ${
@@ -231,7 +234,10 @@ export function CargaMasivaColorCell({
       : matchOption(options, current);
 
   return (
-    <div className="min-w-[7.25rem] space-y-1">
+    <div
+      className="w-[7.25rem] max-w-[7.25rem] min-w-0 space-y-1"
+      title={current || undefined}
+    >
       <select
         className={cellClass}
         value={selected}
