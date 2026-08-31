@@ -240,26 +240,41 @@ export async function runVehicleImportExtract(params: {
       if (etapa !== "vins") {
         fd.set("rowsJson", JSON.stringify(currentRows));
       }
-      const result = await postSmartimportOcr(
-        "/api/smartimport/ocr-carga-masiva",
-        fd,
-        extractCargaMasivaEtapaAction,
-        {
-          deadlineMs: 90_000,
-          onRetry: (attempt) =>
-            params.onProgress({
-              etapa,
-              label: CARGA_MASIVA_ETAPA_LABELS[etapa],
-              hint: `Leyendo en el servidor… ${attempt * 2}s`,
-              vinsEncontrados: rowVinCount(currentRows),
-              filasCompletas: currentRows.filter((row) =>
-                vehicleCompleteness(row).complete
-              ).length,
-              totalFilas: currentRows.length,
-              pct: Math.round((i / etapas.length) * 70),
-            }),
+      let result: Awaited<ReturnType<typeof extractCargaMasivaEtapaAction>>;
+      try {
+        result = await postSmartimportOcr(
+          "/api/smartimport/ocr-carga-masiva",
+          fd,
+          extractCargaMasivaEtapaAction,
+          {
+            deadlineMs: 90_000,
+            onRetry: (attempt) =>
+              params.onProgress({
+                etapa,
+                label: CARGA_MASIVA_ETAPA_LABELS[etapa],
+                hint: `Leyendo en el servidor… ${attempt * 2}s`,
+                vinsEncontrados: rowVinCount(currentRows),
+                filasCompletas: currentRows.filter((row) =>
+                  vehicleCompleteness(row).complete
+                ).length,
+                totalFilas: currentRows.length,
+                pct: Math.round((i / etapas.length) * 70),
+              }),
+          }
+        );
+      } catch (err) {
+        if (etapa === "datos" && currentRows.length > 0) {
+          warnings.push(
+            `Enriquecer datos: ${formatCargaMasivaClientError(err)}`
+          );
+          continue;
         }
-      );
+        if (params.certificados.length > 0 && etapa === "vins") {
+          warnings.push(formatCargaMasivaClientError(err));
+          continue;
+        }
+        throw err;
+      }
       if (!result.success) {
         if (etapa === "datos" && currentRows.length > 0) {
           warnings.push(
