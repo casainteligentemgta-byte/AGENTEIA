@@ -20,11 +20,14 @@ const ENGINE_LABELED_RE =
 
 const ENGINE_HEADER_RE = /\bENGINE\s*(?:SERIAL\s*)?(?:NO|N[°º.]|NUMBER|#)\b/i;
 
-/** Chery Tiggo 2 Pro: ENGINE No al lado del VIN (pág. 2 del COO). */
-const CHERY_ENGINE_RE = /\b(S[O0Q]RE[A-Z0-9]{8,16})\b/gi;
+/**
+ * Chery ENGINE No: SQRE (Arrizo / Tiggo 2) y SQRF (Tiggo 7 / 1.6T).
+ * OCR suele leer O/0 en lugar de Q.
+ */
+const CHERY_ENGINE_RE = /\b(S[O0Q]R[EF][A-Z0-9]{8,16})\b/gi;
 
-/** Prefijo motor Chery (también pegados: `…60412SQRE4G15C…`). */
-const CHERY_ENGINE_PREFIX_RE = /S[O0Q]RE/g;
+/** Prefijo motor Chery (también pegados: `…60412SQRE4G15C…` / `…SQRF4J16…`). */
+const CHERY_ENGINE_PREFIX_RE = /S[O0Q]R[EF]/g;
 
 const VIN_TOKEN_RE = /\b(L[VWY][A-HJ-NPR-Z0-9]{13,16}|MF3[A-HJ-NPR-Z0-9]{14})\b/g;
 
@@ -57,8 +60,11 @@ function salvageCheryEngine(raw: string | null | undefined): string | null {
   const compact = (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   if (compact.length < 10) return null;
   let m = compact;
-  if (/^S[O0Q]RE/.test(m)) m = `SQRE${m.slice(4)}`;
-  if (!/^SQRE[A-Z0-9]{8,16}$/.test(m)) return null;
+  if (/^S[O0Q]R[EF]/.test(m)) {
+    const series = m[3] === "F" ? "F" : "E";
+    m = `SQR${series}${m.slice(4)}`;
+  }
+  if (!/^SQR[EF][A-Z0-9]{8,16}$/.test(m)) return null;
   return m;
 }
 
@@ -112,7 +118,7 @@ function extractMotorsUnderEngineHeader(text: string): string[] {
     if (
       SECTION_STOP_RE.test(trimmed) &&
       !extractCheryEngines(trimmed).length &&
-      !/\bVIN\b|\bLVV|\bSQRE/i.test(trimmed)
+      !/\bVIN\b|\bLVV|\bLVT|\bSQR[EF]/i.test(trimmed)
     ) {
       collecting = false;
       continue;
@@ -363,7 +369,7 @@ export function collectEngineNosFromColumnWords(
     .filter((w) => w.text.length >= 2);
 
   const seeds = glyphs.filter(
-    (w) => /^S[O0Q]RE/.test(w.text) || /^C16TD/.test(w.text)
+    (w) => /^S[O0Q]R[EF]/.test(w.text) || /^C16TD/.test(w.text)
   );
   if (seeds.length === 0) {
     return uniqueMotors(glyphs.flatMap((w) => collectEngineNosInOrder(w.text)));
@@ -511,18 +517,21 @@ export function assignEngineNosByRowOrder<T extends { serialMotor?: string }>(
 }
 
 /**
- * La columna ENGINE No está en la página 2 del certificado.
- * Si esa página tiene pares, no mezclar con la carátula.
+ * ENGINE No suele estar en la página 2, pero el COO puede ser 1 sola página
+ * (o una foto de la tabla VIN + motor).
  */
 export function parseCertEngineNosFromPages(pages: string[]): CertEnginePair[] {
   return harvestCertEnginesFromPages(pages).pairs;
 }
 
-/** Prefiere pág. 2; si no hay ENGINE No, busca en el resto del PDF. */
+/** Prefiere pág. 2; si no hay ENGINE No (cert de 1 página), busca en el resto. */
 export function harvestCertEnginesFromPages(pages: string[]): CertEngineHarvest {
   if (!pages.length) return { pairs: [], motors: [] };
+  if (pages.length === 1) {
+    return harvestCertEnginesFromText(pages[0] ?? "");
+  }
   const page2 = harvestCertEnginesFromText(pages[1] ?? "");
-  if (page2.pairs.length > 0) return page2;
+  if (page2.pairs.length > 0 || page2.motors.length >= 2) return page2;
   let best = page2;
   for (let i = 0; i < pages.length; i++) {
     if (i === 1) continue;

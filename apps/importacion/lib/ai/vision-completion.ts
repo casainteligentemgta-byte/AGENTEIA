@@ -146,7 +146,7 @@ export async function createVisionVinListCompletion(params: {
   const maxTokens = params.maxTokens ?? 2000;
   const timeoutMs = params.timeoutMs ?? 32_000;
   const prompt = `Lee esta imagen de factura de vehículos (Chery / commercial invoice / hoja anexa).
-Suele haber VARIAS filas (p. ej. 8 vehículos). Lista TODOS los números VIN / chasis de exactamente 17 caracteres visibles (columna Code o No. de Chasis).
+Suele haber VARIAS filas (8, 18 o más). Lista TODOS los números VIN / chasis de exactamente 17 caracteres visibles (columna Code o No. de Chasis).
 Uno por línea. Solo letras y dígitos. No inventes. No omitas filas del medio ni del final.
 Si no hay ninguno, responde NINGUNO.`;
 

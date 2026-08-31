@@ -21,7 +21,7 @@ function finalizeCheryCandidate(raw: string): string | null {
   );
   if (x.length !== 17 || !/^[A-HJ-NPR-Z0-9]{17}$/.test(x)) return null;
   if (CHERY_VIN_BODY_RE.test(x)) return x;
-  if (/^LVV/.test(x) && /V[DE][0-9]{6}$/.test(x)) return x;
+  if (/^LV[VTD]/.test(x) && /V[DE][0-9]{6}$/.test(x)) return x;
   return null;
 }
 

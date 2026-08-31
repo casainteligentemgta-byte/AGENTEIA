@@ -136,6 +136,7 @@ export const VEHICULO_MARCAS_MODELOS: Record<string, string[]> = {
     "Tiggo 8 Pro",
     "Tiggo 8 Pro Max",
     "Arrizo 5",
+    "Arrizo 5 Pro",
     "Arrizo 8",
   ],
   BAIC: ["BJ40", "X35", "X55", "X65", "EU5"],

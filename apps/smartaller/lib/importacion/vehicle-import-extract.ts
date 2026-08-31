@@ -154,22 +154,30 @@ export async function runVehicleImportExtract(params: {
       }
 
       if (etapa === "certs") {
-        for (let c = 0; c < storageDocs.length; c++) {
-          const ref = storageDocs[c]!;
+        const batches =
+          storageDocs.length <= 2
+            ? [storageDocs]
+            : storageDocs.map((ref) => [ref]);
+        for (let c = 0; c < batches.length; c++) {
+          const batch = batches[c]!;
+          const label =
+            batch.length === 2
+              ? `Certificado (pág. ${c * 2 + 1}–${c * 2 + 2})`
+              : `Certificado ${c + 1}/${storageDocs.length}`;
           params.onProgress({
             etapa: "certs",
-            label: `Certificado ${c + 1}/${storageDocs.length}`,
-            hint: ref.fileName,
+            label,
+            hint: batch.map((ref) => ref.fileName).join(" + "),
             vinsEncontrados: rowVinCount(currentRows),
             filasCompletas: currentRows.filter(
               (row) => vehicleCompleteness(row).complete
             ).length,
             totalFilas: currentRows.length,
-            pct: Math.round(70 + ((c + 1) / storageDocs.length) * 25),
+            pct: Math.round(70 + ((c + 1) / batches.length) * 25),
           });
           const fd = new FormData();
           fd.set("etapa", "certs");
-          fd.set("storageDocs", JSON.stringify([ref]));
+          fd.set("storageDocs", JSON.stringify(batch));
           fd.set("rowsJson", JSON.stringify(currentRows));
           const result = await postSmartimportOcr(
             "/api/smartimport/ocr-carga-masiva",
@@ -180,14 +188,14 @@ export async function runVehicleImportExtract(params: {
               onRetry: (attempt) =>
                 params.onProgress({
                   etapa: "certs",
-                  label: `Certificado ${c + 1}/${storageDocs.length}`,
+                  label,
                   hint: `Leyendo en el servidor… ${attempt * 2}s`,
                   vinsEncontrados: rowVinCount(currentRows),
                   filasCompletas: currentRows.filter(
                     (row) => vehicleCompleteness(row).complete
                   ).length,
                   totalFilas: currentRows.length,
-                  pct: Math.round(70 + ((c + 1) / storageDocs.length) * 25),
+                  pct: Math.round(70 + ((c + 1) / batches.length) * 25),
                 }),
             }
           );
@@ -195,7 +203,7 @@ export async function runVehicleImportExtract(params: {
             return {
               ok: false,
               error: formatCargaMasivaClientError(
-                `Certificado «${ref.fileName}»: ${result.error}`
+                `Certificado «${batch.map((ref) => ref.fileName).join(" + ")}»: ${result.error}`
               ),
               rows: currentRows,
               warnings,
@@ -254,6 +262,12 @@ export async function runVehicleImportExtract(params: {
         }
       );
       if (!result.success) {
+        const canTryCerts =
+          params.certificados.length > 0 && currentRows.length === 0;
+        if (canTryCerts) {
+          warnings.push(result.error);
+          continue;
+        }
         return {
           ok: false,
           error: formatCargaMasivaClientError(result.error),

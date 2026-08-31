@@ -138,16 +138,17 @@ export function Step1UploadDocuments({
       <div>
         <h2 className="text-lg font-semibold text-zinc-50">Subir documentos</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Sube la factura y, si la tienes, el certificado de origen. Extraemos
-          VIN, marca, modelo, color y motor.
+          Sube la factura y, si la tienes, el certificado de origen (1 o 2
+          páginas). Extraemos VIN, marca, modelo, color y motor.
         </p>
       </div>
 
       <aside className="rounded-xl border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100/90">
         <p className="font-medium text-cyan-50">Factura + certificado juntos</p>
         <p className="mt-0.5 text-cyan-200/80">
-          Puedes elegir varios PDF a la vez. Un PDF puede traer de 1 a{" "}
-          {VEHICLE_IMPORT_MAX} VIN. El certificado completa el serial de motor.
+          Puedes elegir varios PDF o fotos a la vez. Un PDF puede traer de 1 a{" "}
+          {VEHICLE_IMPORT_MAX} VIN. El certificado (1 o 2 páginas) completa el
+          serial de motor.
         </p>
       </aside>
 
@@ -211,7 +212,7 @@ export function Step1UploadDocuments({
         ) : (
           <FileDropZone
             label="Arrastra o elige certificados"
-            hint="Opcional. Completa motor y cruza el VIN. Puedes extraer solo con la factura."
+            hint="Opcional. 1 o 2 páginas (PDF o fotos). Completa motor y cruza el VIN."
             multiple
             disabled={extracting}
             onFiles={takeCertificados}
