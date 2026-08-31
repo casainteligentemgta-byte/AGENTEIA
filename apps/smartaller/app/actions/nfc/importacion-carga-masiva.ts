@@ -9,6 +9,7 @@ import {
   assertLlmBudgetAllows,
   bindLlmUsageContext,
 } from "@/lib/ai/llm-usage";
+import { sniffDocumentMime } from "@/lib/mime-document";
 import {
   CARGA_MASIVA_MAX_ROWS,
   cargaMasivaRowToAltaInput,
