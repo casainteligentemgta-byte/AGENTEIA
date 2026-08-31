@@ -165,6 +165,57 @@ describe("parseCertEngineNosFromText", () => {
     assert.deepEqual(harvested.motors, ["SQRE4G15C1234567", "C16TD98765432"]);
   });
 
+  it("toma todos los VIN+SQRE de una sola línea OCR", () => {
+    const text =
+      "LVVDB21B9VE033523 SQRE4G15CB0TC60412 LVVDB21B1VE033189 SQRE4G15CB0TC60341 LVVDB21B9VE033215 SQRE4G15CB0TC60200";
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 3);
+    assert.equal(pairs[2]?.serialMotor, "SQRE4G15CB0TC60200");
+  });
+
+  it("no se salta filas por lastIndex de regex /g entre llamadas", () => {
+    parseCertEngineNosFromText(`
+      VIN ENGINE NO
+      LVVDC21B5VD713650 SQRE4G15C1111111
+      LVVDB21B9VD812001 C16TD98765432
+    `);
+    const text = `
+      LVVDC21B5VD713650 NASDAQ SILVER
+      SQRE4G15C1111111
+      LVVDB21B9VD812001 NASDAQ SILVER C16TD98765432
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 2);
+  });
+
+  it("extrae los 8 ENGINE No fila por fila (COO Chery)", () => {
+    const text = `
+      ITEM VIN NO. ENGINE NO. COLOUR
+      1 LVVDB21B9VE033523 SQRE4G15CB0TC60412 NASDAQ SILVER
+      2 LVVDB21B1VE033189 SQRE4G15CB0TC60341 CELADON GRAY
+      3 LVVDB21B9VE033215 SQRE4G15CB0TC60200 CELADON GRAY
+      4 LVVDB21B5VE033213 SQRE4G15CB0TC60173 NASDAQ SILVER
+      5 LVVDB21B9VE033214 SQRE4G15CB0TC60100 CELADON GRAY
+      6 LVVDB21B8VE033212 SQRE4G15CB0TC60099 NASDAQ SILVER
+      7 LVVDB21B7VE033211 SQRE4G15CB0TC60098 CELADON GRAY
+      8 LVVDB21B6VE033210 SQRE4G15CB0TC60097 NASDAQ SILVER
+    `;
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 8);
+    assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60412");
+    assert.equal(pairs[7]?.vin, "LVVDB21B6VE033210");
+    assert.equal(pairs[7]?.serialMotor, "SQRE4G15CB0TC60097");
+  });
+
+  it("separa motores SQRE pegados y los alinea en orden", () => {
+    const text =
+      "LVVDB21B9VE033523 LVVDB21B1VE033189 SQRE4G15CB0TC60412SQRE4G15CB0TC60341";
+    const pairs = parseCertEngineNosFromText(text);
+    assert.equal(pairs.length, 2);
+    assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60412");
+    assert.equal(pairs[1]?.serialMotor, "SQRE4G15CB0TC60341");
+  });
+
   it("empareja VIN y SQRE4G15C en la misma fila (COO Chery pág. 2)", () => {
     const text = `
       ITEM VIN NO. ENGINE NO. COLOUR

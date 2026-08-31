@@ -267,7 +267,7 @@ export async function extractCertificatePagePlainTextOriented(
   const { loadImage } = await import("@napi-rs/canvas");
   const { rotateImageBuffer } = await import("@/lib/ai/image-orient");
   const meta = await loadImage(imageBuffer);
-  const candidates: Buffer[] = [imageBuffer];
+  const candidates: Buffer[] = [];
   if (meta.height >= meta.width * 0.9) {
     for (const deg of [90, 270] as const) {
       try {
@@ -277,7 +277,9 @@ export async function extractCertificatePagePlainTextOriented(
       }
     }
   }
+  if (candidates.length === 0) candidates.push(imageBuffer);
 
+  let bestImg = candidates[0]!;
   let best = "";
   let bestScore = -1;
   for (const img of candidates) {
@@ -288,10 +290,36 @@ export async function extractCertificatePagePlainTextOriented(
     if (score > bestScore) {
       bestScore = score;
       best = text;
+      bestImg = img;
     }
-    if ((text.match(/SQRE/gi) ?? []).length >= 4) return text;
+    if ((text.match(/SQRE/gi) ?? []).length >= 6) return text;
   }
-  return best;
+
+  if ((best.match(/SQRE/gi) ?? []).length >= 4) return best;
+
+  // AUTO solo vio la 1ª fila: otra pasada + franjas de la tabla.
+  const extra = await extractCertificatePagePlainTextWithTesseract(bestImg, {
+    fast: false,
+  });
+  if (scoreCertificatePageOcrText(extra) > bestScore) best = extra;
+  if ((best.match(/SQRE/gi) ?? []).length >= 6) return best;
+
+  try {
+    const bands = await sliceHorizontalBands(bestImg, 8);
+    const chunks: string[] = [best];
+    for (const band of bands) {
+      try {
+        chunks.push(
+          await extractCertificatePagePlainTextWithTesseract(band, { fast: true })
+        );
+      } catch {
+        // franja ilegible
+      }
+    }
+    return chunks.join("\n");
+  } catch {
+    return best;
+  }
 }
 
 async function recognizeText(
