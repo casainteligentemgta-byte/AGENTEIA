@@ -21,11 +21,13 @@ import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { extractPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-extract";
 import { getTasaBcvAction } from "@/app/actions/nfc/tasa-bcv";
 import {
+  copyCargaMasivaDocumentosAction,
   createPuertoLibreCargaMasivaAction,
   extractCargaMasivaEtapaAction,
   parseCargaMasivaSpreadsheetAction,
 } from "@/app/actions/nfc/importacion-carga-masiva";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
+import type { DocumentoTipo } from "@/lib/schemas/vehiculo-documentos";
 import {
   type CargaMasivaRow,
   emptyCargaMasivaRow,
@@ -1272,6 +1274,7 @@ export function PuertoLibreCargaMasiva({
 
     startImportTransition(async () => {
       try {
+      setResultMsg("Creando expedientes…");
       const result = await createPuertoLibreCargaMasivaAction({
         importadorId: selected.id,
         rows: rowsToImport,
@@ -1288,48 +1291,64 @@ export function PuertoLibreCargaMasiva({
 
       let attachNote = "";
       if (ok > 0 && (facturaDoc || blDoc || certDocs.length > 0)) {
+        setResultMsg("Adjuntando documentos…");
         let attached = 0;
         let attachFail = 0;
         let withBoth = 0;
-        for (const c of result.created) {
-          const serial = normalizeSerialKey(c.serial);
-          let gotFactura = !facturaDoc;
-          let gotCert = certDocs.length === 0;
+        const first = result.created[0]!;
+        const restIds = result.created.slice(1).map((c) => c.vehiculoId);
+        const loteDocs = [facturaDoc, blDoc].filter(Boolean) as DocItem[];
+        const loteTipos: string[] = [];
+        let facturaOk = !facturaDoc;
 
-          const sharedDocs = [facturaDoc, blDoc].filter(Boolean) as DocItem[];
-          for (const d of sharedDocs) {
-            const fd = new FormData();
-            fd.set("vehiculoId", c.vehiculoId);
-            fd.set("tipo", d.tipo);
-            fd.set("file", d.file);
-            const up = await uploadPuertoLibreDocumentoAction(fd);
-            if (up.success) {
-              attached += 1;
-              if (d.tipo === "factura_comercial") gotFactura = true;
-            } else {
-              attachFail += 1;
-            }
+        for (const d of loteDocs) {
+          const up = await uploadPuertoLibreDocumentoAction(
+            formDataDocUploadSkipOcr(first.vehiculoId, d.tipo, d.file)
+          );
+          if (up.success) {
+            attached += 1;
+            loteTipos.push(d.tipo);
+            if (d.tipo === "factura_comercial") facturaOk = true;
+          } else {
+            attachFail += 1;
           }
-
-          const certFile =
-            (serial ? certBySerial.get(serial) : null) ??
-            resolveCertFileForSerial(c.serial);
-          if (certFile) {
-            const fd = new FormData();
-            fd.set("vehiculoId", c.vehiculoId);
-            fd.set("tipo", "certificado_origen");
-            fd.set("file", certFile);
-            const up = await uploadPuertoLibreDocumentoAction(fd);
-            if (up.success) {
-              attached += 1;
-              gotCert = true;
-            } else {
-              attachFail += 1;
-            }
-          }
-
-          if (gotFactura && gotCert) withBoth += 1;
         }
+
+        if (restIds.length > 0 && loteTipos.length > 0) {
+          const copied = await copyCargaMasivaDocumentosAction({
+            sourceVehiculoId: first.vehiculoId,
+            targetVehiculoIds: restIds,
+            tipos: loteTipos as DocumentoTipo[],
+          });
+          if (copied.success) {
+            attached += copied.copied * loteTipos.length;
+          } else {
+            attachFail += restIds.length;
+          }
+        }
+
+        const certResults = await Promise.all(
+          result.created.map(async (c) => {
+            const serial = normalizeSerialKey(c.serial);
+            const certFile =
+              (serial ? certBySerial.get(serial) : null) ??
+              resolveCertFileForSerial(c.serial);
+            if (!certFile) {
+              return { gotCert: certDocs.length === 0 };
+            }
+            const up = await uploadPuertoLibreDocumentoAction(
+              formDataDocUploadSkipOcr(
+                c.vehiculoId,
+                "certificado_origen",
+                certFile
+              )
+            );
+            if (up.success) attached += 1;
+            else attachFail += 1;
+            return { gotCert: up.success };
+          })
+        );
+        withBoth = certResults.filter((r) => facturaOk && r.gotCert).length;
         if (attached > 0) {
           attachNote = ` Documentos adjuntos: ${attached}.`;
         }
@@ -2584,6 +2603,21 @@ function scrollToCargaMasivaListado() {
   document
     .getElementById(CARGA_MASIVA_LISTADO_ID)
     ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Extraer ya leyó los PDF: al Registrar solo se adjunta, sin OCR ni fan-out N×N. */
+function formDataDocUploadSkipOcr(
+  vehiculoId: string,
+  tipo: string,
+  file: File
+): FormData {
+  const fd = new FormData();
+  fd.set("vehiculoId", vehiculoId);
+  fd.set("tipo", tipo);
+  fd.set("file", file);
+  fd.set("skipOcr", "1");
+  fd.set("skipLoteSync", "1");
+  return fd;
 }
 
 function guessTipo(name: string): DocItem["tipo"] {

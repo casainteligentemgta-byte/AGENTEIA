@@ -2134,9 +2134,13 @@ export async function uploadPuertoLibreDocumentoAction(
     }
 
     let importacionActual = parseImportacion(row.importacion);
+    const skipOcr = String(formData.get("skipOcr") ?? "") === "1";
+    const skipLoteSync = String(formData.get("skipLoteSync") ?? "") === "1";
 
     // BL / póliza / certificado: extraer datos y guardar en importación (best-effort).
+    // Extraer ya leyó el lote: al Registrar no repetir OCR (minutos por unidad).
     if (
+      !skipOcr &&
       (tipoParsed.data === "bl_guia" ||
         tipoParsed.data === "poliza_transporte" ||
         tipoParsed.data === "certificado_origen") &&
@@ -2188,7 +2192,7 @@ export async function uploadPuertoLibreDocumentoAction(
     }
 
     let loteCopiados = 0;
-    if (isDocumentoLote(tipoParsed.data)) {
+    if (!skipLoteSync && isDocumentoLote(tipoParsed.data)) {
       loteCopiados = await syncLoteDocumentoToSiblings({
         admin,
         tallerId: auth.taller.id,
