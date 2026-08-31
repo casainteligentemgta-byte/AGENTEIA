@@ -836,6 +836,15 @@ export function PuertoLibreCargaMasiva({
           }
 
           if (etapa === "certs") {
+            if (currentRows.length === 0) {
+              setError(
+                "No hay VIN de la factura para emparejar certificados. Reintenta Extraer vehículos o usa Excel."
+              );
+              setActiveEtapa(null);
+              setExtractProgress(null);
+              setWarnings(allWarnings);
+              return;
+            }
             const ok = await applyCertsFromStorage(storageDocs, currentRows);
             if (!ok) return;
             currentRows = rowsRef.current.length > 0 ? rowsRef.current : currentRows;
@@ -883,11 +892,6 @@ export function PuertoLibreCargaMasiva({
               setWarnings([...allWarnings]);
               continue;
             }
-            if (hasCertOrBl && etapa === "vins") {
-              allWarnings.push(formatCargaMasivaClientError(err));
-              setWarnings([...allWarnings]);
-              continue;
-            }
             throw err;
           }
           if (!result.success) {
@@ -899,12 +903,6 @@ export function PuertoLibreCargaMasiva({
               continue;
             }
             const failMsg = formatCargaMasivaClientError(result.error);
-            const canTryCerts = hasCertOrBl && etapa === "vins";
-            if (canTryCerts) {
-              allWarnings.push(failMsg);
-              setWarnings([...allWarnings]);
-              continue;
-            }
             setError(
               currentRows.length > 0
                 ? `${failMsg} Las filas ya extraídas se mantienen.`

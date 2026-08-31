@@ -11,6 +11,7 @@ import {
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   mergeCertEngineHarvests,
+  orderPdfPageIndexesEngineFirst,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
 } from "../cert-engine-text";
@@ -373,6 +374,12 @@ describe("parseCertEngineNosFromText", () => {
     `);
     assert.ok(eight.motors.length >= 8);
     assert.equal(certHarvestNeedsMoreOcr(eight), false);
+  });
+
+  it("lee el COO pág. 2 primero (flujo Extraer del lunes)", () => {
+    assert.deepEqual(orderPdfPageIndexesEngineFirst(1), [0]);
+    assert.deepEqual(orderPdfPageIndexesEngineFirst(2), [1, 0]);
+    assert.deepEqual(orderPdfPageIndexesEngineFirst(3), [1, 0, 2]);
   });
 
   it("si la pág. 2 está vacía, busca ENGINE No en otra página", () => {

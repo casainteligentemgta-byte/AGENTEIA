@@ -15,7 +15,7 @@ export const CARGA_MASIVA_ETAPA_LABELS: Record<CargaMasivaEtapaId, string> = {
 export const CARGA_MASIVA_ETAPA_HINTS: Record<CargaMasivaEtapaId, string> = {
   vins: "OCR de la factura completa (VIN, consignatario, destino, CIF) + Gemini si hace falta.",
   datos: "IA + parser: modelo, color, CIF, consignatario, destino y nº factura.",
-  certs: "Certificado (PDF o foto, 1 o 2 páginas): ENGINE No al lado del VIN.",
+  certs: "Pág. 2 del certificado: ENGINE No al lado del VIN (OCR si es escaneo).",
 };
 
 export type CargaMasivaEtapaProgress = {
@@ -38,7 +38,7 @@ export type CargaMasivaEtapaResult = {
   progress: CargaMasivaEtapaProgress;
 };
 
-/** Orden fijo: VIN → ENGINE No (si hay cert/BL) → modelo/color/CIF. */
+/** Orden fijo del lunes: VIN → ENGINE No (si hay cert/BL) → modelo/color/CIF. No invertir. */
 export function cargaMasivaEtapasPlan(
   hasCertOrBl: boolean
 ): CargaMasivaEtapaId[] {

@@ -269,10 +269,6 @@ export async function runVehicleImportExtract(params: {
           );
           continue;
         }
-        if (params.certificados.length > 0 && etapa === "vins") {
-          warnings.push(formatCargaMasivaClientError(err));
-          continue;
-        }
         throw err;
       }
       if (!result.success) {

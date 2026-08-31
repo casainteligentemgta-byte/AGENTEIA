@@ -45,6 +45,7 @@ import {
   harvestCertEnginesFromText,
   isVinLikeSerialMotor,
   mergeCertEngineHarvests,
+  orderPdfPagesEngineTableFirst,
   parseCertEngineNosFromText,
   rowNeedsCertEngineNo,
   type CertEngineHarvest,
@@ -1190,9 +1191,9 @@ IMPORTANTE:
 - Si el PDF trae varios certificados (distinto Nº por unidad), pon el número de CADA unidad en vehiculos[].numero_certificado_origen.
 - Si un solo certificado cubre todas las unidades, rellena "numero_certificado_origen" de cabecera y puedes repetirlo en cada vehículo.
 - serial_motor SOLO de la columna ENGINE No / ENGINE NO / Engine Serial. Empareja cada motor con su VIN. No lo saques de la factura comercial.
-- El certificado puede tener 1, 2 o más páginas (PDF o fotos). LEE TODAS.
-  - Carátula (pág. 1): a veces NO trae ENGINE No; la tabla VIN / ENGINE NO / COLOUR suele estar en pág. 2 o 3.
-  - Si hay una sola página con la tabla, LÉELA. No asumas que es carátula vacía.
+- El certificado puede tener 1, 2 o más páginas (PDF o fotos). LEE TODAS, empezando por la pág. 2 (tabla ENGINE No) y luego la 1 y el resto.
+  - 2+ páginas: la carátula (pág. 1) suele NO traer ENGINE No; léelo en la página 2.
+  - 1 página o una sola foto de la tabla (VIN NO. / ENGINE NO / COLOUR): LEE ESA PÁGINA. No asumas que es carátula vacía.
 - No inventes seriales ni números de certificado. Si no se lee, null.
 
 Responde SOLO JSON con:
@@ -2711,7 +2712,10 @@ async function harvestCertEngineNos(
   let fromOcr = emptyCertHarvest();
   try {
     const { pages } = await rasterPdfForOcr(buffer);
-    for (let i = 0; i < pages.length; i++) {
+    const pageOrder = orderPdfPagesEngineTableFirst(
+      pages.map((_, i) => i)
+    );
+    for (const i of pageOrder) {
       if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
         break;
       }
@@ -2758,10 +2762,11 @@ export async function extractCertificadoOrigenMultiFromDocument(
     try {
       if (isPdf) {
         const { pages } = await rasterPdfForOcr(buffer);
-        const allPages = [...pages, ...extraPageBuffers];
+        const ordered = orderPdfPagesEngineTableFirst(pages);
+        const allPages = [...ordered, ...extraPageBuffers];
         parsed = await createDocumentJsonFromPageImages({
           prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
-          pagePngs: allPages.length > 0 ? allPages : pages,
+          pagePngs: allPages.length > 0 ? allPages : ordered,
           maxTokens: options?.rapido ? 4500 : 8000,
           preferHighDetail: true,
         });
