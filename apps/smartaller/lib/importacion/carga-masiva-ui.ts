@@ -184,6 +184,9 @@ const FIELD_INPUT_BASE =
   "rounded-md border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-100 outline-none focus:border-cyan-500/50";
 
 export function vehicleFieldHeaderClass(col: VehicleFieldCol): string {
+  if (col.key === "marca") return "w-[6.75rem] max-w-[6.75rem]";
+  if (col.key === "color") return "w-[7.25rem] max-w-[7.25rem]";
+  if (col.key === "modelo") return "w-[8.25rem] max-w-[8.25rem]";
   if (col.key === "anio") return "min-w-[4ch]";
   if (col.key === "valorCif") return "min-w-[8ch]";
   if (col.key === "serialMotor") return "min-w-[24ch]";
@@ -213,7 +216,7 @@ export function vehicleFieldInputClass(
   } else if (col.code) {
     base = `${FIELD_INPUT_BASE} box-content w-[17ch] min-w-[17ch] max-w-none font-mono text-[13px] tracking-tight`;
   } else {
-    base = `w-full min-w-[7rem] ${FIELD_INPUT_BASE}${col.wide ? " min-w-[10rem]" : ""}`;
+    base = `w-full min-w-0 max-w-[9rem] ${FIELD_INPUT_BASE}`;
   }
   const pending = porCompletarTextClass(value);
   return pending ? `${base} ${pending}` : base;

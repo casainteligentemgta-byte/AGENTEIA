@@ -2240,7 +2240,7 @@ export function PuertoLibreCargaMasiva({
             <p className="sticky left-0 px-3 pt-2 text-[11px] text-slate-500 md:hidden">
               Desliza → para ver más columnas. La columna # queda fija para ubicar cada vehículo.
             </p>
-            <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
+            <table className="w-full min-w-0 border-separate border-spacing-0 text-left text-xs">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
                   <th className={cargaMasivaStickyIndexHeadClass()}>
