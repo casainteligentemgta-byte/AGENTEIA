@@ -32,6 +32,7 @@ import {
 } from "@/lib/importacion/expediente";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
+import { accionesRegistroDashboard } from "@/lib/importacion/dashboard-registro-acciones";
 import {
   diasHasta,
   esProximoNacionalizar,
@@ -434,6 +435,14 @@ export default async function PuertoLibrePage() {
   const rowsPorRegistro: DashboardBucketRow[] = porRegistro.map((v) => {
     const expediente = labelExpediente(v);
     const vehiculo = labelVehiculo(v);
+    const acciones = accionesRegistroDashboard({
+      vehiculoId: v.id,
+      completitudDatos: v.completitudDatos,
+      datosPendientes: v.datosPendientes,
+      marca: v.marca,
+      modelo: v.modelo,
+      color: v.color,
+    });
     const pend =
       v.datosPendientes.length > 0
         ? `Falta: ${v.datosPendientes.slice(0, 4).join(", ")}`
@@ -442,18 +451,19 @@ export default async function PuertoLibrePage() {
           : undefined;
     return {
       id: v.id,
-      href: `/smartimport/${v.id}/planilla?fase=1`,
+      href: acciones[0]?.href ?? `/smartimport/${v.id}/planilla?fase=1`,
       cells: {
         expediente: v.completitudDatos
           ? `${completitudDot(v.completitudDatos)} ${expediente}`
           : expediente,
         vehiculo,
-        accion: "Completar",
+        accion: acciones.map((a) => a.label).join(" / "),
       },
       subcells: pend ? { vehiculo: pend } : undefined,
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
-      actionLabel: "Completar",
-      actionTone: completitudTone(v.completitudDatos),
+      actionLabel: acciones[0]?.label ?? "Completar",
+      actionTone: acciones[0]?.tone ?? completitudTone(v.completitudDatos),
+      actions: acciones,
     };
   });
 
@@ -492,9 +502,20 @@ export default async function PuertoLibrePage() {
     const expediente = labelExpediente(v);
     const vehiculo = labelVehiculo(v);
     const modificadoIso = (v.updated_at ?? v.created_at).slice(0, 10);
+    const enRegistro = (v.planillaFase ?? 1) <= 1 && !v.fechaIngreso;
+    const acciones = enRegistro
+      ? accionesRegistroDashboard({
+          vehiculoId: v.id,
+          completitudDatos: v.completitudDatos,
+          datosPendientes: v.datosPendientes,
+          marca: v.marca,
+          modelo: v.modelo,
+          color: v.color,
+        })
+      : null;
     return {
       id: v.id,
-      href: completarHref(v),
+      href: acciones?.[0]?.href ?? completarHref(v),
       cells: {
         expediente,
         vehiculo,
@@ -502,8 +523,9 @@ export default async function PuertoLibrePage() {
       },
       dateValue: modificadoIso || null,
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
-      actionLabel: "Completar",
-      actionTone: "cyan",
+      actionLabel: acciones?.[0]?.label ?? "Completar",
+      actionTone: acciones?.[0]?.tone ?? "cyan",
+      ...(acciones ? { actions: acciones } : {}),
     };
   });
 

@@ -38,7 +38,13 @@ export type DashboardBucketRow = {
   /** Texto libre indexado por el buscador. */
   searchText: string;
   actionLabel: string;
-  actionTone?: "cyan" | "red" | "sky" | "amber";
+  actionTone?: "cyan" | "red" | "sky" | "amber" | "green";
+  /** Si hay varias, sustituyen el botón único (p. ej. Registrar + Embarque). */
+  actions?: {
+    label: string;
+    href: string;
+    tone?: NonNullable<DashboardBucketRow["actionTone"]>;
+  }[];
   urgent?: boolean;
 };
 
@@ -74,6 +80,8 @@ const ACTION_TONE: Record<
   sky: "border-sky-700/40 bg-sky-950/30 text-sky-200 hover:border-sky-500/50",
   amber:
     "border-amber-700/40 bg-amber-950/30 text-amber-200 hover:border-amber-500/50",
+  green:
+    "border-emerald-700/50 bg-emerald-950/40 text-emerald-300 hover:border-emerald-500/60",
 };
 
 function BucketIcon({ name }: { name: IconName }) {
@@ -436,19 +444,33 @@ export function PuertoLibreDashboardBucket({
                       }
 
                       if (isActionCol) {
+                        const buttons =
+                          row.actions && row.actions.length > 0
+                            ? row.actions
+                            : [
+                                {
+                                  label: row.actionLabel,
+                                  href: row.href,
+                                  tone,
+                                },
+                              ];
                         const showValue =
+                          !row.actions?.length &&
                           Boolean(value.trim()) &&
                           value.trim() !== row.actionLabel &&
                           value.trim() !== "—";
                         return (
                           <td key={col.key} className="px-3 py-3">
-                            <div className="inline-flex flex-col items-start gap-1.5">
-                              <Link
-                                href={row.href}
-                                className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium transition ${ACTION_TONE[tone]}`}
-                              >
-                                {row.actionLabel}
-                              </Link>
+                            <div className="inline-flex flex-col items-stretch gap-1.5">
+                              {buttons.map((action) => (
+                                <Link
+                                  key={`${action.href}-${action.label}`}
+                                  href={action.href}
+                                  className={`inline-flex items-center justify-center rounded-lg border px-2.5 py-1 text-xs font-medium transition ${ACTION_TONE[action.tone ?? tone]}`}
+                                >
+                                  {action.label}
+                                </Link>
+                              ))}
                               {showValue ? (
                                 <p
                                   className={`text-xs whitespace-nowrap sm:text-sm ${
