@@ -38,11 +38,19 @@ export type CargaMasivaEtapaResult = {
   progress: CargaMasivaEtapaProgress;
 };
 
+/** Orden fijo: VIN → ENGINE No (si hay cert/BL) → modelo/color/CIF. */
+export function cargaMasivaEtapasPlan(
+  hasCertOrBl: boolean
+): CargaMasivaEtapaId[] {
+  return hasCertOrBl ? ["vins", "certs", "datos"] : ["vins", "datos"];
+}
+
 export function nextCargaMasivaEtapa(
   current: CargaMasivaEtapaId,
   hasCertOrBl: boolean
 ): CargaMasivaEtapaId | null {
-  if (current === "vins") return hasCertOrBl ? "certs" : null;
+  if (current === "vins") return hasCertOrBl ? "certs" : "datos";
+  if (current === "certs") return "datos";
   return null;
 }
 

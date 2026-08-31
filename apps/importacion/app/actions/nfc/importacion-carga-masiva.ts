@@ -784,9 +784,9 @@ export type CargaMasivaEtapaAuthOverride = {
 
 /**
  * Extracción por etapas (Fase B):
- * 1. vins — cosecha VIN de facturas
- * 2. datos — modelo/color/CIF/cabecera
- * 3. certs — certificados + BL
+ * 1. vins — cosecha VIN + cabecera (consignatario, destino, CIF)
+ * 2. certs — certificados + BL (ENGINE No)
+ * 3. datos — modelo/color/CIF/cabecera (Gemini si hace falta)
  *
  * FormData: etapa, rowsJson (2–3), y una de:
  * - files[] + tipos[] (legacy, límite ~4.5 MB en Vercel)
@@ -1025,7 +1025,7 @@ export async function extractCargaMasivaEtapaAction(
       return {
         success: true,
         etapa,
-        nextEtapa: null,
+        nextEtapa: nextCargaMasivaEtapa(etapa, false),
         rows: validated,
         warnings: ["Sin certificados ni BL en esta carga"],
         certMatches: [],
@@ -1197,7 +1197,7 @@ export async function extractCargaMasivaEtapaAction(
     return {
       success: true,
       etapa,
-      nextEtapa: null,
+      nextEtapa: nextCargaMasivaEtapa(etapa, hasCertOrBl),
       rows: validated,
       warnings,
       certMatches,

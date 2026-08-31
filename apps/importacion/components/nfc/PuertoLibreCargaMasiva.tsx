@@ -35,6 +35,7 @@ import {
   CARGA_MASIVA_ETAPA_HINTS,
   CARGA_MASIVA_ETAPA_LABELS,
   CARGA_MASIVA_ETAPAS,
+  cargaMasivaEtapasPlan,
   type CargaMasivaEtapaId,
   type CargaMasivaEtapaProgress,
 } from "@/lib/importacion/carga-masiva-etapas";
@@ -798,9 +799,7 @@ export function PuertoLibreCargaMasiva({
     const hasCertOrBl = items.some(
       (d) => d.tipo === "certificado_origen" || d.tipo === "bl_guia"
     );
-    const etapas: CargaMasivaEtapaId[] = hasCertOrBl
-      ? ["vins", "certs"]
-      : ["vins"];
+    const etapas = cargaMasivaEtapasPlan(hasCertOrBl);
 
     startExtractTransition(async () => {
         const batchId =
@@ -882,6 +881,13 @@ export function PuertoLibreCargaMasiva({
             { deadlineMs: 90_000, pollMs: 90_000 }
           );
           if (!result.success) {
+            if (etapa === "datos" && currentRows.length > 0) {
+              allWarnings.push(
+                `Enriquecer datos: ${formatCargaMasivaClientError(result.error)}`
+              );
+              setWarnings([...allWarnings]);
+              continue;
+            }
             const failMsg = formatCargaMasivaClientError(result.error);
             setError(
               currentRows.length > 0
