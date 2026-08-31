@@ -332,6 +332,78 @@ export function accumulateEngineNosSequentially(
   return out;
 }
 
+export type OcrGlyphBox = {
+  text: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+};
+
+/**
+ * Toda la columna ENGINE No desde cajas OCR (arriba → abajo).
+ * Une fragmentos de la misma fila (`SQRE4G15C` + `B0TC60412`).
+ */
+export function collectEngineNosFromColumnWords(
+  words: readonly OcrGlyphBox[]
+): string[] {
+  const glyphs = words
+    .map((w) => {
+      const text = (w.text ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      return {
+        text,
+        x0: w.x0,
+        y0: w.y0,
+        x1: w.x1,
+        y1: w.y1,
+        midX: (w.x0 + w.x1) / 2,
+        midY: (w.y0 + w.y1) / 2,
+      };
+    })
+    .filter((w) => w.text.length >= 2);
+
+  const seeds = glyphs.filter(
+    (w) => /^S[O0Q]RE/.test(w.text) || /^C16TD/.test(w.text)
+  );
+  if (seeds.length === 0) {
+    return uniqueMotors(glyphs.flatMap((w) => collectEngineNosInOrder(w.text)));
+  }
+
+  const xs = seeds.map((s) => s.midX).sort((a, b) => a - b);
+  const colX = xs[Math.floor(xs.length / 2)]!;
+  const colTol = Math.max(
+    48,
+    ...seeds.map((s) => s.x1 - s.x0),
+    ...seeds.map((s) => Math.abs(s.midX - colX))
+  );
+  const inCol = glyphs
+    .filter((w) => Math.abs(w.midX - colX) <= colTol * 2)
+    .sort((a, b) => a.midY - b.midY || a.x0 - b.x0);
+
+  const rowH = Math.max(
+    14,
+    ...inCol.map((w) => w.y1 - w.y0)
+  );
+  const rows: (typeof inCol)[] = [];
+  for (const w of inCol) {
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(last[0]!.midY - w.midY) <= rowH * 0.7) {
+      last.push(w);
+    } else {
+      rows.push([w]);
+    }
+  }
+
+  const motors: string[] = [];
+  for (const row of rows) {
+    row.sort((a, b) => a.x0 - b.x0);
+    const joined = row.map((g) => g.text).join("");
+    if (/^ENGINE|^VINNO|^COLOUR|^COLOR|^ITEM/.test(joined)) continue;
+    motors.push(...collectEngineNosInOrder(joined));
+  }
+  return uniqueMotors(motors);
+}
+
 export type CertEngineHarvest = {
   pairs: CertEnginePair[];
   motors: string[];
