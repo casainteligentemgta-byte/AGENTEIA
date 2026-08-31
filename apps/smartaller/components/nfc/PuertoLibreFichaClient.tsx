@@ -94,9 +94,14 @@ export function PuertoLibreFichaClient({
               existingUrl={docs[tipo]?.url}
               acceptMode={tipo === "manual_vehiculo" ? "pdf" : "both"}
               actionLabel={tipo === "manual_vehiculo" ? "Subir PDF" : undefined}
-              onUploaded={(next) => {
+              onUploaded={(next, meta) => {
                 setDocs(next);
-                flash("Documento guardado", null);
+                flash(
+                  meta?.loteCopiados
+                    ? `Documento guardado en este expediente y en ${meta.loteCopiados} más del mismo BL`
+                    : "Documento guardado",
+                  null
+                );
                 router.refresh();
               }}
             />
@@ -118,7 +123,8 @@ export function PuertoLibreFichaClient({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-100">Datos de importación</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Régimen de importación y referencias aduaneras.
+          BL, puerto, aduana y tasa se copian a los expedientes del mismo BL.
+          CIF, contenedor y observaciones quedan solo en este vehículo.
         </p>
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -163,7 +169,12 @@ export function PuertoLibreFichaClient({
               });
               if (!result.success) flash(null, result.error);
               else {
-                flash("Importación actualizada", null);
+                flash(
+                  result.loteCopiados
+                    ? `Importación actualizada en este expediente y en ${result.loteCopiados} más del mismo BL`
+                    : "Importación actualizada",
+                  null
+                );
                 router.refresh();
               }
             });

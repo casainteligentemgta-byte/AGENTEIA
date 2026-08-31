@@ -17,6 +17,7 @@ import {
   type DocumentoTipo,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
+import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type AcceptMode = "pdf" | "both";
@@ -32,7 +33,10 @@ type Props = {
   vehiculoId: string;
   tipo: DocumentoTipo;
   existingUrl?: string | null;
-  onUploaded?: (documentos: VehiculosDocumentos) => void;
+  onUploaded?: (
+    documentos: VehiculosDocumentos,
+    meta?: { loteCopiados?: number }
+  ) => void;
   /** Texto auxiliar bajo el título (fotos vs documentos). */
   hint?: string;
   /** Etiqueta del botón cuando no hay archivo. */
@@ -102,6 +106,9 @@ export function ImportDocumentoUpload({
         : annotateBeforeUpload
           ? "Toma la foto, marca daños (círculo/lápiz) y guarda · máx. 10 MB"
           : "Escanea foto (se convierte a PDF) o sube un PDF · máx. 10 MB");
+  const shownHint = isDocumentoLote(tipo)
+    ? `${resolvedHint} Se copia a todos los expedientes del mismo BL.`
+    : resolvedHint;
   const resolvedLabel =
     actionLabel ?? (pdfOnly ? "Subir PDF" : "Escanear / PDF");
 
@@ -166,7 +173,9 @@ export function ImportDocumentoUpload({
         setDone(true);
         const nextUrl = result.documentos[tipo]?.url ?? null;
         setUrl(nextUrl);
-        onUploaded?.(result.documentos);
+        onUploaded?.(result.documentos, {
+          loteCopiados: result.loteCopiados,
+        });
         if (verifyUi?.estado === "coincide") {
           setError(null);
         }
@@ -247,9 +256,9 @@ export function ImportDocumentoUpload({
               >
                 {url ? "Ver archivo cargado" : "Archivo guardado en el perfil del vehículo"}
               </a>
-            ) : resolvedHint.trim() ? (
+            ) : shownHint.trim() ? (
               <p className={`mt-0.5 text-xs ${light ? "text-zinc-500" : "text-slate-500"}`}>
-                {resolvedHint}
+                {shownHint}
               </p>
             ) : null}
           </div>
