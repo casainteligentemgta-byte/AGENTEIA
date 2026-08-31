@@ -52,6 +52,7 @@ import {
   healCargaMasivaCheryRows,
   LOTE_MODALIDAD_TRANSITO_OPTIONS,
   LOTE_TIPO_COMBUSTIBLE_OPTIONS,
+  persistLoteTechOnRows,
   matchSerialKeyAmong,
   normalizeSerialKey,
   pairSerialsOneToOne,
@@ -201,6 +202,8 @@ export function PuertoLibreCargaMasiva({
   const certMergeHandled = useRef<number | null>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const loteTechRef = useRef(loteTech);
+  loteTechRef.current = loteTech;
 
   useEffect(() => {
     if (initialRowsApplied.current || !initialRows?.length) return;
@@ -476,23 +479,40 @@ export function PuertoLibreCargaMasiva({
     setSelectedIds((prev) => prev.filter((item) => item !== id));
   }
 
+  function applyLoteTechToTable(
+    nextTech: SharedLoteTechFields,
+    options?: { force?: boolean; announce?: boolean }
+  ) {
+    setLoteTech(nextTech);
+    loteTechRef.current = nextTech;
+    if (rowsRef.current.length === 0) return;
+    const ids = selectedIds.length > 0 ? selectedIds : undefined;
+    const next = applySharedLoteTechToRows(rowsRef.current, nextTech, {
+      force: options?.force ?? true,
+      ids,
+    });
+    rowsRef.current = next;
+    setRows(next);
+    if (options?.announce) {
+      const n = ids?.length ?? next.length;
+      setResultMsg(
+        `Datos técnicos aplicados a ${n} vehículo${n === 1 ? "" : "s"}.`
+      );
+    }
+  }
+
   function ingestExtracted(nextRows: CargaMasivaRow[], matches?: CertMatch[]) {
     let healed = healCargaMasivaCheryRows(nextRows);
     if (selected) {
       healed = applyImportadorToRows(healed, selected);
     }
+    const persisted = persistLoteTechOnRows(healed, loteTechRef.current);
+    healed = persisted.rows;
+    loteTechRef.current = persisted.tech;
     rowsRef.current = healed;
     setRows(healed);
     setShared(sharedShipmentFromRows(healed));
-    setLoteTech((prev) => {
-      const fromRows = sharedLoteTechFromRows(healed);
-      return {
-        condicion: prev.condicion || fromRows.condicion,
-        tipoCombustible: prev.tipoCombustible || fromRows.tipoCombustible,
-        cilindradaCc: prev.cilindradaCc || fromRows.cilindradaCc,
-        sobrescribir: prev.sobrescribir,
-      };
-    });
+    setLoteTech(persisted.tech);
     if (trustWizardImportador && selected) {
       setDetectedImportador({
         nombre: selected.nombre,
@@ -2130,9 +2150,12 @@ export function PuertoLibreCargaMasiva({
                 Datos técnicos del lote
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Aplica condición, combustible y cilindrada a las filas
-                seleccionadas o, si no hay selección, a las {rows.length}{" "}
-                fila{rows.length === 1 ? "" : "s"}.
+                Al elegir combustible, condición o cilindrada se copian a las
+                filas de la tabla
+                {selectedIds.length > 0
+                  ? ` (${selectedIds.length} seleccionada${selectedIds.length === 1 ? "" : "s"})`
+                  : ` (${rows.length} fila${rows.length === 1 ? "" : "s"})`}
+                .
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label className="block text-xs text-slate-400">
@@ -2140,11 +2163,14 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={loteTech.condicion}
                     onChange={(e) =>
-                      setLoteTech((prev) => ({
-                        ...prev,
-                        condicion: e.target
-                          .value as SharedLoteTechFields["condicion"],
-                      }))
+                      applyLoteTechToTable(
+                        {
+                          ...loteTech,
+                          condicion: e.target
+                            .value as SharedLoteTechFields["condicion"],
+                        },
+                        { force: true, announce: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -2159,11 +2185,14 @@ export function PuertoLibreCargaMasiva({
                   <select
                     value={loteTech.tipoCombustible}
                     onChange={(e) =>
-                      setLoteTech((prev) => ({
-                        ...prev,
-                        tipoCombustible: e.target
-                          .value as SharedLoteTechFields["tipoCombustible"],
-                      }))
+                      applyLoteTechToTable(
+                        {
+                          ...loteTech,
+                          tipoCombustible: e.target
+                            .value as SharedLoteTechFields["tipoCombustible"],
+                        },
+                        { force: true, announce: true }
+                      )
                     }
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
                   >
@@ -2182,10 +2211,13 @@ export function PuertoLibreCargaMasiva({
                     inputMode="numeric"
                     value={loteTech.cilindradaCc}
                     onChange={(e) =>
-                      setLoteTech((prev) => ({
-                        ...prev,
-                        cilindradaCc: e.target.value.replace(/[^\d]/g, ""),
-                      }))
+                      applyLoteTechToTable(
+                        {
+                          ...loteTech,
+                          cilindradaCc: e.target.value.replace(/[^\d]/g, ""),
+                        },
+                        { force: true }
+                      )
                     }
                     placeholder="Ej. 1500"
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100"
@@ -2201,20 +2233,12 @@ export function PuertoLibreCargaMasiva({
                     !loteTech.tipoCombustible &&
                     !loteTech.cilindradaCc.trim())
                 }
-                onClick={() => {
-                  const ids =
-                    selectedIds.length > 0 ? selectedIds : undefined;
-                  const next = applySharedLoteTechToRows(rows, loteTech, {
+                onClick={() =>
+                  applyLoteTechToTable(loteTech, {
                     force: true,
-                    ids,
-                  });
-                  rowsRef.current = next;
-                  setRows(next);
-                  const n = ids?.length ?? next.length;
-                  setResultMsg(
-                    `Datos técnicos aplicados a ${n} vehículo${n === 1 ? "" : "s"}.`
-                  );
-                }}
+                    announce: true,
+                  })
+                }
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
               >
                 {selectedIds.length > 0

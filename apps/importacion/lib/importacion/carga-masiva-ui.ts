@@ -422,6 +422,29 @@ export function sharedLoteTechFromRows(rows: CargaMasivaRow[]): SharedLoteTechFi
   };
 }
 
+/**
+ * Conserva combustible/condición/cc que el usuario ya eligió en el lote
+ * y los escribe en las filas (p. ej. tras Extraer, que trae esos campos vacíos).
+ */
+export function persistLoteTechOnRows(
+  rows: CargaMasivaRow[],
+  prev: SharedLoteTechFields
+): { rows: CargaMasivaRow[]; tech: SharedLoteTechFields } {
+  const fromRows = sharedLoteTechFromRows(rows);
+  const tech: SharedLoteTechFields = {
+    condicion: prev.condicion || fromRows.condicion,
+    tipoCombustible: prev.tipoCombustible || fromRows.tipoCombustible,
+    cilindradaCc: prev.cilindradaCc || fromRows.cilindradaCc,
+    sobrescribir: prev.sobrescribir,
+  };
+  return {
+    rows: applySharedLoteTechToRows(rows, tech, {
+      force: tech.sobrescribir,
+    }),
+    tech,
+  };
+}
+
 /** Importador detectado en documentos (solo para certificar vs. cliente elegido). */
 export type DetectedImportador = {
   nombre: string;
