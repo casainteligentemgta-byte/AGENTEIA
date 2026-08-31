@@ -445,6 +445,69 @@ export function persistLoteTechOnRows(
   };
 }
 
+export const SIN_BL_LABEL = "Sin BL";
+export const SIN_CONTENEDOR_LABEL = "Sin contenedor";
+
+export type CargaMasivaContainerGroup<T> = {
+  numeroContenedor: string;
+  label: string;
+  items: T[];
+};
+
+export type CargaMasivaBlGroup<T> = {
+  numeroBl: string;
+  label: string;
+  contenedores: CargaMasivaContainerGroup<T>[];
+  total: number;
+};
+
+function normGroupKey(raw: string | null | undefined): string {
+  return (raw ?? "").trim().toUpperCase();
+}
+
+/**
+ * Agrupa filas o expedientes: BL → contenedor (orden de primera aparición).
+ */
+export function groupByBlAndContainer<
+  T extends { numeroBl?: string | null; numeroContenedor?: string | null },
+>(items: T[]): CargaMasivaBlGroup<T>[] {
+  const blOrder: string[] = [];
+  const containerOrder = new Map<string, string[]>();
+  const buckets = new Map<string, T[]>();
+
+  for (const item of items) {
+    const bl = normGroupKey(item.numeroBl);
+    const cont = normGroupKey(item.numeroContenedor);
+    if (!containerOrder.has(bl)) {
+      blOrder.push(bl);
+      containerOrder.set(bl, []);
+    }
+    const conts = containerOrder.get(bl)!;
+    if (!conts.includes(cont)) conts.push(cont);
+    const key = `${bl}\0${cont}`;
+    const list = buckets.get(key);
+    if (list) list.push(item);
+    else buckets.set(key, [item]);
+  }
+
+  return blOrder.map((bl) => {
+    const contenedores = (containerOrder.get(bl) ?? []).map((cont) => {
+      const itemsIn = buckets.get(`${bl}\0${cont}`) ?? [];
+      return {
+        numeroContenedor: cont,
+        label: cont || SIN_CONTENEDOR_LABEL,
+        items: itemsIn,
+      };
+    });
+    return {
+      numeroBl: bl,
+      label: bl || SIN_BL_LABEL,
+      contenedores,
+      total: contenedores.reduce((n, c) => n + c.items.length, 0),
+    };
+  });
+}
+
 /** Importador detectado en documentos (solo para certificar vs. cliente elegido). */
 export type DetectedImportador = {
   nombre: string;

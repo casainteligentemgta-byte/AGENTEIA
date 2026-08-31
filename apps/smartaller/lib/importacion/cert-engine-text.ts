@@ -15,7 +15,55 @@ export type CertEnginePair = {
   serialMotor: string;
   /** COLOUR de la misma fila del COO (opcional). */
   color?: string;
+  /** CONTAINER NO ISO (4 letras + 7 dígitos), de la misma fila o grupo. */
+  contenedor?: string;
 };
+
+/** ISO 6346: CMAU7117837, ECMU7238132, TXGU8854447… */
+const ISO_CONTAINER_RE = /\b([A-Z]{3}U\d{7}|[A-Z]{4}\d{7})\b/g;
+
+export function normalizeContainerNo(
+  raw: string | null | undefined
+): string | null {
+  const compact = (raw ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (!/^[A-Z]{4}\d{7}$/.test(compact)) return null;
+  return compact;
+}
+
+/**
+ * Asigna CONTAINER NO a cada VIN: mismo renglón, o el contenedor vigente
+ * hasta el siguiente (ítems 1–4 / 5–8 del packing).
+ */
+export function attachContainersFromText(
+  text: string,
+  pairs: CertEnginePair[]
+): CertEnginePair[] {
+  if (pairs.length === 0 || !text?.trim()) return pairs;
+  const lines = text.split(/\r?\n/);
+  let current: string | null = null;
+  const vinToContainer = new Map<string, string>();
+  for (const line of lines) {
+    const upper = line.toUpperCase();
+    const containers = matchAllReset(ISO_CONTAINER_RE, upper)
+      .map((m) => normalizeContainerNo(m[1]))
+      .filter((c): c is string => Boolean(c));
+    const vins = matchAllReset(VIN_TOKEN_RE, upper)
+      .map((m) => resolveVinToken(m[1]))
+      .filter((v): v is string => Boolean(v));
+    if (containers.length === 1 && vins.length === 0) {
+      current = containers[0]!;
+    }
+    const lineContainer = containers[0] ?? current;
+    if (!lineContainer) continue;
+    for (const vin of vins) {
+      vinToContainer.set(vin, lineContainer);
+    }
+  }
+  return pairs.map((p) => ({
+    ...p,
+    contenedor: p.contenedor ?? vinToContainer.get(p.vin),
+  }));
+}
 
 const ENGINE_LABELED_RE =
   /ENGINE\s*(?:SERIAL\s*)?(?:NO|N[°º.]|NUMBER|#)?\.?\s*[:#]?\s*([A-Z0-9\-]{6,20})/gi;
@@ -298,9 +346,12 @@ export function parseCertEngineNosFromText(text: string): CertEnginePair[] {
     assignLeftoverMotors(vins, byVin, motors);
   }
 
-  return vins
-    .filter((vin) => byVin.has(vin))
-    .map((vin) => ({ vin, serialMotor: byVin.get(vin)! }));
+  return attachContainersFromText(
+    text,
+    vins
+      .filter((vin) => byVin.has(vin))
+      .map((vin) => ({ vin, serialMotor: byVin.get(vin)! }))
+  );
 }
 
 /** Seriales de la columna ENGINE No, en el orden de la página 2. */
@@ -468,8 +519,13 @@ export function mergeCertEngineHarvests(
     for (const pair of part.pairs) {
       const prev = pairByVin.get(pair.vin);
       if (!prev) pairByVin.set(pair.vin, pair);
-      else if (!prev.color && pair.color) {
-        pairByVin.set(pair.vin, { ...prev, color: pair.color });
+      else {
+        pairByVin.set(pair.vin, {
+          ...prev,
+          color: prev.color || pair.color,
+          contenedor: prev.contenedor || pair.contenedor,
+          serialMotor: prev.serialMotor || pair.serialMotor,
+        });
       }
     }
     motors.push(...part.motors);
@@ -513,6 +569,7 @@ export function applyEngineNosByVin<
     serialCarroceria?: string;
     serialMotor?: string;
     color?: string;
+    numeroContenedor?: string;
   },
 >(rows: T[], pairs: CertEnginePair[]): T[] {
   if (pairs.length === 0 || rows.length === 0) return rows;
@@ -550,6 +607,10 @@ export function applyEngineNosByVin<
         /^(PRO(\s*MAX)?|MAX|POR-COMPLETAR)$/i.test(currentColor))
     ) {
       next = { ...next, color };
+    }
+    const contenedor = normalizeContainerNo(pair.contenedor);
+    if (contenedor && !(next.numeroContenedor ?? "").trim()) {
+      next = { ...next, numeroContenedor: contenedor };
     }
     return next;
   });

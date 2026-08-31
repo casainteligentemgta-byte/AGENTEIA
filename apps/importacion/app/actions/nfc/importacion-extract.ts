@@ -122,6 +122,7 @@ function scanFieldsToRow(
     aduanaTransito: fields.aduanaTransito ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
+    numeroContenedor: fields.numeroContenedor ?? "",
     paisOrigen: fields.paisOrigen ?? "",
     valorCif: fields.valorCif ?? "",
     tasaCambioBcv: fields.tasaCambioBcv ?? "",

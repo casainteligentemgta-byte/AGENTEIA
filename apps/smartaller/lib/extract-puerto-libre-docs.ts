@@ -45,6 +45,7 @@ import {
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
   isVinLikeSerialMotor,
+  normalizeContainerNo,
   mergeCertEngineHarvests,
   orderPdfPageIndexesEngineFirst,
   parseCertEngineNosFromText,
@@ -429,6 +430,19 @@ function isPlausibleFacturaColor(raw: string | null): boolean {
   if (isGenericModelo(t) || looksLikeSerialNotColor(t)) return false;
   if (isModeloFragmentInColor(t)) return false;
   return true;
+}
+
+function pickContainerRaw(parsed: Record<string, unknown>): string | null {
+  return normalizeContainerNo(
+    pickByFoldedKeys(parsed, [
+      "contenedor",
+      "container",
+      "container_no",
+      "container_number",
+      "containerno",
+      "container_nro",
+    ])
+  );
 }
 
 /** Color: columna al lado del VIN (Description, Colour, Color). */
@@ -1219,6 +1233,7 @@ Responde SOLO JSON con:
       "anio": number|null,
       "serial_motor": string|null,
       "serial_carroceria": string|null,
+      "contenedor": string|null,
       "numero_certificado_origen": string|null,
       "numero_llave": string|null,
       "kilometraje": number|null,
@@ -1230,15 +1245,16 @@ Responde SOLO JSON con:
 
 /** Extraer: una imagen (pág. 2) → VIN + ENGINE No + color de cada fila. */
 const CERT_ENGINE_PAIR_HARVEST_PROMPT = `Lee SOLO la tabla de este certificado de origen (página 2 o la foto de la tabla).
-Cada fila tiene VIN NO (17 caracteres) y al LADO el ENGINE No (SQRE / SQRF / C16TD) y COLOUR.
-Si hay 8 vehículos, vehiculos.length debe ser 8. No inventes. No copies el VIN al motor.
+Cada fila tiene VIN NO (17 caracteres), ENGINE No (SQRE / SQRF / C16TD), COLOUR y CONTAINER NO (ISO: 4 letras + 7 dígitos, ej. CMAU7117837).
+Si hay 8 o 18 vehículos, vehiculos.length debe ser ese número. No inventes. No copies el VIN al motor.
 Responde SOLO JSON:
 {
   "vehiculos": [
     {
       "serial_carroceria": string,
       "serial_motor": string,
-      "color": string|null
+      "color": string|null,
+      "contenedor": string|null
     }
   ]
 }`;
@@ -2692,10 +2708,12 @@ function harvestFromVisionJson(
     const motor = pickSerialMotorRaw(v);
     if (vin.length !== 17 || !motor || isVinLikeSerialMotor(motor)) continue;
     const color = pickColorRaw(v);
+    const contenedor = pickContainerRaw(v);
     pairByVin.set(vin, {
       vin,
       serialMotor: motor,
       ...(color && color.length >= 3 ? { color } : {}),
+      ...(contenedor ? { contenedor } : {}),
     });
   }
   return mergeCertEngineHarvests(fromText, {
@@ -2965,6 +2983,8 @@ export async function extractCertificadoOrigenMultiFromDocument(
     }
     if (!fields.paisOrigen && pais) fields.paisOrigen = pais;
     if (!fields.marca && marca) fields.marca = marca;
+    const contenedor = pickContainerRaw(v);
+    if (contenedor) fields.numeroContenedor = contenedor;
     else if (fields.marca && !isPlausibleMarcaFabricante(fields.marca)) {
       if (looksLikeCheryModelName(fields.marca) && !fields.modelo?.trim()) {
         fields.modelo = inferCheryModelo(fields.marca) || fields.modelo;

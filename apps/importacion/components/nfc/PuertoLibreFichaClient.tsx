@@ -140,6 +140,7 @@ export function PuertoLibreFichaClient({
                 fechaLlegadaBuque: String(fd.get("fechaLlegadaBuque") ?? "") || null,
                 fechaIngreso: String(fd.get("fechaIngreso") ?? "") || null,
                 numeroBl: String(fd.get("numeroBl") ?? "") || null,
+                numeroContenedor: String(fd.get("numeroContenedor") ?? "") || null,
                 paisOrigen: String(fd.get("paisOrigen") ?? "") || null,
                 valorCif: valorRaw ? Number(valorRaw) : null,
                 agenteAduanal: String(fd.get("agenteAduanal") ?? "") || null,
@@ -218,6 +219,11 @@ export function PuertoLibreFichaClient({
             label="Nº BL / Guía"
             name="numeroBl"
             defaultValue={ficha.importacion.numeroBl ?? ""}
+          />
+          <Field
+            label="Contenedor"
+            name="numeroContenedor"
+            defaultValue={ficha.importacion.numeroContenedor ?? ""}
           />
           <Field
             label="Fecha llegada del buque"

@@ -652,6 +652,8 @@ export const importacionSchema = z.object({
   /** Fecha estimada/real de llegada del buque al puerto. */
   fechaLlegadaBuque: z.string().trim().max(32).optional().nullable(),
   numeroBl: z.string().trim().max(80).optional().nullable(),
+  /** CONTAINER NO del certificado de origen (ISO 6346). */
+  numeroContenedor: z.string().trim().max(20).optional().nullable(),
   paisOrigen: z.string().trim().max(80).optional().nullable(),
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tasa BCV del día de la declaración (Bs por USD). */
@@ -836,6 +838,7 @@ export function parseImportacion(raw: unknown): ImportacionData {
     ),
     fechaLlegadaBuque: row.fechaLlegadaBuque ?? row.fecha_llegada_buque,
     numeroBl: row.numeroBl ?? row.numero_bl,
+    numeroContenedor: row.numeroContenedor ?? row.numero_contenedor,
     paisOrigen: row.paisOrigen ?? row.pais_origen,
     valorCif:
       typeof row.valorCif === "number"
@@ -1019,6 +1022,7 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     })),
     fecha_llegada_buque: data.fechaLlegadaBuque?.trim() || null,
     numero_bl: data.numeroBl?.trim() || null,
+    numero_contenedor: data.numeroContenedor?.trim() || null,
     pais_origen: data.paisOrigen?.trim() || null,
     valor_cif:
       data.valorCif != null && !Number.isNaN(data.valorCif) ? data.valorCif : null,

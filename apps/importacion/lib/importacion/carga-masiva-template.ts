@@ -114,6 +114,12 @@ export const CARGA_MASIVA_COLUMNS = [
   },
   { key: "aduana", header: "aduana", required: false, hint: "Ej. Guanta" },
   { key: "numero_bl", header: "numero_bl", required: false, hint: "Nº BL" },
+  {
+    key: "numero_contenedor",
+    header: "numero_contenedor",
+    required: false,
+    hint: "CONTAINER NO ISO",
+  },
   { key: "pais_origen", header: "pais_origen", required: false, hint: "China" },
   { key: "valor_cif", header: "valor_cif", required: false, hint: "USD" },
   {
@@ -209,6 +215,7 @@ export type CargaMasivaRow = {
   aduanaTransito: string;
   aduana: string;
   numeroBl: string;
+  numeroContenedor: string;
   paisOrigen: string;
   valorCif: string;
   tasaCambioBcv: string;
@@ -326,6 +333,12 @@ const HEADER_ALIASES: Record<string, CargaMasivaColumnKey> = {
   numerobl: "numero_bl",
   bl: "numero_bl",
   "nº bl": "numero_bl",
+  numero_contenedor: "numero_contenedor",
+  contenedor: "numero_contenedor",
+  container: "numero_contenedor",
+  container_no: "numero_contenedor",
+  containerno: "numero_contenedor",
+  "container no": "numero_contenedor",
   pais_origen: "pais_origen",
   paisorigen: "pais_origen",
   "pais origen": "pais_origen",
@@ -389,6 +402,7 @@ export function emptyCargaMasivaRow(
     aduanaTransito: "",
     aduana: "",
     numeroBl: "",
+    numeroContenedor: "",
     paisOrigen: "",
     valorCif: "",
     tasaCambioBcv: "",
@@ -441,6 +455,7 @@ export function cargaMasivaRowFromScanFields(
     aduanaTransito: fields.aduanaTransito ?? "",
     aduana: fields.aduana ?? "",
     numeroBl: fields.numeroBl ?? "",
+    numeroContenedor: fields.numeroContenedor ?? "",
     paisOrigen: fields.paisOrigen ?? "",
     valorCif: fields.valorCif ?? "",
     tasaCambioBcv: fields.tasaCambioBcv ?? "",
@@ -565,6 +580,7 @@ export function rowFromSpreadsheetRecord(
     aduanaTransito: get("aduana_transito"),
     aduana: get("aduana"),
     numeroBl: get("numero_bl"),
+    numeroContenedor: get("numero_contenedor"),
     paisOrigen: get("pais_origen"),
     valorCif: get("valor_cif"),
     tasaCambioBcv: get("tasa_cambio_bcv"),
@@ -678,6 +694,7 @@ export function cargaMasivaRowToAltaInput(
     aduanaTransito: row.aduanaTransito,
     aduana: row.aduana,
     numeroBl: row.numeroBl,
+    numeroContenedor: row.numeroContenedor,
     paisOrigen: row.paisOrigen,
     valorCif: row.valorCif,
     tasaCambioBcv: row.tasaCambioBcv,

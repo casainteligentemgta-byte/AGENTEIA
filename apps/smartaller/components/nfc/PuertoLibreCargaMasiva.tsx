@@ -53,6 +53,7 @@ import {
   LOTE_MODALIDAD_TRANSITO_OPTIONS,
   LOTE_TIPO_COMBUSTIBLE_OPTIONS,
   persistLoteTechOnRows,
+  groupByBlAndContainer,
   matchSerialKeyAmong,
   normalizeSerialKey,
   pairSerialsOneToOne,
@@ -176,7 +177,13 @@ export function PuertoLibreCargaMasiva({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [resultMsg, setResultMsg] = useState<string | null>(initialMessage);
   const [createdExpedientes, setCreatedExpedientes] = useState<
-    { vehiculoId: string; codigoExpediente: string; serial: string }[]
+    {
+      vehiculoId: string;
+      codigoExpediente: string;
+      serial: string;
+      numeroBl?: string;
+      numeroContenedor?: string;
+    }[]
   >([]);
   const [extractProgress, setExtractProgress] =
     useState<CargaMasivaEtapaProgress | null>(null);
@@ -372,6 +379,18 @@ export function PuertoLibreCargaMasiva({
   }, [rows]);
 
   const semaforo = useMemo(() => resumenSemaforo(rows), [rows]);
+  const rowsForRegister = useMemo(
+    () => applySharedShipmentToRows(rows, shared, { force: true }),
+    [rows, shared]
+  );
+  const registerGroups = useMemo(
+    () => groupByBlAndContainer(resumenSemaforo(rowsForRegister).aptos),
+    [rowsForRegister]
+  );
+  const createdGroups = useMemo(
+    () => groupByBlAndContainer(createdExpedientes),
+    [createdExpedientes]
+  );
   const incompleteCount = useMemo(
     () => rows.filter((r) => !vehicleCompleteness(r).complete).length,
     [rows]
@@ -1757,18 +1776,35 @@ export function PuertoLibreCargaMasiva({
             </p>
           ) : null}
           {createdExpedientes.length > 0 ? (
-            <ul className="space-y-1 border-t border-emerald-900/30 pt-2 font-mono text-xs">
-              {createdExpedientes.map((c) => (
-                <li key={c.vehiculoId}>
-                  <Link
-                    href={`/smartimport/${c.vehiculoId}`}
-                    className="underline hover:text-emerald-100"
-                  >
-                    {c.codigoExpediente || "Expediente"} · {c.serial}
-                  </Link>
-                </li>
+            <div className="space-y-3 border-t border-emerald-900/30 pt-2">
+              {createdGroups.map((bl) => (
+                <div key={bl.numeroBl || "sin-bl"}>
+                  <p className="text-xs font-semibold text-emerald-100">
+                    BL {bl.label} · {bl.total} expediente
+                    {bl.total === 1 ? "" : "s"}
+                  </p>
+                  {bl.contenedores.map((ct) => (
+                    <div key={ct.numeroContenedor || "sin-ct"} className="mt-1">
+                      <p className="text-[11px] text-emerald-300/90">
+                        Contenedor {ct.label} · {ct.items.length}
+                      </p>
+                      <ul className="mt-0.5 space-y-0.5 font-mono text-xs">
+                        {ct.items.map((c) => (
+                          <li key={c.vehiculoId}>
+                            <Link
+                              href={`/smartimport/${c.vehiculoId}`}
+                              className="underline hover:text-emerald-100"
+                            >
+                              {c.codigoExpediente || "Expediente"} · {c.serial}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               ))}
-            </ul>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -2546,6 +2582,71 @@ export function PuertoLibreCargaMasiva({
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/70 p-4">
+            <p className="text-sm font-medium text-slate-100">
+              Registrar expedientes
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Se crean todos los que tienen VIN. Quedan agrupados por BL
+              (embarque) y por contenedor del certificado de origen.
+            </p>
+            {registerGroups.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {registerGroups.map((bl) => (
+                  <div
+                    key={bl.numeroBl || "sin-bl"}
+                    className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  >
+                    <p className="text-xs font-semibold text-cyan-100">
+                      BL {bl.label}
+                      <span className="ml-2 font-normal text-slate-400">
+                        {bl.total} vehículo{bl.total === 1 ? "" : "s"} ·{" "}
+                        {bl.contenedores.length} contenedor
+                        {bl.contenedores.length === 1 ? "" : "es"}
+                      </span>
+                    </p>
+                    <ul className="mt-1 space-y-1 text-[11px] text-slate-400">
+                      {bl.contenedores.map((ct) => (
+                        <li key={ct.numeroContenedor || "sin-ct"}>
+                          <span className="font-medium text-slate-200">
+                            {ct.label}
+                          </span>
+                          {" · "}
+                          {ct.items.length} unidad
+                          {ct.items.length === 1 ? "" : "es"}
+                          {ct.items[0]?.vin
+                            ? ` · ${ct.items
+                                .map((r) => (r.vin || r.serialCarroceria || "").slice(-6))
+                                .filter(Boolean)
+                                .join(", ")}`
+                            : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              disabled={!canImport}
+              onClick={importRows}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+            >
+              {importPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {importPending
+                ? "Registrando…"
+                : `Registrar ${semaforo.aptos.length} expediente${semaforo.aptos.length === 1 ? "" : "s"} · ${registerGroups.length} BL · ${registerGroups.reduce((n, g) => n + g.contenedores.length, 0)} contenedor${registerGroups.reduce((n, g) => n + g.contenedores.length, 0) === 1 ? "" : "es"}`}
+            </button>
+            {!canImport && importBlockReason ? (
+              <p className="mt-2 text-xs text-red-200">{importBlockReason}</p>
+            ) : null}
           </div>
         </section>
       ) : null}

@@ -4,7 +4,10 @@ import { emptyCargaMasivaRow } from "../carga-masiva-template";
 import {
   applySharedLoteTechToRows,
   EMPTY_SHARED_LOTE_TECH,
+  groupByBlAndContainer,
   persistLoteTechOnRows,
+  SIN_BL_LABEL,
+  SIN_CONTENEDOR_LABEL,
 } from "../carga-masiva-ui";
 
 describe("lote técnico → tabla", () => {
@@ -57,5 +60,46 @@ describe("lote técnico → tabla", () => {
       tipoCombustible: "gasolina",
     });
     assert.equal(rows[0]?.tipoCombustible, "diesel");
+  });
+});
+
+describe("groupByBlAndContainer", () => {
+  it("agrupa primero por BL y luego por contenedor", () => {
+    const rows = [
+      emptyCargaMasivaRow({
+        id: "1",
+        numeroBl: "BL-AAA",
+        numeroContenedor: "CMAU7117837",
+        vin: "LVVDB21B9VE033523",
+      }),
+      emptyCargaMasivaRow({
+        id: "2",
+        numeroBl: "BL-AAA",
+        numeroContenedor: "CMAU6237057",
+        vin: "LVVDB21B8VE033514",
+      }),
+      emptyCargaMasivaRow({
+        id: "3",
+        numeroBl: "BL-AAA",
+        numeroContenedor: "CMAU7117837",
+        vin: "LVVDB21B1VE033189",
+      }),
+    ];
+    const groups = groupByBlAndContainer(rows);
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0]?.label, "BL-AAA");
+    assert.equal(groups[0]?.contenedores.length, 2);
+    assert.equal(groups[0]?.contenedores[0]?.label, "CMAU7117837");
+    assert.equal(groups[0]?.contenedores[0]?.items.length, 2);
+    assert.equal(groups[0]?.contenedores[1]?.label, "CMAU6237057");
+    assert.equal(groups[0]?.total, 3);
+  });
+
+  it("usa etiquetas Sin BL / Sin contenedor si faltan", () => {
+    const groups = groupByBlAndContainer([
+      emptyCargaMasivaRow({ id: "1", vin: "LVVDB21B9VE033523" }),
+    ]);
+    assert.equal(groups[0]?.label, SIN_BL_LABEL);
+    assert.equal(groups[0]?.contenedores[0]?.label, SIN_CONTENEDOR_LABEL);
   });
 });
