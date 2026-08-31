@@ -38,10 +38,11 @@ import {
 import { isLlmConfigured, isModelNotFoundError } from "@/lib/ai/openai-config";
 import { normalizePartida10 } from "@/lib/arancel/partida-utils";
 import {
+  certHarvestNeedsMoreOcr,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
+  mergeCertEngineHarvests,
   parseCertEngineNosFromText,
-  scoreCertEngineHarvest,
   type CertEngineHarvest,
   type CertEnginePair,
 } from "@/lib/importacion/cert-engine-text";
@@ -2647,7 +2648,6 @@ async function harvestCertEngineNos(
   options?: { rapido?: boolean }
 ): Promise<CertEngineHarvest> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
-  const fast = Boolean(options?.rapido);
 
   let pageTexts: string[] = [];
   if (isPdf) {
@@ -2658,15 +2658,19 @@ async function harvestCertEngineNos(
     }
   }
   const fromEmbedded = harvestCertEnginesFromPages(pageTexts);
-  if (fromEmbedded.pairs.length > 0) return fromEmbedded;
-  // Pág. 2 escaneada (COO Chery): sin texto embebido. Una pasada OCR + rotación.
+  // 1 par embebido (1ª fila de texto) no cancela el OCR del resto de la columna.
+
+  if (!certHarvestNeedsMoreOcr(fromEmbedded)) return fromEmbedded;
 
   if (!isPdf) {
     try {
       const ocr = await extractCertificatePagePlainTextOriented(buffer);
-      return harvestCertEnginesFromText(ocr);
+      return mergeCertEngineHarvests(
+        fromEmbedded,
+        harvestCertEnginesFromText(ocr)
+      );
     } catch {
-      return emptyCertHarvest();
+      return fromEmbedded;
     }
   }
 
@@ -2677,9 +2681,7 @@ async function harvestCertEngineNos(
   } catch {
     fromOcr = emptyCertHarvest();
   }
-  return scoreCertEngineHarvest(fromOcr) >= scoreCertEngineHarvest(fromEmbedded)
-    ? fromOcr
-    : fromEmbedded;
+  return mergeCertEngineHarvests(fromEmbedded, fromOcr);
 }
 
 export async function extractCertificadoOrigenMultiFromDocument(
