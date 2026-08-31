@@ -39,4 +39,16 @@ describe("carga masiva etapas", () => {
     assert.match(src, /maxPages: 1, scale: 2\.8/);
     assert.doesNotMatch(src, /MULTI_VIN_TARGET = 18/);
   });
+
+  it("certs Extraer: ENGINE No al lado del VIN, pág. 2, sin Gemini de 12 págs.", () => {
+    assert.match(CARGA_MASIVA_ETAPA_HINTS.certs, /ENGINE No al lado/i);
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = readFileSync(
+      join(here, "../../extract-puerto-libre-docs.ts"),
+      "utf8"
+    );
+    assert.match(src, /STAGE_BUDGET_MS = rapido \? 40_000/);
+    assert.match(src, /startPage: pageIndex \+ 1/);
+    assert.match(src, /options\?\.rapido === true &&/);
+  });
 });

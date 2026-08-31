@@ -1,6 +1,7 @@
 import {
   createDocumentJsonCompletion,
   createDocumentJsonFromPageImages,
+  getPdfPageCount,
   getPdfPagePlainTexts,
   getPdfPlainText,
   PDF_VISION_MAX_PAGES,
@@ -45,7 +46,7 @@ import {
   harvestCertEnginesFromText,
   isVinLikeSerialMotor,
   mergeCertEngineHarvests,
-  orderPdfPagesEngineTableFirst,
+  orderPdfPageIndexesEngineFirst,
   parseCertEngineNosFromText,
   rowNeedsCertEngineNo,
   type CertEngineHarvest,
@@ -2659,6 +2660,12 @@ async function harvestCertEngineNos(
 ): Promise<CertEngineHarvest> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const extraPages = options?.extraPageBuffers ?? [];
+  const rapido = options?.rapido === true;
+  /** Extraer se corta ~90s; certificados no pueden rasterizar 12 págs. + Gemini. */
+  const STAGE_BUDGET_MS = rapido ? 40_000 : 70_000;
+  const startedAt = Date.now();
+  const withinBudget = (needMs: number) =>
+    STAGE_BUDGET_MS - (Date.now() - startedAt) >= needMs;
 
   let pageTexts: string[] = [];
   if (isPdf) {
@@ -2669,56 +2676,64 @@ async function harvestCertEngineNos(
     }
   }
   const fromEmbedded = harvestCertEnginesFromPages(pageTexts);
-  // 1 par embebido (1ª fila de texto) no cancela el OCR del resto de la columna.
-
   if (!certHarvestNeedsMoreOcr(fromEmbedded)) return fromEmbedded;
+
+  let fromOcr = emptyCertHarvest();
+  const merged = () => mergeCertEngineHarvests(fromEmbedded, fromOcr);
+
+  const ocrPage = async (img: Buffer) => {
+    const pageOcr = await extractCertificatePagePlainTextWithTesseract(img, {
+      fast: rapido,
+    });
+    fromOcr = mergeCertEngineHarvests(
+      fromOcr,
+      harvestCertEnginesFromText(pageOcr)
+    );
+  };
 
   if (!isPdf) {
     try {
-      let fromOcr = emptyCertHarvest();
-      for (const img of [buffer, ...extraPages]) {
-        if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
-          break;
+      const imgs = rapido
+        ? [buffer, ...extraPages].slice(0, 2)
+        : [buffer, ...extraPages];
+      for (const img of imgs) {
+        if (!certHarvestNeedsMoreOcr(merged()) || !withinBudget(8_000)) break;
+        if (rapido) {
+          await ocrPage(img);
+        } else {
+          const ocr = await extractCertificatePagePlainTextOriented(img);
+          fromOcr = mergeCertEngineHarvests(
+            fromOcr,
+            harvestCertEnginesFromText(ocr)
+          );
         }
-        const ocr = await extractCertificatePagePlainTextOriented(img);
-        fromOcr = mergeCertEngineHarvests(
-          fromOcr,
-          harvestCertEnginesFromText(ocr)
-        );
       }
-      return mergeCertEngineHarvests(fromEmbedded, fromOcr);
     } catch {
       return fromEmbedded;
     }
+    return merged();
   }
 
-  let fromOcr = emptyCertHarvest();
+  // PDF: pág. 2 (tabla VIN + ENGINE No) y luego pág. 1. Nunca 12 páginas.
   try {
-    const { pages } = await rasterPdfForOcr(buffer);
-    const pageOrder = orderPdfPagesEngineTableFirst(
-      pages.map((_, i) => i)
-    );
-    for (const i of pageOrder) {
-      if (!certHarvestNeedsMoreOcr(mergeCertEngineHarvests(fromEmbedded, fromOcr))) {
-        break;
-      }
-      try {
-        const pageOcr = await extractCertificatePagePlainTextWithTesseract(
-          pages[i]!,
-          { fast: false }
-        );
-        fromOcr = mergeCertEngineHarvests(
-          fromOcr,
-          harvestCertEnginesFromText(pageOcr)
-        );
-      } catch {
-        // página ilegible
-      }
+    const pageCount = await getPdfPageCount(buffer);
+    const indexes = orderPdfPageIndexesEngineFirst(pageCount);
+    const toRead = rapido ? indexes.slice(0, 2) : indexes.slice(0, 3);
+    for (const pageIndex of toRead) {
+      if (!certHarvestNeedsMoreOcr(merged()) || !withinBudget(10_000)) break;
+      const pages = await renderPdfPagesAsPng(buffer, {
+        startPage: pageIndex + 1,
+        maxPages: 1,
+        scale: rapido ? 2.4 : 2.8,
+      });
+      const img = pages[0];
+      if (!img) continue;
+      await ocrPage(img);
     }
   } catch {
     fromOcr = emptyCertHarvest();
   }
-  return mergeCertEngineHarvests(fromEmbedded, fromOcr);
+  return merged();
 }
 
 export async function extractCertificadoOrigenMultiFromDocument(
@@ -2733,35 +2748,42 @@ export async function extractCertificadoOrigenMultiFromDocument(
     extraPageBuffers,
   });
   const enginesFromText = harvest.pairs;
-  // Solo saltar IA si el OCR local ya trajo motores. `rapido` no debe
-  // devolver 0 filas cuando Tesseract no leyó la foto (CamScanner 1 pág.).
+  // En Extraer (`rapido`) no llamar a Gemini si el OCR de pág. 2 ya trajo motores:
+  // rasterizar 12 páginas + visión es lo que deja «Certificado 1/1» pegado.
   const skipLlmForEngines =
     harvest.pairs.length >= CERT_HARVEST_OCR_TARGET ||
-    harvest.motors.length >= CERT_HARVEST_OCR_TARGET;
+    harvest.motors.length >= CERT_HARVEST_OCR_TARGET ||
+    (options?.rapido === true &&
+      (harvest.pairs.length > 0 || harvest.motors.length > 0));
 
   let parsed: Record<string, unknown> = {};
   let llmError: unknown = null;
   if (isLlmConfigured() && !skipLlmForEngines) {
     try {
       if (isPdf) {
-        const { pages } = await rasterPdfForOcr(buffer);
-        const ordered = orderPdfPagesEngineTableFirst(pages);
-        const allPages = [...ordered, ...extraPageBuffers];
+        const pageCount = await getPdfPageCount(buffer);
+        const startPage = pageCount >= 2 ? 2 : 1;
+        const pages = await renderPdfPagesAsPng(buffer, {
+          startPage,
+          maxPages: 1,
+          scale: 2.4,
+        });
         parsed = await createDocumentJsonFromPageImages({
           prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
-          pagePngs: allPages.length > 0 ? allPages : ordered,
+          pagePngs: pages.length > 0 ? pages : extraPageBuffers.slice(0, 1),
           maxTokens: options?.rapido ? 4500 : 8000,
           preferHighDetail: true,
+          timeoutMs: options?.rapido ? 22_000 : 40_000,
         });
       } else {
         parsed = await createDocumentJsonCompletion({
           prompt: CERTIFICADO_ORIGEN_MULTI_PROMPT,
           buffer,
           mimeType,
-          extraImageBuffers: extraPageBuffers,
+          extraImageBuffers: extraPageBuffers.slice(0, 1),
           maxTokens: options?.rapido ? 3500 : 4500,
           maxTextChars: 32000,
-          maxPdfPages: PDF_VISION_MAX_PAGES,
+          maxPdfPages: 1,
           preferHighDetail: true,
         });
       }
@@ -2769,9 +2791,8 @@ export async function extractCertificadoOrigenMultiFromDocument(
       llmError = err;
     }
 
-    // Reintento: si el PDF es escaneado y el primer parse casi no detectó
-    // seriales/motor (los campos quedan null), fuerza raster+visión.
-    if (isPdf && !llmError && harvest.pairs.length === 0) {
+    // Reintento pesado solo fuera de Extraer (no en `rapido`).
+    if (isPdf && !llmError && harvest.pairs.length === 0 && !options?.rapido) {
       const vehiculosRaw = asRecordArray((parsed as Record<string, unknown>).vehiculos);
       const hasCritical = vehiculosRaw.some((v) => {
         const vinOrChassis = parseString(
@@ -2796,9 +2817,9 @@ export async function extractCertificadoOrigenMultiFromDocument(
           buffer,
           mimeType,
           extraImageBuffers: extraPageBuffers,
-          maxTokens: options?.rapido ? 3500 : 4500,
+          maxTokens: 4500,
           maxTextChars: 32000,
-          maxPdfPages: PDF_VISION_MAX_PAGES,
+          maxPdfPages: 2,
           preferHighDetail: true,
           forceRasterVision: true,
         });
