@@ -3,6 +3,7 @@
  * Cubre Chery (columna Code) y hoja anexa MAV (No. de Chasis), con rotación.
  */
 
+import { firstUnusedEngineNo } from "@/lib/importacion/cert-engine-text";
 import { parseCheryInvoiceLineas } from "@/lib/importacion/chery-invoice-lines";
 import {
   extractVinStringsFromText,
@@ -239,75 +240,80 @@ type TessWord = {
   bbox?: { x0: number; y0: number; x1: number; y1: number };
 };
 
-/** Recorta la columna del 1er ENGINE No y lee los seriales de abajo. */
-async function followEngineColumn(
+async function recognizeWords(
   worker: TessWorker,
-  psmSingleColumn: unknown,
-  imageBuffer: Buffer
-): Promise<string> {
-  const prepared = await upscaleForOcr(imageBuffer, 1600);
-  const { loadImage } = await import("@napi-rs/canvas");
-  const meta = await loadImage(prepared);
+  image: Buffer
+): Promise<{ text: string; words: TessWord[] }> {
   await worker.setParameters({
     preserve_interword_spaces: "1",
     tessedit_pageseg_mode: "3" as never,
   });
-  const result = await worker.recognize(prepared);
-  const parts: string[] = [result.data.text ?? ""];
-  const words = ((result.data as { words?: TessWord[] }).words ?? []).filter(
-    (w) => w.bbox && /S[O0Q]RE|C16TD/i.test(w.text ?? "")
-  );
+  const result = await worker.recognize(image);
+  return {
+    text: result.data.text ?? "",
+    words: ((result.data as { words?: TessWord[] }).words ?? []).filter(
+      (w) => Boolean(w.bbox)
+    ),
+  };
+}
 
-  const strips: Buffer[] = [];
-  try {
-    strips.push(
-      await cropPixels(
-        prepared,
-        meta.width * 0.48,
-        0,
-        meta.width * 0.52,
-        meta.height
+function topEngineWord(words: TessWord[]): TessWord | null {
+  const hits = words.filter((w) => /S[O0Q]RE|C16TD/i.test(w.text ?? ""));
+  hits.sort((a, b) => (a.bbox?.y0 ?? 0) - (b.bbox?.y0 ?? 0));
+  return hits[0] ?? null;
+}
+
+const MAX_SEQUENTIAL_ENGINES = 12;
+
+/**
+ * Llena el 1er ENGINE No, recorta debajo, relee el 2º y lo pega, y así
+ * hasta agotar la columna (cuadro vertical o apaisado).
+ */
+async function readEngineNosOneByOne(
+  worker: TessWorker,
+  imageBuffer: Buffer
+): Promise<string[]> {
+  const prepared = await upscaleForOcr(imageBuffer, 1600);
+  const { loadImage } = await import("@napi-rs/canvas");
+  const meta = await loadImage(prepared);
+  const first = await recognizeWords(worker, prepared);
+  const collected: string[] = [];
+  const firstMotor = firstUnusedEngineNo(first.text, collected);
+  if (firstMotor) collected.push(firstMotor);
+
+  const seed = topEngineWord(first.words);
+  let x0 = Math.floor(meta.width * 0.48);
+  let stripW = Math.ceil(meta.width * 0.52);
+  let yCursor = 0;
+  if (seed?.bbox) {
+    const midX = (seed.bbox.x0 + seed.bbox.x1) / 2;
+    const w = Math.max(80, seed.bbox.x1 - seed.bbox.x0);
+    x0 = Math.max(0, Math.floor(midX - w));
+    stripW = Math.min(meta.width - x0, Math.ceil(w * 2.6));
+    yCursor = seed.bbox.y1 + 6;
+  }
+
+  let guard = 0;
+  while (collected.length < MAX_SEQUENTIAL_ENGINES && guard++ < MAX_SEQUENTIAL_ENGINES) {
+    const remainH = meta.height - yCursor;
+    if (remainH < 24) break;
+    const window = await cropPixels(prepared, x0, yCursor, stripW, remainH);
+    const pass = await recognizeWords(worker, window);
+    const next = firstUnusedEngineNo(pass.text, collected);
+    if (!next) break;
+    collected.push(next);
+    const hit = topEngineWord(
+      pass.words.filter((w) =>
+        (w.text ?? "").toUpperCase().includes(next.slice(0, 6))
       )
-    );
-  } catch {
-    // recorte derecho
-  }
-
-  if (words.length > 0) {
-    const midXs = words.map((w) => (w.bbox!.x0 + w.bbox!.x1) / 2);
-    midXs.sort((a, b) => a - b);
-    const midX = midXs[Math.floor(midXs.length / 2)]!;
-    const maxW = Math.max(
-      80,
-      ...words.map((w) => w.bbox!.x1 - w.bbox!.x0)
-    );
-    const x0 = Math.max(0, midX - maxW);
-    const stripW = Math.min(meta.width - x0, maxW * 2.4);
-    const firstY = Math.min(...words.map((w) => w.bbox!.y0));
-    try {
-      strips.push(await cropPixels(prepared, x0, 0, stripW, meta.height));
-      strips.push(
-        await cropPixels(
-          prepared,
-          x0,
-          Math.max(0, firstY - 8),
-          stripW,
-          meta.height - Math.max(0, firstY - 8)
-        )
-      );
-    } catch {
-      // franja del 1er SQRE
+    ) ?? topEngineWord(pass.words);
+    if (hit?.bbox) {
+      yCursor += hit.bbox.y1 + 6;
+    } else {
+      yCursor += Math.max(32, Math.floor(remainH / 10));
     }
   }
-
-  for (const strip of strips) {
-    try {
-      parts.push(await recognizeCertPage(worker, strip, [psmSingleColumn]));
-    } catch {
-      // columna ilegible
-    }
-  }
-  return parts.join("\n");
+  return collected;
 }
 
 /**
@@ -415,15 +421,13 @@ export async function extractCertificatePagePlainTextOriented(
       if (countSqreTokens(text) >= 8) return text;
     }
 
-    // 1 SQRE = hay columna: recortar y seguir hacia abajo (vertical o girado).
+    // 1er ENGINE No → recortar debajo → 2º → pegar, y así (columna vertical).
     if (countSqreTokens(best) >= 1) {
       try {
-        const column = await followEngineColumn(worker, PSM.SINGLE_COLUMN, bestImg);
-        if (scoreCertificatePageOcrText(column) > bestScore) {
-          best = `${best}\n${column}`;
-          bestScore = scoreCertificatePageOcrText(best);
-        } else {
-          best = `${best}\n${column}`;
+        const sequential = await readEngineNosOneByOne(worker, bestImg);
+        if (sequential.length > 0) {
+          best = `${best}\nENGINE NO\n${sequential.join("\n")}`;
+          if (sequential.length >= 4) return best;
         }
       } catch {
         // sin cajas de palabras
