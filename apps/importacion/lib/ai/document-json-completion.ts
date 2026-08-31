@@ -82,12 +82,13 @@ export async function getPdfPagePlainTexts(buffer: Buffer): Promise<string[]> {
 }
 
 /**
- * Raster para Tesseract / recortes. 20 páginas a 2.6× agotaba el timeout
- * (~110s) y Extraer devolvía 0 filas. El texto embebido sí lee todo el PDF.
+ * Raster para Tesseract / visión. Antes 4 páginas: facturas y COO de
+ * 2+ páginas (tabla en pág. 2 o 3) se cortaban. 12 cubre el lote típico
+ * sin volver a rasterizar 20 páginas a 2.6× (eso agotaba el timeout).
  */
-export const PDF_RASTER_MAX_PAGES = 4;
-/** Imágenes que se mandan juntas a Gemini (payload). */
-export const PDF_VISION_MAX_PAGES = 4;
+export const PDF_RASTER_MAX_PAGES = 12;
+/** Imágenes que se mandan juntas a Gemini (todas las páginas del PDF). */
+export const PDF_VISION_MAX_PAGES = 12;
 
 /** Marcas de escáner / basura típica que no es el contenido del documento. */
 const SCANNER_JUNK_RE =
@@ -148,6 +149,35 @@ export async function renderPdfPagesAsPng(
   return pages;
 }
 
+export async function getPdfPageCount(buffer: Buffer): Promise<number> {
+  try {
+    const { getDocumentProxy } = await import("unpdf");
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    return Math.max(1, Number(pdf.numPages) || 1);
+  } catch {
+    return 1;
+  }
+}
+
+/** Pocos folios (factura+COO 1–3 págs.): más nitidez. Muchos: no agotar timeout. */
+export function pdfRenderScaleForPageCount(pageCount: number): number {
+  if (pageCount <= 2) return 2.8;
+  if (pageCount <= 4) return 2.4;
+  return 2.0;
+}
+
+/** Rasteriza todas las páginas del PDF (hasta el tope) a la escala adecuada. */
+export async function rasterPdfForOcr(
+  buffer: Buffer,
+  options?: { maxPages?: number }
+): Promise<{ pages: Buffer[]; pageCount: number; scale: number }> {
+  const pageCount = await getPdfPageCount(buffer);
+  const maxPages = options?.maxPages ?? PDF_RASTER_MAX_PAGES;
+  const scale = pdfRenderScaleForPageCount(Math.min(pageCount, maxPages));
+  const pages = await renderPdfPagesAsPng(buffer, { maxPages, scale });
+  return { pages, pageCount, scale };
+}
+
 async function jsonFromTextPrompt(
   prompt: string,
   documentText: string,
@@ -178,17 +208,19 @@ async function jsonFromPdfPageImages(
   prompt: string,
   pagePngs: Buffer[],
   maxTokens: number,
-  preferHighDetail: boolean
+  preferHighDetail: boolean,
+  timeoutMs?: number
 ): Promise<Record<string, unknown>> {
   const openai = createOpenAIClient({
-    timeoutMs: maxTokens >= 4000 ? 120_000 : 90_000,
+    timeoutMs:
+      timeoutMs ?? (maxTokens >= 4000 ? 120_000 : 90_000),
   });
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
       type: "text",
       text:
         pagePngs.length > 1
-          ? `${prompt}\n\nLas imágenes siguientes son páginas consecutivas (imagen 1 = página 1, imagen 2 = página 2). Lee TODAS. No inventes datos que no se vean.`
+          ? `${prompt}\n\nHay ${pagePngs.length} páginas (imagen 1 = página 1, imagen 2 = página 2, …). Lee TODAS las páginas y TODAS las filas de las tablas. No te quedes en la carátula. No inventes datos que no se vean.`
           : `${prompt}\n\nLee el texto visible en la imagen. No inventes datos que no se vean.`,
     },
   ];
@@ -264,15 +296,39 @@ async function rasterVisionFromPdf(
   renderScale: number
 ): Promise<Record<string, unknown> | null> {
   try {
+    const pageCount = await getPdfPageCount(buffer);
+    const scale =
+      renderScale || pdfRenderScaleForPageCount(Math.min(pageCount, maxPdfPages));
     const pages = await renderPdfPagesAsPng(buffer, {
       maxPages: maxPdfPages,
-      scale: renderScale,
+      scale,
     });
     if (pages.length === 0) return null;
     return jsonFromPdfPageImages(prompt, pages, maxTokens, preferHighDetail);
   } catch {
     return null;
   }
+}
+
+/** Visión de páginas ya rasterizadas (todas las páginas del PDF o fotos). */
+export async function createDocumentJsonFromPageImages(params: {
+  prompt: string;
+  pagePngs: Buffer[];
+  maxTokens?: number;
+  preferHighDetail?: boolean;
+  timeoutMs?: number;
+}): Promise<Record<string, unknown>> {
+  const pages = params.pagePngs.filter((b) => b.length > 0);
+  if (pages.length === 0) {
+    throw new Error("No hay páginas de imagen para leer");
+  }
+  return jsonFromPdfPageImages(
+    params.prompt,
+    pages,
+    params.maxTokens ?? 8000,
+    params.preferHighDetail ?? true,
+    params.timeoutMs
+  );
 }
 
 function countNonNullValues(data: Record<string, unknown>): number {
@@ -469,21 +525,12 @@ export async function createDocumentJsonCompletion(params: {
         }
       }
     } catch {
-      // Continúa con PDF nativo / raster.
+      // Continúa con raster de todas las páginas / PDF nativo.
     }
   }
 
-  // CamScanner / escaneos: Gemini lee el PDF entero mejor que un PNG recortado.
-  const fromNative = await jsonFromNativePdf(
-    params.prompt,
-    params.buffer,
-    maxTokens,
-    timeoutMs
-  );
-  if (fromNative && pdfJsonExtractIsUsable(fromNative)) {
-    return fromNative;
-  }
-
+  // CamScanner: visión de TODAS las páginas rasterizadas (file_data nativo
+  // suele fallar en el proveedor; las fotos por página sí se leen).
   const fromRaster = params.skipRaster
     ? null
     : await rasterVisionFromPdf(
@@ -494,8 +541,21 @@ export async function createDocumentJsonCompletion(params: {
         preferHighDetail,
         renderScale
       );
+  if (fromRaster && pdfJsonExtractIsUsable(fromRaster)) {
+    return fromRaster;
+  }
 
-  const best = pickBestPdfJson([fromText, fromNative, fromRaster]);
+  const fromNative = await jsonFromNativePdf(
+    params.prompt,
+    params.buffer,
+    maxTokens,
+    timeoutMs
+  );
+  if (fromNative && pdfJsonExtractIsUsable(fromNative)) {
+    return fromNative;
+  }
+
+  const best = pickBestPdfJson([fromText, fromRaster, fromNative]);
   if (best && (pdfJsonExtractIsUsable(best) || scorePdfJsonExtract(best) > 0)) {
     return best;
   }
