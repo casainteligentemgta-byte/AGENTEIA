@@ -1104,11 +1104,17 @@ Responde SOLO JSON:
   ]
 }`;
 
+/**
+ * Facturas Chery típicas (p. ej. Tiggo 2 Pro MAX): 8 unidades.
+ * Perseguir 18 VIN rasterizando todas las páginas agota el timeout y deja 0 filas.
+ */
+export const FACTURA_VIN_HARVEST_TARGET = 8;
+
 /** Pasada de cosecha: listar todos los VIN visibles (recuperación si faltan filas). */
-const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en este documento (PDF o foto de factura).
-Facturas Chery / Intercontinental suelen traer 8, 18 o más unidades: vehiculos.length debe coincidir con TODAS las filas.
-También anota modelo, el color al lado del VIN, y serial_motor SOLO si ves ENGINE No / Engine Serial (no copies el VIN al motor).
-NO omitas filas del medio ni del final. Si hay 18 VIN, vehiculos.length debe ser 18.
+const FACTURA_MULTI_VIN_HARVEST_PROMPT = `Lista TODOS los VIN / chasis de 17 caracteres visibles en esta imagen de factura.
+Facturas multi suelen traer varias unidades (p. ej. 8 vehículos): vehiculos.length debe coincidir con todas las filas visibles.
+También anota modelo y color de la misma fila si se ven.
+NO omitas filas del medio ni del final. Si hay 8 VIN, vehiculos.length debe ser 8; si hay 18, debe ser 18.
 Responde SOLO JSON:
 {
   "vehiculos": [
@@ -1520,7 +1526,8 @@ function sanitizeVehiculoRowLocal(
 async function extractFacturaMultiOnce(
   buffer: Buffer,
   mimeType: string,
-  prompt: string = FACTURA_MULTI_PROMPT
+  prompt: string = FACTURA_MULTI_PROMPT,
+  options?: { maxPdfPages?: number }
 ): Promise<DocMultiExtracted> {
   const isPdf = mimeType.toLowerCase().includes("pdf");
   const parsed = await createDocumentJsonCompletion({
@@ -1529,7 +1536,7 @@ async function extractFacturaMultiOnce(
     mimeType,
     maxTokens: 12000,
     maxTextChars: 50000,
-    maxPdfPages: PDF_VISION_MAX_PAGES,
+    maxPdfPages: options?.maxPdfPages ?? PDF_VISION_MAX_PAGES,
     preferHighDetail: true,
     forceRasterVision: isPdf,
     renderScale: 2.4,
@@ -1804,15 +1811,17 @@ export async function extractFacturaMultiFromDocument(
     }
   }
 
-  // 2) Visión de todas las páginas (una llamada) si el texto no cubrió el lote.
+  // 2) Visión de pág. 1 (facturas multi ~8 VIN). No rasterizar 12 páginas.
   let currentBest = candidates.length
     ? pickBestFacturaMulti(candidates)
     : { shared: {}, vehiculos: [] };
 
-  if (currentBest.vehiculos.length < 8) {
+  if (currentBest.vehiculos.length < FACTURA_VIN_HARVEST_TARGET) {
     try {
       candidates.push(
-        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT)
+        await extractFacturaMultiOnce(buffer, mimeType, FACTURA_MULTI_PROMPT, {
+          maxPdfPages: 1,
+        })
       );
     } catch {
       // ignore
@@ -1822,10 +1831,13 @@ export async function extractFacturaMultiFromDocument(
       : currentBest;
   }
 
-  // 3) Cosecha extra por páginas si sigue corto.
-  if (isPdf && currentBest.vehiculos.length < 8) {
+  // 3) Cosecha extra de pág. 1 si sigue corto (objetivo 8, no 18).
+  if (isPdf && currentBest.vehiculos.length < FACTURA_VIN_HARVEST_TARGET) {
     try {
-      const pages = (await rasterPdfForOcr(buffer)).pages;
+      const pages = await renderPdfPagesAsPng(buffer, {
+        maxPages: 1,
+        scale: 2.8,
+      });
       if (pages.length > 0) {
         try {
           const layoutParts: string[] = [];
@@ -1851,12 +1863,16 @@ export async function extractFacturaMultiFromDocument(
         } catch {
           // ignore
         }
-        for (let i = 0; i < pages.length; i++) {
-          if (pickBestFacturaMulti(candidates).vehiculos.length >= 8) break;
+        const page1 = pages[0];
+        if (
+          page1 &&
+          pickBestFacturaMulti(candidates).vehiculos.length <
+            FACTURA_VIN_HARVEST_TARGET
+        ) {
           try {
             candidates.push(
               await extractFacturaMultiFromImage(
-                pages[i]!,
+                page1,
                 "image/png",
                 FACTURA_MULTI_VIN_HARVEST_PROMPT
               )
@@ -1928,7 +1944,9 @@ function stampCifUnitarioOnRows(
 }
 
 /**
- * Etapa 1 — cosecha de VIN (Tesseract local primero; visión solo si hace falta).
+ * Etapa 1 — cosecha de VIN (objetivo típico: 8).
+ * Página 1 + Tesseract de recortes + 1× visión + 1× JSON harvest si faltan.
+ * Sin raster/visión de 12 páginas (eso timeout-ea y deja 0 filas).
  * Si no hay VIN, lanza Error con el diagnóstico de OCR (no lo oculta).
  */
 export async function extractFacturaVinsStageFromDocument(
@@ -1940,13 +1958,9 @@ export async function extractFacturaVinsStageFromDocument(
   const vinSet = new Set<string>();
   const mavState: { rows: DocMultiExtracted | null } = { rows: null };
   let visionCreditsBlocked = false;
+  const MULTI_VIN_TARGET = FACTURA_VIN_HARVEST_TARGET;
   /**
-   * Umbral para dejar de gastar visión extra. Facturas Chery a menudo traen
-   * 8–18 unidades; 8 cortaba el resto si Tesseract no las vio todas.
-   */
-  const MULTI_VIN_TARGET = 18;
-  /**
-   * Presupuesto total de la etapa VIN (cliente aborta ~110s; Vercel 120s).
+   * Presupuesto total de la etapa VIN (cliente aborta ~90–110s; Vercel 120s).
    * Devolver VIN parcial > quedar en 0 por timeout.
    */
   const STAGE_BUDGET_MS = 85_000;
@@ -2039,7 +2053,7 @@ export async function extractFacturaVinsStageFromDocument(
         imageBuffer: sized.buffer,
         mimeType: sized.mimeType,
         preferHighDetail: true,
-        maxTokens: 3000,
+        maxTokens: 4000,
         timeoutMs: Math.min(timeoutMs, Math.max(12_000, remainingMs() - 3_000)),
       });
       addVins(vins, label);
@@ -2122,192 +2136,161 @@ export async function extractFacturaVinsStageFromDocument(
     }
   };
 
-  // Raster + Tesseract (local) + visión de TODAS las páginas
+  // Raster pág. 1 + Tesseract de recortes + 1× visión (sin 12 páginas).
   if (vinSet.size >= MULTI_VIN_TARGET) {
     diagnostics.push(
       `ocr: omitido (texto PDF ya tiene ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
     );
   } else {
     try {
-    const pages = isPdf
-      ? (await rasterPdfForOcr(buffer)).pages
-      : [buffer];
-    const page1 = pages[0];
-    if (!page1) {
-      diagnostics.push("raster: no se pudo renderizar ninguna página");
-    } else {
-      diagnostics.push(`raster: ok ${pages.length} página(s)`);
+      const pages = isPdf
+        ? await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.8 })
+        : [buffer];
+      const page1 = pages[0];
+      if (!page1) {
+        diagnostics.push("raster: no se pudo renderizar la página 1");
+      } else {
+        diagnostics.push(`raster: ok pág.1 ${page1.length} bytes`);
 
-      for (let i = 0; i < pages.length; i++) {
         try {
-          const layoutText = await extractInvoicePlainTextWithTesseract(
-            pages[i]!
+          const layoutText = await extractInvoicePlainTextWithTesseract(page1);
+          rememberCheryLineas(layoutText, "tesseract-factura-p1");
+          addVins(extractVinsFromOcrText(layoutText), "tesseract-factura-p1");
+          diagnostics.push(
+            `tesseract-factura: ${layoutText.replace(/\s+/g, " ").trim().slice(0, 90)}`
           );
-          rememberCheryLineas(layoutText, `tesseract-factura-p${i + 1}`);
-          addVins(extractVinsFromOcrText(layoutText), `tesseract-factura-p${i + 1}`);
-          if (i === 0) {
+        } catch (err) {
+          diagnostics.push(
+            `tesseract-factura-p1: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
+          );
+        }
+
+        const cropSpecs = [
+          { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
+          { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
+          { label: "col-code-2", region: { x: 0.2, y: 0.36, w: 0.15, h: 0.5 } },
+          { label: "col-chasis", region: { x: 0.08, y: 0.18, w: 0.28, h: 0.7 } },
+        ] as const;
+
+        const croppedBuffers: {
+          label: string;
+          buffer: Buffer;
+          mimeType: string;
+        }[] = [];
+        for (const crop of cropSpecs) {
+          try {
+            const cropped = await cropImageBuffer(page1, crop.region);
+            croppedBuffers.push({
+              label: crop.label,
+              buffer: cropped.buffer,
+              mimeType: cropped.mimeType,
+            });
+          } catch (err) {
             diagnostics.push(
-              `tesseract-factura: ${layoutText.replace(/\s+/g, " ").trim().slice(0, 90)}`
+              `${crop.label}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
             );
           }
-        } catch (err) {
-          diagnostics.push(
-            `tesseract-factura-p${i + 1}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
-          );
         }
-      }
 
-      // Recortes: tabla completa primero (Code no siempre está en 19–35%).
-      const cropSpecs = [
-        { label: "tabla", region: { x: 0.04, y: 0.26, w: 0.92, h: 0.58 } },
-        { label: "col-code", region: { x: 0.19, y: 0.35, w: 0.16, h: 0.52 } },
-        { label: "col-code-mid", region: { x: 0.28, y: 0.32, w: 0.28, h: 0.55 } },
-        { label: "col-chasis", region: { x: 0.08, y: 0.18, w: 0.28, h: 0.7 } },
-      ] as const;
+        if (vinSet.size < MULTI_VIN_TARGET) {
+          try {
+            const tabla = croppedBuffers.find((c) => c.label === "tabla")?.buffer;
+            const tessImages = isPdf
+              ? [tabla, page1].filter((b): b is Buffer => Boolean(b))
+              : croppedBuffers
+                  .filter(
+                    (c) =>
+                      c.label.startsWith("col-code") ||
+                      c.label.startsWith("col-chasis")
+                  )
+                  .map((c) => c.buffer);
 
-      const croppedBuffers: { label: string; buffer: Buffer; mimeType: string }[] =
-        [];
-      for (const crop of cropSpecs) {
-        try {
-          const cropped = await cropImageBuffer(page1, crop.region);
-          croppedBuffers.push({
-            label: crop.label,
-            buffer: cropped.buffer,
-            mimeType: cropped.mimeType,
-          });
-        } catch (err) {
-          diagnostics.push(
-            `${crop.label}: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`
-          );
-        }
-      }
-
-      const runTesseract = async () => {
-        try {
-          const tabla = croppedBuffers.find((c) => c.label === "tabla")?.buffer;
-          const tessImages = isPdf
-            ? [tabla, ...pages].filter((b): b is Buffer => Boolean(b))
-            : croppedBuffers
-                .filter(
-                  (c) =>
-                    c.label.startsWith("col-code") ||
-                    c.label.startsWith("col-chasis")
+            const tess = isPdf
+              ? await extractVinsWithTesseract(
+                  tessImages.length > 0 ? tessImages : [page1]
                 )
-                .map((c) => c.buffer);
+              : await extractVinsWithTesseractOriented(page1);
 
-          const tess = isPdf
-            ? await extractVinsWithTesseract(
-                tessImages.length > 0 ? tessImages : [page1]
-              )
-            : await extractVinsWithTesseractOriented(page1);
+            if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
+              const extra = await extractVinsWithTesseract(tessImages);
+              addVins(extra.vins, "tesseract-crops");
+              rememberCheryLineas(extra.fullText, "tesseract-lineas-crops");
+              tryMavFromText(extra.fullText, "tesseract-mav-crops");
+            }
 
-          if (!isPdf && tess.vins.length < 6 && tessImages.length > 0) {
-            const extra = await extractVinsWithTesseract(tessImages);
-            addVins(extra.vins, "tesseract-crops");
-            rememberCheryLineas(extra.fullText, "tesseract-lineas-crops");
-            tryMavFromText(extra.fullText, "tesseract-mav-crops");
-          }
-
-          addVins(tess.vins, "tesseract");
-          rememberCheryLineas(tess.fullText, "tesseract-lineas-chery");
-          tryMavFromText(tess.fullText, "tesseract-mav");
-          if (tess.textSample) {
+            addVins(tess.vins, "tesseract");
+            rememberCheryLineas(tess.fullText, "tesseract-lineas-chery");
+            tryMavFromText(tess.fullText, "tesseract-mav");
+            if (tess.textSample) {
+              diagnostics.push(
+                `tesseract-sample: ${tess.textSample.slice(0, 80)}`
+              );
+            }
+          } catch (err) {
             diagnostics.push(
-              `tesseract-sample: ${tess.textSample.slice(0, 80)}`
+              `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
             );
           }
-        } catch (err) {
+        } else {
           diagnostics.push(
-            `tesseract: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+            `tesseract-vin: omitido (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
           );
         }
-      };
 
-      const pageMime = isPdf ? "image/png" : mimeType;
-      const canVision =
-        isLlmConfigured() &&
-        !visionCreditsBlocked &&
-        vinSet.size < MULTI_VIN_TARGET;
-
-      const needVinTess = vinSet.size < MULTI_VIN_TARGET;
-      if (!needVinTess) {
-        diagnostics.push(
-          `tesseract-vin: omitido (factura completa ya tiene ${vinSet.size} VIN)`
-        );
-      }
-      if (needVinTess) {
-        await runTesseract();
-      }
-
-      // Todas las páginas en una sola llamada de visión (no solo pág. 1).
-      if (canVision && vinSet.size < MULTI_VIN_TARGET && withinBudget(18_000)) {
-        try {
-          const parsed = await createDocumentJsonFromPageImages({
-            prompt: FACTURA_MULTI_PROMPT,
-            pagePngs: pages,
-            maxTokens: 12000,
-            preferHighDetail: true,
-            timeoutMs: Math.min(45_000, Math.max(14_000, remainingMs() - 4_000)),
-          });
-          const extracted = enrichWithSalvagedVins(
-            sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
-            parsed
+        // 1× visión de página completa (sin recortes en cadena ni páginas extra).
+        if (
+          vinSet.size < MULTI_VIN_TARGET &&
+          isLlmConfigured() &&
+          !visionCreditsBlocked &&
+          withinBudget(12_000)
+        ) {
+          const pageMime = isPdf ? "image/png" : mimeType;
+          const beforeVision = vinSet.size;
+          await fromImageList(page1, pageMime, "pagina-1", 32_000);
+          if (vinSet.size > beforeVision) {
+            diagnostics.push(
+              `vision: pagina-1 → ${vinSet.size} VIN (objetivo ≥${MULTI_VIN_TARGET})`
+            );
+          }
+        } else if (vinSet.size >= MULTI_VIN_TARGET) {
+          diagnostics.push(
+            `vision: omitida (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
           );
-          applyExtractedVehiculos(extracted, `vision-${pages.length}p`);
-        } catch (err) {
-          noteVisionError("vision-paginas", err);
-          await fromImageList(page1, pageMime, "pagina-1", 24_000);
-        }
-      }
-
-      if (
-        vinSet.size < MULTI_VIN_TARGET &&
-        isLlmConfigured() &&
-        !visionCreditsBlocked &&
-        withinBudget(10_000)
-      ) {
-        for (let i = 1; i < pages.length; i++) {
-          if (vinSet.size >= MULTI_VIN_TARGET || !withinBudget(8_000)) break;
-          await fromImageList(
-            pages[i]!,
-            pageMime,
-            `pagina-${i + 1}`,
-            20_000
+        } else if (!isLlmConfigured()) {
+          diagnostics.push(
+            "vision: omitida (sin GEMINI_API_KEY / OPENAI_API_KEY)"
           );
         }
-      } else if (vinSet.size >= MULTI_VIN_TARGET) {
-        diagnostics.push(
-          `vision: omitida extra (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
-        );
       }
-    }
     } catch (err) {
-    diagnostics.push(
-      `raster: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
-    );
+      diagnostics.push(
+        `raster: ERROR ${(err instanceof Error ? err.message : String(err)).slice(0, 160)}`
+      );
     }
   }
 
-  // JSON harvest de TODAS las páginas si aún hay pocos VIN
+  // Si faltan VIN de una factura multi (p. ej. 8 unidades), una pasada JSON de pág. 1.
   if (
-    vinSet.size < 3 &&
+    vinSet.size < MULTI_VIN_TARGET &&
     isLlmConfigured() &&
     !visionCreditsBlocked &&
-    withinBudget(18_000)
+    withinBudget(12_000)
   ) {
     try {
-      const pagePngs = isPdf
-        ? (await rasterPdfForOcr(buffer)).pages
-        : [buffer];
-      if (pagePngs.length === 0) {
+      const page1 = isPdf
+        ? (await renderPdfPagesAsPng(buffer, { maxPages: 1, scale: 2.2 }))[0]
+        : buffer;
+      if (!page1) {
         throw new Error("raster vacío");
       }
-      const parsed = await createDocumentJsonFromPageImages({
+      const sized = await compressImageForVision(page1);
+      const parsed = await createVisionJsonCompletion({
         prompt: FACTURA_MULTI_VIN_HARVEST_PROMPT,
-        pagePngs,
-        maxTokens: 8000,
+        imageBuffer: sized.buffer,
+        mimeType: sized.mimeType,
+        maxTokens: 3500,
         preferHighDetail: true,
-        timeoutMs: Math.min(35_000, Math.max(12_000, remainingMs() - 2_000)),
+        timeoutMs: Math.min(32_000, Math.max(12_000, remainingMs() - 2_000)),
       });
       const extracted = enrichWithSalvagedVins(
         sanitizeFacturaMulti(parseFacturaMultiResult(parsed)),
@@ -2317,11 +2300,11 @@ export async function extractFacturaVinsStageFromDocument(
     } catch (err) {
       noteVisionError("json-harvest", err);
     }
-  } else if (vinSet.size >= 3) {
+  } else if (vinSet.size >= MULTI_VIN_TARGET) {
     diagnostics.push(
-      `json-harvest: omitido (ya hay ${vinSet.size} VIN; cabecera en etapa 3)`
+      `json-harvest: omitido (ya hay ${vinSet.size} VIN ≥${MULTI_VIN_TARGET})`
     );
-  } else if (!withinBudget(18_000)) {
+  } else if (!withinBudget(12_000)) {
     diagnostics.push(
       `json-harvest: omitido (presupuesto ${Math.round(remainingMs() / 1000)}s)`
     );

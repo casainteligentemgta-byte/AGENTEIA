@@ -13,7 +13,7 @@ export const CARGA_MASIVA_ETAPA_LABELS: Record<CargaMasivaEtapaId, string> = {
 };
 
 export const CARGA_MASIVA_ETAPA_HINTS: Record<CargaMasivaEtapaId, string> = {
-  vins: "OCR de la factura completa (VIN, consignatario, destino, CIF) + Gemini si hace falta.",
+  vins: "Pág. 1 de la factura: OCR + Gemini hasta ~8 VIN. Consignatario/CIF en etapa 3.",
   datos: "IA + parser: modelo, color, CIF, consignatario, destino y nº factura.",
   certs: "Pág. 2 del certificado: ENGINE No al lado del VIN (OCR si es escaneo).",
 };
