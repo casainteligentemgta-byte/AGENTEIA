@@ -76,6 +76,11 @@ import {
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
+import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
+import {
+  syncLoteDocumentoToSiblings,
+  syncLoteImportacionToSiblings,
+} from "@/lib/importacion/expediente-lote-sync";
 import {
   extractBlMultiFromDocument,
   extractCertificadoOrigenMultiFromDocument,
@@ -174,11 +179,16 @@ async function ocrCertificadoOrigenBuffer(
 }
 
 export type PuertoLibreActionResult =
-  | { success: true }
+  | { success: true; loteCopiados?: number }
   | { success: false; error: string };
 
 export type PuertoLibreUploadResult =
-  | { success: true; tipo: DocumentoTipo; documentos: VehiculosDocumentos }
+  | {
+      success: true;
+      tipo: DocumentoTipo;
+      documentos: VehiculosDocumentos;
+      loteCopiados?: number;
+    }
   | { success: false; error: string };
 
 const vehiculoDatosSchema = z.object({
@@ -720,6 +730,13 @@ export async function updatePuertoLibreImportacionAction(
     .eq("taller_id", auth.taller.id);
 
   if (error) return { success: false, error: error.message };
+  const loteCopiados = await syncLoteImportacionToSiblings({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: vehiculoId,
+    lookup: existing,
+    lote: mergedImport,
+  });
   revalidateFicha(vehiculoId);
 
   const importadorGuardar = ultimoImportadorFromAlta({
@@ -733,7 +750,7 @@ export async function updatePuertoLibreImportacionAction(
     await saveUltimoImportadorTaller(auth.taller.id, importadorGuardar);
   }
 
-  return { success: true };
+  return { success: true, loteCopiados };
 }
 
 export async function updatePuertoLibreSeguroAction(
@@ -1234,8 +1251,16 @@ export async function completePuertoLibreFase2EmbarqueAction(
     .eq("taller_id", auth.taller.id);
 
   if (error) return { success: false, error: error.message };
+  const mergedImp = parseImportacion(importacion);
+  const loteCopiados = await syncLoteImportacionToSiblings({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: parsed.data.vehiculoId,
+    lookup: existing,
+    lote: mergedImp,
+  });
   revalidateFicha(parsed.data.vehiculoId);
-  return { success: true };
+  return { success: true, loteCopiados };
 }
 
 /** @deprecated Usar completePuertoLibreFase2EmbarqueAction. */
@@ -2108,6 +2133,8 @@ export async function uploadPuertoLibreDocumentoAction(
       };
     }
 
+    let importacionActual = parseImportacion(row.importacion);
+
     // BL / póliza / certificado: extraer datos y guardar en importación (best-effort).
     if (
       (tipoParsed.data === "bl_guia" ||
@@ -2153,14 +2180,39 @@ export async function uploadPuertoLibreDocumentoAction(
             .update({ importacion: merged, updated_at: new Date().toISOString() })
             .eq("id", vehiculoId)
             .eq("taller_id", auth.taller.id);
+          importacionActual = { ...existingImp, ...patch };
         }
       } catch {
         // El documento ya quedó guardado; la extracción es best-effort.
       }
     }
 
+    let loteCopiados = 0;
+    if (isDocumentoLote(tipoParsed.data)) {
+      loteCopiados = await syncLoteDocumentoToSiblings({
+        admin,
+        tallerId: auth.taller.id,
+        sourceVehiculoId: vehiculoId,
+        sourceImportacion: importacionActual,
+        tipo: tipoParsed.data,
+        documento,
+      });
+      await syncLoteImportacionToSiblings({
+        admin,
+        tallerId: auth.taller.id,
+        sourceVehiculoId: vehiculoId,
+        lookup: importacionActual,
+        lote: importacionActual,
+      });
+    }
+
     revalidateFicha(vehiculoId);
-    return { success: true, tipo: tipoParsed.data, documentos: next };
+    return {
+      success: true,
+      tipo: tipoParsed.data,
+      documentos: next,
+      loteCopiados,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "No se pudo subir el documento";
     const lower = msg.toLowerCase();
