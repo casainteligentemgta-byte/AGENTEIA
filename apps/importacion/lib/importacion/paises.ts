@@ -202,7 +202,16 @@ export type Pais = (typeof PAISES)[number];
 
 const PAIS_ALIASES: Record<string, Pais> = {
   china: "China",
+  prc: "China",
+  "p.r.c": "China",
+  "p.r.c.": "China",
+  "p.r. china": "China",
+  "p.r.china": "China",
+  "pr china": "China",
+  "p r china": "China",
+  "the peoples republic of china": "China",
   "peoples republic of china": "China",
+  "mainland china": "China",
   "republic of china": "Taiwán",
   usa: "Estados Unidos",
   us: "Estados Unidos",
@@ -253,6 +262,7 @@ function normalizeKey(value: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
+    .replace(/['’`]/g, "")
     .replace(/\s+/g, " ");
 }
 
@@ -266,4 +276,13 @@ export function resolvePais(value: string | null | undefined): string {
   if (alias) return alias;
   const partial = PAISES.find((p) => normalizeKey(p) === normalizeKey(raw));
   return partial ?? raw;
+}
+
+/** Como `resolvePais`, pero solo si cae en el catálogo (ignora basura OCR). */
+export function resolvePaisCatalog(
+  value: string | null | undefined
+): string | null {
+  const resolved = resolvePais(value);
+  if (!resolved) return null;
+  return (PAISES as readonly string[]).includes(resolved) ? resolved : null;
 }

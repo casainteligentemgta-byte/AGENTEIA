@@ -4,6 +4,7 @@
  */
 
 import { normalizeMotor } from "./factura-row-fidelity";
+import { resolvePaisCatalog } from "./paises";
 import { normalizeSerialKey, pairSerialsOneToOne } from "./serial-match";
 import {
   extractVinStringsFromText,
@@ -63,6 +64,71 @@ export function attachContainersFromText(
     ...p,
     contenedor: p.contenedor ?? vinToContainer.get(p.vin),
   }));
+}
+
+const PAIS_ORIGEN_LABELED_RES = [
+  /COUNTRY\s+OF\s+ORIGIN(?:\s+OF(?:\s+THE)?\s+GOODS)?\s*[:：.\-–]?\s*([A-Z][A-Za-z.'\s]{1,48})/i,
+  /COUNTRY\s*\/\s*REGION\s+OF\s+ORIGIN\s*[:：.\-–]?\s*([A-Z][A-Za-z.'\s]{1,48})/i,
+  /PA[IÍ]S\s+DE\s+ORIGEN\s*[:：.\-–]?\s*([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑ.'\s]{1,48})/i,
+  /ORIGIN\s+OF\s+GOODS\s*[:：.\-–]?\s*([A-Z][A-Za-z.'\s]{1,48})/i,
+];
+
+const PAIS_ORIGEN_CONTEXT_RE =
+  /country\s+of\s+origin|pa[ií]s\s+de\s+origen|origin\s+of\s+goods/i;
+
+const PAIS_ORIGEN_PRC_RE =
+  /THE\s+PEOPLE'?S\s+REPUBLIC\s+OF\s+CHINA|PEOPLE'?S\s+REPUBLIC\s+OF\s+CHINA|P\.?\s*R\.?\s*C(?:HINA)?\b|\bPRC\b|\bCHINA\b/i;
+
+function cleanupOriginCapture(raw: string): string {
+  return raw
+    .replace(
+      /\s+(AND|THE|OF|FOR|BOX|NO|DATE|CERTIFICATE|EXPORTER|CONSIGNEE|MEANS|TRANSPORT|PORT|VESSEL).*$/i,
+      ""
+    )
+    .replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ.'\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * País de origen en la carátula del COO (pág. 1): COUNTRY OF ORIGIN / PRC.
+ * Extraer (`rapido`) no manda el certificado al LLM; hay que leerlo del texto.
+ */
+export function extractPaisOrigenFromCertText(text: string): string | null {
+  const t = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+
+  for (const re of PAIS_ORIGEN_LABELED_RES) {
+    const m = t.match(re);
+    if (!m?.[1]) continue;
+    const cleaned = cleanupOriginCapture(m[1]);
+    if (!cleaned) continue;
+    const resolved = resolvePaisCatalog(cleaned);
+    if (resolved) return resolved;
+    const first = cleaned.split(/\s+/)[0] ?? "";
+    const fromFirst = resolvePaisCatalog(first);
+    if (fromFirst) return fromFirst;
+  }
+
+  if (PAIS_ORIGEN_CONTEXT_RE.test(t)) {
+    const prc = t.match(PAIS_ORIGEN_PRC_RE);
+    if (prc?.[0]) return resolvePaisCatalog(prc[0]) ?? "China";
+  }
+  return null;
+}
+
+/** Prefiere la carátula (pág. 1); si no, busca en el resto o el texto unido. */
+export function extractPaisOrigenFromCertPages(
+  pages: readonly string[]
+): string | null {
+  for (const page of pages) {
+    const pais = extractPaisOrigenFromCertText(page);
+    if (pais) return pais;
+  }
+  if (pages.length > 1) {
+    return extractPaisOrigenFromCertText(pages.filter(Boolean).join("\n\n"));
+  }
+  return null;
 }
 
 const ENGINE_LABELED_RE =
@@ -466,6 +532,8 @@ export function collectEngineNosFromColumnWords(
 export type CertEngineHarvest = {
   pairs: CertEnginePair[];
   motors: string[];
+  /** Cabecera COO: COUNTRY OF ORIGIN (suele estar en pág. 1, no en la tabla). */
+  paisOrigen?: string | null;
 };
 
 /** Pares VIN↔motor y columna ENGINE No desde una página (texto embebido u OCR). */
@@ -515,7 +583,9 @@ export function mergeCertEngineHarvests(
 ): CertEngineHarvest {
   const pairByVin = new Map<string, CertEnginePair>();
   const motors: string[] = [];
+  let paisOrigen: string | null | undefined;
   for (const part of parts) {
+    if (!paisOrigen && part.paisOrigen) paisOrigen = part.paisOrigen;
     for (const pair of part.pairs) {
       const prev = pairByVin.get(pair.vin);
       if (!prev) pairByVin.set(pair.vin, pair);
@@ -533,6 +603,7 @@ export function mergeCertEngineHarvests(
   return {
     pairs: [...pairByVin.values()],
     motors: uniqueMotors(motors),
+    ...(paisOrigen ? { paisOrigen } : {}),
   };
 }
 

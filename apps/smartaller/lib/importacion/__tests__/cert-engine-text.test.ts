@@ -15,6 +15,8 @@ import {
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
   attachContainersFromText,
+  extractPaisOrigenFromCertPages,
+  extractPaisOrigenFromCertText,
   normalizeContainerNo,
 } from "../cert-engine-text";
 
@@ -472,5 +474,88 @@ describe("contenedor ISO del certificado", () => {
       },
     ]);
     assert.equal(next[0]?.contenedor, "CMAU7117837");
+  });
+});
+
+describe("extractPaisOrigenFromCertText", () => {
+  it("lee COUNTRY OF ORIGIN: CHINA", () => {
+    assert.equal(
+      extractPaisOrigenFromCertText("CERTIFICATE OF ORIGIN\nCOUNTRY OF ORIGIN: CHINA"),
+      "China"
+    );
+  });
+
+  it("lee COUNTRY OF ORIGIN OF GOODS (factura / COO)", () => {
+    assert.equal(
+      extractPaisOrigenFromCertText(
+        "DESTINATION: El Guamache COUNTRY OF ORIGIN OF GOODS: CHINA"
+      ),
+      "China"
+    );
+  });
+
+  it("lee People's Republic of China / PRC junto a la etiqueta", () => {
+    assert.equal(
+      extractPaisOrigenFromCertText(
+        "8. Country of origin\nTHE PEOPLE'S REPUBLIC OF CHINA"
+      ),
+      "China"
+    );
+    assert.equal(
+      extractPaisOrigenFromCertText("COUNTRY OF ORIGIN: P.R.CHINA"),
+      "China"
+    );
+    assert.equal(
+      extractPaisOrigenFromCertText("COUNTRY OF ORIGIN PRC"),
+      "China"
+    );
+  });
+
+  it("lee PAÍS DE ORIGEN y Japón", () => {
+    assert.equal(
+      extractPaisOrigenFromCertText("PAÍS DE ORIGEN: Japón"),
+      "Japón"
+    );
+    assert.equal(
+      extractPaisOrigenFromCertText("COUNTRY OF ORIGIN: JAPAN"),
+      "Japón"
+    );
+  });
+
+  it("no inventa China si no hay etiqueta de origen", () => {
+    assert.equal(
+      extractPaisOrigenFromCertText(
+        "CHERY AUTOMOBILE CO., LTD WUHU CHINA EXPORTER"
+      ),
+      null
+    );
+  });
+
+  it("toma el país de la carátula, no de la tabla ENGINE No", () => {
+    const page1 = `
+      CERTIFICATE OF ORIGIN
+      Consignee IKSAN MOTORS
+      COUNTRY OF ORIGIN: CHINA
+    `;
+    const page2 = `
+      VIN                 ENGINE NO
+      LVVDC21B5VD713650   SQRE4G15C1234567
+    `;
+    assert.equal(extractPaisOrigenFromCertPages([page1, page2]), "China");
+    assert.equal(extractPaisOrigenFromCertPages(["", page2]), null);
+  });
+
+  it("mergeCertEngineHarvests conserva paisOrigen", () => {
+    const merged = mergeCertEngineHarvests(
+      { pairs: [], motors: [], paisOrigen: "China" },
+      {
+        pairs: [
+          { vin: "LVVDC21B5VD713650", serialMotor: "SQRE4G15C1234567" },
+        ],
+        motors: ["SQRE4G15C1234567"],
+      }
+    );
+    assert.equal(merged.paisOrigen, "China");
+    assert.equal(merged.pairs.length, 1);
   });
 });
