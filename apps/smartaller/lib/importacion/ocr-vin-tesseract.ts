@@ -188,6 +188,128 @@ export function scoreCertificatePageOcrText(text: string): number {
   );
 }
 
+export function countSqreTokens(text: string): number {
+  return (text.match(/S[O0Q]RE/gi) ?? []).length;
+}
+
+async function cropPixels(
+  imageBuffer: Buffer,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): Promise<Buffer> {
+  const { loadImage, createCanvas } = await import("@napi-rs/canvas");
+  const img = await loadImage(imageBuffer);
+  const x0 = Math.max(0, Math.floor(x));
+  const y0 = Math.max(0, Math.floor(y));
+  const width = Math.max(1, Math.min(Math.floor(w), img.width - x0));
+  const height = Math.max(1, Math.min(Math.floor(h), img.height - y0));
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, x0, y0, width, height, 0, 0, width, height);
+  return canvas.toBuffer("image/png");
+}
+
+async function recognizeCertPage(
+  worker: TessWorker,
+  image: Buffer,
+  psms: unknown[]
+): Promise<string> {
+  const prepared = await upscaleForOcr(image, 1400);
+  const texts: string[] = [];
+  for (const psm of psms) {
+    await worker.setParameters({
+      preserve_interword_spaces: "1",
+      tessedit_pageseg_mode: psm as never,
+    });
+    const result = await worker.recognize(prepared);
+    texts.push(result.data.text ?? "");
+  }
+  const ranked = texts
+    .map((t) => ({ t, score: scoreCertificatePageOcrText(t) }))
+    .sort((a, b) => b.score - a.score);
+  return (ranked[0]?.t ?? texts.join("\n")).trim();
+}
+
+type TessWord = {
+  text?: string;
+  bbox?: { x0: number; y0: number; x1: number; y1: number };
+};
+
+/** Recorta la columna del 1er ENGINE No y lee los seriales de abajo. */
+async function followEngineColumn(
+  worker: TessWorker,
+  psmSingleColumn: unknown,
+  imageBuffer: Buffer
+): Promise<string> {
+  const prepared = await upscaleForOcr(imageBuffer, 1600);
+  const { loadImage } = await import("@napi-rs/canvas");
+  const meta = await loadImage(prepared);
+  await worker.setParameters({
+    preserve_interword_spaces: "1",
+    tessedit_pageseg_mode: "3" as never,
+  });
+  const result = await worker.recognize(prepared);
+  const parts: string[] = [result.data.text ?? ""];
+  const words = ((result.data as { words?: TessWord[] }).words ?? []).filter(
+    (w) => w.bbox && /S[O0Q]RE|C16TD/i.test(w.text ?? "")
+  );
+
+  const strips: Buffer[] = [];
+  try {
+    strips.push(
+      await cropPixels(
+        prepared,
+        meta.width * 0.48,
+        0,
+        meta.width * 0.52,
+        meta.height
+      )
+    );
+  } catch {
+    // recorte derecho
+  }
+
+  if (words.length > 0) {
+    const midXs = words.map((w) => (w.bbox!.x0 + w.bbox!.x1) / 2);
+    midXs.sort((a, b) => a - b);
+    const midX = midXs[Math.floor(midXs.length / 2)]!;
+    const maxW = Math.max(
+      80,
+      ...words.map((w) => w.bbox!.x1 - w.bbox!.x0)
+    );
+    const x0 = Math.max(0, midX - maxW);
+    const stripW = Math.min(meta.width - x0, maxW * 2.4);
+    const firstY = Math.min(...words.map((w) => w.bbox!.y0));
+    try {
+      strips.push(await cropPixels(prepared, x0, 0, stripW, meta.height));
+      strips.push(
+        await cropPixels(
+          prepared,
+          x0,
+          Math.max(0, firstY - 8),
+          stripW,
+          meta.height - Math.max(0, firstY - 8)
+        )
+      );
+    } catch {
+      // franja del 1er SQRE
+    }
+  }
+
+  for (const strip of strips) {
+    try {
+      parts.push(await recognizeCertPage(worker, strip, [psmSingleColumn]));
+    } catch {
+      // columna ilegible
+    }
+  }
+  return parts.join("\n");
+}
+
 /**
  * OCR de factura completa (sin whitelist de VIN) para consignatario,
  * destino, nº factura y CIF. La pasada de VIN excluye I/espacios.
@@ -258,67 +380,93 @@ export async function extractCertificatePagePlainTextWithTesseract(
 }
 
 /**
- * Pág. 2 del COO Chery: tabla apaisada en un PDF vertical.
- * Prueba 90°/270° y se queda con el texto que más SQRE/VIN tenga.
+ * Pág. 2 del COO: el cuadro puede ir vertical o apaisado.
+ * Prueba 0°/90°/180°/270°. Si sale el 1er ENGINE No, lee la columna hacia abajo.
  */
 export async function extractCertificatePagePlainTextOriented(
   imageBuffer: Buffer
 ): Promise<string> {
-  const { loadImage } = await import("@napi-rs/canvas");
+  const { createWorker, PSM } = await import("tesseract.js");
   const { rotateImageBuffer } = await import("@/lib/ai/image-orient");
-  const meta = await loadImage(imageBuffer);
-  const candidates: Buffer[] = [];
-  if (meta.height >= meta.width * 0.9) {
-    for (const deg of [90, 270] as const) {
+  const worker = await createWorker("eng", 1, {
+    logger: () => undefined,
+  });
+  try {
+    const candidates: Buffer[] = [imageBuffer];
+    for (const deg of [90, 270, 180] as const) {
       try {
         candidates.push((await rotateImageBuffer(imageBuffer, deg)).buffer);
       } catch {
-        // ignore
+        // rotación no disponible
       }
     }
-  }
-  if (candidates.length === 0) candidates.push(imageBuffer);
 
-  let bestImg = candidates[0]!;
-  let best = "";
-  let bestScore = -1;
-  for (const img of candidates) {
-    const text = await extractCertificatePagePlainTextWithTesseract(img, {
-      fast: true,
-    });
-    const score = scoreCertificatePageOcrText(text);
-    if (score > bestScore) {
-      bestScore = score;
-      best = text;
-      bestImg = img;
+    let bestImg = candidates[0]!;
+    let best = "";
+    let bestScore = -1;
+    for (const img of candidates) {
+      const text = await recognizeCertPage(worker, img, [PSM.AUTO]);
+      const score = scoreCertificatePageOcrText(text);
+      if (score > bestScore) {
+        bestScore = score;
+        best = text;
+        bestImg = img;
+      }
+      if (countSqreTokens(text) >= 8) return text;
     }
-    if ((text.match(/SQRE/gi) ?? []).length >= 6) return text;
-  }
 
-  if ((best.match(/SQRE/gi) ?? []).length >= 4) return best;
-
-  // AUTO solo vio la 1ª fila: otra pasada + franjas de la tabla.
-  const extra = await extractCertificatePagePlainTextWithTesseract(bestImg, {
-    fast: false,
-  });
-  if (scoreCertificatePageOcrText(extra) > bestScore) best = extra;
-  if ((best.match(/SQRE/gi) ?? []).length >= 6) return best;
-
-  try {
-    const bands = await sliceHorizontalBands(bestImg, 8);
-    const chunks: string[] = [best];
-    for (const band of bands) {
+    // 1 SQRE = hay columna: recortar y seguir hacia abajo (vertical o girado).
+    if (countSqreTokens(best) >= 1) {
       try {
-        chunks.push(
-          await extractCertificatePagePlainTextWithTesseract(band, { fast: true })
-        );
+        const column = await followEngineColumn(worker, PSM.SINGLE_COLUMN, bestImg);
+        if (scoreCertificatePageOcrText(column) > bestScore) {
+          best = `${best}\n${column}`;
+          bestScore = scoreCertificatePageOcrText(best);
+        } else {
+          best = `${best}\n${column}`;
+        }
       } catch {
-        // franja ilegible
+        // sin cajas de palabras
       }
+    }
+    if (countSqreTokens(best) >= 6) return best;
+
+    const extra = await recognizeCertPage(worker, bestImg, [
+      PSM.SINGLE_BLOCK,
+      PSM.SPARSE_TEXT,
+      PSM.SINGLE_COLUMN,
+    ]);
+    best = `${best}\n${extra}`;
+    if (countSqreTokens(best) >= 6) return best;
+
+    const chunks: string[] = [best];
+    try {
+      const { loadImage } = await import("@napi-rs/canvas");
+      const meta = await loadImage(bestImg);
+      chunks.push(
+        await recognizeCertPage(
+          worker,
+          await cropPixels(bestImg, meta.width * 0.45, 0, meta.width * 0.55, meta.height),
+          [PSM.SINGLE_COLUMN]
+        )
+      );
+    } catch {
+      // mitad derecha
+    }
+    try {
+      for (const band of await sliceHorizontalBands(bestImg, 8)) {
+        try {
+          chunks.push(await recognizeCertPage(worker, band, [PSM.AUTO]));
+        } catch {
+          // franja ilegible
+        }
+      }
+    } catch {
+      // sin franjas
     }
     return chunks.join("\n");
-  } catch {
-    return best;
+  } finally {
+    await worker.terminate();
   }
 }
 

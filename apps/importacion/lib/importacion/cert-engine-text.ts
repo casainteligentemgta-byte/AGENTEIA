@@ -326,6 +326,34 @@ export function scoreCertEngineHarvest(h: CertEngineHarvest): number {
 }
 
 /**
+ * Un solo ENGINE No no basta: el resto está en la misma columna
+ * (cuadro vertical o apaisado). Hay que seguir con OCR.
+ */
+export function certHarvestNeedsMoreOcr(h: CertEngineHarvest): boolean {
+  return h.motors.length <= 1 && h.pairs.length <= 1;
+}
+
+export function mergeCertEngineHarvests(
+  ...parts: CertEngineHarvest[]
+): CertEngineHarvest {
+  const pairByVin = new Map<string, string>();
+  const motors: string[] = [];
+  for (const part of parts) {
+    for (const pair of part.pairs) {
+      if (!pairByVin.has(pair.vin)) pairByVin.set(pair.vin, pair.serialMotor);
+    }
+    motors.push(...part.motors);
+  }
+  return {
+    pairs: [...pairByVin.entries()].map(([vin, serialMotor]) => ({
+      vin,
+      serialMotor,
+    })),
+    motors: uniqueMotors(motors),
+  };
+}
+
+/**
  * Cruza ENGINE No del certificado con las filas de factura por VIN
  * (exacto, prefijo o sufijo; repara LWV→LVV).
  */

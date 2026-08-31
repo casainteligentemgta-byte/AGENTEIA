@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   applyEngineNosByVin,
   assignEngineNosByRowOrder,
+  certHarvestNeedsMoreOcr,
   collectEngineNosInOrder,
   harvestCertEnginesFromPages,
   harvestCertEnginesFromText,
+  mergeCertEngineHarvests,
   parseCertEngineNosFromPages,
   parseCertEngineNosFromText,
 } from "../cert-engine-text";
@@ -235,6 +237,22 @@ describe("parseCertEngineNosFromText", () => {
       "LVVDB21B5VE033213 S0RE4G15CB0TC60173"
     );
     assert.equal(pairs[0]?.serialMotor, "SQRE4G15CB0TC60173");
+  });
+
+  it("un solo ENGINE No no cierra la cosecha (hay que seguir la columna)", () => {
+    const one = harvestCertEnginesFromText(
+      "LVVDB21B9VE033523 SQRE4G15CB0TC60412"
+    );
+    assert.equal(one.pairs.length, 1);
+    assert.equal(certHarvestNeedsMoreOcr(one), true);
+    const rest = harvestCertEnginesFromText(`
+      SQRE4G15CB0TC60341
+      SQRE4G15CB0TC60200
+      SQRE4G15CB0TC60173
+    `);
+    const merged = mergeCertEngineHarvests(one, rest);
+    assert.equal(merged.motors.length, 4);
+    assert.equal(certHarvestNeedsMoreOcr(merged), false);
   });
 
   it("si la pág. 2 está vacía, busca ENGINE No en otra página", () => {
