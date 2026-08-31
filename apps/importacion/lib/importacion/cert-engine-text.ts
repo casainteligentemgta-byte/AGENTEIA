@@ -443,6 +443,20 @@ export function certHarvestNeedsMoreOcr(h: CertEngineHarvest): boolean {
   );
 }
 
+/**
+ * Flujo del lunes: la tabla ENGINE No está en la pág. 2 del COO.
+ * Orden de lectura: 2, 1, 3… (0-based: 1, 0, 2, 3…).
+ */
+export function orderPdfPageIndexesEngineFirst(pageCount: number): number[] {
+  if (pageCount <= 0) return [];
+  if (pageCount === 1) return [0];
+  return [1, 0, ...Array.from({ length: pageCount - 2 }, (_, i) => i + 2)];
+}
+
+export function orderPdfPagesEngineTableFirst<T>(pages: T[]): T[] {
+  return orderPdfPageIndexesEngineFirst(pages.length).map((i) => pages[i]!);
+}
+
 export function mergeCertEngineHarvests(
   ...parts: CertEngineHarvest[]
 ): CertEngineHarvest {
