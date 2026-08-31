@@ -80,6 +80,7 @@ import {
 } from "@/lib/importacion/puertos-venezuela";
 import {
   formatCargaMasivaClientError,
+  isCargaMasivaNetworkError,
   isOcrPollTimeoutError,
   postSmartimportOcr,
   safeStorageFileName,
@@ -541,46 +542,57 @@ export function PuertoLibreCargaMasiva({
       fd.set("etapa", "certs");
       fd.set("storageDocs", JSON.stringify([ref]));
       fd.set("rowsJson", JSON.stringify(currentRows));
-      const result = await postSmartimportOcr(
-        "/api/smartimport/ocr-carga-masiva",
-        fd,
-        extractCargaMasivaEtapaAction,
-        {
-          deadlineMs: 50_000,
-          pollMs: 50_000,
-          onRetry: (attempt) =>
-            setExtractProgress({
-              etapa: "certs",
-              label: `Certificado ${i + 1}/${storageDocs.length}`,
-              hint: `ENGINE No por VIN… ${attempt * 2}s`,
-              vinsEncontrados: currentRows.filter(
-                (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
-              ).length,
-              filasCompletas: currentRows.filter((r) =>
-                vehicleCompleteness(r).complete
-              ).length,
-              totalFilas: currentRows.length,
-              pct: Math.round((i / Math.max(storageDocs.length, 1)) * 100),
-            }),
-        }
-      );
-      if (!result.success) {
+      let result: Awaited<ReturnType<typeof extractCargaMasivaEtapaAction>>;
+      try {
+        result = await postSmartimportOcr(
+          "/api/smartimport/ocr-carga-masiva",
+          fd,
+          extractCargaMasivaEtapaAction,
+          {
+            deadlineMs: 55_000,
+            pollMs: 55_000,
+            onRetry: (attempt) =>
+              setExtractProgress({
+                etapa: "certs",
+                label: `Certificado ${i + 1}/${storageDocs.length}`,
+                hint: `ENGINE No por VIN… ${attempt * 2}s`,
+                vinsEncontrados: currentRows.filter(
+                  (r) => (r.serialCarroceria || r.vin || "").trim().length >= 11
+                ).length,
+                filasCompletas: currentRows.filter((r) =>
+                  vehicleCompleteness(r).complete
+                ).length,
+                totalFilas: currentRows.length,
+                pct: Math.round((i / Math.max(storageDocs.length, 1)) * 100),
+              }),
+          }
+        );
+      } catch (err) {
         ingestExtracted(currentRows, lastMatches);
+        allWarnings.push(
+          `Certificado «${ref.fileName}»: ${formatCargaMasivaClientError(err)}`
+        );
         setWarnings(allWarnings);
+        if (isOcrPollTimeoutError(err) || isCargaMasivaNetworkError(err)) {
+          continue;
+        }
         setActiveEtapa(null);
         setExtractProgress(null);
-        if (currentRows.length > 0 && isOcrPollTimeoutError(result.error)) {
-          setResultMsg(
-            `${currentRows.length} vehículo(s) listos. El certificado no respondió a tiempo; usa «Añadir certificados».`
-          );
-          setError(null);
-          return true;
-        }
         setError(
-          currentRows.length > 0
-            ? `Certificado «${ref.fileName}»: ${result.error}. Las filas ya extraídas se mantienen; reintenta con «Añadir certificados».`
-            : result.error
+          `Certificado «${ref.fileName}»: ${formatCargaMasivaClientError(err)}. Las filas se mantienen; Extraer seguirá con modelo/color.`
         );
+        return true;
+      }
+      if (!result.success) {
+        ingestExtracted(currentRows, lastMatches);
+        allWarnings.push(
+          `Certificado «${ref.fileName}»: ${result.error}`
+        );
+        setWarnings(allWarnings);
+        if (currentRows.length > 0) continue;
+        setActiveEtapa(null);
+        setExtractProgress(null);
+        setError(result.error);
         return false;
       }
       currentRows = result.rows;
@@ -846,8 +858,8 @@ export function PuertoLibreCargaMasiva({
               return;
             }
             const ok = await applyCertsFromStorage(storageDocs, currentRows);
-            if (!ok) return;
             currentRows = rowsRef.current.length > 0 ? rowsRef.current : currentRows;
+            if (!ok && currentRows.length === 0) return;
             setEtapasHechas((prev) => new Set(prev).add("certs"));
             continue;
           }
@@ -945,9 +957,10 @@ export function PuertoLibreCargaMasiva({
             setWarnings((prev) => [...prev, ...allWarnings]);
             if (isOcrPollTimeoutError(err)) {
               setResultMsg(
-                `${currentRows.length} vehículo(s) de la factura listos. El certificado no terminó a tiempo; usa «Añadir certificados» o revisa los ENGINE No.`
+                `${currentRows.length} vehículo(s) de la factura listos. Completa ENGINE No con «Añadir certificados» si faltan.`
               );
               setError(null);
+              setWarnings((prev) => [...prev, ...allWarnings]);
               return;
             }
             setError(`${msg} Las filas ya extraídas se mantienen.`);

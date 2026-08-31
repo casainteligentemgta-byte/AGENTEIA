@@ -56,7 +56,7 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
-import { repairCheryWmi } from "@/lib/importacion/vin-text";
+import { repairCheryWmi, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
   VEHICULO_DOCS_BUCKET,
@@ -184,12 +184,15 @@ function scanFieldsToRow(
   const vinRaw = fields.vin ?? serialRaw;
   const serial = normalizarSerialCarroceria(serialRaw || vinRaw);
   const vin = normalizarSerialCarroceria(vinRaw || serialRaw) || serial;
+  const anio =
+    (fields.anio ?? "").trim() ||
+    (anioFromVin(vin) != null ? String(anioFromVin(vin)) : "");
   return emptyCargaMasivaRow({
     id: preserveId,
     marca: fields.marca ?? "",
     modelo: fields.modelo ?? "",
     color: fields.color ?? "",
-    anio: fields.anio ?? "",
+    anio,
     serialMotor: fields.serialMotor ?? "",
     vin,
     serialCarroceria: serial || vin,

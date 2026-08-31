@@ -183,7 +183,7 @@ export async function runVehicleImportExtract(params: {
             fd,
             extractCargaMasivaEtapaAction,
             {
-              deadlineMs: 50_000,
+              deadlineMs: 55_000,
               onRetry: (attempt) =>
                 params.onProgress({
                   etapa: "certs",
