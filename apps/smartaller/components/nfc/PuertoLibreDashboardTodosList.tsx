@@ -5,12 +5,17 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { PuertoLibreSwipeDeleteExpediente } from "@/components/nfc/PuertoLibreSwipeDeleteExpediente";
 import { compareExpedientesAsc } from "@/lib/importacion/expediente";
+import {
+  dashboardFichaLineas,
+  type DashboardFichaIdentidad,
+} from "@/lib/importacion/dashboard-ficha";
 
 export type DashboardTodosItem = {
   id: string;
   href: string;
   codigo: string;
   vehiculo: string;
+  ficha?: DashboardFichaIdentidad;
   codigoExpediente: string | null;
   created_at: string;
 };
@@ -100,9 +105,22 @@ export function PuertoLibreDashboardTodosList({ items, emptyMessage }: Props) {
                           <span className="smartimport-expediente-title inline-block whitespace-nowrap font-mono text-zinc-300">
                             {v.codigo}
                           </span>
-                          <span className="smartimport-vehiculo-description mt-0.5 block truncate">
-                            {v.vehiculo}
-                          </span>
+                          {v.ficha && dashboardFichaLineas(v.ficha).length > 0 ? (
+                            <span className="mt-1 block space-y-0.5">
+                              {dashboardFichaLineas(v.ficha).map((line, i) => (
+                                <span
+                                  key={`${i}-${line}`}
+                                  className="smartimport-vehiculo-description block"
+                                >
+                                  {line}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            <span className="smartimport-vehiculo-description mt-0.5 block truncate">
+                              {v.vehiculo}
+                            </span>
+                          )}
                         </span>
                         <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
                       </Link>

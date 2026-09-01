@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
-  ArrowLeft,
   BookOpen,
   FileText,
   Plus,
@@ -48,6 +47,10 @@ import {
   groupByCargaBl,
 } from "@/lib/importacion/expediente-lote";
 import { completarEtapaLabel } from "@/lib/importacion/dashboard-completar-etapa";
+import {
+  dashboardFichaIdentidad,
+  dashboardFichaSearchText,
+} from "@/lib/importacion/dashboard-ficha";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +108,15 @@ function labelVehiculo(v: PuertoLibreVehiculoListItem): string {
   const marcaModelo = [marca, modelo].filter(Boolean).join(" ");
   if (marcaModelo && color) return `${marcaModelo} ${color}`;
   return marcaModelo || color || "Datos pendientes";
+}
+
+function fichaDe(v: PuertoLibreVehiculoListItem) {
+  return dashboardFichaIdentidad({
+    marca: v.marca,
+    modelo: v.modelo,
+    color: v.color,
+    vin: v.vin,
+  });
 }
 
 function completitudTone(
@@ -442,7 +454,7 @@ export default async function PuertoLibrePage() {
 
   const rowsPorRegistro: DashboardBucketRow[] = porRegistro.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     const pend =
       v.datosPendientes.length > 0
         ? `Falta: ${v.datosPendientes.slice(0, 4).join(", ")}`
@@ -456,11 +468,11 @@ export default async function PuertoLibrePage() {
         expediente: v.completitudDatos
           ? `${completitudDot(v.completitudDatos)} ${expediente}`
           : expediente,
-        vehiculo,
         accion: completarEtapaLabel(1),
       },
-      subcells: pend ? { vehiculo: pend } : undefined,
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
+      ficha,
+      subcells: pend ? { expediente: pend } : undefined,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
       actionLabel: completarEtapaLabel(1),
       actionTone: completitudTone(v.completitudDatos),
     };
@@ -471,21 +483,23 @@ export default async function PuertoLibrePage() {
       if (!group.blKey) {
         return group.items.map((v) => {
           const expediente = labelExpediente(v);
-          const vehiculo = labelVehiculo(v);
+          const ficha = fichaDe(v);
           return {
             id: v.id,
             href: cargaBlPath(null, v.id),
-            cells: { expediente, vehiculo, accion: "Asignar BL" },
-            searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+            cells: { expediente, vehiculo: "", accion: "Asignar BL" },
+            ficha,
+            searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
             actionLabel: "Asignar BL",
             actionTone: "amber",
           };
         });
       }
       const first = group.items[0]!;
+      const ficha = group.items.length === 1 ? fichaDe(first) : undefined;
       const vehiculo =
         group.items.length === 1
-          ? labelVehiculo(first)
+          ? ""
           : `${group.items.length} expedientes`;
       return [
         {
@@ -496,8 +510,12 @@ export default async function PuertoLibrePage() {
             vehiculo,
             accion: "Cargar",
           },
+          ficha,
           searchText: `${group.label} ${group.items
-            .map((v) => `${labelExpediente(v)} ${labelVehiculo(v)} ${v.nombre_cliente ?? ""}`)
+            .map(
+              (v) =>
+                `${labelExpediente(v)} ${dashboardFichaSearchText(fichaDe(v))} ${v.nombre_cliente ?? ""}`
+            )
             .join(" ")}`,
           actionLabel: "Cargar",
           actionTone: "red",
@@ -508,17 +526,17 @@ export default async function PuertoLibrePage() {
 
   const rowsPorRecibir: DashboardBucketRow[] = porRecibir.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     return {
       id: v.id,
       href: `/smartimport/${v.id}/planilla?fase=3`,
       cells: {
         expediente,
-        vehiculo,
         llegada: formatFechaDia(v.fechaLlegadaBuque),
       },
+      ficha,
       dateValue: v.fechaLlegadaBuque,
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
       actionLabel: completarEtapaLabel(3),
       actionTone: "cyan",
     };
@@ -526,18 +544,18 @@ export default async function PuertoLibrePage() {
 
   const rowsPendientes: DashboardBucketRow[] = pendientes.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     const modificadoIso = (v.updated_at ?? v.created_at).slice(0, 10);
     return {
       id: v.id,
       href: completarHref(v),
       cells: {
         expediente,
-        vehiculo,
         modificado: formatFechaHoraCorta(v.updated_at ?? v.created_at),
       },
+      ficha,
       dateValue: modificadoIso || null,
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
       actionLabel: completarEtapaLabel(v.planillaFase),
       actionTone: "cyan",
     };
@@ -545,20 +563,20 @@ export default async function PuertoLibrePage() {
 
   const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     return {
       id: v.id,
       href: `/smartimport/${v.id}`,
       cells: {
         expediente,
-        vehiculo,
         rechazo: formatFechaDia(v.fechaRechazoSeniat?.slice(0, 10) ?? null),
       },
+      ficha,
       subcells: v.motivoRechazoSeniat
-        ? { vehiculo: v.motivoRechazoSeniat }
+        ? { expediente: v.motivoRechazoSeniat }
         : undefined,
       dateValue: v.fechaRechazoSeniat?.slice(0, 10) ?? null,
-      searchText: `${expediente} ${vehiculo} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Corregir",
       actionTone: "red",
     };
@@ -566,20 +584,20 @@ export default async function PuertoLibrePage() {
 
   const rowsPorSeniat: DashboardBucketRow[] = porSeniat.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     return {
       id: v.id,
       href: `/smartimport/${v.id}/nacionalizar`,
       cells: {
         expediente,
-        vehiculo,
         presentacion: formatFechaDia(v.fechaPresentacionSeniat),
       },
+      ficha,
       subcells: {
         presentacion: etiquetaDias(v.diasSeniat, "Sin fecha"),
       },
       dateValue: v.fechaPresentacionSeniat,
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Gestionar",
       actionTone: "sky",
       urgent: v.diasSeniat != null && v.diasSeniat <= 7,
@@ -588,15 +606,15 @@ export default async function PuertoLibrePage() {
 
   const rowsPorNacionalizar: DashboardBucketRow[] = porNacionalizar.map((v) => {
     const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
+    const ficha = fichaDe(v);
     return {
       id: v.id,
       href: `/smartimport/${v.id}/nacionalizar`,
       cells: {
         expediente,
-        vehiculo,
         limite: formatFechaDia(v.fechaLimiteNacionalizacion),
       },
+      ficha,
       subcells: {
         limite: etiquetaDias(
           v.diasNacionalizacion,
@@ -604,7 +622,7 @@ export default async function PuertoLibrePage() {
         ),
       },
       dateValue: v.fechaLimiteNacionalizacion,
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Nacionalizar",
       actionTone: "amber",
       urgent:
@@ -617,13 +635,6 @@ export default async function PuertoLibrePage() {
     <PuertoLibreShell>
       <header className="mb-3 space-y-3">
         <div className="flex items-center gap-1.5">
-          <Link
-            href="/portales"
-            className="inline-flex shrink-0 rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
-            aria-label="Volver"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
           <h1 className="smartimport-page-title min-w-0 flex-1 text-zinc-50">
             Expediente de Importación Vehicular
           </h1>
@@ -701,8 +712,7 @@ export default async function PuertoLibrePage() {
           title="Pendiente a completar"
           emptyMessage="No hay expedientes pendientes."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
           ]}
           rows={rowsPendientes}
@@ -717,8 +727,7 @@ export default async function PuertoLibrePage() {
             icon="file"
             emptyMessage="No hay vehículos por completar registro."
             columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
               { key: "accion", header: "Acción", pdfWidth: 0.8 },
             ]}
             rows={rowsPorRegistro}
@@ -748,8 +757,7 @@ export default async function PuertoLibrePage() {
           icon="ship"
           emptyMessage="No hay vehículos pendientes de recepción en puerto."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
           ]}
           rows={rowsPorRecibir}
@@ -763,8 +771,7 @@ export default async function PuertoLibrePage() {
           icon="building"
           emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
           ]}
           rows={rowsPorSeniat}
@@ -779,8 +786,7 @@ export default async function PuertoLibrePage() {
           icon="alert"
           emptyMessage="No hay expedientes con rechazo SENIAT pendiente de corrección."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Vehículo", pdfWidth: 2.2 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.6 },
             { key: "rechazo", header: "Rechazo", pdfWidth: 1 },
           ]}
           rows={rowsRechazados}
@@ -795,8 +801,7 @@ export default async function PuertoLibrePage() {
           icon="flag"
           emptyMessage="No hay vehículos pendientes de nacionalización."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "limite", header: "Límite", pdfWidth: 1.3 },
           ]}
           rows={rowsPorNacionalizar}
@@ -811,12 +816,13 @@ export default async function PuertoLibrePage() {
             href: `/smartimport/${v.id}`,
             codigo: labelExpediente(v),
             vehiculo: labelVehiculo(v),
+            ficha: fichaDe(v),
             codigoExpediente: v.codigoExpediente,
             created_at: v.created_at,
           }))}
           emptyMessage={
             puedeMutar
-              ? "No hay importaciones. Usa «Importación» en el dashboard para registrar una o varias unidades."
+              ? "No hay importaciones. Usa Importación o carga masiva desde el alta."
               : "Cuando te asignen o compartan un vehículo, aparecerá aquí."
           }
         />
