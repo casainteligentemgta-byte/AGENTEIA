@@ -1,7 +1,7 @@
 /**
  * Colas del dashboard Puerto Libre.
- * Un expediente puede estar en SENIAT y en su etapa de planilla a la vez;
- * no debe repetirse en "Pendiente a completar" si ya tiene cubo propio (1–3).
+ * Planilla: una cola por fase 1–7. La 8 ya está completa.
+ * SENIAT y nacionalización son relojes aparte (pueden coincidir con una etapa).
  */
 
 export type DashboardClasificacionFuente = {
@@ -13,6 +13,10 @@ export type DashboardClasificacionFuente = {
   completitudDatos?: "rojo" | "ambar" | "verde" | null;
 };
 
+export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7] as const;
+
+export type PlanillaFasePendiente = (typeof PLANILLA_FASES_PENDIENTES)[number];
+
 function faseDe(v: DashboardClasificacionFuente): number {
   const f = v.planillaFase;
   if (f == null || !Number.isFinite(f) || f < 1) return 1;
@@ -23,30 +27,16 @@ function tieneFecha(value: string | null | undefined): boolean {
   return Boolean(value?.trim());
 }
 
-/** Fase 1: falta guardar registro (factura + certificado + planilla). */
-export function esPorCompletarRegistro(v: DashboardClasificacionFuente): boolean {
-  return faseDe(v) === 1 && !tieneFecha(v.fechaIngreso);
-}
-
-/** Fase 2: BL / lista de empaque / póliza de la carga. */
-export function esPorCargarDocsCarga(v: DashboardClasificacionFuente): boolean {
-  return faseDe(v) === 2 && !tieneFecha(v.fechaIngreso);
-}
-
-/** Fase 3: llegada a puerto, sin fecha de ingreso. */
-export function esPorRecibirEnPuerto(v: DashboardClasificacionFuente): boolean {
-  return faseDe(v) === 3 && !tieneFecha(v.fechaIngreso);
-}
-
-/**
- * Etapas 4–7 (desaduanamiento, propietario, seguro, matrícula).
- * No incluye registro / carga / puerto: esas tienen cubo propio.
- */
-export function esPendientePlanillaRestante(
-  v: DashboardClasificacionFuente
+/** Cola de planilla: el expediente está en esa etapa (1–7). */
+export function esPorCompletarEtapa(
+  v: DashboardClasificacionFuente,
+  etapa: PlanillaFasePendiente
 ): boolean {
-  const f = faseDe(v);
-  return f >= 4 && f < 8;
+  return faseDe(v) === etapa;
+}
+
+export function esPorCompletarRegistro(v: DashboardClasificacionFuente): boolean {
+  return esPorCompletarEtapa(v, 1);
 }
 
 /**

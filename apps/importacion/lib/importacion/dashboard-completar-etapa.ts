@@ -26,3 +26,11 @@ export function completarEtapaLabel(
   const etapa = PLANILLA_ETAPA_LABELS[resolvePlanillaEtapaPendiente(fase)];
   return `Completar ${etapa}`;
 }
+
+/** Título de cola: Por completar registro, Por completar embarque, … */
+export function porCompletarEtapaTitle(
+  fase: number | null | undefined
+): `Por completar ${string}` {
+  const etapa = PLANILLA_ETAPA_LABELS[resolvePlanillaEtapaPendiente(fase)];
+  return `Por completar ${etapa}`;
+}
