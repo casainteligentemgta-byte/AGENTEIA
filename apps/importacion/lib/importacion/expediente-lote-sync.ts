@@ -8,6 +8,7 @@ import {
   type VehiculoDocumentoRef,
 } from "@/lib/schemas/vehiculo-documentos";
 import {
+  DOCUMENTO_TIPOS_CARGA_BL,
   DOCUMENTO_TIPOS_LOTE,
   documentosConCopiaLote,
   fillEmptyImportacionLote,
@@ -83,6 +84,53 @@ export async function syncLoteDocumentoToSiblings(params: {
     if (!error) copied += 1;
   }
   return copied;
+}
+
+/**
+ * Copia al BL todos los papeles de carga ya subidos en el expediente fuente.
+ */
+export async function syncCargaBlDocumentosToSiblings(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  sourceVehiculoId: string;
+  sourceImportacion: ImportacionData;
+}): Promise<{ archivos: number; expedientes: number }> {
+  const { data: source } = await params.admin
+    .from("vehiculos")
+    .select("documentos")
+    .eq("id", params.sourceVehiculoId)
+    .eq("taller_id", params.tallerId)
+    .maybeSingle();
+  if (!source) return { archivos: 0, expedientes: 0 };
+
+  const sourceDocs = parseVehiculosDocumentos(source.documentos);
+  const tipos = DOCUMENTO_TIPOS_CARGA_BL.filter((tipo) =>
+    Boolean(sourceDocs[tipo]?.url)
+  );
+  if (tipos.length === 0) return { archivos: 0, expedientes: 0 };
+
+  const rows = hermanosDelLote(
+    await loadPosiblesHermanos(
+      params.admin,
+      params.tallerId,
+      params.sourceVehiculoId
+    ),
+    params.sourceImportacion
+  );
+  let expedientes = 0;
+  for (const row of rows) {
+    let next = parseVehiculosDocumentos(row.documentos);
+    for (const tipo of tipos) {
+      next = documentosConCopiaLote(next, tipo, sourceDocs[tipo]!);
+    }
+    const { error } = await params.admin
+      .from("vehiculos")
+      .update({ documentos: next, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("taller_id", params.tallerId);
+    if (!error) expedientes += 1;
+  }
+  return { archivos: tipos.length, expedientes };
 }
 
 /** Copia refs de documentos (mismo path de Storage) a IDs concretos. Sin OCR. */

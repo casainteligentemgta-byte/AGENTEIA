@@ -3,10 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileUp, Ship, UserRound } from "lucide-react";
+import { ArrowLeft, FileUp, Save, Ship, UserRound } from "lucide-react";
 import {
   assignNumeroBlAction,
   saveCargaBlDatosAction,
+  saveCargaBlLoteCompletoAction,
   type CargaBlIndexItem,
   type CargaBlLote,
 } from "@/app/actions/nfc/importacion-lote";
@@ -151,6 +152,29 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           : "";
       setMessage(
         `Datos de la carga guardados en el BL${extra}. La fase se confirma aparte.`
+      );
+      router.refresh();
+    });
+  }
+
+  function saveDatosYArchivos() {
+    setError(null);
+    startTransition(async () => {
+      const result = await saveCargaBlLoteCompletoAction({
+        sourceVehiculoId: lote.sourceVehiculoId,
+        fechaIngreso,
+        fechaLlegadaBuque,
+        puerto,
+        aduana,
+        agenteAduanal,
+      });
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      const nExp = result.loteCopiados + 1;
+      setMessage(
+        `Datos y ${result.archivos} archivo${result.archivos === 1 ? "" : "s"} guardados en el BL · ${nExp} expediente${nExp === 1 ? "" : "s"}.`
       );
       router.refresh();
     });
@@ -311,6 +335,16 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           {message}
         </p>
       ) : null}
+
+      <button
+        type="button"
+        onClick={saveDatosYArchivos}
+        disabled={pending}
+        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
+      >
+        <Save className="h-4 w-4" />
+        {pending ? "Guardando…" : "Guardar datos y archivos"}
+      </button>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="text-sm font-semibold text-slate-200">

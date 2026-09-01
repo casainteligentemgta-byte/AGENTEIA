@@ -23,6 +23,7 @@ import {
   inheritLoteOntoVehiculo,
   syncLoteImportacionToSiblings,
   copyCedulaRifClienteOntoVehiculos,
+  syncCargaBlDocumentosToSiblings,
 } from "@/lib/importacion/expediente-lote-sync";
 import {
   placaRealVisible,
@@ -296,6 +297,46 @@ export async function saveCargaBlDatosAction(input: {
   });
   revalidateLote(parsed.data.sourceVehiculoId);
   return { success: true, loteCopiados };
+}
+
+export async function saveCargaBlLoteCompletoAction(input: {
+  sourceVehiculoId: string;
+  fechaIngreso: string;
+  fechaLlegadaBuque: string;
+  puerto: string;
+  aduana: string;
+  agenteAduanal: string;
+}): Promise<
+  | { success: true; loteCopiados: number; archivos: number }
+  | { success: false; error: string }
+> {
+  const datos = await saveCargaBlDatosAction(input);
+  if (!datos.success) return datos;
+
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("vehiculos")
+    .select("importacion")
+    .eq("id", input.sourceVehiculoId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+  const sourceImportacion = parseImportacion(row?.importacion);
+  const sync = await syncCargaBlDocumentosToSiblings({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: input.sourceVehiculoId,
+    sourceImportacion,
+  });
+  revalidateLote(input.sourceVehiculoId);
+  return {
+    success: true,
+    loteCopiados: Math.max(datos.loteCopiados, sync.expedientes),
+    archivos: sync.archivos,
+  };
 }
 
 /** @deprecated Usar saveCargaBlDatosAction. */
