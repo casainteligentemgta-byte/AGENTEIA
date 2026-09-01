@@ -74,6 +74,8 @@ type Props = {
   defaultExpedienteSort?: ExpedienteSortDir | null;
   /** Rojo = cola de trabajo; ok = inventario cerrado (nacionalizados). */
   badgeTone?: "alert" | "ok";
+  /** Ancla para deep-link (p. ej. #cola-embarque). */
+  sectionId?: string;
 };
 
 const EXPEDIENTE_CODE_CLASS =
@@ -136,6 +138,7 @@ export function PuertoLibreDashboardBucket({
   dense = false,
   defaultExpedienteSort = null,
   badgeTone = "alert",
+  sectionId,
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -543,7 +546,10 @@ export function PuertoLibreDashboardBucket({
   if (dense) {
     if (!showTable) {
       return (
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+        <div
+          id={sectionId}
+          className="flex items-center justify-between gap-3 px-3 py-2.5"
+        >
           {titleRow}
           {countBadge}
         </div>
@@ -551,7 +557,11 @@ export function PuertoLibreDashboardBucket({
     }
 
     return (
-      <details className="group" open={rows.some((r) => r.urgent)}>
+      <details
+        id={sectionId}
+        className="group"
+        open={rows.some((r) => r.urgent)}
+      >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
           {titleRow}
           {countBadge}
