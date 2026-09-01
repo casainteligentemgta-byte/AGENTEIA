@@ -38,6 +38,9 @@ import {
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
+import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
+import { parseImportadorDocumentos } from "@/lib/importadores/upload-documento";
+import { copyCedulaRifClienteOntoVehiculos } from "@/lib/importacion/expediente-lote-sync";
 import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
@@ -403,7 +406,7 @@ export async function createPuertoLibreVehiculoAction(
   const admin = createAdminClient();
   const { data: cliente, error: clienteError } = await admin
     .from("importadores")
-    .select("id, tipo, nombre, documento, telefono, email, direccion, activo")
+    .select("id, tipo, nombre, documento, telefono, email, direccion, activo, documentos")
     .eq("id", data.importadorId)
     .eq("taller_id", auth.taller.id)
     .maybeSingle();
@@ -513,7 +516,10 @@ export async function createPuertoLibreVehiculoAction(
       telefono_cliente: null,
       cedula_propietario: null,
       email_propietario: null,
-      documentos: {},
+      documentos: mergeCedulaRifDesdeCliente(
+        {},
+        parseImportadorDocumentos(cliente.documentos)
+      ).next,
       importacion,
       seguro: {},
       unidad_odometro: "km",
@@ -2805,6 +2811,13 @@ export async function getPuertoLibreFicha(
 
     const docsFb = parseVehiculosDocumentos(fallback.documentos);
     const impFb = parseImportacion(fallback.importacion);
+    const hydratedFb = await copyCedulaRifClienteOntoVehiculos({
+      admin,
+      tallerId: auth.taller.id,
+      importadorId: impFb.importadorId,
+      rows: [{ id: vehiculoId, documentos: fallback.documentos }],
+    });
+    const docsFbHydrated = hydratedFb.get(vehiculoId) ?? docsFb;
 
     return {
       success: true,
@@ -2827,10 +2840,10 @@ export async function getPuertoLibreFicha(
           codigoExpediente: impFb.codigoExpediente,
           placa: fallback.placa,
         }),
-        fotoUrl: docsFb.foto_frontal?.url ?? docsFb.foto_placa?.url ?? null,
+        fotoUrl: docsFbHydrated.foto_frontal?.url ?? docsFbHydrated.foto_placa?.url ?? null,
         tienePin: Boolean(fallback.pin_hash),
         tieneInspeccionTransportista: false,
-        documentos: docsFb,
+        documentos: docsFbHydrated,
         importacion: impFb,
         seguro: {},
         sticker: stickerFb
@@ -2853,8 +2866,15 @@ export async function getPuertoLibreFicha(
     .limit(1)
     .maybeSingle();
 
-  const docs = parseVehiculosDocumentos(data.documentos);
+  const docsParsed = parseVehiculosDocumentos(data.documentos);
   let importacion = parseImportacion(data.importacion);
+  const hydrated = await copyCedulaRifClienteOntoVehiculos({
+    admin,
+    tallerId: auth.taller.id,
+    importadorId: importacion.importadorId,
+    rows: [{ id: vehiculoId, documentos: data.documentos }],
+  });
+  const docs = hydrated.get(vehiculoId) ?? docsParsed;
   let codigoExpediente = resolveCodigoExpediente({
     codigoExpediente: importacion.codigoExpediente,
     placa: data.placa,

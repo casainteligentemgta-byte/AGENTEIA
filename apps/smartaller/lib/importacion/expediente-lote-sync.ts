@@ -18,6 +18,8 @@ import {
   pickDocumentosLoteFaltantes,
   pickImportacionLoteFields,
 } from "@/lib/importacion/expediente-lote";
+import { parseImportadorDocumentos } from "@/lib/importadores/upload-documento";
+import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
 
 type SiblingRow = {
   id: string;
@@ -251,4 +253,46 @@ export async function inheritLoteOntoVehiculo(params: {
     .eq("taller_id", params.tallerId);
   if (updError) return { inheritedDocs: 0, inheritedFields: false };
   return { inheritedDocs, inheritedFields };
+}
+
+export async function loadImportadorDocumentos(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  importadorId: string | null | undefined;
+}): Promise<ReturnType<typeof parseImportadorDocumentos>> {
+  const id = params.importadorId?.trim();
+  if (!id) return {};
+  const { data } = await params.admin
+    .from("importadores")
+    .select("documentos")
+    .eq("id", id)
+    .eq("taller_id", params.tallerId)
+    .maybeSingle();
+  return parseImportadorDocumentos(data?.documentos);
+}
+
+/**
+ * Copia cédula y RIF del cliente a los expedientes que aún no los tienen.
+ * Devuelve los documentos del primer id (ya fusionados).
+ */
+export async function copyCedulaRifClienteOntoVehiculos(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  importadorId: string | null | undefined;
+  rows: { id: string; documentos: unknown }[];
+}): Promise<Map<string, ReturnType<typeof parseVehiculosDocumentos>>> {
+  const out = new Map<string, ReturnType<typeof parseVehiculosDocumentos>>();
+  const cliente = await loadImportadorDocumentos(params);
+  for (const row of params.rows) {
+    const current = parseVehiculosDocumentos(row.documentos);
+    const { next, added } = mergeCedulaRifDesdeCliente(current, cliente);
+    out.set(row.id, next);
+    if (added.length === 0) continue;
+    await params.admin
+      .from("vehiculos")
+      .update({ documentos: next, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("taller_id", params.tallerId);
+  }
+  return out;
 }

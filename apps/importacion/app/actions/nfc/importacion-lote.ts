@@ -22,6 +22,7 @@ import {
 import {
   inheritLoteOntoVehiculo,
   syncLoteImportacionToSiblings,
+  copyCedulaRifClienteOntoVehiculos,
 } from "@/lib/importacion/expediente-lote-sync";
 import {
   placaRealVisible,
@@ -136,7 +137,23 @@ export async function getCargaBlLoteAction(
     }
   }
 
-  const docs = parseVehiculosDocumentos(best.documentos);
+  const docsRaw = parseVehiculosDocumentos(best.documentos);
+  const importadorId =
+    parseImportacion(best.importacion).importadorId ??
+    rows
+      .map((row) => parseImportacion(row.importacion).importadorId)
+      .find((id) => Boolean(id?.trim())) ??
+    null;
+  const hydrated = await copyCedulaRifClienteOntoVehiculos({
+    admin,
+    tallerId: auth.taller.id,
+    importadorId,
+    rows: rows.map((row) => ({
+      id: row.id as string,
+      documentos: row.documentos,
+    })),
+  });
+  const docs = hydrated.get(best.id as string) ?? docsRaw;
   const documentos: CargaBlLote["documentos"] = {};
   for (const tipo of DOCUMENTO_TIPOS_CARGA_BL) {
     const ref = docs[tipo];
