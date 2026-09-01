@@ -58,6 +58,11 @@ type Props = {
   /** Estado inicial de verificación (desde importacion). */
   initialImprontaVerify?: ImprontaVerifyUi | null;
   onImprontaVerified?: (result: ImprontaVerifyUi) => void;
+  /**
+   * No extrae datos con IA al subir. En el lote el nº BL ya está;
+   * el OCR no debe cambiarlo ni dejar la UI en «Subiendo…».
+   */
+  skipOcr?: boolean;
 };
 
 const ACCEPT_BOTH =
@@ -82,6 +87,7 @@ export function ImportDocumentoUpload({
   verifySerialAgainstExpediente = false,
   initialImprontaVerify = null,
   onImprontaVerified,
+  skipOcr = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -113,8 +119,9 @@ export function ImportDocumentoUpload({
     actionLabel ?? (pdfOnly ? "Subir PDF" : "Escanear / PDF");
 
   useEffect(() => {
-    setUrl(existingUrl ?? null);
-    setDone(Boolean(existingUrl));
+    if (!existingUrl) return;
+    setUrl(existingUrl);
+    setDone(true);
   }, [existingUrl]);
 
   useEffect(() => {
@@ -164,6 +171,7 @@ export function ImportDocumentoUpload({
         formData.set("vehiculoId", vehiculoId);
         formData.set("tipo", tipo);
         formData.set("file", normalized);
+        if (skipOcr) formData.set("skipOcr", "1");
 
         const result = await uploadPuertoLibreDocumentoAction(formData);
         if (!result.success) {

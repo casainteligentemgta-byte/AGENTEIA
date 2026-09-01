@@ -93,6 +93,7 @@ function CargaBlDocSection({
             acceptMode="both"
             hint={docs[tipo]?.url ? "" : DOC_HINT[tipo]}
             actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
+            skipOcr
             onUploaded={(next, meta) => {
               onUploaded(next, tipo, meta?.loteCopiados ?? 0);
             }}

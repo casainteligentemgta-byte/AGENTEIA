@@ -16,6 +16,7 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL,
   countDocumentosCargaBl,
   groupByCargaBl,
+  mergeDocumentosCargaBl,
   normalizeLoteBlKey,
   sameLoteBl,
 } from "@/lib/importacion/expediente-lote";
@@ -139,7 +140,6 @@ export async function getCargaBlLoteAction(
     }
   }
 
-  const docsRaw = parseVehiculosDocumentos(best.documentos);
   const importadorId =
     parseImportacion(best.importacion).importadorId ??
     rows
@@ -155,7 +155,11 @@ export async function getCargaBlLoteAction(
       documentos: row.documentos,
     })),
   });
-  const docs = hydrated.get(best.id as string) ?? docsRaw;
+  const docsList = rows.map((row) => {
+    const id = row.id as string;
+    return hydrated.get(id) ?? parseVehiculosDocumentos(row.documentos);
+  });
+  const docs = mergeDocumentosCargaBl(docsList);
   const documentos: CargaBlLote["documentos"] = {};
   for (const tipo of DOCUMENTO_TIPOS_CARGA_BL) {
     const ref = docs[tipo];

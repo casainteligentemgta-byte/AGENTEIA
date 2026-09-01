@@ -81,7 +81,10 @@ import {
   ultimoImportadorFromAlta,
 } from "@/lib/taller-preferencias";
 import { isLlmConfigured } from "@/lib/ai/openai-config";
-import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
+import {
+  isDocumentoLote,
+  numeroBlFromScan,
+} from "@/lib/importacion/expediente-lote";
 import {
   inheritLoteOntoVehiculo,
   syncLoteDocumentoToSiblings,
@@ -113,7 +116,8 @@ function embarquePatchFromScanFields(
   options?: { includeNumeroPoliza?: boolean }
 ): Partial<ImportacionData> {
   const patch: Partial<ImportacionData> = {};
-  if (fields.numeroBl?.trim()) patch.numeroBl = fields.numeroBl.trim();
+  const numeroBl = numeroBlFromScan(existing.numeroBl, fields.numeroBl);
+  if (numeroBl) patch.numeroBl = numeroBl;
   if (fields.fechaLlegadaBuque?.trim()) {
     patch.fechaLlegadaBuque = fields.fechaLlegadaBuque.trim();
   }
@@ -2262,6 +2266,20 @@ export async function uploadPuertoLibreDocumentoAction(
     const skipOcr = String(formData.get("skipOcr") ?? "") === "1";
     const skipLoteSync = String(formData.get("skipLoteSync") ?? "") === "1";
 
+    // Copiar al lote ANTES del OCR: si el extracto pisa el nº BL o se agota
+    // el tiempo, el PDF ya quedó en todos los expedientes del grupo.
+    let loteCopiados = 0;
+    if (!skipLoteSync && isDocumentoLote(tipoParsed.data)) {
+      loteCopiados = await syncLoteDocumentoToSiblings({
+        admin,
+        tallerId: auth.taller.id,
+        sourceVehiculoId: vehiculoId,
+        sourceImportacion: importacionActual,
+        tipo: tipoParsed.data,
+        documento,
+      });
+    }
+
     // BL / póliza / certificado: extraer datos y guardar en importación (best-effort).
     // Extraer ya leyó el lote: al Registrar no repetir OCR (minutos por unidad).
     if (
@@ -2316,21 +2334,12 @@ export async function uploadPuertoLibreDocumentoAction(
       }
     }
 
-    let loteCopiados = 0;
     if (!skipLoteSync && isDocumentoLote(tipoParsed.data)) {
-      loteCopiados = await syncLoteDocumentoToSiblings({
-        admin,
-        tallerId: auth.taller.id,
-        sourceVehiculoId: vehiculoId,
-        sourceImportacion: importacionActual,
-        tipo: tipoParsed.data,
-        documento,
-      });
       await syncLoteImportacionToSiblings({
         admin,
         tallerId: auth.taller.id,
         sourceVehiculoId: vehiculoId,
-        lookup: importacionActual,
+        lookup: parseImportacion(row.importacion),
         lote: importacionActual,
       });
     }

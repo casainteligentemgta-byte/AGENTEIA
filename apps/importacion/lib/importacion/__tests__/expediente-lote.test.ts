@@ -11,8 +11,10 @@ import {
   groupByCargaBl,
   isDocumentoLote,
   isSiblingDelMismoLote,
+  mergeDocumentosCargaBl,
   mergeImportacionLote,
   normalizeLoteBlKey,
+  numeroBlFromScan,
   pickDocumentosLoteFaltantes,
   pickImportacionLoteFields,
 } from "../expediente-lote";
@@ -142,6 +144,22 @@ describe("expediente lote vs unidad", () => {
       "/smartimport/lote?from=abc-uuid"
     );
     assert.equal(cargaBlPath(null), "/smartimport/lote");
+  });
+
+  it("OCR no pisa un nº BL ya escrito", () => {
+    assert.equal(numeroBlFromScan("321", "COSU999"), undefined);
+    assert.equal(numeroBlFromScan("", "COSU999"), "COSU999");
+    assert.equal(numeroBlFromScan(null, "  "), undefined);
+  });
+
+  it("une papeles de carga repartidos entre expedientes", () => {
+    const merged = mergeDocumentosCargaBl([
+      { lista_empaque: { url: "https://x/l.pdf", path: "l" } },
+      { bl_guia: { url: "https://x/bl.pdf", path: "bl" } },
+    ]);
+    assert.equal(merged.lista_empaque?.path, "l");
+    assert.equal(merged.bl_guia?.path, "bl");
+    assert.equal(countDocumentosCargaBl(merged), 2);
   });
 
   it("hereda huecos de lote y no pisa fecha ni fase ya escritas", () => {
