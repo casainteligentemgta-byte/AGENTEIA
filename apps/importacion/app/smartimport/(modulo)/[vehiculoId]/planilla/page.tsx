@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: { vehiculoId: string };
-  searchParams?: { fase?: string };
+  searchParams?: { fase?: string; preview?: string };
 };
 
 export default async function PlanillaRegistroImportacionPage({
@@ -109,6 +109,13 @@ export default async function PlanillaRegistroImportacionPage({
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </div>
+
+        {searchParams?.preview === "1" ? (
+          <p className="mb-4 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
+            Vista previa de la planilla (modo construcción). Luego se vuelve al
+            flujo con recaudos.
+          </p>
+        ) : null}
 
         <PlanillaRegistroImportacion
           vehiculoId={ficha.id}

@@ -33,9 +33,20 @@ import {
 } from "@/lib/importacion/expediente";
 import {
   DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_MATRICULA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
+  DASHBOARD_COLA_SEGURO_ID,
 } from "@/lib/importacion/paths";
+import {
+  hrefNacionalizar,
+  hrefPresentacionSeniat,
+  nacionalizarAccionLabel,
+  seniatAccionLabel,
+} from "@/lib/importacion/planilla-en-construccion";
 import { listPropietariosAction } from "@/app/actions/nfc/propietarios";
+import { listSegurosAction } from "@/app/actions/nfc/seguros";
+import { listMatriculasAction } from "@/app/actions/nfc/matriculas";
+import { FichaColaResumen } from "@/components/nfc/FichaColaResumen";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import {
@@ -160,8 +171,8 @@ function sortPorExpediente(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = faseColaPlanilla(v);
-  if (f >= 7) return `/smartimport/${v.id}/planilla?fase=7`;
-  if (f === 6) return `/smartimport/${v.id}/planilla?fase=6`;
+  if (f >= 7) return `/smartimport/matriculas?expediente=${v.id}`;
+  if (f === 6) return `/smartimport/seguros?expediente=${v.id}`;
   if (f === 5) return `/smartimport/propietarios?expediente=${v.id}`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
@@ -519,6 +530,12 @@ export default async function PuertoLibrePage() {
   const propietarios = propietariosListed.success
     ? propietariosListed.propietarios
     : [];
+  const [segurosListed, matriculasListed] = await Promise.all([
+    listSegurosAction(),
+    listMatriculasAction(),
+  ]);
+  const seguros = segurosListed.success ? segurosListed.fichas : [];
+  const matriculas = matriculasListed.success ? matriculasListed.fichas : [];
   const porRegistro = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 1))
   );
@@ -624,7 +641,7 @@ export default async function PuertoLibrePage() {
     const ficha = fichaDe(v);
     return {
       id: v.id,
-      href: `/smartimport/${v.id}/nacionalizar`,
+      href: hrefPresentacionSeniat(v.id),
       cells: {
         expediente,
         presentacion: formatFechaDia(v.fechaPresentacionSeniat),
@@ -635,7 +652,7 @@ export default async function PuertoLibrePage() {
       },
       dateValue: v.fechaPresentacionSeniat,
       searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-      actionLabel: "Gestionar",
+      actionLabel: seniatAccionLabel(),
       actionTone: "sky",
       urgent: v.diasSeniat != null && v.diasSeniat <= 7,
     };
@@ -646,7 +663,7 @@ export default async function PuertoLibrePage() {
     const ficha = fichaDe(v);
     return {
       id: v.id,
-      href: `/smartimport/${v.id}/nacionalizar`,
+      href: hrefNacionalizar(v.id),
       cells: {
         expediente,
         limite: formatFechaDia(v.fechaLimiteNacionalizacion),
@@ -660,7 +677,7 @@ export default async function PuertoLibrePage() {
       },
       dateValue: v.fechaLimiteNacionalizacion,
       searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-      actionLabel: "Nacionalizar",
+      actionLabel: nacionalizarAccionLabel(),
       actionTone: "amber",
       urgent:
         v.diasNacionalizacion != null &&
@@ -874,28 +891,79 @@ export default async function PuertoLibrePage() {
           }
         />
 
-        {(
-          [
-            [6, rowsPorSeguro],
-            [7, rowsPorMatricula],
-          ] as const
-        ).map(([fase, rows]) => (
-          <PuertoLibreDashboardBucket
-            key={fase}
-            dense
-            title={porCompletarEtapaTitle(fase)}
-            icon="file"
-            emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(fase).toLowerCase()}.`}
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
-            ]}
-            rows={rows}
-            dateFilterLabel="Modificado"
-            actionColumnKey="modificado"
-            defaultExpedienteSort="asc"
-          />
-        ))}
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_SEGURO_ID}
+          title={porCompletarEtapaTitle(6)}
+          icon="file"
+          emptyMessage="No hay expedientes por completar seguro. Crea una ficha y enlázala."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorSeguro}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+          headerActions={
+            puedeMutar ? (
+              <Link
+                href="/smartimport/seguros/nueva"
+                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
+              >
+                Nueva ficha
+              </Link>
+            ) : null
+          }
+          leadingContent={
+            <FichaColaResumen
+              items={seguros.map((s) => ({
+                id: s.id,
+                titulo: s.aseguradora,
+                detalle: `${s.numeroPoliza || "Sin póliza"} · ${s.expedientesCount} expediente${s.expedientesCount === 1 ? "" : "s"}`,
+              }))}
+              hrefFor={(id) => `/smartimport/seguros/${id}`}
+              emptyText="Crea una ficha de seguro y asígnale un expediente."
+            />
+          }
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_MATRICULA_ID}
+          title={porCompletarEtapaTitle(7)}
+          icon="file"
+          emptyMessage="No hay expedientes por completar matrícula. Crea una ficha y enlázala."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorMatricula}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+          headerActions={
+            puedeMutar ? (
+              <Link
+                href="/smartimport/matriculas/nueva"
+                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
+              >
+                Nueva ficha
+              </Link>
+            ) : null
+          }
+          leadingContent={
+            <FichaColaResumen
+              items={matriculas.map((m) => ({
+                id: m.id,
+                titulo: m.placa || "Sin placa",
+                detalle: `${m.oficinaIntt || "Sin oficina"} · ${m.expedientesCount} expediente${m.expedientesCount === 1 ? "" : "s"}`,
+              }))}
+              hrefFor={(id) => `/smartimport/matriculas/${id}`}
+              emptyText="Crea una ficha de matrícula y asígnale un expediente."
+            />
+          }
+        />
 
         <PuertoLibreDashboardBucket
           dense

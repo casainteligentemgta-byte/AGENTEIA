@@ -3,6 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getPuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
 import { PuertoLibreNacionalizarWizard } from "@/components/nfc/PuertoLibreNacionalizarWizard";
 import { getRegimenConfig, labelRegimenImportacion } from "@/lib/importacion/regimenes";
+import {
+  PLANILLA_PREVIEW_EN_CONSTRUCCION,
+  hrefPlanillaPreview,
+} from "@/lib/importacion/planilla-en-construccion";
 import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +58,9 @@ export default async function PuertoLibreNacionalizarPage({ params }: Props) {
   }
 
   if (fase < 8) {
+    if (PLANILLA_PREVIEW_EN_CONSTRUCCION) {
+      redirect(hrefPlanillaPreview(ficha.id));
+    }
     return (
       <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-4">
