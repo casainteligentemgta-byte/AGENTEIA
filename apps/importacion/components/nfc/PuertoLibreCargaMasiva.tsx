@@ -1378,13 +1378,15 @@ export function PuertoLibreCargaMasiva({
       ).length;
       const semNote =
         ambarCount > 0 || rojoCount > 0
-          ? ` Semáforo: ${verdCount} verde, ${ambarCount} ámbar, ${rojoCount} rojo (completar datos en el expediente).`
+          ? ` Semáforo: ${verdCount} verde, ${ambarCount} ámbar, ${rojoCount} rojo (completar datos en la ficha).`
           : "";
+      const colaNote =
+        ok > 0 ? " Quedan por completar embarque." : "";
 
       setResultMsg(
         fail > 0
-          ? `Creados ${ok}. Fallaron ${fail}.${semNote}${attachNote}`
-          : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${semNote}${attachNote}`
+          ? `Creados ${ok}. Fallaron ${fail}.${colaNote}${semNote}${attachNote}`
+          : `Se registraron ${ok} expediente${ok === 1 ? "" : "s"}.${colaNote}${semNote}${attachNote}`
       );
       if (ok > 0) {
         setCreatedExpedientes((prev) => [...result.created, ...prev]);
@@ -2215,8 +2217,9 @@ export function PuertoLibreCargaMasiva({
               Registrar expedientes
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Se crean todos los que tienen VIN. Quedan agrupados por BL
-              (embarque) y por contenedor del certificado de origen.
+              Se crean todos los que tienen VIN. Al registrar, el registro
+              queda cerrado y pasan a Por completar embarque, agrupados por BL
+              y por contenedor del certificado de origen.
             </p>
             {registerGroups.length > 0 ? (
               <div className="mt-3 space-y-3">
@@ -2283,9 +2286,9 @@ export function PuertoLibreCargaMasiva({
               </p>
             ) : semaforo.rojo > 0 || semaforo.ambar > 0 ? (
               <p className="mt-2 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
-                Se crearán {semaforo.aptos.length} expediente(s). Los de color
-                rojo/ámbar quedan pendientes de datos (marca, motor, certificado…)
-                en la ficha.
+                Se crearán {semaforo.aptos.length} expediente(s). Al registrar
+                quedan en Por completar embarque. Los de color rojo/ámbar
+                completan datos (marca, motor, certificado…) en la ficha.
               </p>
             ) : null}
           </div>

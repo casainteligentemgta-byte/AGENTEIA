@@ -1,8 +1,9 @@
 /**
  * Colas del dashboard Puerto Libre.
  * Planilla: una cola por fase 1–7. La 8 ya está completa.
- * Si el registro ya está listo (chip verde / semáforo verde), la cola es embarque
- * aunque planillaFase siga en 1 (Extraer no persiste el avance).
+ * Extraer → Registrar persiste planillaFase 2 (Por completar embarque).
+ * Si el registro ya está listo (chip verde / semáforo verde) y la BD
+ * sigue en fase 1 (alta suelta), la cola visible es embarque.
  * SENIAT y nacionalización son relojes aparte (pueden coincidir con una etapa).
  */
 
