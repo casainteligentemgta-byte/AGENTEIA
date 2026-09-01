@@ -32,6 +32,12 @@ export function isImportacionAppPath(path: string): boolean {
 
 /** 2.ª cola del dashboard: Por completar embarque. */
 export const DASHBOARD_COLA_EMBARQUE_ID = "cola-embarque";
+/** Cola: Por completar propietario. */
+export const DASHBOARD_COLA_PROPIETARIO_ID = "cola-propietario";
+/** Cola: Por completar seguro. */
+export const DASHBOARD_COLA_SEGURO_ID = "cola-seguro";
+/** Cola: Por completar matrícula. */
+export const DASHBOARD_COLA_MATRICULA_ID = "cola-matricula";
 
 /**
  * Tras guardar embarque: «Continuar a Llegada» va al dashboard (2.ª cola);
