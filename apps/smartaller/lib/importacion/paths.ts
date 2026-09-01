@@ -29,3 +29,21 @@ export function isImportacionAppPath(path: string): boolean {
     normalized.startsWith(`${IMPORTACION_BASE}/`)
   );
 }
+
+/** 2.ª cola del dashboard: Por completar embarque. */
+export const DASHBOARD_COLA_EMBARQUE_ID = "cola-embarque";
+
+/**
+ * Tras guardar embarque: «Continuar a Llegada» va al dashboard (2.ª cola);
+ * «Guardar e ir a la ficha» abre el expediente.
+ */
+export function hrefAfterFase2Embarque(
+  after: "next" | "ficha",
+  vehiculoId: string
+): string {
+  const id = vehiculoId.trim();
+  if (after === "ficha") {
+    return id ? `${IMPORTACION_BASE}/${id}` : IMPORTACION_BASE;
+  }
+  return `${IMPORTACION_BASE}#${DASHBOARD_COLA_EMBARQUE_ID}`;
+}

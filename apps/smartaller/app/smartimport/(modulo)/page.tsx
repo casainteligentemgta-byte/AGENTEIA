@@ -31,6 +31,7 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
+import { DASHBOARD_COLA_EMBARQUE_ID } from "@/lib/importacion/paths";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import {
@@ -769,6 +770,7 @@ export default async function PuertoLibrePage() {
 
         <PuertoLibreDashboardBucket
           dense
+          sectionId={DASHBOARD_COLA_EMBARQUE_ID}
           title={porCompletarEtapaTitle(2)}
           icon="file"
           emptyMessage="No hay cargas por completar embarque."
