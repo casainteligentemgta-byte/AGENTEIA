@@ -24,6 +24,7 @@ import {
   dashboardFichaLineas,
   type DashboardFichaIdentidad,
 } from "@/lib/importacion/dashboard-ficha";
+import { compareExpedienteLabelsAsc } from "@/lib/importacion/expediente";
 
 export type DashboardBucketColumn = {
   key: string;
@@ -51,6 +52,8 @@ export type DashboardBucketRow = {
 
 type IconName = "ship" | "alert" | "building" | "flag" | "file" | "check" | "none";
 
+type ExpedienteSortDir = "asc" | "desc";
+
 type Props = {
   title: string;
   icon?: IconName;
@@ -67,6 +70,8 @@ type Props = {
    * Vacío = una línea; con filas = accordion expandible.
    */
   dense?: boolean;
+  /** Orden inicial por expediente (menor → mayor). */
+  defaultExpedienteSort?: ExpedienteSortDir | null;
   /** Rojo = cola de trabajo; ok = inventario cerrado (nacionalizados). */
   badgeTone?: "alert" | "ok";
 };
@@ -108,13 +113,6 @@ function matchesDate(
   return true;
 }
 
-type ExpedienteSortDir = "asc" | "desc";
-
-/** Orden natural de códigos tipo PL-2026.8.8 (partes numéricas). */
-function compareExpedienteCode(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -136,13 +134,14 @@ export function PuertoLibreDashboardBucket({
   borderClassName = "border-zinc-800/80",
   actionColumnKey,
   dense = false,
+  defaultExpedienteSort = null,
   badgeTone = "alert",
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [expedienteSort, setExpedienteSort] = useState<ExpedienteSortDir | null>(
-    null
+    defaultExpedienteSort
   );
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
@@ -163,7 +162,7 @@ export function PuertoLibreDashboardBucket({
     return [...filtered].sort(
       (a, b) =>
         dir *
-        compareExpedienteCode(
+        compareExpedienteLabelsAsc(
           a.cells.expediente ?? "",
           b.cells.expediente ?? ""
         )

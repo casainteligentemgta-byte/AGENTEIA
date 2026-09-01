@@ -143,13 +143,8 @@ function completitudDot(nivel: PuertoLibreVehiculoListItem["completitudDatos"]):
   return "";
 }
 
-function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
-  return [...items].sort((a, b) => {
-    const fa = a.fechaLlegadaBuque ?? "9999-99-99";
-    const fb = b.fechaLlegadaBuque ?? "9999-99-99";
-    if (fa !== fb) return fa.localeCompare(fb);
-    return a.created_at.localeCompare(b.created_at);
-  });
+function sortPorExpediente(items: PuertoLibreVehiculoListItem[]) {
+  return [...items].sort(compareExpedientesAsc);
 }
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
@@ -161,12 +156,6 @@ function completarHref(v: PuertoLibreVehiculoListItem): string {
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
   if (f === 2) return cargaBlPath(v.numeroBl, v.id);
   return `/smartimport/${v.id}/planilla?fase=1`;
-}
-
-function sortPorModificado(items: PuertoLibreVehiculoListItem[]) {
-  return [...items].sort((a, b) =>
-    (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at)
-  );
 }
 
 function rowPorCompletarFase(
@@ -446,13 +435,13 @@ export default async function PuertoLibrePage() {
       : null;
 
   const vehiculos = loaded.vehiculos;
-  const porRegistro = sortPorLlegadaBuque(
+  const porRegistro = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 1))
   );
-  const porEmbarque = sortPorLlegadaBuque(
+  const porEmbarque = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 2))
   );
-  const porRecibir = sortPorLlegadaBuque(
+  const porRecibir = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 3))
   );
   const porNacionalizar = sortByFechaAsc(
@@ -524,16 +513,16 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorModificado(
+  const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
   ).map((v) => rowPorCompletarFase(v, 4));
-  const rowsPorPropietario: DashboardBucketRow[] = sortPorModificado(
+  const rowsPorPropietario: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 5))
   ).map((v) => rowPorCompletarFase(v, 5));
-  const rowsPorSeguro: DashboardBucketRow[] = sortPorModificado(
+  const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 6))
   ).map((v) => rowPorCompletarFase(v, 6));
-  const rowsPorMatricula: DashboardBucketRow[] = sortPorModificado(
+  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 7))
   ).map((v) => rowPorCompletarFase(v, 7));
 
@@ -712,6 +701,7 @@ export default async function PuertoLibrePage() {
           ]}
           rows={rowsPorRegistro}
           actionColumnKey="accion"
+          defaultExpedienteSort="asc"
         />
 
         <PuertoLibreDashboardBucket
@@ -726,6 +716,7 @@ export default async function PuertoLibrePage() {
           rows={rowsPorEmbarque}
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
         />
 
         <PuertoLibreDashboardBucket
@@ -740,6 +731,7 @@ export default async function PuertoLibrePage() {
           rows={rowsPorRecibir}
           dateFilterLabel="Llegada"
           actionColumnKey="llegada"
+          defaultExpedienteSort="asc"
         />
 
         {(
@@ -763,6 +755,7 @@ export default async function PuertoLibrePage() {
             rows={rows}
             dateFilterLabel="Modificado"
             actionColumnKey="modificado"
+            defaultExpedienteSort="asc"
           />
         ))}
 
