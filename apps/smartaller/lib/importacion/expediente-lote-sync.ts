@@ -70,21 +70,23 @@ export async function syncLoteDocumentoToSiblings(params: {
     ),
     params.sourceImportacion
   );
-  let copied = 0;
-  for (const row of rows) {
-    const next = documentosConCopiaLote(
-      parseVehiculosDocumentos(row.documentos),
-      params.tipo,
-      params.documento
-    );
-    const { error } = await params.admin
-      .from("vehiculos")
-      .update({ documentos: next, updated_at: new Date().toISOString() })
-      .eq("id", row.id)
-      .eq("taller_id", params.tallerId);
-    if (!error) copied += 1;
-  }
-  return copied;
+  if (rows.length === 0) return 0;
+  const results = await Promise.all(
+    rows.map(async (row) => {
+      const next = documentosConCopiaLote(
+        parseVehiculosDocumentos(row.documentos),
+        params.tipo,
+        params.documento
+      );
+      const { error } = await params.admin
+        .from("vehiculos")
+        .update({ documentos: next, updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .eq("taller_id", params.tallerId);
+      return !error;
+    })
+  );
+  return results.filter(Boolean).length;
 }
 
 /**

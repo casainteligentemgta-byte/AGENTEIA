@@ -166,6 +166,17 @@ export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
   ...DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
 ];
 
+/** OCR solo rellena el nº BL si el expediente aún no tiene uno. */
+export function numeroBlFromScan(
+  existing: string | null | undefined,
+  scanned: string | null | undefined
+): string | undefined {
+  const next = scanned?.trim();
+  if (!next) return undefined;
+  if (existing?.trim()) return undefined;
+  return next;
+}
+
 export function cargaBlPath(
   numeroBl: string | null | undefined,
   fromVehiculoId?: string | null
@@ -214,6 +225,23 @@ export function pickDocumentosLoteFaltantes(
     if (ref?.url) next[tipo] = ref;
   }
   return next;
+}
+
+/** Une papeles de carga: si el BL está en un expediente y la lista en otro, se ven ambos. */
+export function mergeDocumentosCargaBl(
+  docsList: readonly VehiculosDocumentos[]
+): VehiculosDocumentos {
+  const merged: VehiculosDocumentos = {};
+  for (const tipo of DOCUMENTO_TIPOS_CARGA_BL) {
+    for (const docs of docsList) {
+      const ref = docs[tipo];
+      if (ref?.url) {
+        merged[tipo] = ref;
+        break;
+      }
+    }
+  }
+  return merged;
 }
 
 export function countDocumentosCargaBl(docs: VehiculosDocumentos): number {

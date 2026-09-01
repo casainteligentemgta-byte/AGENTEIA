@@ -11,8 +11,10 @@ import {
   groupByCargaBl,
   isDocumentoLote,
   isSiblingDelMismoLote,
+  mergeDocumentosCargaBl,
   mergeImportacionLote,
   normalizeLoteBlKey,
+  numeroBlFromScan,
   pickDocumentosLoteFaltantes,
   pickImportacionLoteFields,
 } from "../expediente-lote";
@@ -107,6 +109,16 @@ describe("expediente lote vs unidad", () => {
     assert.equal(merged.planillaFase, 2);
   });
 
+  it("al cambiar el nº de BL lo pisa en cada expediente del lote", () => {
+    const merged = mergeImportacionLote(
+      { numeroBl: "321", puerto: "El Guamache", planillaFase: 2 },
+      { numeroBl: "COSU999" }
+    );
+    assert.equal(merged.numeroBl, "COSU999");
+    assert.equal(merged.puerto, "El Guamache");
+    assert.equal(merged.planillaFase, 2);
+  });
+
   it("copia la referencia del documento de lote", () => {
     const next = documentosConCopiaLote(
       { certificado_origen: { url: "https://x/c.pdf", path: "c" } },
@@ -142,6 +154,22 @@ describe("expediente lote vs unidad", () => {
       "/smartimport/lote?from=abc-uuid"
     );
     assert.equal(cargaBlPath(null), "/smartimport/lote");
+  });
+
+  it("OCR no pisa un nº BL ya escrito", () => {
+    assert.equal(numeroBlFromScan("321", "COSU999"), undefined);
+    assert.equal(numeroBlFromScan("", "COSU999"), "COSU999");
+    assert.equal(numeroBlFromScan(null, "  "), undefined);
+  });
+
+  it("une papeles de carga repartidos entre expedientes", () => {
+    const merged = mergeDocumentosCargaBl([
+      { lista_empaque: { url: "https://x/l.pdf", path: "l" } },
+      { bl_guia: { url: "https://x/bl.pdf", path: "bl" } },
+    ]);
+    assert.equal(merged.lista_empaque?.path, "l");
+    assert.equal(merged.bl_guia?.path, "bl");
+    assert.equal(countDocumentosCargaBl(merged), 2);
   });
 
   it("hereda huecos de lote y no pisa fecha ni fase ya escritas", () => {
