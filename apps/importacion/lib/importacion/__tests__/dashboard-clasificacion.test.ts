@@ -42,6 +42,13 @@ describe("dashboard clasificación", () => {
     assert.equal(esPorCompletarRegistro(v), true);
   });
 
+  it("Extraer registrar (fase 2) va a embarque aunque el semáforo siga ámbar", () => {
+    const v = { planillaFase: 2, completitudDatos: "ambar" as const };
+    assert.equal(faseColaPlanilla(v), 2);
+    assert.equal(esPorCompletarRegistro(v), false);
+    assert.deepEqual(colasPlanillaDe(v), [2]);
+  });
+
   it("chip Registro verde también manda a embarque aunque el semáforo no esté guardado", () => {
     const v = {
       planillaFase: 1,

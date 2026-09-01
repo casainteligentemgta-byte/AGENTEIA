@@ -1910,7 +1910,8 @@ async function insertOneVehiculo(params: {
     estadoNacionalizacion:
       data.regimen === "puerto_libre" ? "pendiente" : "no_aplica",
     estadoSeniat: "pendiente",
-    planillaFase: 1,
+    // Extraer → Registrar cierra el registro: el expediente entra a embarque.
+    planillaFase: 2,
     codigoExpediente,
     completitudDatos: completitudDatos ?? null,
     datosPendientes:
