@@ -227,6 +227,7 @@ const fechaSchema = z
 
 const cargaBlDatosSchema = z.object({
   sourceVehiculoId: z.string().uuid(),
+  numeroBl: z.string().trim().max(80).optional(),
   fechaIngreso: fechaSchema,
   fechaLlegadaBuque: fechaSchema,
   puerto: z.string().trim().max(120),
@@ -234,15 +235,27 @@ const cargaBlDatosSchema = z.object({
   agenteAduanal: z.string().trim().max(120),
 });
 
+function numeroBlGuardado(raw: string | undefined, fallback: string | null): string {
+  const next = (raw ?? "").trim().toUpperCase().replace(/\s+/g, " ");
+  if (next) return next;
+  return (fallback ?? "").trim();
+}
+
 export async function saveCargaBlDatosAction(input: {
   sourceVehiculoId: string;
+  numeroBl?: string;
   fechaIngreso: string;
   fechaLlegadaBuque: string;
   puerto: string;
   aduana: string;
   agenteAduanal: string;
 }): Promise<
-  | { success: true; loteCopiados: number; fasesAvanzadas: number }
+  | {
+      success: true;
+      loteCopiados: number;
+      fasesAvanzadas: number;
+      numeroBl: string;
+    }
   | { success: false; error: string }
 > {
   const auth = await requireTallerAuth();
@@ -271,8 +284,14 @@ export async function saveCargaBlDatosAction(input: {
     return { success: false, error: "Este expediente no tiene nº de BL" };
   }
 
+  const nextBl = numeroBlGuardado(parsed.data.numeroBl, existing.numeroBl);
+  if (!normalizeLoteBlKey(nextBl)) {
+    return { success: false, error: "Indica el nº de BL / guía" };
+  }
+
   const merged = {
     ...existing,
+    numeroBl: nextBl,
     fechaIngreso: parsed.data.fechaIngreso || null,
     fechaLlegadaBuque: parsed.data.fechaLlegadaBuque || null,
     puerto: parsed.data.puerto || null,
@@ -293,7 +312,7 @@ export async function saveCargaBlDatosAction(input: {
     admin,
     tallerId: auth.taller.id,
     sourceVehiculoId: parsed.data.sourceVehiculoId,
-    lookup: merged,
+    lookup: existing,
     lote: merged,
   });
   const fasesAvanzadas = await advanceLotePlanillaFases({
@@ -303,18 +322,25 @@ export async function saveCargaBlDatosAction(input: {
     sourceImportacion: merged,
   });
   revalidateLote(parsed.data.sourceVehiculoId);
-  return { success: true, loteCopiados, fasesAvanzadas };
+  return { success: true, loteCopiados, fasesAvanzadas, numeroBl: nextBl };
 }
 
 export async function saveCargaBlLoteCompletoAction(input: {
   sourceVehiculoId: string;
+  numeroBl?: string;
   fechaIngreso: string;
   fechaLlegadaBuque: string;
   puerto: string;
   aduana: string;
   agenteAduanal: string;
 }): Promise<
-  | { success: true; loteCopiados: number; archivos: number; fasesAvanzadas: number }
+  | {
+      success: true;
+      loteCopiados: number;
+      archivos: number;
+      fasesAvanzadas: number;
+      numeroBl: string;
+    }
   | { success: false; error: string }
 > {
   const datos = await saveCargaBlDatosAction(input);
@@ -350,6 +376,7 @@ export async function saveCargaBlLoteCompletoAction(input: {
     loteCopiados: Math.max(datos.loteCopiados, sync.expedientes),
     archivos: sync.archivos,
     fasesAvanzadas: Math.max(datos.fasesAvanzadas, fasesAvanzadas),
+    numeroBl: datos.numeroBl,
   };
 }
 
