@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  DOCUMENTO_TIPOS_CARGA_BL,
+  DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
+  DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  cargaBlPath,
+  countDocumentosCargaBl,
   documentosConCopiaLote,
+  fillEmptyImportacionLote,
+  groupByCargaBl,
   isDocumentoLote,
   isSiblingDelMismoLote,
   mergeImportacionLote,
   normalizeLoteBlKey,
+  pickDocumentosLoteFaltantes,
   pickImportacionLoteFields,
 } from "../expediente-lote";
 
@@ -71,6 +79,7 @@ describe("expediente lote vs unidad", () => {
     assert.equal(patch.numeroContenedor, undefined);
     assert.equal(patch.observaciones, undefined);
     assert.equal("planillaFase" in patch, false);
+    assert.equal("partidaArancelaria" in patch, false);
   });
 
   it("al copiar lote conserva CIF y contenedor del hermano", () => {
@@ -106,6 +115,85 @@ describe("expediente lote vs unidad", () => {
     );
     assert.equal(next.lista_empaque?.path, "l");
     assert.equal(next.certificado_origen?.path, "c");
+  });
+
+  it("docs de la carga cubren embarque, llegada y desaduanamiento del BL", () => {
+    assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE], [
+      "bl_guia",
+      "lista_empaque",
+      "poliza_transporte",
+      "acta_recepcion_mercancia",
+      "constancia_edi_reconocimiento",
+    ]);
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));
+    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 15);
+    assert.equal(isDocumentoLote("poliza_transporte"), true);
+    assert.equal(isDocumentoLote("pase_salida_levante"), true);
+    assert.equal(isDocumentoLote("poliza_seguro"), false);
+    assert.equal(isDocumentoLote("foto_frontal"), false);
+  });
+
+  it("ruta del cargador va por BL, o from si aún no hay número", () => {
+    assert.equal(cargaBlPath(" cosu 123 "), "/smartimport/lote?bl=COSU123");
+    assert.equal(
+      cargaBlPath(null, "abc-uuid"),
+      "/smartimport/lote?from=abc-uuid"
+    );
+    assert.equal(cargaBlPath(null), "/smartimport/lote");
+  });
+
+  it("hereda huecos de lote y no pisa fecha ni fase ya escritas", () => {
+    const filled = fillEmptyImportacionLote(
+      {
+        numeroBl: "COSU123",
+        planillaFase: 1,
+        fechaIngreso: null,
+        puerto: "La Guaira",
+      },
+      {
+        numeroBl: "COSU123",
+        fechaIngreso: "2026-08-01",
+        puerto: "Guanta",
+        planillaFase: 4,
+        aduana: "Guanta",
+      }
+    );
+    assert.equal(filled.fechaIngreso, "2026-08-01");
+    assert.equal(filled.puerto, "La Guaira");
+    assert.equal(filled.aduana, "Guanta");
+    assert.equal(filled.planillaFase, 1);
+  });
+
+  it("al heredar docs no pisa certificado ni factura ya cargados", () => {
+    const next = pickDocumentosLoteFaltantes(
+      {
+        factura_comercial: { url: "https://x/mia.pdf", path: "mia" },
+        certificado_origen: { url: "https://x/c.pdf", path: "c" },
+      },
+      {
+        factura_comercial: { url: "https://x/lote.pdf", path: "lote" },
+        lista_empaque: { url: "https://x/l.pdf", path: "l" },
+        certificado_origen: { url: "https://x/otro.pdf", path: "otro" },
+      }
+    );
+    assert.equal(next.factura_comercial?.path, "mia");
+    assert.equal(next.lista_empaque?.path, "l");
+    assert.equal(next.certificado_origen?.path, "c");
+  });
+
+  it("agrupa embarque por BL y deja sin número aparte", () => {
+    const groups = groupByCargaBl([
+      { id: "1", numeroBl: "COSU 123" },
+      { id: "2", numeroBl: "cosu123" },
+      { id: "3", numeroBl: null },
+    ]);
+    assert.equal(groups.length, 2);
+    assert.equal(groups[0]?.blKey, "COSU123");
+    assert.equal(groups[0]?.items.length, 2);
+    assert.equal(groups[1]?.blKey, "");
+    assert.equal(countDocumentosCargaBl({ bl_guia: { url: "u", path: "p" } }), 1);
   });
 });
 

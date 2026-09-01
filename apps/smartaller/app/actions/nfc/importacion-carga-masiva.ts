@@ -62,7 +62,10 @@ import {
   normalizarSerialCarroceria,
   SERIAL_CARROCERIA_DUPLICADO,
 } from "@/lib/vehicles/serial";
-import { copyDocumentosToVehiculoIds } from "@/lib/importacion/expediente-lote-sync";
+import {
+  copyDocumentosToVehiculoIds,
+  inheritLoteOntoVehiculo,
+} from "@/lib/importacion/expediente-lote-sync";
 import { repairCheryWmi, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
@@ -1713,6 +1716,19 @@ export async function createPuertoLibreCargaMasivaAction(input: {
     });
   }
 
+  if (created.length > 0) {
+    const inheritAdmin = createAdminClient();
+    await Promise.all(
+      created.map((c) =>
+        inheritLoteOntoVehiculo({
+          admin: inheritAdmin,
+          tallerId,
+          targetVehiculoId: c.vehiculoId,
+        })
+      )
+    );
+  }
+
   revalidatePath("/smartimport");
 
   if (created.length > 0) {
@@ -1928,6 +1944,12 @@ async function insertOneVehiculo(params: {
     }
     return { ok: false, error: error?.message ?? "No se pudo registrar" };
   }
+
+  await inheritLoteOntoVehiculo({
+    admin,
+    tallerId,
+    targetVehiculoId: created.id as string,
+  });
 
   return { ok: true, vehiculoId: created.id as string, codigoExpediente };
 }

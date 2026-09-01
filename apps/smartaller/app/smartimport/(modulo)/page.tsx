@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   ArrowLeft,
   BookOpen,
+  FileText,
   Plus,
   Scale,
   Users,
@@ -42,6 +43,10 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser, getMyTaller } from "@/lib/taller";
+import {
+  cargaBlPath,
+  groupByCargaBl,
+} from "@/lib/importacion/expediente-lote";
 
 export const dynamic = "force-dynamic";
 
@@ -153,7 +158,7 @@ function completarHref(v: PuertoLibreVehiculoListItem): string {
   if (f === 5) return `/smartimport/${v.id}/planilla?fase=5`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
-  if (f === 2) return `/smartimport/${v.id}/planilla?fase=2`;
+  if (f === 2) return cargaBlPath(v.numeroBl, v.id);
   return `/smartimport/${v.id}/planilla?fase=1`;
 }
 
@@ -226,6 +231,7 @@ async function loadVehiculosForImportacion(
           planillaFase: v.planillaFase,
           fechaLlegadaBuque: v.fechaLlegadaBuque,
           fechaIngreso: v.fechaIngreso,
+          numeroBl: v.numeroBl,
           stickerToken: null,
           regimen: v.regimen,
           estadoNacionalizacion: v.estadoNacionalizacion,
@@ -344,6 +350,7 @@ async function loadVehiculosForImportacion(
             planillaFase: imp.planillaFase ?? null,
             fechaLlegadaBuque: imp.fechaLlegadaBuque ?? null,
             fechaIngreso: imp.fechaIngreso ?? null,
+            numeroBl: imp.numeroBl ?? null,
             stickerToken: null,
             regimen: imp.regimen ?? null,
             estadoNacionalizacion: imp.estadoNacionalizacion ?? null,
@@ -458,18 +465,45 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPorEmbarque: DashboardBucketRow[] = porEmbarque.map((v) => {
-    const expediente = labelExpediente(v);
-    const vehiculo = labelVehiculo(v);
-    return {
-      id: v.id,
-      href: `/smartimport/${v.id}/planilla?fase=2`,
-      cells: { expediente, vehiculo, accion: "Cargar" },
-      searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
-      actionLabel: "Cargar",
-      actionTone: "cyan",
-    };
-  });
+  const rowsPorEmbarque: DashboardBucketRow[] = groupByCargaBl(porEmbarque).flatMap(
+    (group): DashboardBucketRow[] => {
+      if (!group.blKey) {
+        return group.items.map((v) => {
+          const expediente = labelExpediente(v);
+          const vehiculo = labelVehiculo(v);
+          return {
+            id: v.id,
+            href: cargaBlPath(null, v.id),
+            cells: { expediente, vehiculo, accion: "Asignar BL" },
+            searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
+            actionLabel: "Asignar BL",
+            actionTone: "amber",
+          };
+        });
+      }
+      const first = group.items[0]!;
+      const vehiculo =
+        group.items.length === 1
+          ? labelVehiculo(first)
+          : `${group.items.length} expedientes`;
+      return [
+        {
+          id: `bl-${group.blKey}`,
+          href: cargaBlPath(group.blKey),
+          cells: {
+            expediente: group.label,
+            vehiculo,
+            accion: "Cargar",
+          },
+          searchText: `${group.label} ${group.items
+            .map((v) => `${labelExpediente(v)} ${labelVehiculo(v)} ${v.nombre_cliente ?? ""}`)
+            .join(" ")}`,
+          actionLabel: "Cargar",
+          actionTone: "red",
+        },
+      ];
+    }
+  );
 
   const rowsPorRecibir: DashboardBucketRow[] = porRecibir.map((v) => {
     const expediente = labelExpediente(v);
@@ -618,13 +652,22 @@ export default async function PuertoLibrePage() {
                 <span className="truncate">Biblioteca</span>
               </Link>
             </div>
-            <Link
-              href="/smartimport/instructivo"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
-              Cómo llenar una importación
-            </Link>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Link
+                href="/smartimport/instructivo"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
+              >
+                <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
+                Instructivo
+              </Link>
+              <Link
+                href="/smartimport/lote"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
+              >
+                <FileText className="h-3.5 w-3.5 text-cyan-400" />
+                Docs de carga
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -685,12 +728,12 @@ export default async function PuertoLibrePage() {
         {porEmbarque.length > 0 ? (
           <PuertoLibreDashboardBucket
             dense
-            title="Por cargar docs de embarque"
+            title="Por cargar docs de la carga"
             icon="file"
-            emptyMessage="No hay vehículos por cargar docs de embarque."
+            emptyMessage="No hay cargas por anexar documentos de BL."
             columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Vehículo", pdfWidth: 2 },
+              { key: "expediente", header: "BL", pdfWidth: 1.2 },
+              { key: "vehiculo", header: "Unidades", pdfWidth: 2 },
               { key: "accion", header: "Acción", pdfWidth: 0.8 },
             ]}
             rows={rowsPorEmbarque}
