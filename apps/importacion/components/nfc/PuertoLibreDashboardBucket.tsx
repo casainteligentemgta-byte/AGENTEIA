@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   Building2,
+  CheckCircle2,
   Download,
   Flag,
   Loader2,
@@ -48,7 +49,7 @@ export type DashboardBucketRow = {
   urgent?: boolean;
 };
 
-type IconName = "ship" | "alert" | "building" | "flag" | "file" | "none";
+type IconName = "ship" | "alert" | "building" | "flag" | "file" | "check" | "none";
 
 type Props = {
   title: string;
@@ -66,6 +67,8 @@ type Props = {
    * Vacío = una línea; con filas = accordion expandible.
    */
   dense?: boolean;
+  /** Rojo = cola de trabajo; ok = inventario cerrado (nacionalizados). */
+  badgeTone?: "alert" | "ok";
 };
 
 const EXPEDIENTE_CODE_CLASS =
@@ -88,6 +91,7 @@ function BucketIcon({ name }: { name: IconName }) {
   if (name === "building") return <Building2 className="h-4 w-4 text-sky-400" />;
   if (name === "flag") return <Flag className="h-4 w-4 text-amber-400" />;
   if (name === "file") return <FileText className="h-4 w-4 text-cyan-400" />;
+  if (name === "check") return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
   return null;
 }
 
@@ -132,6 +136,7 @@ export function PuertoLibreDashboardBucket({
   borderClassName = "border-zinc-800/80",
   actionColumnKey,
   dense = false,
+  badgeTone = "alert",
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -176,7 +181,9 @@ export function PuertoLibreDashboardBucket({
     <span
       className={`rounded-md px-2 py-0.5 text-xs tabular-nums ${
         showTable
-          ? "bg-red-950/50 text-red-300"
+          ? badgeTone === "ok"
+            ? "bg-emerald-950/50 text-emerald-300"
+            : "bg-red-950/50 text-red-300"
           : "bg-zinc-900 text-zinc-500"
       }`}
     >
