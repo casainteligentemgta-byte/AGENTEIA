@@ -22,20 +22,67 @@ export type ColaBlCollapsed<T extends ColaBlVehiculo> =
   | { kind: "bl"; blKey: string; label: string; items: T[] }
   | { kind: "unidad"; item: T };
 
+export type ColaBlSort = "expediente" | "llegada";
+
+/** Fecha de llegada del buque (documentos de la carga), YYYY-MM-DD. */
+export function fechaLlegadaCargaBl(
+  items: { fechaLlegadaBuque?: string | null }[]
+): string | null {
+  let best: string | null = null;
+  for (const item of items) {
+    const day = normalizeFechaLlegadaDia(item.fechaLlegadaBuque);
+    if (!day) continue;
+    if (best == null || day < best) best = day;
+  }
+  return best;
+}
+
+function normalizeFechaLlegadaDia(raw?: string | null): string | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const day = s.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : s;
+}
+
+function compareFechaLlegadaAsc(a: string | null, b: string | null): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+function compareBlPorExpediente<T extends ColaBlVehiculo>(
+  a: { label: string; items: T[] },
+  b: { label: string; items: T[] }
+): number {
+  const fa = [...a.items].sort(compareExpedientesAsc)[0];
+  const fb = [...b.items].sort(compareExpedientesAsc)[0];
+  if (fa && fb) return compareExpedientesAsc(fa, fb);
+  return a.label.localeCompare(b.label);
+}
+
 /** Un grupo por BL; sin número quedan como filas sueltas, al final. */
 export function collapseColaPorBl<T extends ColaBlVehiculo>(
-  items: T[]
+  items: T[],
+  options?: { sort?: ColaBlSort }
 ): ColaBlCollapsed<T>[] {
+  const sort = options?.sort ?? "expediente";
   const groups = groupByCargaBl(items);
   const conBl = groups.filter((g) => g.blKey);
   const sinBl = groups.filter((g) => !g.blKey).flatMap((g) => g.items);
 
-  conBl.sort((a, b) => {
-    const fa = [...a.items].sort(compareExpedientesAsc)[0];
-    const fb = [...b.items].sort(compareExpedientesAsc)[0];
-    if (fa && fb) return compareExpedientesAsc(fa, fb);
-    return a.label.localeCompare(b.label);
-  });
+  if (sort === "llegada") {
+    conBl.sort((a, b) => {
+      const byFecha = compareFechaLlegadaAsc(
+        fechaLlegadaCargaBl(a.items),
+        fechaLlegadaCargaBl(b.items)
+      );
+      if (byFecha !== 0) return byFecha;
+      return compareBlPorExpediente(a, b);
+    });
+  } else {
+    conBl.sort(compareBlPorExpediente);
+  }
 
   const out: ColaBlCollapsed<T>[] = [];
   for (const g of conBl) {
@@ -46,7 +93,20 @@ export function collapseColaPorBl<T extends ColaBlVehiculo>(
       items: [...g.items].sort(compareExpedientesAsc),
     });
   }
-  for (const item of [...sinBl].sort(compareExpedientesAsc)) {
+
+  const sueltos =
+    sort === "llegada"
+      ? [...sinBl].sort((a, b) => {
+          const byFecha = compareFechaLlegadaAsc(
+            fechaLlegadaCargaBl([a]),
+            fechaLlegadaCargaBl([b])
+          );
+          if (byFecha !== 0) return byFecha;
+          return compareExpedientesAsc(a, b);
+        })
+      : [...sinBl].sort(compareExpedientesAsc);
+
+  for (const item of sueltos) {
     out.push({ kind: "unidad", item });
   }
   return out;

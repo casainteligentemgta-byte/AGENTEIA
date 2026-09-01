@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   collapseColaPorBl,
+  fechaLlegadaCargaBl,
   fichaHomogeneaBl,
   resumenUnidadesBl,
 } from "../dashboard-cola-bl";
@@ -11,7 +12,7 @@ function v(
   id: string,
   codigo: string,
   bl: string | null,
-  extra?: { marca?: string; modelo?: string }
+  extra?: { marca?: string; modelo?: string; fechaLlegadaBuque?: string | null }
 ) {
   return {
     id,
@@ -20,6 +21,7 @@ function v(
     created_at: "2026-08-01",
     marca: extra?.marca ?? "Chery",
     modelo: extra?.modelo ?? "Arrizo 5 Pro",
+    fechaLlegadaBuque: extra?.fechaLlegadaBuque,
   };
 }
 
@@ -69,6 +71,42 @@ describe("cola embarque/llegada por BL", () => {
       v("b", "PL-2026.8.5", "X", { marca: "Toyota", modelo: "Corolla" }),
     ]);
     assert.equal(mixed.marca, null);
+  });
+
+  it("en llegada ordena los BL por fecha del buque y deja sin fecha al final", () => {
+    const collapsed = collapseColaPorBl(
+      [
+        v("a", "PL-2026.8.20", "TARDE", { fechaLlegadaBuque: "2026-09-20" }),
+        v("b", "PL-2026.8.1", "PRONTO", { fechaLlegadaBuque: "2026-08-01" }),
+        v("c", "PL-2026.8.10", "MEDIO", {
+          fechaLlegadaBuque: "2026-08-15T14:00:00.000Z",
+        }),
+        v("d", "PL-2026.8.2", "SINFECHA", { fechaLlegadaBuque: null }),
+        v("e", "PL-2026.8.3", null, { fechaLlegadaBuque: "2026-07-01" }),
+      ],
+      { sort: "llegada" }
+    );
+    const bls = collapsed.filter((g) => g.kind === "bl");
+    assert.deepEqual(
+      bls.map((g) => (g.kind === "bl" ? g.label : "")),
+      ["PRONTO", "MEDIO", "TARDE", "SINFECHA"]
+    );
+    const suelto = collapsed[collapsed.length - 1];
+    assert.equal(suelto?.kind, "unidad");
+    if (suelto?.kind !== "unidad") return;
+    assert.equal(suelto.item.codigoExpediente, "PL-2026.8.3");
+  });
+
+  it("toma la fecha de llegada del buque de los documentos de la carga", () => {
+    assert.equal(
+      fechaLlegadaCargaBl([
+        v("a", "PL-2026.8.5", "321"),
+        v("b", "PL-2026.8.6", "321", {
+          fechaLlegadaBuque: "2026-08-12T08:00:00.000Z",
+        }),
+      ]),
+      "2026-08-12"
+    );
   });
 });
 

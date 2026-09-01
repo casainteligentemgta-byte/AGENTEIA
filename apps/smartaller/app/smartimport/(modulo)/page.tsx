@@ -61,6 +61,7 @@ import { ensureTallerForUser, getMyTaller } from "@/lib/taller";
 import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import {
   collapseColaPorBl,
+  fechaLlegadaCargaBl,
   fichaHomogeneaBl,
   latestIso,
   resumenUnidadesBl,
@@ -230,7 +231,7 @@ function rowColaGrupoBl(
   const ficha = fichaHomogeneaBl(sorted);
   const resumen = resumenUnidadesBl(sorted);
   const modificadoIso = latestIso(sorted).slice(0, 10);
-  const fechaBuque = sorted.find((v) => v.fechaLlegadaBuque)?.fechaLlegadaBuque ?? null;
+  const fechaBuque = fechaLlegadaCargaBl(sorted);
   const codes = sorted
     .map((v) => v.codigoExpediente)
     .filter((c): c is string => Boolean(c))
@@ -251,7 +252,7 @@ function rowColaGrupoBl(
     ficha,
     subcells: { expediente: resumen },
     dateValue: fase === 2 ? modificadoIso || null : fechaBuque,
-    searchText: `BL ${label} ${resumen} ${codes} ${dashboardFichaSearchText(ficha)}`,
+    searchText: `BL ${label} ${resumen} ${codes} ${dashboardFichaSearchText(ficha)} ${fechaBuque ?? ""}`,
     actionLabel: completarEtapaLabel(fase),
     actionTone: "cyan",
   };
@@ -261,7 +262,10 @@ function rowsColaPorBl(
   items: PuertoLibreVehiculoListItem[],
   fase: 2 | 3
 ): DashboardBucketRow[] {
-  return collapseColaPorBl(items).map((group) => {
+  return collapseColaPorBl(
+    items,
+    fase === 3 ? { sort: "llegada" } : undefined
+  ).map((group) => {
     if (group.kind === "bl") {
       return rowColaGrupoBl(group.blKey, group.label, group.items, fase);
     }
@@ -821,7 +825,6 @@ export default async function PuertoLibrePage() {
           rows={rowsPorRecibir}
           dateFilterLabel="Llegada"
           actionColumnKey="llegada"
-          defaultExpedienteSort="asc"
         />
 
         <PuertoLibreDashboardBucket
