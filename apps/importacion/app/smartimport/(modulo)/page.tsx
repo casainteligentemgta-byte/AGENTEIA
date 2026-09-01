@@ -51,6 +51,16 @@ import {
   dashboardFichaIdentidad,
   dashboardFichaSearchText,
 } from "@/lib/importacion/dashboard-ficha";
+import {
+  esNacionalizado,
+  esPendientePlanillaRestante,
+  esPorCargarDocsCarga,
+  esPorCompletarRegistro,
+  esPorPresentacionSeniat,
+  esPorRecibirEnPuerto,
+  esRechazadoSeniat,
+  registroAccionLabel,
+} from "@/lib/importacion/dashboard-clasificacion";
 
 export const dynamic = "force-dynamic";
 
@@ -132,27 +142,6 @@ function completitudDot(nivel: PuertoLibreVehiculoListItem["completitudDatos"]):
   if (nivel === "ambar") return "●";
   if (nivel === "verde") return "●";
   return "";
-}
-
-function esPendienteCompletar(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase == null || v.planillaFase < 8;
-}
-
-/** Fase 3 (llegada) pendiente: docs de embarque listos, sin fecha de ingreso. */
-function esPorRecibirEnPuerto(v: PuertoLibreVehiculoListItem): boolean {
-  if (v.fechaIngreso) return false;
-  const f = v.planillaFase;
-  return f == null || f === 3;
-}
-
-/** Fase 1: registro (datos + factura + certificado de origen). */
-function esPorCompletarRegistro(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase === 1 && !v.fechaIngreso;
-}
-
-/** Fase 2: docs de embarque (BL, lista, DAV, póliza). */
-function esPorCargarEmbarque(v: PuertoLibreVehiculoListItem): boolean {
-  return v.planillaFase === 2 && !v.fechaIngreso;
 }
 
 function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
@@ -431,25 +420,30 @@ export default async function PuertoLibrePage() {
   const porRegistro = sortPorLlegadaBuque(
     vehiculos.filter(esPorCompletarRegistro)
   );
-  const porEmbarque = sortPorLlegadaBuque(vehiculos.filter(esPorCargarEmbarque));
+  const porEmbarque = sortPorLlegadaBuque(
+    vehiculos.filter(esPorCargarDocsCarga)
+  );
   const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
-  const pendientes = vehiculos.filter(esPendienteCompletar);
+  const pendientes = vehiculos.filter(esPendientePlanillaRestante);
   const porNacionalizar = sortByFechaAsc(
     vehiculos.filter((v) => v.proximoNacionalizar),
     (v) => v.fechaLimiteNacionalizacion,
     (v) => v.diasNacionalizacion
   );
   const porSeniat = sortByFechaAsc(
-    vehiculos.filter((v) => v.proximoSeniat),
+    vehiculos.filter(esPorPresentacionSeniat),
     (v) => v.fechaPresentacionSeniat,
     (v) => v.diasSeniat
   );
-  const rechazadosSeniat = [...vehiculos.filter((v) => v.rechazadoSeniat)].sort(
+  const rechazadosSeniat = [...vehiculos.filter(esRechazadoSeniat)].sort(
     (a, b) => {
       const fa = a.fechaRechazoSeniat ?? "";
       const fb = b.fechaRechazoSeniat ?? "";
       return fb.localeCompare(fa);
     }
+  );
+  const nacionalizados = [...vehiculos.filter(esNacionalizado)].sort((a, b) =>
+    (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at)
   );
 
   const rowsPorRegistro: DashboardBucketRow[] = porRegistro.map((v) => {
@@ -468,12 +462,12 @@ export default async function PuertoLibrePage() {
         expediente: v.completitudDatos
           ? `${completitudDot(v.completitudDatos)} ${expediente}`
           : expediente,
-        accion: completarEtapaLabel(1),
+        accion: registroAccionLabel(v.completitudDatos),
       },
       ficha,
       subcells: pend ? { expediente: pend } : undefined,
       searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
-      actionLabel: completarEtapaLabel(1),
+      actionLabel: registroAccionLabel(v.completitudDatos),
       actionTone: completitudTone(v.completitudDatos),
     };
   });
@@ -631,6 +625,24 @@ export default async function PuertoLibrePage() {
     };
   });
 
+  const rowsNacionalizados: DashboardBucketRow[] = nacionalizados.map((v) => {
+    const expediente = labelExpediente(v);
+    const ficha = fichaDe(v);
+    return {
+      id: v.id,
+      href: `/smartimport/${v.id}`,
+      cells: {
+        expediente,
+        modificado: formatFechaHoraCorta(v.updated_at ?? v.created_at),
+      },
+      ficha,
+      dateValue: (v.updated_at ?? v.created_at).slice(0, 10),
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
+      actionLabel: "Ver",
+      actionTone: "cyan",
+    };
+  });
+
   return (
     <PuertoLibreShell>
       <header className="mb-3 space-y-3">
@@ -709,47 +721,30 @@ export default async function PuertoLibrePage() {
       <div className="divide-y divide-zinc-800/70 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
         <PuertoLibreDashboardBucket
           dense
-          title="Pendiente a completar"
-          emptyMessage="No hay expedientes pendientes."
+          title="Por completar registro"
+          icon="file"
+          emptyMessage="No hay vehículos por completar registro."
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+            { key: "accion", header: "Acción", pdfWidth: 0.8 },
           ]}
-          rows={rowsPendientes}
-          dateFilterLabel="Modificado"
-          actionColumnKey="modificado"
+          rows={rowsPorRegistro}
+          actionColumnKey="accion"
         />
 
-        {porRegistro.length > 0 ? (
-          <PuertoLibreDashboardBucket
-            dense
-            title="Por completar registro"
-            icon="file"
-            emptyMessage="No hay vehículos por completar registro."
-            columns={[
-              { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-              { key: "accion", header: "Acción", pdfWidth: 0.8 },
-            ]}
-            rows={rowsPorRegistro}
-            actionColumnKey="accion"
-          />
-        ) : null}
-
-        {porEmbarque.length > 0 ? (
-          <PuertoLibreDashboardBucket
-            dense
-            title="Por cargar docs de la carga"
-            icon="file"
-            emptyMessage="No hay cargas por anexar documentos de BL."
-            columns={[
-              { key: "expediente", header: "BL", pdfWidth: 1.2 },
-              { key: "vehiculo", header: "Unidades", pdfWidth: 2 },
-              { key: "accion", header: "Acción", pdfWidth: 0.8 },
-            ]}
-            rows={rowsPorEmbarque}
-            actionColumnKey="accion"
-          />
-        ) : null}
+        <PuertoLibreDashboardBucket
+          dense
+          title="Por cargar docs de la carga"
+          icon="file"
+          emptyMessage="No hay cargas por anexar documentos de BL."
+          columns={[
+            { key: "expediente", header: "BL", pdfWidth: 1.2 },
+            { key: "vehiculo", header: "Unidades", pdfWidth: 2 },
+            { key: "accion", header: "Acción", pdfWidth: 0.8 },
+          ]}
+          rows={rowsPorEmbarque}
+          actionColumnKey="accion"
+        />
 
         <PuertoLibreDashboardBucket
           dense
@@ -808,6 +803,34 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Límite"
           borderClassName="border-amber-900/30"
           actionColumnKey="limite"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          title="Nacionalizados"
+          icon="check"
+          badgeTone="ok"
+          emptyMessage="Aún no hay expedientes nacionalizados."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsNacionalizados}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          title="Pendiente a completar"
+          emptyMessage="No hay expedientes en desaduanamiento, propietario, seguro o matrícula."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPendientes}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
         />
 
         <PuertoLibreDashboardTodosList
