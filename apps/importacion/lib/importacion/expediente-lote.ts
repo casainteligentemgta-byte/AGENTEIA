@@ -138,13 +138,32 @@ export function documentosConCopiaLote(
 /**
  * Docs de toda la carga (un PDF por BL). No incluye factura ni certificado.
  * Póliza = transporte de la carga, no el seguro del vehículo.
+ * Partida, fotos y cuestionario siguen por expediente.
  */
-export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
+export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE: readonly DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
   "poliza_transporte",
   "acta_recepcion_mercancia",
   "constancia_edi_reconocimiento",
+];
+
+export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
+  "cedula_importador",
+  "rif_importador",
+  "nacionalizacion",
+  "dav",
+  "sencamer",
+  "registro_puerto_libre",
+  "agente_aduanal_doc",
+  "planilla_liquidacion_aduanera",
+  "constancia_residencia_permanencia",
+  "pase_salida_levante",
+];
+
+export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
+  ...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  ...DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
 ];
 
 export function cargaBlPath(

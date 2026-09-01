@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DOCUMENTO_TIPOS_CARGA_BL,
+  DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
+  DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   cargaBlPath,
   countDocumentosCargaBl,
   documentosConCopiaLote,
@@ -77,6 +79,7 @@ describe("expediente lote vs unidad", () => {
     assert.equal(patch.numeroContenedor, undefined);
     assert.equal(patch.observaciones, undefined);
     assert.equal("planillaFase" in patch, false);
+    assert.equal("partidaArancelaria" in patch, false);
   });
 
   it("al copiar lote conserva CIF y contenedor del hermano", () => {
@@ -114,16 +117,22 @@ describe("expediente lote vs unidad", () => {
     assert.equal(next.certificado_origen?.path, "c");
   });
 
-  it("docs de la carga son BL, lista, póliza de transporte, acta y reconocimiento", () => {
-    assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_BL], [
+  it("docs de la carga cubren embarque, llegada y desaduanamiento del BL", () => {
+    assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE], [
       "bl_guia",
       "lista_empaque",
       "poliza_transporte",
       "acta_recepcion_mercancia",
       "constancia_edi_reconocimiento",
     ]);
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));
+    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 15);
     assert.equal(isDocumentoLote("poliza_transporte"), true);
+    assert.equal(isDocumentoLote("pase_salida_levante"), true);
     assert.equal(isDocumentoLote("poliza_seguro"), false);
+    assert.equal(isDocumentoLote("foto_frontal"), false);
   });
 
   it("ruta del cargador va por BL, o from si aún no hay número", () => {

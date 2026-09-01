@@ -57,6 +57,11 @@ export type CargaBlLote = {
   numeroBl: string;
   sourceVehiculoId: string;
   fechaIngreso: string;
+  fechaLlegadaBuque: string;
+  puerto: string;
+  aduana: string;
+  agenteAduanal: string;
+  importadorNombre: string;
   documentos: Partial<Record<DocumentoTipo, VehiculoDocumentoRef>>;
   docsCargados: number;
   docsTotal: number;
@@ -145,6 +150,11 @@ export async function getCargaBlLoteAction(
       numeroBl: imp.numeroBl?.trim() || blKey,
       sourceVehiculoId: best.id as string,
       fechaIngreso: imp.fechaIngreso?.trim() || "",
+      fechaLlegadaBuque: imp.fechaLlegadaBuque?.trim() || "",
+      puerto: imp.puerto?.trim() || "",
+      aduana: imp.aduana?.trim() || "",
+      agenteAduanal: imp.agenteAduanal?.trim() || "",
+      importadorNombre: imp.importadorNombre?.trim() || "",
       documentos,
       docsCargados: countDocumentosCargaBl(docs),
       docsTotal: DOCUMENTO_TIPOS_CARGA_BL.length,
@@ -196,6 +206,82 @@ const fechaSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida")
   .or(z.literal(""));
 
+const cargaBlDatosSchema = z.object({
+  sourceVehiculoId: z.string().uuid(),
+  fechaIngreso: fechaSchema,
+  fechaLlegadaBuque: fechaSchema,
+  puerto: z.string().trim().max(120),
+  aduana: z.string().trim().max(120),
+  agenteAduanal: z.string().trim().max(120),
+});
+
+export async function saveCargaBlDatosAction(input: {
+  sourceVehiculoId: string;
+  fechaIngreso: string;
+  fechaLlegadaBuque: string;
+  puerto: string;
+  aduana: string;
+  agenteAduanal: string;
+}): Promise<
+  | { success: true; loteCopiados: number }
+  | { success: false; error: string }
+> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+  const parsed = cargaBlDatosSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
+    .from("vehiculos")
+    .select("id, importacion")
+    .eq("id", parsed.data.sourceVehiculoId)
+    .eq("taller_id", auth.taller.id)
+    .maybeSingle();
+  if (error || !row) return { success: false, error: "Expediente no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  if (!normalizeLoteBlKey(existing.numeroBl)) {
+    return { success: false, error: "Este expediente no tiene nº de BL" };
+  }
+
+  const merged = {
+    ...existing,
+    fechaIngreso: parsed.data.fechaIngreso || null,
+    fechaLlegadaBuque: parsed.data.fechaLlegadaBuque || null,
+    puerto: parsed.data.puerto || null,
+    aduana: parsed.data.aduana || null,
+    agenteAduanal: parsed.data.agenteAduanal || null,
+  };
+  const { error: updError } = await admin
+    .from("vehiculos")
+    .update({
+      importacion: serializeImportacion(merged),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.sourceVehiculoId)
+    .eq("taller_id", auth.taller.id);
+  if (updError) return { success: false, error: updError.message };
+
+  const loteCopiados = await syncLoteImportacionToSiblings({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: parsed.data.sourceVehiculoId,
+    lookup: merged,
+    lote: merged,
+  });
+  revalidateLote(parsed.data.sourceVehiculoId);
+  return { success: true, loteCopiados };
+}
+
+/** @deprecated Usar saveCargaBlDatosAction. */
 export async function saveCargaBlFechaIngresoAction(input: {
   sourceVehiculoId: string;
   fechaIngreso: string;
@@ -208,47 +294,24 @@ export async function saveCargaBlFechaIngresoAction(input: {
     return { success: false, error: auth.error ?? "No autorizado" };
   }
   const idParsed = z.string().uuid().safeParse(input.sourceVehiculoId);
-  const fechaParsed = fechaSchema.safeParse(input.fechaIngreso ?? "");
   if (!idParsed.success) return { success: false, error: "Expediente inválido" };
-  if (!fechaParsed.success) {
-    return { success: false, error: fechaParsed.error.errors[0]?.message ?? "Fecha inválida" };
-  }
 
   const admin = createAdminClient();
-  const { data: row, error } = await admin
+  const { data: row } = await admin
     .from("vehiculos")
-    .select("id, importacion")
+    .select("importacion")
     .eq("id", idParsed.data)
     .eq("taller_id", auth.taller.id)
     .maybeSingle();
-  if (error || !row) return { success: false, error: "Expediente no encontrado" };
-
-  const existing = parseImportacion(row.importacion);
-  if (!normalizeLoteBlKey(existing.numeroBl)) {
-    return { success: false, error: "Este expediente no tiene nº de BL" };
-  }
-
-  const fechaIngreso = fechaParsed.data || null;
-  const merged = { ...existing, fechaIngreso };
-  const { error: updError } = await admin
-    .from("vehiculos")
-    .update({
-      importacion: serializeImportacion(merged),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", idParsed.data)
-    .eq("taller_id", auth.taller.id);
-  if (updError) return { success: false, error: updError.message };
-
-  const loteCopiados = await syncLoteImportacionToSiblings({
-    admin,
-    tallerId: auth.taller.id,
+  const existing = parseImportacion(row?.importacion);
+  return saveCargaBlDatosAction({
     sourceVehiculoId: idParsed.data,
-    lookup: merged,
-    lote: merged,
+    fechaIngreso: input.fechaIngreso,
+    fechaLlegadaBuque: existing.fechaLlegadaBuque ?? "",
+    puerto: existing.puerto ?? "",
+    aduana: existing.aduana ?? "",
+    agenteAduanal: existing.agenteAduanal ?? "",
   });
-  revalidateLote(idParsed.data);
-  return { success: true, loteCopiados };
 }
 
 export async function assignNumeroBlAction(input: {

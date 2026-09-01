@@ -3,38 +3,117 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileUp, Ship } from "lucide-react";
+import { ArrowLeft, FileUp, Ship, UserRound } from "lucide-react";
 import {
   assignNumeroBlAction,
-  saveCargaBlFechaIngresoAction,
+  saveCargaBlDatosAction,
   type CargaBlIndexItem,
   type CargaBlLote,
 } from "@/app/actions/nfc/importacion-lote";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
+import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import {
   DOCUMENTO_TIPOS_CARGA_BL,
+  DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
+  DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   cargaBlPath,
 } from "@/lib/importacion/expediente-lote";
 import {
+  PUERTOS_DESCARGA_VENEZUELA,
+  parsePuertosDescarga,
+  primaryPuertoDescarga,
+  resolvePuertoDescarga,
+} from "@/lib/importacion/puertos-venezuela";
+import {
   DOCUMENTO_LABELS,
+  type DocumentoTipo,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 
-const DOC_HINT: Partial<Record<(typeof DOCUMENTO_TIPOS_CARGA_BL)[number], string>> = {
+const DOC_HINT: Partial<Record<DocumentoTipo, string>> = {
   bl_guia: "Un PDF o foto · se anexa a todos los expedientes de este BL",
   lista_empaque: "Lista de empaque de toda la carga",
   poliza_transporte: "Póliza de la carga (transporte), no el seguro del auto",
   acta_recepcion_mercancia: "Acta de recepción de la mercancía",
   constancia_edi_reconocimiento: "Reconocimiento / constancia EDI",
+  cedula_importador: "Cédula del importador del lote",
+  rif_importador: "RIF del importador (dir. Nueva Esparta)",
+  nacionalizacion: "DUA de la carga",
+  dav: "DAV de la carga",
+  sencamer: "SENCAMER del lote",
+  registro_puerto_libre: "Solo importador jurídico",
+  agente_aduanal_doc: "Constancia del agente aduanal",
+  planilla_liquidacion_aduanera: "Planilla de liquidación del lote",
+  constancia_residencia_permanencia: "Constancia de residencia / permanencia",
+  pase_salida_levante: "Pase de salida · no va al PDF SENIAT",
 };
+
+const INPUT_CLASS =
+  "box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60";
+
+function CargaBlDocSection({
+  title,
+  hint,
+  tipos,
+  docs,
+  sourceVehiculoId,
+  onUploaded,
+}: {
+  title: string;
+  hint: string;
+  tipos: readonly DocumentoTipo[];
+  docs: VehiculosDocumentos;
+  sourceVehiculoId: string;
+  onUploaded: (
+    next: VehiculosDocumentos,
+    tipo: DocumentoTipo,
+    loteCopiados: number
+  ) => void;
+}) {
+  const count = tipos.filter((tipo) => docs[tipo]?.url).length;
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+        <FileUp className="h-5 w-5 text-cyan-400" />
+        {title}
+        <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+          {count}/{tipos.length}
+        </span>
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">{hint}</p>
+      <div className="mt-4 grid gap-3">
+        {tipos.map((tipo) => (
+          <ImportDocumentoUpload
+            key={tipo}
+            vehiculoId={sourceVehiculoId}
+            tipo={tipo}
+            existingUrl={docs[tipo]?.url}
+            acceptMode="both"
+            hint={docs[tipo]?.url ? "" : DOC_HINT[tipo]}
+            actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
+            onUploaded={(next, meta) => {
+              onUploaded(next, tipo, meta?.loteCopiados ?? 0);
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
   const router = useRouter();
   const [docs, setDocs] = useState<VehiculosDocumentos>(
     lote.documentos as VehiculosDocumentos
   );
-  const [fecha, setFecha] = useState(lote.fechaIngreso);
+  const [fechaIngreso, setFechaIngreso] = useState(lote.fechaIngreso);
+  const [fechaLlegadaBuque, setFechaLlegadaBuque] = useState(
+    lote.fechaLlegadaBuque
+  );
+  const [puerto, setPuerto] = useState(lote.puerto);
+  const [aduana, setAduana] = useState(lote.aduana);
+  const [agenteAduanal, setAgenteAduanal] = useState(lote.agenteAduanal);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -44,12 +123,23 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
     [docs]
   );
 
-  function saveFecha() {
+  const extraPuertos = parsePuertosDescarga(puerto).filter(
+    (p) =>
+      !PUERTOS_DESCARGA_VENEZUELA.includes(
+        p as (typeof PUERTOS_DESCARGA_VENEZUELA)[number]
+      )
+  );
+
+  function saveDatos() {
     setError(null);
     startTransition(async () => {
-      const result = await saveCargaBlFechaIngresoAction({
+      const result = await saveCargaBlDatosAction({
         sourceVehiculoId: lote.sourceVehiculoId,
-        fechaIngreso: fecha,
+        fechaIngreso,
+        fechaLlegadaBuque,
+        puerto,
+        aduana,
+        agenteAduanal,
       });
       if (!result.success) {
         setError(result.error);
@@ -59,9 +149,25 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         result.loteCopiados > 0
           ? ` · ${result.loteCopiados + 1} expedientes`
           : "";
-      setMessage(`Fecha de ingreso guardada en el BL${extra}. La fase se confirma aparte.`);
+      setMessage(
+        `Datos de la carga guardados en el BL${extra}. La fase se confirma aparte.`
+      );
       router.refresh();
     });
+  }
+
+  function handleUploaded(
+    next: VehiculosDocumentos,
+    tipo: DocumentoTipo,
+    loteCopiados: number
+  ) {
+    setDocs(next);
+    setMessage(
+      loteCopiados > 0
+        ? `${DOCUMENTO_LABELS[tipo]} anexado a ${loteCopiados + 1} expedientes.`
+        : `${DOCUMENTO_LABELS[tipo]} guardado.`
+    );
+    router.refresh();
   }
 
   return (
@@ -83,73 +189,117 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           </h1>
           <p className="mt-1 text-sm text-slate-400">
             {lote.unidades.length} expediente
-            {lote.unidades.length === 1 ? "" : "s"} · se anexan a todos. Las
-            fases se confirman en cada planilla.
+            {lote.unidades.length === 1 ? "" : "s"}
+            {lote.importadorNombre ? ` · ${lote.importadorNombre}` : ""}
+            {" · "}
+            {docsCount}/{DOCUMENTO_TIPOS_CARGA_BL.length} papeles. Partida,
+            fotos y cuestionario siguen en cada expediente.
           </p>
         </div>
       </header>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <FileUp className="h-5 w-5 text-cyan-400" />
-          Papeles del BL
-          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {docsCount}/{DOCUMENTO_TIPOS_CARGA_BL.length}
-          </span>
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Un archivo por tipo. Póliza = seguro de la carga.
-        </p>
-        <div className="mt-4 grid gap-3">
-          {DOCUMENTO_TIPOS_CARGA_BL.map((tipo) => (
-            <ImportDocumentoUpload
-              key={tipo}
-              vehiculoId={lote.sourceVehiculoId}
-              tipo={tipo}
-              existingUrl={docs[tipo]?.url}
-              acceptMode="both"
-              hint={docs[tipo]?.url ? "" : DOC_HINT[tipo]}
-              actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
-              onUploaded={(next, meta) => {
-                setDocs(next);
-                const copiados = meta?.loteCopiados ?? 0;
-                setMessage(
-                  copiados > 0
-                    ? `${DOCUMENTO_LABELS[tipo]} anexado a ${copiados + 1} expedientes.`
-                    : `${DOCUMENTO_LABELS[tipo]} guardado.`
-                );
-                router.refresh();
-              }}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Ship className="h-5 w-5 text-cyan-400" />
-          Fecha de ingreso al PL
+          Datos de la carga
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Un dato para todo el BL. No avanza la fase de llegada.
+          Llegada del buque, ingreso al PL y agente. Se escriben en todos los
+          expedientes de este BL. No avanza fases.
         </p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        {lote.importadorNombre ? (
+          <p className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+            <UserRound className="h-4 w-4 text-cyan-400" />
+            Importador: {lote.importadorNombre}
+          </p>
+        ) : null}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <PlanillaFechaField
+            label="Fecha de llegada del buque"
+            name="fechaLlegadaBuque"
+            value={fechaLlegadaBuque}
+            onChange={setFechaLlegadaBuque}
+          />
           <PlanillaFechaField
             label="Fecha de ingreso al PL"
             name="fechaIngreso"
-            value={fecha}
-            onChange={setFecha}
+            value={fechaIngreso}
+            onChange={setFechaIngreso}
           />
-          <button
-            type="button"
-            onClick={saveFecha}
-            disabled={pending}
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
-          >
-            {pending ? "Guardando…" : "Guardar en el BL"}
-          </button>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Puerto de descarga</span>
+            <select
+              value={primaryPuertoDescarga(puerto)}
+              onChange={(e) => setPuerto(e.target.value)}
+              className={INPUT_CLASS}
+            >
+              <option value="">Selecciona puerto</option>
+              {PUERTOS_DESCARGA_VENEZUELA.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+              {extraPuertos.map((p) => (
+                <option key={p} value={p}>
+                  {resolvePuertoDescarga(p)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0 space-y-1.5">
+            <span className="text-sm text-slate-400">Aduana</span>
+            <select
+              value={aduana}
+              onChange={(e) => setAduana(e.target.value)}
+              className={INPUT_CLASS}
+            >
+              <option value="">Selecciona aduana</option>
+              {ADUANAS_VENEZUELA.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">
+              Nombre del agente aduanal
+            </span>
+            <input
+              value={agenteAduanal}
+              onChange={(e) => setAgenteAduanal(e.target.value)}
+              placeholder="Como figura en la constancia"
+              className={INPUT_CLASS}
+            />
+          </label>
         </div>
+        <button
+          type="button"
+          onClick={saveDatos}
+          disabled={pending}
+          className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
+        >
+          {pending ? "Guardando…" : "Guardar datos en el BL"}
+        </button>
       </section>
+
+      <CargaBlDocSection
+        title="Embarque y llegada"
+        hint="BL, lista, póliza de la carga, acta de recepción y reconocimiento."
+        tipos={DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE}
+        docs={docs}
+        sourceVehiculoId={lote.sourceVehiculoId}
+        onUploaded={handleUploaded}
+      />
+
+      <CargaBlDocSection
+        title="Desaduanamiento del lote"
+        hint="Cédula y RIF del importador, DUA, DAV, SENCAMER, registro PL, agente, liquidación, residencia y pase de salida."
+        tipos={DOCUMENTO_TIPOS_CARGA_BL_DESADUANA}
+        docs={docs}
+        sourceVehiculoId={lote.sourceVehiculoId}
+        onUploaded={handleUploaded}
+      />
 
       {error ? (
         <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
@@ -166,6 +316,9 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         <h2 className="text-sm font-semibold text-slate-200">
           Expedientes de este BL
         </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Cada uno guarda su partida, memoria descriptiva y cuestionario.
+        </p>
         <ul className="mt-3 space-y-1.5 font-mono text-sm">
           {lote.unidades.map((u) => (
             <li key={u.id}>
