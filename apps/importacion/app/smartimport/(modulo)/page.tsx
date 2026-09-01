@@ -31,7 +31,11 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
-import { DASHBOARD_COLA_EMBARQUE_ID } from "@/lib/importacion/paths";
+import {
+  DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_PROPIETARIO_ID,
+} from "@/lib/importacion/paths";
+import { listPropietariosAction } from "@/app/actions/nfc/propietarios";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import {
@@ -158,7 +162,7 @@ function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = faseColaPlanilla(v);
   if (f >= 7) return `/smartimport/${v.id}/planilla?fase=7`;
   if (f === 6) return `/smartimport/${v.id}/planilla?fase=6`;
-  if (f === 5) return `/smartimport/${v.id}/planilla?fase=5`;
+  if (f === 5) return `/smartimport/propietarios?expediente=${v.id}`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
   if (f === 2) return cargaBlPath(v.numeroBl, v.id);
@@ -511,6 +515,10 @@ export default async function PuertoLibrePage() {
       : null;
 
   const vehiculos = loaded.vehiculos;
+  const propietariosListed = await listPropietariosAction();
+  const propietarios = propietariosListed.success
+    ? propietariosListed.propietarios
+    : [];
   const porRegistro = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 1))
   );
@@ -799,10 +807,75 @@ export default async function PuertoLibrePage() {
           defaultExpedienteSort="asc"
         />
 
+        <PuertoLibreDashboardBucket
+          dense
+          title={porCompletarEtapaTitle(4)}
+          icon="file"
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(4).toLowerCase()}.`}
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorDesaduanamiento}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_PROPIETARIO_ID}
+          title={porCompletarEtapaTitle(5)}
+          icon="file"
+          emptyMessage="No hay expedientes por completar propietario. Crea una ficha y asígnale un expediente."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorPropietario}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+          headerActions={
+            puedeMutar ? (
+              <Link
+                href="/smartimport/propietarios/nueva"
+                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
+              >
+                Nueva ficha
+              </Link>
+            ) : null
+          }
+          leadingContent={
+            propietarios.length > 0 ? (
+              <ul className="space-y-1.5">
+                {propietarios.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={`/smartimport/propietarios/${p.id}`}
+                      className="block rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-1.5 hover:border-cyan-700/40"
+                    >
+                      <span className="text-sm text-zinc-100">{p.nombre}</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-zinc-400">
+                        {p.cedula || "Sin cédula"}
+                        {" · "}
+                        {p.expedientesCount} expediente
+                        {p.expedientesCount === 1 ? "" : "s"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                Crea una ficha de propietario y asígnale un expediente.
+              </p>
+            )
+          }
+        />
+
         {(
           [
-            [4, rowsPorDesaduanamiento],
-            [5, rowsPorPropietario],
             [6, rowsPorSeguro],
             [7, rowsPorMatricula],
           ] as const

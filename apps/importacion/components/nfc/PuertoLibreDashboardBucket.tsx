@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowDown,
@@ -76,6 +76,10 @@ type Props = {
   badgeTone?: "alert" | "ok";
   /** Ancla para deep-link (p. ej. #cola-embarque). */
   sectionId?: string;
+  /** Botón extra junto al título (p. ej. Nueva ficha). */
+  headerActions?: ReactNode;
+  /** Contenido encima de la tabla (fichas, avisos). */
+  leadingContent?: ReactNode;
 };
 
 const EXPEDIENTE_CODE_CLASS =
@@ -139,6 +143,8 @@ export function PuertoLibreDashboardBucket({
   defaultExpedienteSort = null,
   badgeTone = "alert",
   sectionId,
+  headerActions,
+  leadingContent,
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -174,6 +180,10 @@ export function PuertoLibreDashboardBucket({
 
   const hasFilters = Boolean(query.trim() || dateFrom || dateTo);
   const showTable = rows.length > 0;
+  const showPanel = showTable || Boolean(leadingContent);
+  const [detailsOpen, setDetailsOpen] = useState(
+    Boolean(leadingContent) || rows.some((r) => r.urgent)
+  );
 
   function toggleExpedienteSort() {
     setExpedienteSort((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -543,15 +553,29 @@ export function PuertoLibreDashboardBucket({
     </div>
   ) : null;
 
+  const headerExtras = (
+    <div className="flex shrink-0 items-center gap-2">
+      {headerActions ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {headerActions}
+        </div>
+      ) : null}
+      {countBadge}
+    </div>
+  );
+
   if (dense) {
-    if (!showTable) {
+    if (!showPanel) {
       return (
         <div
           id={sectionId}
           className="flex items-center justify-between gap-3 px-3 py-2.5"
         >
           {titleRow}
-          {countBadge}
+          {headerExtras}
         </div>
       );
     }
@@ -560,13 +584,22 @@ export function PuertoLibreDashboardBucket({
       <details
         id={sectionId}
         className="group"
-        open={rows.some((r) => r.urgent)}
+        open={detailsOpen}
+        onToggle={(e) =>
+          setDetailsOpen((e.currentTarget as HTMLDetailsElement).open)
+        }
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
           {titleRow}
-          {countBadge}
+          {headerExtras}
         </summary>
-        <div className="border-t border-zinc-800/60 px-3 pb-3 pt-2">{tablePanel}</div>
+        <div className="space-y-3 border-t border-zinc-800/60 px-3 pb-3 pt-2">
+          {leadingContent}
+          {tablePanel}
+          {!showTable ? (
+            <p className="text-sm text-zinc-500">{emptyMessage}</p>
+          ) : null}
+        </div>
       </details>
     );
   }
