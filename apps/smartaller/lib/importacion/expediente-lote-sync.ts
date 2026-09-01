@@ -83,10 +83,10 @@ export async function syncLoteDocumentoToSiblings(params: {
         .update({ documentos: next, updated_at: new Date().toISOString() })
         .eq("id", row.id)
         .eq("taller_id", params.tallerId);
-      return error ? 0 : 1;
+      return !error;
     })
   );
-  return results.reduce((sum, n) => sum + n, 0);
+  return results.filter(Boolean).length;
 }
 
 /**
