@@ -52,7 +52,9 @@ export default async function PlanillaRegistroImportacionPage({
       ? (1 as const)
       : faseParam === "1a" || faseParam === "1A"
         ? (2 as const)
-        : faseParam === "7"
+        : faseParam === "8"
+          ? (8 as const)
+          : faseParam === "7"
           ? (7 as const)
           : faseParam === "6"
             ? (6 as const)

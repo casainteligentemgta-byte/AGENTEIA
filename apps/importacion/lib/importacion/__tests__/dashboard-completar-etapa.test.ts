@@ -22,8 +22,10 @@ describe("completarEtapaLabel", () => {
     assert.equal(completarEtapaLabel(5), "Completar propietario");
     assert.equal(completarEtapaLabel(6), "Completar seguro");
     assert.equal(completarEtapaLabel(7), "Completar matrícula");
-    assert.equal(resolvePlanillaEtapaPendiente(8), 7);
-    assert.equal(completarEtapaLabel(8), "Completar matrícula");
+    assert.equal(completarEtapaLabel(8), "Completar placa");
+    assert.equal(resolvePlanillaEtapaPendiente(8), 8);
+    assert.equal(resolvePlanillaEtapaPendiente(9), 8);
+    assert.equal(completarEtapaLabel(9), "Completar placa");
   });
 
   it("títulos de cola van fase a fase", () => {
@@ -34,5 +36,6 @@ describe("completarEtapaLabel", () => {
     assert.equal(porCompletarEtapaTitle(5), "Por completar propietario");
     assert.equal(porCompletarEtapaTitle(6), "Por completar seguro");
     assert.equal(porCompletarEtapaTitle(7), "Por completar matrícula");
+    assert.equal(porCompletarEtapaTitle(8), "Por completar placa");
   });
 });

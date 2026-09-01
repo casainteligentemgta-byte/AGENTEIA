@@ -38,6 +38,7 @@ import {
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
+import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
 import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
 import { parseImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import { copyCedulaRifClienteOntoVehiculos } from "@/lib/importacion/expediente-lote-sync";
@@ -1674,6 +1675,57 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
   return { success: true };
 }
 
+/** Completa fase 8: foto de placa + título de propiedad → planilla 9. */
+export async function savePuertoLibreEntregaPlacaAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z
+    .object({ vehiculoId: z.string().uuid() })
+    .safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const docs = parseVehiculosDocumentos(row.documentos);
+  if (!esEntregaPlacaCompleta(docs)) {
+    return {
+      success: false,
+      error: "Carga la foto de la placa y el título de propiedad",
+    };
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const importacion = serializeImportacion({
+    ...existing,
+    planillaFase: 9,
+    matriculacionPaso: 2,
+    estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
+    nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
 /**
  * @deprecated Usar savePuertoLibreCarpetaMatriculacionAction.
  * Conservado por compatibilidad: completa matriculación sin exigir título/placa.
@@ -1784,10 +1836,10 @@ export async function elegirViaNacionalizacionAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const existing = parseImportacion(row.importacion);
-  if ((existing.planillaFase ?? 0) < 8) {
+  if ((existing.planillaFase ?? 0) < 9) {
     return {
       success: false,
-      error: "Completa la planilla y la matriculación (placa) antes de nacionalizar",
+      error: "Completa la planilla, la matrícula y la placa (foto y título) antes de nacionalizar",
     };
   }
   if (existing.estadoNacionalizacion === "nacionalizado") {
@@ -2585,6 +2637,8 @@ export type PuertoLibreVehiculoListItem = {
   datosPendientes: string[];
   /** Chip verde de Registro: datos + factura + certificado. */
   registroCompleto: boolean;
+  /** Foto de placa + título de propiedad. */
+  entregaPlacaCompleta: boolean;
 };
 
 export async function listPuertoLibreVehiculos(): Promise<
@@ -2742,6 +2796,7 @@ function mapListItem(
       tieneFactura: Boolean(docs.factura_comercial?.url),
       tieneCertificado: Boolean(docs.certificado_origen?.url),
     }),
+    entregaPlacaCompleta: esEntregaPlacaCompleta(docs),
   };
 }
 

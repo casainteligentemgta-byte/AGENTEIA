@@ -1,6 +1,6 @@
 /**
  * Colas del dashboard Puerto Libre.
- * Planilla: una cola por fase 1–7. La 8 ya está completa.
+ * Planilla: una cola por fase 1–8. La 9 ya está completa.
  * Extraer → Registrar persiste planillaFase 2 (Por completar embarque).
  * Si el registro ya está listo (chip verde / semáforo verde) y la BD
  * sigue en fase 1 (alta suelta), la cola visible es embarque.
@@ -20,7 +20,7 @@ export type DashboardClasificacionFuente = {
   numeroBl?: string | null;
 };
 
-export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7] as const;
+export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 export type PlanillaFasePendiente = (typeof PLANILLA_FASES_PENDIENTES)[number];
 
@@ -49,18 +49,18 @@ export function esRegistroListoParaEmbarque(
  */
 export function faseColaPlanilla(v: DashboardClasificacionFuente): number {
   const f = faseDe(v);
-  if (f >= 8) return f;
+  if (f >= 9) return f;
   if (f <= 1 && esRegistroListoParaEmbarque(v)) return 2;
   return f;
 }
 
-/** Cola de planilla: el expediente está en esa etapa (1–7). */
+/** Cola de planilla: el expediente está en esa etapa (1–8). */
 export function esPorCompletarEtapa(
   v: DashboardClasificacionFuente,
   etapa: PlanillaFasePendiente
 ): boolean {
   const f = faseColaPlanilla(v);
-  if (f < 1 || f > 7) return false;
+  if (f < 1 || f > 8) return false;
   return f === etapa;
 }
 
@@ -108,4 +108,18 @@ export function registroAccionLabel(
   completitud: DashboardClasificacionFuente["completitudDatos"]
 ): string {
   return completitud === "verde" ? "Confirmar registro" : "Completar registro";
+}
+
+/** Foto de placa + título listos (o ya cerró la planilla). */
+export function esEntregaPlacaListaEnDashboard(v: {
+  planillaFase?: number | null;
+  entregaPlacaCompleta?: boolean;
+}): boolean {
+  const fase = v.planillaFase;
+  if (typeof fase === "number" && fase >= 9) return true;
+  return v.entregaPlacaCompleta === true;
+}
+
+export function placaAccionLabel(completo: boolean): string {
+  return completo ? "Placa completada" : "Completar placa";
 }

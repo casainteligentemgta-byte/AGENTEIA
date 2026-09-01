@@ -1,4 +1,4 @@
-/** Etapa pendiente según planillaFase (1–7). La 8 ya está completa. */
+/** Etapa pendiente según planillaFase (1–8). La 9 ya está completa. */
 export const PLANILLA_ETAPA_LABELS = {
   1: "registro",
   2: "embarque",
@@ -7,6 +7,7 @@ export const PLANILLA_ETAPA_LABELS = {
   5: "propietario",
   6: "seguro",
   7: "matrícula",
+  8: "placa",
 } as const;
 
 export type PlanillaEtapaNumero = keyof typeof PLANILLA_ETAPA_LABELS;
@@ -15,7 +16,7 @@ export function resolvePlanillaEtapaPendiente(
   fase: number | null | undefined
 ): PlanillaEtapaNumero {
   if (fase == null || !Number.isFinite(fase) || fase < 1) return 1;
-  if (fase >= 7) return 7;
+  if (fase >= 8) return 8;
   return fase as PlanillaEtapaNumero;
 }
 

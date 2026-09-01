@@ -36,6 +36,7 @@ import {
   DASHBOARD_COLA_EMBARQUE_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
+  DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_SEGURO_ID,
 } from "@/lib/importacion/paths";
@@ -80,7 +81,9 @@ import {
 } from "@/lib/importacion/dashboard-ficha";
 import {
   esEnColaEmbarque,
+  esEntregaPlacaListaEnDashboard,
   esNacionalizado,
+  placaAccionLabel,
   esPorCompletarEtapa,
   esPorPresentacionSeniat,
   esRechazadoSeniat,
@@ -177,6 +180,7 @@ function sortPorExpediente(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = faseColaPlanilla(v);
+  if (f === 8) return `/smartimport/${v.id}/planilla?fase=8`;
   if (f >= 7) return `/smartimport/matriculas?expediente=${v.id}`;
   if (f === 6) return `/smartimport/seguros?expediente=${v.id}`;
   if (f === 5) return `/smartimport/propietarios?expediente=${v.id}`;
@@ -203,7 +207,10 @@ function rowPorCompletarFase(
     ficha,
     dateValue: modificadoIso || null,
     searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${fase}`,
-    actionLabel: completarEtapaLabel(fase),
+    actionLabel:
+      fase === 8
+        ? placaAccionLabel(esEntregaPlacaListaEnDashboard(v))
+        : completarEtapaLabel(fase),
     actionTone: "cyan",
   };
 }
@@ -436,6 +443,7 @@ async function loadVehiculosForImportacion(
           completitudDatos: null,
           datosPendientes: [],
           registroCompleto: false,
+          entregaPlacaCompleta: false,
         })
       ),
     };
@@ -534,6 +542,7 @@ async function loadVehiculosForImportacion(
             completitudDatos: imp.completitudDatos ?? null,
             datosPendientes: imp.datosPendientes ?? [],
             registroCompleto: false,
+            entregaPlacaCompleta: false,
           };
         })
         .sort(compareExpedientesAsc),
@@ -664,6 +673,9 @@ export default async function PuertoLibrePage() {
   const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 7))
   ).map((v) => rowPorCompletarFase(v, 7));
+  const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 8))
+  ).map((v) => rowPorCompletarFase(v, 8));
 
   const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
     const expediente = labelExpediente(v);
@@ -1023,6 +1035,22 @@ export default async function PuertoLibrePage() {
               emptyText="Crea una ficha de matrícula y asígnale un expediente."
             />
           }
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_PLACA_ID}
+          title={porCompletarEtapaTitle(8)}
+          icon="file"
+          emptyMessage="No hay expedientes por completar placa y título."
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorPlaca}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
         />
 
         <PuertoLibreDashboardBucket

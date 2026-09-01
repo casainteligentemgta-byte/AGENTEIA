@@ -57,7 +57,7 @@ export default async function PuertoLibreNacionalizarPage({ params }: Props) {
     );
   }
 
-  if (fase < 8) {
+  if (fase < 9) {
     if (PLANILLA_PREVIEW_EN_CONSTRUCCION) {
       redirect(hrefPlanillaPreview(ficha.id));
     }

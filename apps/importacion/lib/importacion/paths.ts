@@ -45,6 +45,8 @@ export const DASHBOARD_COLA_PROPIETARIO_ID = "cola-propietario";
 export const DASHBOARD_COLA_SEGURO_ID = "cola-seguro";
 /** Cola: Por completar matrícula. */
 export const DASHBOARD_COLA_MATRICULA_ID = "cola-matricula";
+/** Cola: Por completar placa (foto + título). */
+export const DASHBOARD_COLA_PLACA_ID = "cola-placa";
 
 /** Dashboard anclado en Por completar llegada. */
 export function hrefDashboardColaLlegada(): string {
