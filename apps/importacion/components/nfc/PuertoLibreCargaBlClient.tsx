@@ -172,11 +172,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         setError(result.error);
         return;
       }
-      const nExp = result.loteCopiados + 1;
-      setMessage(
-        `Datos y ${result.archivos} archivo${result.archivos === 1 ? "" : "s"} guardados en el BL · ${nExp} expediente${nExp === 1 ? "" : "s"}.`
-      );
-      router.refresh();
+      router.push("/smartimport");
     });
   }
 
