@@ -18,6 +18,8 @@ import {
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
+import { compressImportDocForCellular } from "@/lib/importacion/compress-import-doc";
+import { messageFromUploadResult } from "@/lib/importacion/upload-action-result";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type AcceptMode = "pdf" | "both";
@@ -138,19 +140,24 @@ export function ImportDocumentoUpload({
     setError(null);
     startTransition(async () => {
       try {
-        const normalized =
+        const prepared =
           file.type === "application/pdf"
             ? file
-            : await normalizeImageFileForUpload(file);
+            : await compressImportDocForCellular(
+                await normalizeImageFileForUpload(file)
+              );
 
         let verifyUi: ImprontaVerifyUi | null = null;
-        if (shouldVerify && normalized.type !== "application/pdf") {
+        if (shouldVerify && prepared.type !== "application/pdf") {
           const vfd = new FormData();
           vfd.set("vehiculoId", vehiculoId);
-          vfd.set("file", normalized);
+          vfd.set("file", prepared);
           const verified = await verifyPuertoLibreImprontaAction(vfd);
-          if (!verified.success) {
-            setError(verified.error);
+          if (!verified?.success) {
+            setError(
+              verified?.error ??
+                "No se pudo verificar la impronta. Intenta de nuevo."
+            );
             return;
           }
           verifyUi = {
@@ -170,12 +177,12 @@ export function ImportDocumentoUpload({
         const formData = new FormData();
         formData.set("vehiculoId", vehiculoId);
         formData.set("tipo", tipo);
-        formData.set("file", normalized);
+        formData.set("file", prepared);
         if (skipOcr) formData.set("skipOcr", "1");
 
         const result = await uploadPuertoLibreDocumentoAction(formData);
-        if (!result.success) {
-          setError(result.error);
+        if (!result?.success) {
+          setError(messageFromUploadResult(result) ?? "No se pudo subir el archivo");
           return;
         }
         setDone(true);
