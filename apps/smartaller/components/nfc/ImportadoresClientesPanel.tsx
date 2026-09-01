@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Search, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Plus, Search, Trash2, UserRound } from "lucide-react";
 import {
   deleteImportadorAction,
   type ImportadorListItem,
 } from "@/app/actions/nfc/importadores";
+import { ImportadorFicha } from "@/components/nfc/ImportadorFicha";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
 import { formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 
@@ -51,7 +52,9 @@ function toFormInitial(c: ImportadorListItem) {
 export function ImportadoresClientesPanel({ initialImportadores }: Props) {
   const [clientes, setClientes] = useState(initialImportadores);
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"lista" | "nuevo" | "editar">("lista");
+  const [mode, setMode] = useState<"lista" | "nuevo" | "editar" | "ficha">(
+    "lista"
+  );
   const [editing, setEditing] = useState<ImportadorListItem | null>(null);
   const [pending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -103,29 +106,60 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
     });
   }
 
+  if (mode === "ficha" && editing) {
+    return (
+      <ImportadorFicha
+        cliente={editing}
+        onBack={() => {
+          setEditing(null);
+          setMode("lista");
+        }}
+        onEdit={() => setMode("editar")}
+      />
+    );
+  }
+
   if (mode === "nuevo" || mode === "editar") {
     return (
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 sm:p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-zinc-50">
-          <UserRound className="h-5 w-5 text-cyan-400" />
-          {mode === "nuevo" ? "Nuevo cliente" : "Editar cliente"}
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (mode === "editar" && editing) {
+                setMode("ficha");
+                return;
+              }
+              setEditing(null);
+              setMode("lista");
+            }}
+            className="inline-flex rounded-full p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            aria-label="Volver"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-50">
+            <UserRound className="h-5 w-5 text-cyan-400" />
+            {mode === "nuevo" ? "Nuevo cliente" : "Editar cliente"}
+          </h2>
+        </div>
         <ImportadorForm
           key={editing?.id ?? "nuevo"}
           initial={editing ? toFormInitial(editing) : undefined}
           initialDocumentos={editing?.documentos}
           submitLabel={mode === "nuevo" ? "Guardar cliente" : "Guardar cambios"}
           onSaved={(imp) => {
-            upsertLocal({
+            const item: ImportadorListItem = {
               ...imp,
               tipoLabel:
                 imp.tipo === "natural" ? "Persona natural" : "Persona jurídica",
               documentos: imp.documentos ?? editing?.documentos ?? {},
               activo: editing?.activo ?? true,
               createdAt: editing?.createdAt ?? new Date().toISOString(),
-            });
-            setMode("lista");
-            setEditing(null);
+            };
+            upsertLocal(item);
+            setEditing(item);
+            setMode("ficha");
           }}
         />
       </div>
@@ -183,7 +217,14 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
                 className="rounded-2xl border border-zinc-800 bg-zinc-950/40 px-4 py-3"
               >
                 <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(c);
+                      setMode("ficha");
+                    }}
+                    className="min-w-0 flex-1 rounded-lg text-left transition hover:opacity-90"
+                  >
                     <p className="text-sm font-semibold text-zinc-50">
                       {c.nombre}
                     </p>
@@ -198,17 +239,10 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
                       {c.telefono ? ` · ${c.telefono}` : ""}
                       {!c.activo ? " · Inactivo" : ""}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditing(c);
-                        setMode("editar");
-                      }}
-                      className="mt-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
-                    >
-                      Editar
-                    </button>
-                  </div>
+                    <span className="mt-2 inline-block text-xs font-medium text-cyan-400">
+                      Ver ficha
+                    </span>
+                  </button>
                   <button
                     type="button"
                     disabled={pending}
