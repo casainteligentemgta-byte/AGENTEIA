@@ -44,6 +44,12 @@ import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser, getMyTaller } from "@/lib/taller";
 import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import {
+  collapseColaPorBl,
+  fichaHomogeneaBl,
+  latestIso,
+  resumenUnidadesBl,
+} from "@/lib/importacion/dashboard-cola-bl";
+import {
   completarEtapaLabel,
   porCompletarEtapaTitle,
 } from "@/lib/importacion/dashboard-completar-etapa";
@@ -178,6 +184,75 @@ function rowPorCompletarFase(
     actionLabel: completarEtapaLabel(fase),
     actionTone: "cyan",
   };
+}
+
+function rowLlegadaUnidad(v: PuertoLibreVehiculoListItem): DashboardBucketRow {
+  const expediente = labelExpediente(v);
+  const ficha = fichaDe(v);
+  return {
+    id: v.id,
+    href: `/smartimport/${v.id}/planilla?fase=3`,
+    cells: {
+      expediente,
+      llegada: formatFechaDia(v.fechaLlegadaBuque),
+    },
+    ficha,
+    dateValue: v.fechaLlegadaBuque,
+    searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
+    actionLabel: completarEtapaLabel(3),
+    actionTone: "cyan",
+  };
+}
+
+function rowColaGrupoBl(
+  blKey: string,
+  label: string,
+  items: PuertoLibreVehiculoListItem[],
+  fase: 2 | 3
+): DashboardBucketRow {
+  const sorted = [...items];
+  const ficha = fichaHomogeneaBl(sorted);
+  const resumen = resumenUnidadesBl(sorted);
+  const modificadoIso = latestIso(sorted).slice(0, 10);
+  const fechaBuque = sorted.find((v) => v.fechaLlegadaBuque)?.fechaLlegadaBuque ?? null;
+  const codes = sorted
+    .map((v) => v.codigoExpediente)
+    .filter((c): c is string => Boolean(c))
+    .join(" ");
+  return {
+    id: `bl-${fase}-${blKey}`,
+    href: cargaBlPath(blKey),
+    cells:
+      fase === 2
+        ? {
+            expediente: `BL ${label}`,
+            modificado: formatFechaHoraCorta(latestIso(sorted)),
+          }
+        : {
+            expediente: `BL ${label}`,
+            llegada: formatFechaDia(fechaBuque),
+          },
+    ficha,
+    subcells: { expediente: resumen },
+    dateValue: fase === 2 ? modificadoIso || null : fechaBuque,
+    searchText: `BL ${label} ${resumen} ${codes} ${dashboardFichaSearchText(ficha)}`,
+    actionLabel: completarEtapaLabel(fase),
+    actionTone: "cyan",
+  };
+}
+
+function rowsColaPorBl(
+  items: PuertoLibreVehiculoListItem[],
+  fase: 2 | 3
+): DashboardBucketRow[] {
+  return collapseColaPorBl(items).map((group) => {
+    if (group.kind === "bl") {
+      return rowColaGrupoBl(group.blKey, group.label, group.items, fase);
+    }
+    return fase === 2
+      ? rowPorCompletarFase(group.item, 2)
+      : rowLlegadaUnidad(group.item);
+  });
 }
 
 function etiquetaDias(dias: number | null, sinFecha: string) {
@@ -491,27 +566,15 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPorEmbarque: DashboardBucketRow[] = porEmbarque.map((v) =>
-    rowPorCompletarFase(v, 2)
+  const rowsPorEmbarque: DashboardBucketRow[] = rowsColaPorBl(
+    porEmbarque,
+    2
   );
 
-  const rowsPorRecibir: DashboardBucketRow[] = porRecibir.map((v) => {
-    const expediente = labelExpediente(v);
-    const ficha = fichaDe(v);
-    return {
-      id: v.id,
-      href: `/smartimport/${v.id}/planilla?fase=3`,
-      cells: {
-        expediente,
-        llegada: formatFechaDia(v.fechaLlegadaBuque),
-      },
-      ficha,
-      dateValue: v.fechaLlegadaBuque,
-      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-      actionLabel: completarEtapaLabel(3),
-      actionTone: "cyan",
-    };
-  });
+  const rowsPorRecibir: DashboardBucketRow[] = rowsColaPorBl(
+    porRecibir,
+    3
+  );
 
   const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
@@ -708,9 +771,9 @@ export default async function PuertoLibrePage() {
           dense
           title={porCompletarEtapaTitle(2)}
           icon="file"
-          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(2).toLowerCase()}.`}
+          emptyMessage="No hay cargas por completar embarque."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
             { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
           ]}
           rows={rowsPorEmbarque}
@@ -723,9 +786,9 @@ export default async function PuertoLibrePage() {
           dense
           title={porCompletarEtapaTitle(3)}
           icon="ship"
-          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(3).toLowerCase()}.`}
+          emptyMessage="No hay cargas por completar llegada."
           columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
           ]}
           rows={rowsPorRecibir}

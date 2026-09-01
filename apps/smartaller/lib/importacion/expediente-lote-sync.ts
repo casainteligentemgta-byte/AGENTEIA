@@ -15,6 +15,7 @@ import {
   isDocumentoLote,
   isSiblingDelMismoLote,
   mergeImportacionLote,
+  nextPlanillaFaseLote,
   normalizeLoteBlKey,
   pickDocumentosLoteFaltantes,
   pickImportacionLoteFields,
@@ -343,4 +344,56 @@ export async function copyCedulaRifClienteOntoVehiculos(params: {
       .eq("taller_id", params.tallerId);
   }
   return out;
+}
+
+/**
+ * Avanza fase 2→3 y 3→4 en el expediente fuente y hermanos del BL
+ * según papeles y fechas de la carga. No toca registro ni 4+.
+ */
+export async function advanceLotePlanillaFases(params: {
+  admin: SupabaseClient;
+  tallerId: string;
+  sourceVehiculoId: string;
+  sourceImportacion: ImportacionData;
+}): Promise<number> {
+  const { data: sourceRow } = await params.admin
+    .from("vehiculos")
+    .select("id, importacion, documentos")
+    .eq("id", params.sourceVehiculoId)
+    .eq("taller_id", params.tallerId)
+    .maybeSingle();
+  if (!sourceRow) return 0;
+
+  const hermanos = hermanosDelLote(
+    await loadPosiblesHermanos(
+      params.admin,
+      params.tallerId,
+      params.sourceVehiculoId
+    ),
+    params.sourceImportacion
+  );
+  const rows = [sourceRow as SiblingRow, ...hermanos];
+  let advanced = 0;
+  for (const row of rows) {
+    const imp = parseImportacion(row.importacion);
+    const docs = parseVehiculosDocumentos(row.documentos);
+    const nextFase = nextPlanillaFaseLote({
+      faseActual: imp.planillaFase,
+      docs,
+      fechaLlegadaBuque: imp.fechaLlegadaBuque,
+      fechaIngreso: imp.fechaIngreso,
+    });
+    const actual = imp.planillaFase ?? 1;
+    if (nextFase <= actual) continue;
+    const { error } = await params.admin
+      .from("vehiculos")
+      .update({
+        importacion: serializeImportacion({ ...imp, planillaFase: nextFase }),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id)
+      .eq("taller_id", params.tallerId);
+    if (!error) advanced += 1;
+  }
+  return advanced;
 }

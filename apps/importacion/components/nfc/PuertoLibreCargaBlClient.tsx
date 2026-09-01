@@ -150,9 +150,11 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         result.loteCopiados > 0
           ? ` · ${result.loteCopiados + 1} expedientes`
           : "";
-      setMessage(
-        `Datos de la carga guardados en el BL${extra}. La fase se confirma aparte.`
-      );
+      const faseNote =
+        result.fasesAvanzadas > 0
+          ? ` · ${result.fasesAvanzadas} pasaron de etapa`
+          : "";
+      setMessage(`Datos de la carga guardados en el BL${extra}${faseNote}.`);
       router.refresh();
     });
   }
@@ -225,7 +227,8 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         </h2>
         <p className="mt-1 text-xs text-slate-500">
           Llegada del buque, ingreso al PL y agente. Se escriben en todos los
-          expedientes de este BL. No avanza fases.
+          expedientes de este BL. Con BL, lista y fecha del buque cierran
+          embarque; con ingreso, AR y EDI cierran la llegada de la carga.
         </p>
         {lote.importadorNombre ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-300">
