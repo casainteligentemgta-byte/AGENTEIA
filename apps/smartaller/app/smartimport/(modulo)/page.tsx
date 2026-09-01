@@ -47,6 +47,7 @@ import {
   cargaBlPath,
   groupByCargaBl,
 } from "@/lib/importacion/expediente-lote";
+import { completarEtapaLabel } from "@/lib/importacion/dashboard-completar-etapa";
 
 export const dynamic = "force-dynamic";
 
@@ -456,11 +457,11 @@ export default async function PuertoLibrePage() {
           ? `${completitudDot(v.completitudDatos)} ${expediente}`
           : expediente,
         vehiculo,
-        accion: "Completar",
+        accion: completarEtapaLabel(1),
       },
       subcells: pend ? { vehiculo: pend } : undefined,
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} ${v.datosPendientes.join(" ")}`,
-      actionLabel: "Completar",
+      actionLabel: completarEtapaLabel(1),
       actionTone: completitudTone(v.completitudDatos),
     };
   });
@@ -518,7 +519,7 @@ export default async function PuertoLibrePage() {
       },
       dateValue: v.fechaLlegadaBuque,
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""}`,
-      actionLabel: "Recibir",
+      actionLabel: completarEtapaLabel(3),
       actionTone: "cyan",
     };
   });
@@ -537,7 +538,7 @@ export default async function PuertoLibrePage() {
       },
       dateValue: modificadoIso || null,
       searchText: `${expediente} ${vehiculo} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
-      actionLabel: "Completar",
+      actionLabel: completarEtapaLabel(v.planillaFase),
       actionTone: "cyan",
     };
   });
