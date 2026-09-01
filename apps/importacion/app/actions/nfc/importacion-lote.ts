@@ -24,6 +24,7 @@ import {
   syncLoteImportacionToSiblings,
   copyCedulaRifClienteOntoVehiculos,
   syncCargaBlDocumentosToSiblings,
+  advanceLotePlanillaFases,
 } from "@/lib/importacion/expediente-lote-sync";
 import {
   placaRealVisible,
@@ -241,7 +242,7 @@ export async function saveCargaBlDatosAction(input: {
   aduana: string;
   agenteAduanal: string;
 }): Promise<
-  | { success: true; loteCopiados: number }
+  | { success: true; loteCopiados: number; fasesAvanzadas: number }
   | { success: false; error: string }
 > {
   const auth = await requireTallerAuth();
@@ -295,8 +296,14 @@ export async function saveCargaBlDatosAction(input: {
     lookup: merged,
     lote: merged,
   });
+  const fasesAvanzadas = await advanceLotePlanillaFases({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: parsed.data.sourceVehiculoId,
+    sourceImportacion: merged,
+  });
   revalidateLote(parsed.data.sourceVehiculoId);
-  return { success: true, loteCopiados };
+  return { success: true, loteCopiados, fasesAvanzadas };
 }
 
 export async function saveCargaBlLoteCompletoAction(input: {
@@ -307,7 +314,7 @@ export async function saveCargaBlLoteCompletoAction(input: {
   aduana: string;
   agenteAduanal: string;
 }): Promise<
-  | { success: true; loteCopiados: number; archivos: number }
+  | { success: true; loteCopiados: number; archivos: number; fasesAvanzadas: number }
   | { success: false; error: string }
 > {
   const datos = await saveCargaBlDatosAction(input);
@@ -331,11 +338,18 @@ export async function saveCargaBlLoteCompletoAction(input: {
     sourceVehiculoId: input.sourceVehiculoId,
     sourceImportacion,
   });
+  const fasesAvanzadas = await advanceLotePlanillaFases({
+    admin,
+    tallerId: auth.taller.id,
+    sourceVehiculoId: input.sourceVehiculoId,
+    sourceImportacion,
+  });
   revalidateLote(input.sourceVehiculoId);
   return {
     success: true,
     loteCopiados: Math.max(datos.loteCopiados, sync.expedientes),
     archivos: sync.archivos,
+    fasesAvanzadas: Math.max(datos.fasesAvanzadas, fasesAvanzadas),
   };
 }
 

@@ -249,3 +249,42 @@ export function groupByCargaBl<T extends { numeroBl?: string | null }>(
     items: map.get(blKey)!,
   }));
 }
+
+function tieneDoc(
+  docs: VehiculosDocumentos,
+  tipo: DocumentoTipo
+): boolean {
+  return Boolean(docs[tipo]?.url);
+}
+
+/**
+ * Al guardar el lote: cierra embarque (BL + lista + fecha buque) y
+ * llegada de carga (ingreso + AR + EDI). No pisa registro ni etapas 4+.
+ * Fotos y cuestionario no entran: siguen en cada expediente.
+ */
+export function nextPlanillaFaseLote(params: {
+  faseActual: number | null | undefined;
+  docs: VehiculosDocumentos;
+  fechaLlegadaBuque?: string | null;
+  fechaIngreso?: string | null;
+}): number {
+  const raw = params.faseActual;
+  const fase =
+    raw == null || !Number.isFinite(raw) || raw < 1 ? 1 : Math.floor(raw);
+  if (fase !== 2 && fase !== 3) return fase;
+
+  const embarqueListo =
+    tieneDoc(params.docs, "bl_guia") &&
+    tieneDoc(params.docs, "lista_empaque") &&
+    Boolean(params.fechaLlegadaBuque?.trim());
+  const llegadaLoteLista =
+    Boolean(params.fechaIngreso?.trim()) &&
+    tieneDoc(params.docs, "acta_recepcion_mercancia") &&
+    tieneDoc(params.docs, "constancia_edi_reconocimiento");
+
+  let next = fase;
+  if (next === 2 && embarqueListo) next = 3;
+  if (next === 3 && llegadaLoteLista) next = 4;
+  return next;
+}
+
