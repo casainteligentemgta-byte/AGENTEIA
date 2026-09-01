@@ -109,6 +109,16 @@ describe("expediente lote vs unidad", () => {
     assert.equal(merged.planillaFase, 2);
   });
 
+  it("al cambiar el nº de BL lo pisa en cada expediente del lote", () => {
+    const merged = mergeImportacionLote(
+      { numeroBl: "321", puerto: "El Guamache", planillaFase: 2 },
+      { numeroBl: "COSU999" }
+    );
+    assert.equal(merged.numeroBl, "COSU999");
+    assert.equal(merged.puerto, "El Guamache");
+    assert.equal(merged.planillaFase, 2);
+  });
+
   it("copia la referencia del documento de lote", () => {
     const next = documentosConCopiaLote(
       { certificado_origen: { url: "https://x/c.pdf", path: "c" } },

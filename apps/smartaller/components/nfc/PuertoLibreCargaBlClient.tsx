@@ -19,6 +19,7 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
   DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   cargaBlPath,
+  normalizeLoteBlKey,
 } from "@/lib/importacion/expediente-lote";
 import {
   PUERTOS_DESCARGA_VENEZUELA,
@@ -116,6 +117,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
   const [puerto, setPuerto] = useState(lote.puerto);
   const [aduana, setAduana] = useState(lote.aduana);
   const [agenteAduanal, setAgenteAduanal] = useState(lote.agenteAduanal);
+  const [numeroBl, setNumeroBl] = useState(lote.numeroBl);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -132,11 +134,21 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
       )
   );
 
+  function applySavedBl(savedBl: string) {
+    const nextKey = normalizeLoteBlKey(savedBl);
+    const prevKey = normalizeLoteBlKey(lote.numeroBl);
+    if (nextKey && nextKey !== prevKey) {
+      router.replace(cargaBlPath(savedBl));
+    }
+    router.refresh();
+  }
+
   function saveDatos() {
     setError(null);
     startTransition(async () => {
       const result = await saveCargaBlDatosAction({
         sourceVehiculoId: lote.sourceVehiculoId,
+        numeroBl,
         fechaIngreso,
         fechaLlegadaBuque,
         puerto,
@@ -156,7 +168,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           ? ` · ${result.fasesAvanzadas} pasaron de etapa`
           : "";
       setMessage(`Datos de la carga guardados en el BL${extra}${faseNote}.`);
-      router.refresh();
+      applySavedBl(result.numeroBl);
     });
   }
 
@@ -165,6 +177,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
     startTransition(async () => {
       const result = await saveCargaBlLoteCompletoAction({
         sourceVehiculoId: lote.sourceVehiculoId,
+        numeroBl,
         fechaIngreso,
         fechaLlegadaBuque,
         puerto,
@@ -207,9 +220,16 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           <p className="text-xs uppercase tracking-wide text-cyan-400/80">
             Documentos de la carga
           </p>
-          <h1 className="mt-1 font-mono text-2xl font-semibold text-slate-50">
-            BL {lote.numeroBl}
-          </h1>
+          <label className="mt-1 block space-y-1.5">
+            <span className="text-sm text-slate-400">Nº BL / Guía</span>
+            <input
+              value={numeroBl}
+              onChange={(e) => setNumeroBl(e.target.value.toUpperCase())}
+              placeholder="Nº de BL"
+              aria-label="Número de BL"
+              className="box-border w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-2xl font-semibold uppercase text-slate-50 outline-none focus:border-cyan-500/60"
+            />
+          </label>
           <p className="mt-1 text-sm text-slate-400">
             {lote.unidades.length} expediente
             {lote.unidades.length === 1 ? "" : "s"}
@@ -227,9 +247,9 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           Datos de la carga
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Llegada del buque, ingreso al PL y agente. Se escriben en todos los
-          expedientes de este BL. Con BL, lista y fecha del buque cierran
-          embarque; con ingreso, AR y EDI cierran la llegada de la carga.
+          Nº de BL, llegada del buque, ingreso al PL y agente. Se escriben en
+          todos los expedientes de esta carga. Con BL, lista y fecha del buque
+          cierran embarque; con ingreso, AR y EDI cierran la llegada.
         </p>
         {lote.importadorNombre ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-300">
@@ -238,6 +258,16 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           </p>
         ) : null}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+            <span className="text-sm text-slate-400">Nº BL / Guía *</span>
+            <input
+              value={numeroBl}
+              onChange={(e) => setNumeroBl(e.target.value.toUpperCase())}
+              placeholder="Nº de BL"
+              required
+              className={`${INPUT_CLASS} font-mono uppercase`}
+            />
+          </label>
           <PlanillaFechaField
             label="Fecha de llegada del buque"
             name="fechaLlegadaBuque"
@@ -300,7 +330,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         <button
           type="button"
           onClick={saveDatos}
-          disabled={pending}
+          disabled={pending || !numeroBl.trim()}
           className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
         >
           {pending ? "Guardando…" : "Guardar datos en el BL"}
@@ -339,7 +369,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
       <button
         type="button"
         onClick={saveDatosYArchivos}
-        disabled={pending}
+        disabled={pending || !numeroBl.trim()}
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
       >
         <Save className="h-4 w-4" />
