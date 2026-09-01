@@ -39,21 +39,27 @@ function txt(v: string | null | undefined, fallback = "-"): string {
 }
 
 function wrapLines(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = winAnsi(text).split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [""];
+  const paragraphs = winAnsi(text).split(/\n/);
   const lines: string[] = [];
-  let current = words[0]!;
-  for (let i = 1; i < words.length; i++) {
-    const next = `${current} ${words[i]}`;
-    if (font.widthOfTextAtSize(next, size) <= maxWidth) {
-      current = next;
-    } else {
-      lines.push(current);
-      current = words[i]!;
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push("");
+      continue;
     }
+    let current = words[0]!;
+    for (let i = 1; i < words.length; i++) {
+      const next = `${current} ${words[i]}`;
+      if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+        current = next;
+      } else {
+        lines.push(current);
+        current = words[i]!;
+      }
+    }
+    lines.push(current);
   }
-  lines.push(current);
-  return lines;
+  return lines.length > 0 ? lines : [""];
 }
 
 function formatGeneratedAt(d: Date): string {

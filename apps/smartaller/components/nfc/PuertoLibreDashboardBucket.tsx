@@ -19,6 +19,10 @@ import {
   buildListaDashboardPdf,
   listaDashboardPdfFileName,
 } from "@/lib/importacion/lista-dashboard-pdf";
+import {
+  dashboardFichaLineas,
+  type DashboardFichaIdentidad,
+} from "@/lib/importacion/dashboard-ficha";
 
 export type DashboardBucketColumn = {
   key: string;
@@ -31,6 +35,8 @@ export type DashboardBucketRow = {
   id: string;
   href: string;
   cells: Record<string, string>;
+  /** Marca / modelo / color / VIN bajo el número de expediente. */
+  ficha?: DashboardFichaIdentidad;
   /** Texto secundario bajo una celda (p. ej. motivo, countdown). */
   subcells?: Record<string, string>;
   /** YYYY-MM-DD para filtro por fecha. */
@@ -205,6 +211,10 @@ export function PuertoLibreDashboardBucket({
           columns.map((c) => {
             const main = r.cells[c.key] ?? "";
             const sub = r.subcells?.[c.key];
+            if (c.key === "expediente" && r.ficha) {
+              const stacked = [main, ...dashboardFichaLineas(r.ficha)].join("\n");
+              return [c.key, sub ? `${stacked}\n${sub}` : stacked];
+            }
             return [c.key, sub ? `${main} · ${sub}` : main];
           })
         ),
@@ -426,11 +436,44 @@ export function PuertoLibreDashboardBucket({
                       const sub = row.subcells?.[col.key];
 
                       if (isExpediente) {
+                        const ficha = row.ficha;
                         return (
-                          <td key={col.key} className="px-3 py-3 whitespace-nowrap">
-                            <Link href={row.href} className={EXPEDIENTE_CODE_CLASS}>
+                          <td key={col.key} className="px-3 py-3">
+                            <Link
+                              href={row.href}
+                              className={`${EXPEDIENTE_CODE_CLASS} block`}
+                            >
                               {value}
                             </Link>
+                            {ficha ? (
+                              <div className="mt-1.5 space-y-0.5">
+                                {ficha.marca ? (
+                                  <p className="smartimport-vehiculo-description block text-zinc-400">
+                                    {ficha.marca}
+                                  </p>
+                                ) : null}
+                                {ficha.modelo ? (
+                                  <p className="smartimport-vehiculo-description block text-zinc-400">
+                                    {ficha.modelo}
+                                  </p>
+                                ) : null}
+                                {ficha.color ? (
+                                  <p className="smartimport-vehiculo-description block text-zinc-400">
+                                    {ficha.color}
+                                  </p>
+                                ) : null}
+                                {ficha.vin ? (
+                                  <p className="smartimport-vehiculo-description block font-mono text-zinc-400">
+                                    {ficha.vin}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {sub ? (
+                              <p className="mt-1 text-[11px] text-red-300/80">
+                                {sub}
+                              </p>
+                            ) : null}
                           </td>
                         );
                       }
@@ -468,7 +511,11 @@ export function PuertoLibreDashboardBucket({
 
                       return (
                         <td key={col.key} className="px-3 py-3 text-zinc-300">
-                          <p className="smartimport-vehiculo-description">{value}</p>
+                          {value.trim() ? (
+                            <p className="smartimport-vehiculo-description">
+                              {value}
+                            </p>
+                          ) : null}
                           {sub ? (
                             <p className="mt-1 line-clamp-2 text-[11px] text-red-300/80">
                               {sub}
