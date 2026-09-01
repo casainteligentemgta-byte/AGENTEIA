@@ -121,7 +121,7 @@ const TIPS = [
     icon: LayoutDashboard,
     titulo: "Dashboard por estado",
     texto:
-      "Los buckets del dashboard te llevan directo a la fase pendiente: registro, embarque, recibir en puerto, SENIAT, nacionalizar…",
+      "Las colas del dashboard siguen la planilla: registro, embarque, llegada, desaduanamiento, propietario, seguro y matrícula. SENIAT y nacionalizar van aparte.",
     href: "/smartimport",
     cta: "Ir al dashboard",
   },

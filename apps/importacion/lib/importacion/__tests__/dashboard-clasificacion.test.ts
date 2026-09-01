@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   esNacionalizado,
-  esPendientePlanillaRestante,
-  esPorCargarDocsCarga,
+  esPorCompletarEtapa,
   esPorCompletarRegistro,
   esPorPresentacionSeniat,
-  esPorRecibirEnPuerto,
   esRechazadoSeniat,
+  PLANILLA_FASES_PENDIENTES,
   registroAccionLabel,
 } from "../dashboard-clasificacion";
 
@@ -19,35 +18,44 @@ const extraido = {
   completitudDatos: "verde" as const,
 };
 
+function colasPlanillaDe(v: { planillaFase: number | null }) {
+  return PLANILLA_FASES_PENDIENTES.filter((fase) => esPorCompletarEtapa(v, fase));
+}
+
 describe("dashboard clasificación", () => {
-  it("un extraído verde va a registro, no a SENIAT ni a pendiente", () => {
+  it("un extraído verde va a registro, no a SENIAT", () => {
     assert.equal(esPorCompletarRegistro(extraido), true);
+    assert.deepEqual(colasPlanillaDe(extraido), [1]);
     assert.equal(esPorPresentacionSeniat(extraido), false);
-    assert.equal(esPendientePlanillaRestante(extraido), false);
-    assert.equal(esPorCargarDocsCarga(extraido), false);
     assert.equal(registroAccionLabel(extraido.completitudDatos), "Confirmar registro");
   });
 
-  it("fase 2 solo aparece en docs de carga", () => {
-    const v = { ...extraido, planillaFase: 2 };
-    assert.equal(esPorCargarDocsCarga(v), true);
-    assert.equal(esPorCompletarRegistro(v), false);
-    assert.equal(esPendientePlanillaRestante(v), false);
-    assert.equal(esPorPresentacionSeniat(v), false);
+  it("cada fase 1–7 tiene su cola y no se mezcla con las demás", () => {
+    for (const fase of PLANILLA_FASES_PENDIENTES) {
+      const v = { ...extraido, planillaFase: fase };
+      assert.deepEqual(colasPlanillaDe(v), [fase]);
+    }
   });
 
-  it("fase 3 es puerto y ya cuenta para SENIAT", () => {
+  it("fase 8 (planilla completa) no entra en ninguna cola por completar", () => {
+    assert.deepEqual(colasPlanillaDe({ planillaFase: 8 }), []);
+    assert.equal(esPorCompletarRegistro({ planillaFase: 8 }), false);
+  });
+
+  it("fase null se trata como registro", () => {
+    assert.deepEqual(colasPlanillaDe({ planillaFase: null }), [1]);
+  });
+
+  it("con fecha de ingreso sigue en su fase de planilla", () => {
+    const v = { ...extraido, planillaFase: 2, fechaIngreso: "2026-08-01" };
+    assert.deepEqual(colasPlanillaDe(v), [2]);
+  });
+
+  it("fase 3 es llegada y ya cuenta para SENIAT", () => {
     const v = { ...extraido, planillaFase: 3 };
-    assert.equal(esPorRecibirEnPuerto(v), true);
+    assert.equal(esPorCompletarEtapa(v, 3), true);
     assert.equal(esPorPresentacionSeniat(v), true);
-    assert.equal(esPendientePlanillaRestante(v), false);
-  });
-
-  it("fases 4–7 van a pendiente a completar", () => {
-    assert.equal(esPendientePlanillaRestante({ planillaFase: 4 }), true);
-    assert.equal(esPendientePlanillaRestante({ planillaFase: 7 }), true);
-    assert.equal(esPendientePlanillaRestante({ planillaFase: 8 }), false);
-    assert.equal(esPorRecibirEnPuerto({ planillaFase: 4 }), false);
+    assert.equal(esPorCompletarEtapa(v, 1), false);
   });
 
   it("SENIAT con fecha de cita entra aunque siga en registro", () => {

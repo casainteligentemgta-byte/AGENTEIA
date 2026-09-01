@@ -42,24 +42,22 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser, getMyTaller } from "@/lib/taller";
+import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import {
-  cargaBlPath,
-  groupByCargaBl,
-} from "@/lib/importacion/expediente-lote";
-import { completarEtapaLabel } from "@/lib/importacion/dashboard-completar-etapa";
+  completarEtapaLabel,
+  porCompletarEtapaTitle,
+} from "@/lib/importacion/dashboard-completar-etapa";
 import {
   dashboardFichaIdentidad,
   dashboardFichaSearchText,
 } from "@/lib/importacion/dashboard-ficha";
 import {
   esNacionalizado,
-  esPendientePlanillaRestante,
-  esPorCargarDocsCarga,
-  esPorCompletarRegistro,
+  esPorCompletarEtapa,
   esPorPresentacionSeniat,
-  esPorRecibirEnPuerto,
   esRechazadoSeniat,
   registroAccionLabel,
+  type PlanillaFasePendiente,
 } from "@/lib/importacion/dashboard-clasificacion";
 
 export const dynamic = "force-dynamic";
@@ -162,6 +160,34 @@ function completarHref(v: PuertoLibreVehiculoListItem): string {
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
   if (f === 2) return cargaBlPath(v.numeroBl, v.id);
   return `/smartimport/${v.id}/planilla?fase=1`;
+}
+
+function sortPorModificado(items: PuertoLibreVehiculoListItem[]) {
+  return [...items].sort((a, b) =>
+    (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at)
+  );
+}
+
+function rowPorCompletarFase(
+  v: PuertoLibreVehiculoListItem,
+  fase: PlanillaFasePendiente
+): DashboardBucketRow {
+  const expediente = labelExpediente(v);
+  const ficha = fichaDe(v);
+  const modificadoIso = (v.updated_at ?? v.created_at).slice(0, 10);
+  return {
+    id: v.id,
+    href: completarHref(v),
+    cells: {
+      expediente,
+      modificado: formatFechaHoraCorta(v.updated_at ?? v.created_at),
+    },
+    ficha,
+    dateValue: modificadoIso || null,
+    searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${fase}`,
+    actionLabel: completarEtapaLabel(fase),
+    actionTone: "cyan",
+  };
 }
 
 function etiquetaDias(dias: number | null, sinFecha: string) {
@@ -418,13 +444,14 @@ export default async function PuertoLibrePage() {
 
   const vehiculos = loaded.vehiculos;
   const porRegistro = sortPorLlegadaBuque(
-    vehiculos.filter(esPorCompletarRegistro)
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 1))
   );
   const porEmbarque = sortPorLlegadaBuque(
-    vehiculos.filter(esPorCargarDocsCarga)
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 2))
   );
-  const porRecibir = sortPorLlegadaBuque(vehiculos.filter(esPorRecibirEnPuerto));
-  const pendientes = vehiculos.filter(esPendientePlanillaRestante);
+  const porRecibir = sortPorLlegadaBuque(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 3))
+  );
   const porNacionalizar = sortByFechaAsc(
     vehiculos.filter((v) => v.proximoNacionalizar),
     (v) => v.fechaLimiteNacionalizacion,
@@ -472,50 +499,8 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPorEmbarque: DashboardBucketRow[] = groupByCargaBl(porEmbarque).flatMap(
-    (group): DashboardBucketRow[] => {
-      if (!group.blKey) {
-        return group.items.map((v) => {
-          const expediente = labelExpediente(v);
-          const ficha = fichaDe(v);
-          return {
-            id: v.id,
-            href: cargaBlPath(null, v.id),
-            cells: { expediente, vehiculo: "", accion: "Asignar BL" },
-            ficha,
-            searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-            actionLabel: "Asignar BL",
-            actionTone: "amber",
-          };
-        });
-      }
-      const first = group.items[0]!;
-      const ficha = group.items.length === 1 ? fichaDe(first) : undefined;
-      const vehiculo =
-        group.items.length === 1
-          ? ""
-          : `${group.items.length} expedientes`;
-      return [
-        {
-          id: `bl-${group.blKey}`,
-          href: cargaBlPath(group.blKey),
-          cells: {
-            expediente: group.label,
-            vehiculo,
-            accion: "Cargar",
-          },
-          ficha,
-          searchText: `${group.label} ${group.items
-            .map(
-              (v) =>
-                `${labelExpediente(v)} ${dashboardFichaSearchText(fichaDe(v))} ${v.nombre_cliente ?? ""}`
-            )
-            .join(" ")}`,
-          actionLabel: "Cargar",
-          actionTone: "red",
-        },
-      ];
-    }
+  const rowsPorEmbarque: DashboardBucketRow[] = porEmbarque.map((v) =>
+    rowPorCompletarFase(v, 2)
   );
 
   const rowsPorRecibir: DashboardBucketRow[] = porRecibir.map((v) => {
@@ -536,24 +521,18 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPendientes: DashboardBucketRow[] = pendientes.map((v) => {
-    const expediente = labelExpediente(v);
-    const ficha = fichaDe(v);
-    const modificadoIso = (v.updated_at ?? v.created_at).slice(0, 10);
-    return {
-      id: v.id,
-      href: completarHref(v),
-      cells: {
-        expediente,
-        modificado: formatFechaHoraCorta(v.updated_at ?? v.created_at),
-      },
-      ficha,
-      dateValue: modificadoIso || null,
-      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${v.planillaFase ?? ""}`,
-      actionLabel: completarEtapaLabel(v.planillaFase),
-      actionTone: "cyan",
-    };
-  });
+  const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorModificado(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
+  ).map((v) => rowPorCompletarFase(v, 4));
+  const rowsPorPropietario: DashboardBucketRow[] = sortPorModificado(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 5))
+  ).map((v) => rowPorCompletarFase(v, 5));
+  const rowsPorSeguro: DashboardBucketRow[] = sortPorModificado(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 6))
+  ).map((v) => rowPorCompletarFase(v, 6));
+  const rowsPorMatricula: DashboardBucketRow[] = sortPorModificado(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 7))
+  ).map((v) => rowPorCompletarFase(v, 7));
 
   const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
     const expediente = labelExpediente(v);
@@ -721,9 +700,9 @@ export default async function PuertoLibrePage() {
       <div className="divide-y divide-zinc-800/70 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
         <PuertoLibreDashboardBucket
           dense
-          title="Por completar registro"
+          title={porCompletarEtapaTitle(1)}
           icon="file"
-          emptyMessage="No hay vehículos por completar registro."
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(1).toLowerCase()}.`}
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "accion", header: "Acción", pdfWidth: 0.8 },
@@ -734,23 +713,23 @@ export default async function PuertoLibrePage() {
 
         <PuertoLibreDashboardBucket
           dense
-          title="Por cargar docs de la carga"
+          title={porCompletarEtapaTitle(2)}
           icon="file"
-          emptyMessage="No hay cargas por anexar documentos de BL."
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(2).toLowerCase()}.`}
           columns={[
-            { key: "expediente", header: "BL", pdfWidth: 1.2 },
-            { key: "vehiculo", header: "Unidades", pdfWidth: 2 },
-            { key: "accion", header: "Acción", pdfWidth: 0.8 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
           ]}
           rows={rowsPorEmbarque}
-          actionColumnKey="accion"
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
         />
 
         <PuertoLibreDashboardBucket
           dense
-          title="Por recibir en puerto"
+          title={porCompletarEtapaTitle(3)}
           icon="ship"
-          emptyMessage="No hay vehículos pendientes de recepción en puerto."
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(3).toLowerCase()}.`}
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
@@ -759,6 +738,30 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Llegada"
           actionColumnKey="llegada"
         />
+
+        {(
+          [
+            [4, rowsPorDesaduanamiento],
+            [5, rowsPorPropietario],
+            [6, rowsPorSeguro],
+            [7, rowsPorMatricula],
+          ] as const
+        ).map(([fase, rows]) => (
+          <PuertoLibreDashboardBucket
+            key={fase}
+            dense
+            title={porCompletarEtapaTitle(fase)}
+            icon="file"
+            emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(fase).toLowerCase()}.`}
+            columns={[
+              { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+              { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+            ]}
+            rows={rows}
+            dateFilterLabel="Modificado"
+            actionColumnKey="modificado"
+          />
+        ))}
 
         <PuertoLibreDashboardBucket
           dense
@@ -816,19 +819,6 @@ export default async function PuertoLibrePage() {
             { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
           ]}
           rows={rowsNacionalizados}
-          dateFilterLabel="Modificado"
-          actionColumnKey="modificado"
-        />
-
-        <PuertoLibreDashboardBucket
-          dense
-          title="Pendiente a completar"
-          emptyMessage="No hay expedientes en desaduanamiento, propietario, seguro o matrícula."
-          columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
-          ]}
-          rows={rowsPendientes}
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
         />
