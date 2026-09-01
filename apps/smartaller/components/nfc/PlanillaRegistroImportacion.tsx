@@ -105,6 +105,7 @@ import {
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
+import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
 
 /** UI chips 1–7. En BD planillaFase 8 = completa. */
 export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -337,6 +338,11 @@ export function PlanillaRegistroImportacion({
     }
     setFase(nextFase);
     router.replace(`/smartimport/${vehiculoId}/planilla?fase=${nextFase}`);
+    router.refresh();
+  }
+
+  function navigateAfterEmbarque(after: PlanillaAfterSave) {
+    router.push(hrefAfterFase2Embarque(after, vehiculoId));
     router.refresh();
   }
 
@@ -575,7 +581,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Embarque guardado");
-              navigateAfterSave(after, 3);
+              navigateAfterEmbarque(after);
             });
           }}
           onUploadedMessage={(msg) => {
