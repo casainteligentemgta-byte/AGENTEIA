@@ -48,7 +48,7 @@ export type ImportadorScanFields = {
 };
 
 const RIF_PROMPT = `Analiza este documento RIF venezolano (carnet SENIAT, comprobante de información fiscal o cédula RIF).
-Extrae SOLO un JSON con estas claves (string o null):
+Responde SOLO un objeto JSON compacto, sin markdown ni texto extra, con estas claves (string o null):
 - rif: número RIF en formato letra-########-# (letra J, V, E, G, P o C). Ejemplo: J-12345678-9 o V-00123456-7.
 - tipo_persona: "natural" si es persona natural (V/E) o "juridica" si es empresa/organización (J/G/C/P).
 - nombre: nombres y apellidos si es persona natural; null si es jurídica.
@@ -59,7 +59,7 @@ Extrae SOLO un JSON con estas claves (string o null):
 - email: correo si aparece.
 - rep_legal_nombre: nombre del representante legal si aparece en el documento.
 - rep_legal_cedula: cédula del representante (V-######## o E-########) si aparece.
-Si un dato no se lee con claridad, usa null. No inventes. Responde únicamente JSON.`;
+Si un dato no se lee con claridad, usa null. No inventes. No escribas nada fuera del JSON.`;
 
 const CEDULA_PROMPT = `Analiza esta cédula de identidad venezolana (laminada o foto).
 Extrae SOLO un JSON con estas claves (string o null):
@@ -86,12 +86,30 @@ function parseTipoPersona(value: unknown, rif: string | null): ImportadorTipo | 
   return null;
 }
 
+function firstString(
+  parsed: Record<string, unknown>,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = parseString(parsed[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
 function parseRifValue(value: unknown): string | null {
   const raw = parseString(value);
   if (!raw) return null;
   const normalized = normalizeRif(raw);
   if (isValidRif(normalized)) return normalized;
   return normalized || null;
+}
+
+function salvageRifFromUnknown(parsed: Record<string, unknown>): string | null {
+  const blob = JSON.stringify(parsed).toUpperCase();
+  const match = blob.match(/\b([JVEGPC])-?(\d{8})-?(\d)\b/);
+  if (!match) return null;
+  return parseRifValue(`${match[1]}-${match[2]}-${match[3]}`);
 }
 
 function parseCedulaValue(value: unknown): string | null {
@@ -119,10 +137,13 @@ export async function extractRifFromDocument(
     prompt: RIF_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 700,
+    maxTokens: 2048,
   });
 
-  const rif = parseRifValue(parsed.rif);
+  const rif =
+    parseRifValue(
+      firstString(parsed, ["rif", "RIF", "numero_rif", "numero", "documento"])
+    ) ?? salvageRifFromUnknown(parsed);
   return {
     rif,
     tipoPersona: parseTipoPersona(parsed.tipo_persona, rif),
@@ -145,7 +166,7 @@ export async function extractCedulaVeFromDocument(
     prompt: CEDULA_PROMPT,
     buffer,
     mimeType,
-    maxTokens: 500,
+    maxTokens: 1500,
   });
 
   return {

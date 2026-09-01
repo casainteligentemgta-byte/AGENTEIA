@@ -283,21 +283,33 @@ function toChatCompletion(
   } as OpenAI.Chat.Completions.ChatCompletion;
 }
 
+function isThinkingConfigError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /thinking|thinkingConfig|thinking_budget|thoughtsToken/i.test(msg);
+}
+
 async function generateOnce(params: {
   apiKey: string;
   model: string;
   contents: Array<{ role: "user" | "model"; parts: GeminiPart[] }>;
   maxTokens: number;
   temperature: number;
+  disableThinking?: boolean;
 }): Promise<OpenAI.Chat.Completions.ChatCompletion> {
   // No usar responseMimeType: application/json. Varios Gemini 3 flash-lite
   // lo rechazan con "mimeType … application/json … is not supported".
+  // thinkingBudget 0: si no, Gemini 2.5/3 gasta maxOutputTokens en "pensar"
+  // y el JSON del RIF queda truncado ("La IA no devolvió JSON válido").
+  const generationConfig: Record<string, unknown> = {
+    temperature: params.temperature,
+    maxOutputTokens: Math.min(Math.max(params.maxTokens, 1024), 8192),
+  };
+  if (params.disableThinking !== false) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
   const body: Record<string, unknown> = {
     contents: params.contents,
-    generationConfig: {
-      temperature: params.temperature,
-      maxOutputTokens: Math.min(Math.max(params.maxTokens, 256), 8192),
-    },
+    generationConfig,
   };
   const res = await fetch(
     `${GEMINI_API_ROOT}/models/${encodeURIComponent(params.model)}:generateContent?key=${encodeURIComponent(params.apiKey)}`,
@@ -379,7 +391,23 @@ export async function geminiChatCompletion(
       });
     } catch (err) {
       lastError = err;
-      if (!isNotFound(err) && !isJsonMimeUnsupported(err)) throw lastError;
+      if (isThinkingConfigError(err)) {
+        try {
+          return await generateOnce({
+            apiKey,
+            model,
+            contents,
+            maxTokens,
+            temperature,
+            disableThinking: false,
+          });
+        } catch (retryErr) {
+          lastError = retryErr;
+        }
+      }
+      if (!isNotFound(lastError) && !isJsonMimeUnsupported(lastError)) {
+        throw lastError;
+      }
       if (workingModel === model) workingModel = null;
     }
   }

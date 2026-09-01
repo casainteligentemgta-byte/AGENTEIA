@@ -5,29 +5,12 @@ import {
 } from "@/lib/ai/openai-config";
 import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
+import { parseJsonOrSalvageVins } from "@/lib/ai/parse-llm-json";
 import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
 
 function isProviderVisionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /400|provider returned error|image|too large|invalid/i.test(msg);
-}
-
-function parseJsonOrSalvageVins(raw: string): Record<string, unknown> {
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    const vins = extractVinStringsFromText(raw);
-    if (vins.length === 0) {
-      throw new Error("La IA no devolvió JSON válido");
-    }
-    return {
-      vehiculos: vins.map((vin) => ({
-        serial_carroceria: vin,
-        condicion: "nuevo",
-        kilometraje: 0,
-      })),
-    };
-  }
 }
 
 async function requestVisionCompletion(params: {

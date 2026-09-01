@@ -9,7 +9,7 @@ import { trackLlmUsage } from "@/lib/ai/llm-usage";
 import { compressImageForVision } from "@/lib/ai/image-orient";
 import { createVisionJsonCompletion } from "@/lib/ai/vision-completion";
 import { prepareImageForVision } from "@/lib/ai/prepare-vision-image";
-import { extractVinStringsFromText } from "@/lib/importacion/vin-text";
+import { parseJsonOrSalvageVins } from "@/lib/ai/parse-llm-json";
 import { isJsonOrHtmlPayload, sniffDocumentMime } from "@/lib/mime-document";
 
 function isPdfMime(mimeType: string): boolean {
@@ -29,26 +29,6 @@ function resolveCompletionMime(buffer: Buffer, declared: string): string {
     return declared && declared !== "application/json"
       ? declared
       : "application/pdf";
-  }
-}
-
-function stripJsonFence(raw: string): string {
-  return raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
-}
-
-function parseJsonOrSalvageVins(raw: string): Record<string, unknown> {
-  try {
-    return JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
-  } catch {
-    const vins = extractVinStringsFromText(raw);
-    if (vins.length === 0) throw new Error("La IA no devolvió JSON válido");
-    return {
-      vehiculos: vins.map((vin) => ({
-        serial_carroceria: vin,
-        condicion: "nuevo",
-        kilometraje: 0,
-      })),
-    };
   }
 }
 
