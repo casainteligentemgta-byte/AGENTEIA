@@ -4,6 +4,8 @@ import {
   collapseColaPorBl,
   fechaLlegadaCargaBl,
   fichaHomogeneaBl,
+  lineasMercanciaBl,
+  mercanciaDelMismoBl,
   resumenUnidadesBl,
 } from "../dashboard-cola-bl";
 import { nextPlanillaFaseLote } from "../expediente-lote";
@@ -12,7 +14,13 @@ function v(
   id: string,
   codigo: string,
   bl: string | null,
-  extra?: { marca?: string; modelo?: string; fechaLlegadaBuque?: string | null }
+  extra?: {
+    marca?: string;
+    modelo?: string;
+    fechaLlegadaBuque?: string | null;
+    vin?: string;
+    color?: string;
+  }
 ) {
   return {
     id,
@@ -22,6 +30,8 @@ function v(
     marca: extra?.marca ?? "Chery",
     modelo: extra?.modelo ?? "Arrizo 5 Pro",
     fechaLlegadaBuque: extra?.fechaLlegadaBuque,
+    color: extra?.color,
+    vin: extra?.vin,
   };
 }
 
@@ -95,6 +105,44 @@ describe("cola embarque/llegada por BL", () => {
     assert.equal(suelto?.kind, "unidad");
     if (suelto?.kind !== "unidad") return;
     assert.equal(suelto.item.codigoExpediente, "PL-2026.8.3");
+  });
+
+  it("lista la mercancía del BL de menor a mayor expediente", () => {
+    const lineas = lineasMercanciaBl([
+      v("b", "PL-2026.8.16", "321", { marca: "Toyota", modelo: "Corolla" }),
+      v("a", "PL-2026.8.5", "321"),
+    ]);
+    assert.equal(lineas.length, 2);
+    assert.equal(lineas[0]?.expediente, "PL-2026.8.5");
+    assert.equal(lineas[0]?.detalle, "Chery · Arrizo 5 Pro");
+    assert.equal(lineas[1]?.expediente, "PL-2026.8.16");
+    assert.match(lineas[1]?.detalle ?? "", /Toyota/);
+    assert.match(lineas[0]?.searchText ?? "", /Arrizo/);
+  });
+
+  it("incluye VIN y color en el texto filtrable de cada línea", () => {
+    const lineas = lineasMercanciaBl([
+      v("a", "PL-2026.8.5", "321", {
+        color: "Blanco",
+        vin: "LVVDB21B8ND123456",
+      }),
+    ]);
+    assert.match(lineas[0]?.detalle ?? "", /Blanco/);
+    assert.match(lineas[0]?.detalle ?? "", /LVVDB21B8ND123456/);
+    assert.match(lineas[0]?.searchText ?? "", /LVVDB21B8ND123456/);
+  });
+
+  it("enlaza al BL toda la mercancía, no solo la que sigue en embarque", () => {
+    const todos = [
+      v("a", "PL-2026.8.5", "321"),
+      v("b", "PL-2026.8.16", "321"),
+      v("c", "PL-2026.8.4", "OTRO"),
+    ];
+    const linked = mercanciaDelMismoBl("321", todos);
+    assert.deepEqual(
+      linked.map((i) => i.codigoExpediente),
+      ["PL-2026.8.5", "PL-2026.8.16"]
+    );
   });
 
   it("toma la fecha de llegada del buque de los documentos de la carga", () => {

@@ -1,7 +1,12 @@
 import { compareExpedientesAsc } from "@/lib/importacion/expediente";
-import { groupByCargaBl } from "@/lib/importacion/expediente-lote";
+import {
+  groupByCargaBl,
+  normalizeLoteBlKey,
+} from "@/lib/importacion/expediente-lote";
 import {
   dashboardFichaIdentidad,
+  dashboardFichaLineas,
+  dashboardFichaSearchText,
   type DashboardFichaIdentidad,
 } from "@/lib/importacion/dashboard-ficha";
 
@@ -110,6 +115,40 @@ export function collapseColaPorBl<T extends ColaBlVehiculo>(
     out.push({ kind: "unidad", item });
   }
   return out;
+}
+
+/** Toda la mercancía del mismo BL, no solo la que sigue en esta cola. */
+export function mercanciaDelMismoBl<T extends ColaBlVehiculo>(
+  blKey: string,
+  todos: T[]
+): T[] {
+  const key = normalizeLoteBlKey(blKey);
+  if (!key) return [];
+  return todos
+    .filter((v) => normalizeLoteBlKey(v.numeroBl) === key)
+    .sort(compareExpedientesAsc);
+}
+
+export type MercanciaBlLinea = {
+  id: string;
+  expediente: string;
+  detalle: string;
+  searchText: string;
+};
+
+/** Mercancía de un BL: expediente + marca/modelo/color/VIN, de menor a mayor. */
+export function lineasMercanciaBl(items: ColaBlVehiculo[]): MercanciaBlLinea[] {
+  return [...items].sort(compareExpedientesAsc).map((item) => {
+    const expediente = item.codigoExpediente?.trim() || "Expediente";
+    const ficha = dashboardFichaIdentidad(item);
+    const detalle = dashboardFichaLineas(ficha).join(" · ");
+    return {
+      id: item.id,
+      expediente,
+      detalle,
+      searchText: `${expediente} ${dashboardFichaSearchText(ficha)}`.trim(),
+    };
+  });
 }
 
 export function resumenUnidadesBl(
