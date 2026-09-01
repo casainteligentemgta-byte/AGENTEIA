@@ -45,9 +45,17 @@ export type DashboardBucketRow = {
   dateValue?: string | null;
   /** Texto libre indexado por el buscador. */
   searchText: string;
+  /** Mercancía apilada bajo el BL (expediente + ficha). */
+  lineas?: DashboardBucketLinea[];
   actionLabel: string;
   actionTone?: "cyan" | "red" | "sky" | "amber";
   urgent?: boolean;
+};
+
+export type DashboardBucketLinea = {
+  href: string;
+  titulo: string;
+  detalle?: string;
 };
 
 type IconName = "ship" | "alert" | "building" | "flag" | "file" | "check" | "none";
@@ -80,6 +88,10 @@ type Props = {
   headerActions?: ReactNode;
   /** Contenido encima de la tabla (fichas, avisos). */
   leadingContent?: ReactNode;
+  /** Placeholder del buscador de la cola. */
+  searchPlaceholder?: string;
+  /** Abre el acordeón denso en el primer render. */
+  defaultOpen?: boolean;
 };
 
 const EXPEDIENTE_CODE_CLASS =
@@ -145,6 +157,8 @@ export function PuertoLibreDashboardBucket({
   sectionId,
   headerActions,
   leadingContent,
+  searchPlaceholder = "Filtrar por expediente, vehículo…",
+  defaultOpen,
 }: Props) {
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -182,7 +196,8 @@ export function PuertoLibreDashboardBucket({
   const showTable = rows.length > 0;
   const showPanel = showTable || Boolean(leadingContent);
   const [detailsOpen, setDetailsOpen] = useState(
-    Boolean(leadingContent) || rows.some((r) => r.urgent)
+    defaultOpen ??
+      (Boolean(leadingContent) || rows.some((r) => r.urgent))
   );
 
   function toggleExpedienteSort() {
@@ -230,6 +245,15 @@ export function PuertoLibreDashboardBucket({
           columns.map((c) => {
             const main = r.cells[c.key] ?? "";
             const sub = r.subcells?.[c.key];
+            if (c.key === "expediente" && r.lineas && r.lineas.length > 0) {
+              const stacked = [
+                main,
+                ...r.lineas.map((l) =>
+                  l.detalle ? `${l.titulo} · ${l.detalle}` : l.titulo
+                ),
+              ].join("\n");
+              return [c.key, sub ? `${stacked}\n${sub}` : stacked];
+            }
             if (c.key === "expediente" && r.ficha) {
               const stacked = [main, ...dashboardFichaLineas(r.ficha)].join("\n");
               return [c.key, sub ? `${stacked}\n${sub}` : stacked];
@@ -312,7 +336,7 @@ export function PuertoLibreDashboardBucket({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filtrar por expediente, vehículo…"
+            placeholder={searchPlaceholder}
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
           />
         </label>
@@ -464,7 +488,7 @@ export function PuertoLibreDashboardBucket({
                             >
                               {value}
                             </Link>
-                            {ficha ? (
+                            {ficha && !row.lineas?.length ? (
                               <div className="mt-1.5 space-y-0.5">
                                 {ficha.marca ? (
                                   <p className="smartimport-vehiculo-description block text-zinc-400">
@@ -488,8 +512,35 @@ export function PuertoLibreDashboardBucket({
                                 ) : null}
                               </div>
                             ) : null}
+                            {row.lineas && row.lineas.length > 0 ? (
+                              <ul className="mt-2 space-y-1.5">
+                                {row.lineas.map((linea) => (
+                                  <li key={linea.href}>
+                                    <Link
+                                      href={linea.href}
+                                      className="block rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-1.5 hover:border-cyan-700/40"
+                                    >
+                                      <span className="font-mono text-xs tracking-wide text-zinc-100">
+                                        {linea.titulo}
+                                      </span>
+                                      {linea.detalle ? (
+                                        <span className="mt-0.5 block text-[11px] text-zinc-400">
+                                          {linea.detalle}
+                                        </span>
+                                      ) : null}
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
                             {sub ? (
-                              <p className="mt-1 text-[11px] text-red-300/80">
+                              <p
+                                className={`mt-1 text-[11px] ${
+                                  row.lineas && row.lineas.length > 0
+                                    ? "text-zinc-500"
+                                    : "text-red-300/80"
+                                }`}
+                              >
                                 {sub}
                               </p>
                             ) : null}

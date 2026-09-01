@@ -64,6 +64,8 @@ import {
   fechaLlegadaCargaBl,
   fichaHomogeneaBl,
   latestIso,
+  lineasMercanciaBl,
+  mercanciaDelMismoBl,
   resumenUnidadesBl,
 } from "@/lib/importacion/dashboard-cola-bl";
 import {
@@ -229,13 +231,11 @@ function rowColaGrupoBl(
 ): DashboardBucketRow {
   const sorted = [...items];
   const ficha = fichaHomogeneaBl(sorted);
+  const mercancia = lineasMercanciaBl(sorted);
   const resumen = resumenUnidadesBl(sorted);
   const modificadoIso = latestIso(sorted).slice(0, 10);
   const fechaBuque = fechaLlegadaCargaBl(sorted);
-  const codes = sorted
-    .map((v) => v.codigoExpediente)
-    .filter((c): c is string => Boolean(c))
-    .join(" ");
+  const searchMercancia = mercancia.map((m) => m.searchText).join(" ");
   return {
     id: `bl-${fase}-${blKey}`,
     href: cargaBlPath(blKey),
@@ -250,9 +250,14 @@ function rowColaGrupoBl(
             llegada: formatFechaDia(fechaBuque),
           },
     ficha,
+    lineas: mercancia.map((m) => ({
+      href: `/smartimport/${m.id}`,
+      titulo: m.expediente,
+      detalle: m.detalle || undefined,
+    })),
     subcells: { expediente: resumen },
     dateValue: fase === 2 ? modificadoIso || null : fechaBuque,
-    searchText: `BL ${label} ${resumen} ${codes} ${dashboardFichaSearchText(ficha)} ${fechaBuque ?? ""}`,
+    searchText: `BL ${label} ${resumen} ${searchMercancia} ${fechaBuque ?? ""}`,
     actionLabel: completarEtapaLabel(fase),
     actionTone: "cyan",
   };
@@ -260,14 +265,22 @@ function rowColaGrupoBl(
 
 function rowsColaPorBl(
   items: PuertoLibreVehiculoListItem[],
-  fase: 2 | 3
+  fase: 2 | 3,
+  todos?: PuertoLibreVehiculoListItem[]
 ): DashboardBucketRow[] {
+  const catalogo = todos ?? items;
   return collapseColaPorBl(
     items,
     fase === 3 ? { sort: "llegada" } : undefined
   ).map((group) => {
     if (group.kind === "bl") {
-      return rowColaGrupoBl(group.blKey, group.label, group.items, fase);
+      const mercancia = mercanciaDelMismoBl(group.blKey, catalogo);
+      return rowColaGrupoBl(
+        group.blKey,
+        group.label,
+        mercancia.length > 0 ? mercancia : group.items,
+        fase
+      );
     }
     return fase === 2
       ? rowPorCompletarFase(group.item, 2)
@@ -598,12 +611,14 @@ export default async function PuertoLibrePage() {
 
   const rowsPorEmbarque: DashboardBucketRow[] = rowsColaPorBl(
     porEmbarque,
-    2
+    2,
+    vehiculos
   );
 
   const rowsPorRecibir: DashboardBucketRow[] = rowsColaPorBl(
     porRecibir,
-    3
+    3,
+    vehiculos
   );
 
   const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
@@ -802,7 +817,7 @@ export default async function PuertoLibrePage() {
           sectionId={DASHBOARD_COLA_EMBARQUE_ID}
           title={porCompletarEtapaTitle(2)}
           icon="file"
-          emptyMessage="No hay cargas por completar embarque."
+          emptyMessage="No hay cargas por completar embarque. Al guardar un BL aparece aquí con su mercancía."
           columns={[
             { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
             { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
@@ -811,6 +826,8 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
+          defaultOpen={rowsPorEmbarque.length > 0}
+          searchPlaceholder="Filtrar BL, expediente, VIN, marca…"
         />
 
         <PuertoLibreDashboardBucket
