@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Camera, CheckCircle2, FileUp, Loader2 } from "lucide-react";
 import { uploadPuertoLibreDocumentoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import type { DocumentoTipo, VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { compressImportDocForCellular } from "@/lib/importacion/compress-import-doc";
+import { messageFromUploadResult } from "@/lib/importacion/upload-action-result";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
 type Props = {
@@ -55,15 +57,19 @@ export function PlanillaFotoChip({
     setError(null);
     startTransition(async () => {
       try {
-        const normalized =
-          file.type === "application/pdf" ? file : await normalizeImageFileForUpload(file);
+        const prepared =
+          file.type === "application/pdf"
+            ? file
+            : await compressImportDocForCellular(
+                await normalizeImageFileForUpload(file)
+              );
         const formData = new FormData();
         formData.set("vehiculoId", vehiculoId);
         formData.set("tipo", tipo);
-        formData.set("file", normalized);
+        formData.set("file", prepared);
         const result = await uploadPuertoLibreDocumentoAction(formData);
-        if (!result.success) {
-          setError(result.error || "No se pudo guardar en Supabase");
+        if (!result?.success) {
+          setError(messageFromUploadResult(result) ?? "No se pudo guardar en Supabase");
           return;
         }
         const next = result.documentos[tipo]?.url ?? null;

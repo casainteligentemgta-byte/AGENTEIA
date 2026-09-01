@@ -92,12 +92,17 @@ async function composeAnnotatedJpeg(
   fileName: string
 ): Promise<File> {
   const img = await loadImage(imageUrl);
+  const maxEdge = 1600;
+  const scale = Math.min(
+    1,
+    maxEdge / Math.max(img.naturalWidth, img.naturalHeight)
+  );
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No se pudo crear el canvas");
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   for (const mark of marks) {
     drawMark(ctx, mark, canvas.width, canvas.height);
   }
@@ -105,7 +110,7 @@ async function composeAnnotatedJpeg(
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("No se pudo exportar la foto"))),
       "image/jpeg",
-      0.92
+      0.72
     );
   });
   const base = (fileName || "foto-llegada").replace(/\.[^.]+$/, "");
