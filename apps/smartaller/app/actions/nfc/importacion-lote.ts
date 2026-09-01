@@ -239,7 +239,10 @@ const cargaBlDatosSchema = z.object({
   agenteAduanal: z.string().trim().max(120),
 });
 
-function numeroBlGuardado(raw: string | undefined, fallback: string | null): string {
+function numeroBlGuardado(
+  raw: string | undefined,
+  fallback: string | null | undefined
+): string {
   const next = (raw ?? "").trim().toUpperCase().replace(/\s+/g, " ");
   if (next) return next;
   return (fallback ?? "").trim();
