@@ -8,6 +8,7 @@ import {
   ArrowUp,
   Building2,
   CheckCircle2,
+  ChevronDown,
   Download,
   Flag,
   Loader2,
@@ -24,6 +25,10 @@ import {
   dashboardFichaLineas,
   type DashboardFichaIdentidad,
 } from "@/lib/importacion/dashboard-ficha";
+import {
+  blMercanciaExpandida,
+  toggleCollapsedBlId,
+} from "@/lib/importacion/dashboard-bl-expand";
 import { compareExpedienteLabelsAsc } from "@/lib/importacion/expediente";
 
 export type DashboardBucketColumn = {
@@ -169,6 +174,9 @@ export function PuertoLibreDashboardBucket({
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [collapsedBlIds, setCollapsedBlIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -202,6 +210,10 @@ export function PuertoLibreDashboardBucket({
 
   function toggleExpedienteSort() {
     setExpedienteSort((prev) => (prev === "asc" ? "desc" : "asc"));
+  }
+
+  function toggleBlLineas(rowId: string) {
+    setCollapsedBlIds((prev) => toggleCollapsedBlId(prev, rowId));
   }
 
   const countBadge = (
@@ -469,8 +481,26 @@ export function PuertoLibreDashboardBucket({
             <tbody className="divide-y divide-zinc-800/80">
               {displayed.map((row) => {
                 const tone = row.actionTone ?? "cyan";
+                const hasLineas = Boolean(row.lineas && row.lineas.length > 0);
+                const lineasAbiertas = hasLineas
+                  ? blMercanciaExpandida(
+                      collapsedBlIds,
+                      row.id,
+                      Boolean(query.trim())
+                    )
+                  : false;
                 return (
-                  <tr key={row.id} className="align-top hover:bg-zinc-900/50">
+                  <tr
+                    key={row.id}
+                    className="align-top hover:bg-zinc-900/50"
+                    onDoubleClick={(e) => {
+                      if (!hasLineas) return;
+                      const el = e.target as HTMLElement;
+                      if (el.closest("a, button")) return;
+                      e.preventDefault();
+                      toggleBlLineas(row.id);
+                    }}
+                  >
                     {columns.map((col) => {
                       const isExpediente = col.key === "expediente";
                       const isActionCol =
@@ -482,12 +512,40 @@ export function PuertoLibreDashboardBucket({
                         const ficha = row.ficha;
                         return (
                           <td key={col.key} className="px-3 py-3">
-                            <Link
-                              href={row.href}
-                              className={`${EXPEDIENTE_CODE_CLASS} block`}
-                            >
-                              {value}
-                            </Link>
+                            {hasLineas ? (
+                              <div className="flex items-start gap-1.5">
+                                <span
+                                  className={`${EXPEDIENTE_CODE_CLASS} cursor-pointer select-none`}
+                                  title="Doble clic para expandir o contraer"
+                                >
+                                  {value}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-expanded={lineasAbiertas}
+                                  aria-label={
+                                    lineasAbiertas
+                                      ? "Contraer mercancía del BL"
+                                      : "Expandir mercancía del BL"
+                                  }
+                                  onClick={() => toggleBlLineas(row.id)}
+                                  className="mt-0.5 rounded p-0.5 text-zinc-500 hover:text-cyan-300"
+                                >
+                                  <ChevronDown
+                                    className={`h-3.5 w-3.5 transition-transform ${
+                                      lineasAbiertas ? "" : "-rotate-90"
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            ) : (
+                              <Link
+                                href={row.href}
+                                className={`${EXPEDIENTE_CODE_CLASS} block`}
+                              >
+                                {value}
+                              </Link>
+                            )}
                             {ficha && !row.lineas?.length ? (
                               <div className="mt-1.5 space-y-0.5">
                                 {ficha.marca ? (
@@ -512,9 +570,9 @@ export function PuertoLibreDashboardBucket({
                                 ) : null}
                               </div>
                             ) : null}
-                            {row.lineas && row.lineas.length > 0 ? (
+                            {hasLineas && lineasAbiertas ? (
                               <ul className="mt-2 space-y-1.5">
-                                {row.lineas.map((linea) => (
+                                {row.lineas?.map((linea) => (
                                   <li key={linea.href}>
                                     <Link
                                       href={linea.href}
