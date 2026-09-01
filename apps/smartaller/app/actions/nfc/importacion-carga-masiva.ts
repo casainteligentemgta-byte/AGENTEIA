@@ -66,6 +66,8 @@ import {
   copyDocumentosToVehiculoIds,
   inheritLoteOntoVehiculo,
 } from "@/lib/importacion/expediente-lote-sync";
+import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
+import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import { repairCheryWmi, anioFromVin } from "@/lib/importacion/vin-text";
 import {
   validateVehiculoDocumentoFile,
@@ -1689,6 +1691,7 @@ export async function createPuertoLibreCargaMasivaAction(input: {
         month,
         numero: item.numero,
         importadorIdLocked: importador.id,
+        clienteDocumentos: importador.documentos,
         completitudDatos: item.sem.nivel,
         datosPendientes: [...item.sem.criticos, ...item.sem.avisos],
         skipDuplicateQuery: true,
@@ -1797,6 +1800,7 @@ async function insertOneVehiculo(params: {
   numero: number;
   /** Si viene, se usa ese importador (ya verificado) sin ensure por RIF. */
   importadorIdLocked?: string;
+  clienteDocumentos?: ImportadorDocumentos;
   completitudDatos?: "rojo" | "ambar" | "verde";
   datosPendientes?: string[];
   /** Ya se comprobó el lote en memoria. */
@@ -1815,6 +1819,7 @@ async function insertOneVehiculo(params: {
     month,
     numero,
     importadorIdLocked,
+    clienteDocumentos,
     completitudDatos,
     datosPendientes,
     skipDuplicateQuery,
@@ -1928,7 +1933,10 @@ async function insertOneVehiculo(params: {
       telefono_cliente: null,
       cedula_propietario: null,
       email_propietario: null,
-      documentos: {},
+      documentos: mergeCedulaRifDesdeCliente(
+        {},
+        clienteDocumentos ?? {}
+      ).next,
       importacion,
       seguro: {},
       unidad_odometro: "km",
