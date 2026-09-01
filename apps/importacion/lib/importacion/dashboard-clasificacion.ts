@@ -1,6 +1,8 @@
 /**
  * Colas del dashboard Puerto Libre.
  * Planilla: una cola por fase 1–7. La 8 ya está completa.
+ * Si el registro ya está listo (chip verde / semáforo verde), la cola es embarque
+ * aunque planillaFase siga en 1 (Extraer no persiste el avance).
  * SENIAT y nacionalización son relojes aparte (pueden coincidir con una etapa).
  */
 
@@ -11,6 +13,8 @@ export type DashboardClasificacionFuente = {
   estadoSeniat?: string | null;
   estadoNacionalizacion?: string | null;
   completitudDatos?: "rojo" | "ambar" | "verde" | null;
+  /** Chip verde de Registro en la planilla. */
+  registroCompleto?: boolean;
 };
 
 export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7] as const;
@@ -27,12 +31,34 @@ function tieneFecha(value: string | null | undefined): boolean {
   return Boolean(value?.trim());
 }
 
+/** Registro listo: chip verde o semáforo verde de datos del vehículo. */
+export function esRegistroListoParaEmbarque(
+  v: DashboardClasificacionFuente
+): boolean {
+  if (v.registroCompleto === true) return true;
+  if (v.completitudDatos === "verde") return true;
+  return false;
+}
+
+/**
+ * Cola visible: si el registro ya está lleno, pasa a embarque
+ * aunque la BD siga en fase 1.
+ */
+export function faseColaPlanilla(v: DashboardClasificacionFuente): number {
+  const f = faseDe(v);
+  if (f >= 8) return f;
+  if (f <= 1 && esRegistroListoParaEmbarque(v)) return 2;
+  return f;
+}
+
 /** Cola de planilla: el expediente está en esa etapa (1–7). */
 export function esPorCompletarEtapa(
   v: DashboardClasificacionFuente,
   etapa: PlanillaFasePendiente
 ): boolean {
-  return faseDe(v) === etapa;
+  const f = faseColaPlanilla(v);
+  if (f < 1 || f > 7) return false;
+  return f === etapa;
 }
 
 export function esPorCompletarRegistro(v: DashboardClasificacionFuente): boolean {
@@ -49,7 +75,7 @@ export function esPorPresentacionSeniat(v: DashboardClasificacionFuente): boolea
   if (tieneFecha(v.fechaPresentacionSeniat) || tieneFecha(v.fechaIngreso)) {
     return true;
   }
-  return faseDe(v) >= 3;
+  return faseColaPlanilla(v) >= 3;
 }
 
 export function esRechazadoSeniat(v: DashboardClasificacionFuente): boolean {

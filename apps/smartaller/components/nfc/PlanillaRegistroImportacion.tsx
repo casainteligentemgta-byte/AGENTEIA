@@ -78,7 +78,6 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
-  PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_MATRICULACION_CARGAR_TIPOS,
   PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
@@ -105,6 +104,7 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
+import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 
 /** UI chips 1–7. En BD planillaFase 8 = completa. */
 export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -249,7 +249,6 @@ export function PlanillaRegistroImportacion({
     docs,
     MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS
   );
-  const registroDocsCount = countDocs(docs, PL_FASE1_REGISTRO_DOCUMENTO_TIPOS);
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
   const embarqueObligatoriosCount = countDocs(
     docs,
@@ -261,23 +260,21 @@ export function PlanillaRegistroImportacion({
     [checklist]
   );
 
-  const registroCompleto =
-    Boolean(
-      marca?.trim() &&
-        modelo?.trim() &&
-        color?.trim() &&
-        initialImportacion.anio &&
-        serialMotor?.trim() &&
-        initialImportacion.vin?.trim() &&
-        serialCarroceria?.trim() &&
-        kilometrajeUltimo != null &&
-        (initialImportacion.condicionVehiculo !== "usado" ||
-          kilometrajeUltimo > 0) &&
-        initialImportacion.condicionVehiculo &&
-        (initialImportacion.condicionVehiculo === "nuevo" ||
-          typeof initialImportacion.esSubasta === "boolean") &&
-        initialImportacion.importadorNombre?.trim()
-    ) && registroDocsCount === PL_FASE1_REGISTRO_DOCUMENTO_TIPOS.length;
+  const registroCompleto = esRegistroPlanillaCompleto({
+    marca,
+    modelo,
+    color,
+    anio: initialImportacion.anio,
+    serialMotor,
+    vin: initialImportacion.vin,
+    serialCarroceria,
+    kilometraje: kilometrajeUltimo,
+    condicionVehiculo: initialImportacion.condicionVehiculo,
+    esSubasta: initialImportacion.esSubasta,
+    importadorNombre: initialImportacion.importadorNombre,
+    tieneFactura: Boolean(docs.factura_comercial?.url),
+    tieneCertificado: Boolean(docs.certificado_origen?.url),
+  });
 
   const embarqueCompleto =
     embarqueObligatoriosCount === PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.length;

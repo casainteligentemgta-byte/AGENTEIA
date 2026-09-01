@@ -56,6 +56,7 @@ import {
   esPorCompletarEtapa,
   esPorPresentacionSeniat,
   esRechazadoSeniat,
+  faseColaPlanilla,
   registroAccionLabel,
   type PlanillaFasePendiente,
 } from "@/lib/importacion/dashboard-clasificacion";
@@ -152,8 +153,8 @@ function sortPorLlegadaBuque(items: PuertoLibreVehiculoListItem[]) {
 }
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
-  const f = v.planillaFase;
-  if (f != null && f >= 7) return `/smartimport/${v.id}/planilla?fase=7`;
+  const f = faseColaPlanilla(v);
+  if (f >= 7) return `/smartimport/${v.id}/planilla?fase=7`;
   if (f === 6) return `/smartimport/${v.id}/planilla?fase=6`;
   if (f === 5) return `/smartimport/${v.id}/planilla?fase=5`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
@@ -304,6 +305,7 @@ async function loadVehiculosForImportacion(
           fotoUrl: null,
           completitudDatos: null,
           datosPendientes: [],
+          registroCompleto: false,
         })
       ),
     };
@@ -401,6 +403,7 @@ async function loadVehiculosForImportacion(
             fotoUrl: null,
             completitudDatos: imp.completitudDatos ?? null,
             datosPendientes: imp.datosPendientes ?? [],
+            registroCompleto: false,
           };
         })
         .sort(compareExpedientesAsc),

@@ -37,6 +37,7 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
+import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
@@ -2567,6 +2568,8 @@ export type PuertoLibreVehiculoListItem = {
   /** Semáforo de datos del vehículo (carga masiva / OCR). */
   completitudDatos: "rojo" | "ambar" | "verde" | null;
   datosPendientes: string[];
+  /** Chip verde de Registro: datos + factura + certificado. */
+  registroCompleto: boolean;
 };
 
 export async function listPuertoLibreVehiculos(): Promise<
@@ -2582,7 +2585,7 @@ export async function listPuertoLibreVehiculos(): Promise<
   const { data, error } = await supabase
     .from("vehiculos")
     .select(
-      "id, placa, serial_carroceria, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
+      "id, placa, serial_carroceria, serial_motor, marca, modelo, color, nombre_cliente, telefono_cliente, kilometraje_ultimo, created_at, updated_at, pin_hash, documentos, importacion"
     )
     .eq("taller_id", auth.taller.id)
     .order("created_at", { ascending: false });
@@ -2706,6 +2709,24 @@ function mapListItem(
     fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
     completitudDatos: importacion.completitudDatos ?? null,
     datosPendientes: importacion.datosPendientes ?? [],
+    registroCompleto: esRegistroPlanillaCompleto({
+      marca: (row.marca as string | null) ?? null,
+      modelo: (row.modelo as string | null) ?? null,
+      color: (row.color as string | null) ?? null,
+      anio: importacion.anio,
+      serialMotor: (row.serial_motor as string | null) ?? null,
+      vin: importacion.vin ?? (row.serial_carroceria as string | null),
+      serialCarroceria: (row.serial_carroceria as string | null) ?? null,
+      kilometraje:
+        typeof row.kilometraje_ultimo === "number"
+          ? row.kilometraje_ultimo
+          : null,
+      condicionVehiculo: importacion.condicionVehiculo ?? null,
+      esSubasta: importacion.esSubasta ?? null,
+      importadorNombre: importacion.importadorNombre ?? null,
+      tieneFactura: Boolean(docs.factura_comercial?.url),
+      tieneCertificado: Boolean(docs.certificado_origen?.url),
+    }),
   };
 }
 
