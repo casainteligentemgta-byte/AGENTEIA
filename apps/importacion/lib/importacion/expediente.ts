@@ -82,6 +82,29 @@ export function compareExpedientesAsc(
   return a.created_at.localeCompare(b.created_at);
 }
 
+const CODIGO_IN_TEXT_RE = /PL-\d{4}\.\d{1,2}\.\d+/i;
+
+/** Extrae PL-Y.M.N aunque la celda traiga un semáforo u otro prefijo. */
+export function codigoExpedienteFromLabel(
+  raw: string | null | undefined
+): CodigoExpedienteParts | null {
+  if (!raw) return null;
+  const found = CODIGO_IN_TEXT_RE.exec(raw);
+  return parseCodigoExpediente(found?.[0] ?? raw);
+}
+
+/** Orden de menor a mayor por número de expediente en etiquetas de lista. */
+export function compareExpedienteLabelsAsc(a: string, b: string): number {
+  const pa = codigoExpedienteFromLabel(a);
+  const pb = codigoExpedienteFromLabel(b);
+  if (pa && pb) {
+    return pa.year - pb.year || pa.month - pb.month || pa.numero - pb.numero;
+  }
+  if (pa) return -1;
+  if (pb) return 1;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
 /** Placeholder único en BD cuando aún no hay placa real (placa ≠ expediente). */
 export function placaPendienteDesdeCodigo(codigoExpediente: string): string {
   const parts = parseCodigoExpediente(codigoExpediente);
