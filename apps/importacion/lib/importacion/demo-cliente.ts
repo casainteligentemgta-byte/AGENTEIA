@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { REGIMEN_IMPORTACION_LABELS, REGIMENES_IMPORTACION } from "./regimenes";
-import { IMPORTACION_BASE } from "./paths";
+import { IMPORTACION_BASE, SMARTIMPORT_DEMO_EXPEDIENTE_PATH } from "./paths";
 
 export const DEMO_CUESTIONARIO_STORAGE_KEY = "smartimport-demo-cliente-v1";
 
@@ -285,6 +285,14 @@ export const DEMO_PROBAR_ACCIONES = [
       "En el mismo flujo pueden crear el cliente y subir factura + certificado. Cada VIN genera un expediente PL-…",
     href: demoProbarLoginHref(`${IMPORTACION_BASE}/importaciones/nueva`),
     cta: "Cargar importación",
+  },
+  {
+    id: "expediente",
+    titulo: "Expediente precargado",
+    detalle:
+      "Abre un Toyota Hilux de demostración y adjunta los PDF que ya están en la nube (sin escanear desde el teléfono).",
+    href: demoProbarLoginHref(SMARTIMPORT_DEMO_EXPEDIENTE_PATH),
+    cta: "Abrir expediente y cargar PDF",
   },
 ] as const;
 

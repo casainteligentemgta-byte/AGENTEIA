@@ -7,6 +7,7 @@ import {
   Check,
   ClipboardList,
   Copy,
+  CloudDownload,
   FileUp,
   Presentation,
   Printer,
@@ -318,12 +319,18 @@ export function SmartImportDemoCliente() {
           <div className="space-y-4 print:hidden">
             <p className="text-sm leading-relaxed text-zinc-400">
               El cliente entra con <strong className="font-medium text-zinc-200">su propia cuenta</strong>.
-              Se crea un espacio aislado (RLS): no ve tus expedientes. Primero el
-              importador, después la factura.
+              Se crea un espacio aislado (RLS): no ve tus expedientes. Puede crear
+              el importador, cargar una importación o abrir un expediente
+              precargado y adjuntar los PDF que ya están en la nube.
             </p>
             <ul className="space-y-3">
               {DEMO_PROBAR_ACCIONES.map((accion) => {
-                const Icon = accion.id === "cliente" ? UserPlus : FileUp;
+                const Icon =
+                  accion.id === "cliente"
+                    ? UserPlus
+                    : accion.id === "expediente"
+                      ? CloudDownload
+                      : FileUp;
                 return (
                   <li
                     key={accion.id}

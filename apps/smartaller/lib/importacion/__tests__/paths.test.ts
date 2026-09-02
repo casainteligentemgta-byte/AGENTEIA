@@ -6,6 +6,7 @@ import {
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_SEGURO_ID,
   hrefAfterFase2Embarque,
+  SMARTIMPORT_DEMO_EXPEDIENTE_PATH,
   SMARTIMPORT_DEMO_PATH,
 } from "../paths";
 
@@ -39,5 +40,9 @@ describe("colas dashboard", () => {
 describe("demo cliente", () => {
   it("la ruta del demo cuelga de /smartimport", () => {
     assert.equal(SMARTIMPORT_DEMO_PATH, "/smartimport/demo");
+    assert.equal(
+      SMARTIMPORT_DEMO_EXPEDIENTE_PATH,
+      "/smartimport/expediente-demo"
+    );
   });
 });
