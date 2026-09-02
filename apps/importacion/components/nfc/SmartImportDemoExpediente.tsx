@@ -119,7 +119,7 @@ export function SmartImportDemoExpediente({
             <div>
               <dt className="text-xs text-zinc-500">Expediente</dt>
               <dd className="font-medium text-zinc-100">
-                {vehiculo.codigoExpediente ?? vehiculo.placa || "—"}
+                {vehiculo.codigoExpediente ?? (vehiculo.placa || "—")}
               </dd>
             </div>
             <div>
