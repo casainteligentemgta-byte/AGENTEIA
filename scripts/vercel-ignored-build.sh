@@ -9,6 +9,15 @@ echo "VERCEL_ENV=${VERCEL_ENV:-unset}"
 echo "VERCEL_GIT_COMMIT_REF=${VERCEL_GIT_COMMIT_REF:-unset}"
 echo "cwd=$(pwd)"
 
+commit_msg="${VERCEL_GIT_COMMIT_MESSAGE:-}"
+if [ -z "$commit_msg" ]; then
+  commit_msg="$(git log -1 --pretty=%B 2>/dev/null || true)"
+fi
+if printf '%s' "$commit_msg" | grep -qiE '\[skip vercel\]|\[skip deploy\]'; then
+  echo "skip: commit marcado [skip vercel] / [skip deploy]"
+  exit 0
+fi
+
 if [ "${VERCEL_ENV:-}" != "production" ]; then
   echo "skip: preview (solo se construye production en Hobby)"
   exit 0
