@@ -241,7 +241,7 @@ export const DEMO_GUION: readonly DemoGuionPaso[] = [
     minutos: "35–45",
     titulo: "Ellos prueban",
     detalle:
-      "Pestaña Probar: crear un cliente (importador) y cargar una importación (factura + certificado). Usan su cuenta; el espacio es el suyo, no tus expedientes.",
+      "Pestaña Probar: crear un cliente, cargar una importación, o abrir el expediente precargado y adjuntar los PDF de la nube. Usan su cuenta; el espacio es el suyo, no tus expedientes.",
   },
   {
     id: "cuestionario",

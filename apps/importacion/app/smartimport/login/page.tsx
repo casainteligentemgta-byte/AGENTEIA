@@ -97,8 +97,8 @@ function ImportacionLoginForm() {
       {fromDemo ? (
         <p className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-sm leading-relaxed text-cyan-100">
           Prueba de SmartImport: al entrar se crea tu propio espacio. No ves
-          expedientes de otros. Luego puedes crear un cliente y cargar una
-          factura.
+          expedientes de otros. Luego puedes crear un cliente, cargar una
+          factura o adjuntar los PDF de la nube al expediente precargado.
         </p>
       ) : null}
 
