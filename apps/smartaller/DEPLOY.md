@@ -35,6 +35,8 @@ No uses `http://localhost:3000` como Site URL en el proyecto de producción.
 
 Cada **push a `main`** dispara deploy automático en Vercel.
 
+Plan **Hobby**: tope de 100 deploys / 24 h en la cuenta (smartaller + agenteia suman). Los branches `cursor/**` no generan preview. El build de production se salta si no hubo cambios en `apps/smartaller`. Un commit con `[skip vercel]` o `[skip deploy]` tampoco construye.
+
 ## Variables de entorno (Production)
 
 Obligatorias:

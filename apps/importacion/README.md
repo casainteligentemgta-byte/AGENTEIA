@@ -24,6 +24,8 @@ En producción, la URL pública en el mismo dominio de SmartTaller es:
 
 ## Deploy en Vercel
 
+`vercel.json` ya desactiva previews de branches `cursor/**` (tope Hobby 100 deploys/día).
+
 1. New Project → este repo.
 2. **Root Directory:** `apps/importacion`
 3. Framework: Next.js

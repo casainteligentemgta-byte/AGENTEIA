@@ -1,5 +1,11 @@
 {
   "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "cursor/**": false
+    }
+  },
+  "ignoreCommand": "bash ../../scripts/vercel-ignored-build.sh",
   "crons": [
     {
       "path": "/api/cron/alertas-vencimiento",

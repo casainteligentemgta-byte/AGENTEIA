@@ -1,3 +1,9 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "cursor/**": false
+    }
+  },
+  "ignoreCommand": "bash ../../scripts/vercel-ignored-build.sh"
 }
