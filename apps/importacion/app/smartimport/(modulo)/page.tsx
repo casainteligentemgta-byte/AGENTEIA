@@ -62,12 +62,12 @@ import { ensureTallerForUser, getMyTaller } from "@/lib/taller";
 import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import {
   collapseColaPorBl,
-  fechaLlegadaCargaBl,
   fichaHomogeneaBl,
   latestIso,
   lineasMercanciaBl,
   mercanciaDelMismoBl,
   resumenUnidadesBl,
+  sortUnidadesPorLlegada,
 } from "@/lib/importacion/dashboard-cola-bl";
 import {
   completarEtapaLabel,
@@ -227,29 +227,21 @@ function rowLlegadaUnidad(v: PuertoLibreVehiculoListItem): DashboardBucketRow {
 function rowColaGrupoBl(
   blKey: string,
   label: string,
-  items: PuertoLibreVehiculoListItem[],
-  fase: 2 | 3
+  items: PuertoLibreVehiculoListItem[]
 ): DashboardBucketRow {
   const sorted = [...items];
   const ficha = fichaHomogeneaBl(sorted);
   const mercancia = lineasMercanciaBl(sorted);
   const resumen = resumenUnidadesBl(sorted);
   const modificadoIso = latestIso(sorted).slice(0, 10);
-  const fechaBuque = fechaLlegadaCargaBl(sorted);
   const searchMercancia = mercancia.map((m) => m.searchText).join(" ");
   return {
-    id: `bl-${fase}-${blKey}`,
+    id: `bl-2-${blKey}`,
     href: cargaBlPath(blKey),
-    cells:
-      fase === 2
-        ? {
-            expediente: `BL ${label}`,
-            modificado: formatFechaHoraCorta(latestIso(sorted)),
-          }
-        : {
-            expediente: `BL ${label}`,
-            llegada: formatFechaDia(fechaBuque),
-          },
+    cells: {
+      expediente: `BL ${label}`,
+      modificado: formatFechaHoraCorta(latestIso(sorted)),
+    },
     ficha,
     lineas: mercancia.map((m) => ({
       href: `/smartimport/${m.id}`,
@@ -257,35 +249,28 @@ function rowColaGrupoBl(
       detalle: m.detalle || undefined,
     })),
     subcells: { expediente: resumen },
-    dateValue: fase === 2 ? modificadoIso || null : fechaBuque,
-    searchText: `BL ${label} ${resumen} ${searchMercancia} ${fechaBuque ?? ""}`,
-    actionLabel: completarEtapaLabel(fase),
+    dateValue: modificadoIso || null,
+    searchText: `BL ${label} ${resumen} ${searchMercancia}`,
+    actionLabel: completarEtapaLabel(2),
     actionTone: "cyan",
   };
 }
 
-function rowsColaPorBl(
+function rowsColaEmbarque(
   items: PuertoLibreVehiculoListItem[],
-  fase: 2 | 3,
   todos?: PuertoLibreVehiculoListItem[]
 ): DashboardBucketRow[] {
   const catalogo = todos ?? items;
-  return collapseColaPorBl(
-    items,
-    fase === 3 ? { sort: "llegada" } : undefined
-  ).map((group) => {
+  return collapseColaPorBl(items).map((group) => {
     if (group.kind === "bl") {
       const mercancia = mercanciaDelMismoBl(group.blKey, catalogo);
       return rowColaGrupoBl(
         group.blKey,
         group.label,
-        mercancia.length > 0 ? mercancia : group.items,
-        fase
+        mercancia.length > 0 ? mercancia : group.items
       );
     }
-    return fase === 2
-      ? rowPorCompletarFase(group.item, 2)
-      : rowLlegadaUnidad(group.item);
+    return rowPorCompletarFase(group.item, 2);
   });
 }
 
@@ -610,17 +595,14 @@ export default async function PuertoLibrePage() {
     };
   });
 
-  const rowsPorEmbarque: DashboardBucketRow[] = rowsColaPorBl(
+  const rowsPorEmbarque: DashboardBucketRow[] = rowsColaEmbarque(
     porEmbarque,
-    2,
     vehiculos
   );
 
-  const rowsPorRecibir: DashboardBucketRow[] = rowsColaPorBl(
-    porRecibir,
-    3,
-    vehiculos
-  );
+  const rowsPorRecibir: DashboardBucketRow[] = sortUnidadesPorLlegada(
+    porRecibir
+  ).map(rowLlegadaUnidad);
 
   const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
@@ -842,9 +824,9 @@ export default async function PuertoLibrePage() {
           dense
           title={porCompletarEtapaTitle(3)}
           icon="ship"
-          emptyMessage="No hay cargas por completar llegada."
+          emptyMessage="No hay expedientes por completar llegada."
           columns={[
-            { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
           ]}
           rows={rowsPorRecibir}
