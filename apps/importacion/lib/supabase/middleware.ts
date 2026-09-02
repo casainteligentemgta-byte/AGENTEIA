@@ -11,8 +11,12 @@ function isImportacionLogin(pathname: string): boolean {
   return pathname === `${IMPORTACION_BASE}/login` || pathname === "/login";
 }
 
+function isImportacionDemo(pathname: string): boolean {
+  return pathname === `${IMPORTACION_BASE}/demo`;
+}
+
 function isProtectedPath(pathname: string): boolean {
-  if (isImportacionLogin(pathname)) return false;
+  if (isImportacionLogin(pathname) || isImportacionDemo(pathname)) return false;
   return isImportacionAppPath(pathname);
 }
 
