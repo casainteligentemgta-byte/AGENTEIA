@@ -7,6 +7,7 @@ import {
   lineasMercanciaBl,
   mercanciaDelMismoBl,
   resumenUnidadesBl,
+  sortUnidadesPorLlegada,
 } from "../dashboard-cola-bl";
 import { nextPlanillaFaseLote } from "../expediente-lote";
 
@@ -142,6 +143,19 @@ describe("cola embarque/llegada por BL", () => {
     assert.deepEqual(
       linked.map((i) => i.codigoExpediente),
       ["PL-2026.8.5", "PL-2026.8.16"]
+    );
+  });
+
+  it("en llegada lista cada expediente, por fecha del buque", () => {
+    const sorted = sortUnidadesPorLlegada([
+      v("a", "PL-2026.8.20", "TARDE", { fechaLlegadaBuque: "2026-09-20" }),
+      v("b", "PL-2026.8.16", "PRONTO", { fechaLlegadaBuque: "2026-08-01" }),
+      v("c", "PL-2026.8.5", "PRONTO", { fechaLlegadaBuque: "2026-08-01" }),
+      v("d", "PL-2026.8.2", "SIN", { fechaLlegadaBuque: null }),
+    ]);
+    assert.deepEqual(
+      sorted.map((i) => i.codigoExpediente),
+      ["PL-2026.8.5", "PL-2026.8.16", "PL-2026.8.20", "PL-2026.8.2"]
     );
   });
 

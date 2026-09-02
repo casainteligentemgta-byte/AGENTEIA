@@ -56,6 +56,18 @@ function compareFechaLlegadaAsc(a: string | null, b: string | null): number {
   return a.localeCompare(b);
 }
 
+/** Expedientes sueltos: fecha del buque, luego número de expediente. Sin fecha al final. */
+export function sortUnidadesPorLlegada<T extends ColaBlVehiculo>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const byFecha = compareFechaLlegadaAsc(
+      fechaLlegadaCargaBl([a]),
+      fechaLlegadaCargaBl([b])
+    );
+    if (byFecha !== 0) return byFecha;
+    return compareExpedientesAsc(a, b);
+  });
+}
+
 function compareBlPorExpediente<T extends ColaBlVehiculo>(
   a: { label: string; items: T[] },
   b: { label: string; items: T[] }
