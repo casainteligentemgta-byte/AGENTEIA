@@ -13,9 +13,9 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 | OpenRouter (LLM) | ✅ local — app `web` |
 | Serper (web) | ⏳ falta API key — app `web` |
 | RLS misiones por usuario | ⏳ ejecutar `apps/web/supabase/deploy-rls-d7.sql` |
-| Vercel deploy `web` | ✅ https://web-sand-ten-60.vercel.app |
+| Vercel deploy `web` | ✅ https://web-sand-ten-60.vercel.app — Hobby: 100 deploys/día; previews `cursor/**` desactivados |
 | **SmartTaller** código `main` | ✅ PRs #13–#19 mergeados |
-| SmartTaller Vercel | ✅ auto-deploy en push |
+| SmartTaller Vercel | ✅ https://smarttaller.xyz — auto en `main`; PRs `cursor/**` no disparan preview |
 | SmartTaller SQL en PC | ✅ `apps/smartaller/supabase/pc-deploy/` |
 | **Puerto Libre** app `apps/importacion` | ⏳ PR extracción; Vercel proyecto nuevo |
 | SmartTaller Stripe/Telegram prod | ⏳ env vars + webhooks |
@@ -29,7 +29,7 @@ Stack: **Cursor** · **Gemini** (ideas) · **Supabase** · **Vercel** · OpenRou
 |-------|--------|
 | Código en `main` | ✅ |
 | PR pre-lanzamiento (#21) | ⏳ SmartBike shop auto, repuestos CRUD, pc-deploy, qa |
-| Deploy Vercel (Git → `main`) | ✅ auto |
+| Deploy Vercel (Git → `main`) | ✅ https://smarttaller.xyz — auto en `main`; PRs `cursor/**` no disparan preview |
 | SQL instalación limpia | ✅ `supabase/setup-completo.sql` |
 | SQL parche jul 5–10 (PC) | ✅ `supabase/pc-deploy/01-...` |
 | SQL verificaciones (PC) | ✅ `pc-deploy/02` → `07` |

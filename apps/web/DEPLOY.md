@@ -37,6 +37,8 @@ npx vercel deploy --prod --yes
 
 Vercel Dashboard → proyecto **web** → Settings → Git → Connect **AGENTEIA** → Root Directory: **apps/web**
 
+Plan **Hobby**: tope de 100 deploys / 24 h en la cuenta (web + smartaller suman). Los branches `cursor/**` no generan preview. El build de production se salta si no hubo cambios en `apps/web`.
+
 ## Supabase Auth redirect
 
 ```
