@@ -1,5 +1,10 @@
 /** Ruta pública de SmartImport (Puerto Libre). */
 export const IMPORTACION_BASE = "/smartimport" as const;
+/** Guion de demo a cliente + cuestionario de afinado. */
+export const SMARTIMPORT_DEMO_PATH = `${IMPORTACION_BASE}/demo` as const;
+/** Expediente precargado (requiere sesión) para adjuntar PDF de la nube. */
+export const SMARTIMPORT_DEMO_EXPEDIENTE_PATH =
+  `${IMPORTACION_BASE}/expediente-demo` as const;
 /** Ruta anterior; se redirige a IMPORTACION_BASE. */
 export const IMPORTACION_LEGACY_BASE = "/importacion" as const;
 
