@@ -5,6 +5,7 @@ import {
   BookOpen,
   FileText,
   Plus,
+  Presentation,
   Scale,
   Users,
 } from "lucide-react";
@@ -755,13 +756,20 @@ export default async function PuertoLibrePage() {
                 <span className="truncate">Biblioteca</span>
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               <Link
                 href="/smartimport/instructivo"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
               >
                 <BookOpen className="h-3.5 w-3.5 text-cyan-400" />
                 Instructivo
+              </Link>
+              <Link
+                href="/smartimport/demo"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-100"
+              >
+                <Presentation className="h-3.5 w-3.5 text-cyan-400" />
+                Demo
               </Link>
               <Link
                 href="/smartimport/lote"

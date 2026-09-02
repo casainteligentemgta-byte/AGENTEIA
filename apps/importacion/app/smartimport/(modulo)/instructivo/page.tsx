@@ -7,6 +7,7 @@ import {
   FileStack,
   LayoutDashboard,
   Lightbulb,
+  Presentation,
   Ship,
   Upload,
 } from "lucide-react";
@@ -124,6 +125,14 @@ const TIPS = [
       "Las colas del dashboard siguen la planilla: registro, embarque, llegada, desaduanamiento, propietario, seguro y matrícula. SENIAT y nacionalizar van aparte.",
     href: "/smartimport",
     cta: "Ir al dashboard",
+  },
+  {
+    icon: Presentation,
+    titulo: "Demo a un cliente",
+    texto:
+      "Guion de 60 minutos (extraer → cola → PDF SENIAT) y cuestionario que cierra en un mapa de deseos para el piloto.",
+    href: "/smartimport/demo",
+    cta: "Abrir demo",
   },
 ] as const;
 
