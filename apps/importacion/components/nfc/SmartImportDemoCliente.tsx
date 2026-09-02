@@ -7,9 +7,11 @@ import {
   Check,
   ClipboardList,
   Copy,
+  FileUp,
   Presentation,
   Printer,
   RotateCcw,
+  UserPlus,
 } from "lucide-react";
 import {
   DEMO_AVISOS_LABELS,
@@ -23,6 +25,7 @@ import {
   DEMO_PDF_LABELS,
   DEMO_PLACA_LABELS,
   DEMO_PREP,
+  DEMO_PROBAR_ACCIONES,
   DEMO_ROL_LABELS,
   DEMO_UNIDADES,
   DEMO_VOLUMEN_LABELS,
@@ -34,10 +37,11 @@ import {
 import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 import { REGIMEN_IMPORTACION_LABELS, REGIMENES_IMPORTACION } from "@/lib/importacion/regimenes";
 
-type DemoTab = "guion" | "cuestionario" | "mapa";
+type DemoTab = "guion" | "probar" | "cuestionario" | "mapa";
 
 const TABS: { id: DemoTab; label: string }[] = [
   { id: "guion", label: "Guion" },
+  { id: "probar", label: "Probar" },
   { id: "cuestionario", label: "Cuestionario" },
   { id: "mapa", label: "Mapa" },
 ];
@@ -191,7 +195,7 @@ export function SmartImportDemoCliente() {
         <div
           role="tablist"
           aria-label="Secciones del demo"
-          className="mb-5 grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1 print:hidden"
+          className="mb-5 grid grid-cols-4 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1 print:hidden"
         >
           {TABS.map((item) => (
             <button
@@ -202,8 +206,8 @@ export function SmartImportDemoCliente() {
               onClick={() => setTab(item.id)}
               className={
                 tab === item.id
-                  ? "rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white"
-                  : "rounded-lg px-2 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-100"
+                  ? "rounded-lg bg-cyan-600 px-1 py-2 text-[11px] font-semibold text-white sm:text-xs"
+                  : "rounded-lg px-1 py-2 text-[11px] font-medium text-zinc-400 hover:text-zinc-100 sm:text-xs"
               }
             >
               {item.label}
@@ -307,6 +311,45 @@ export function SmartImportDemoCliente() {
                 ))}
               </ul>
             </section>
+          </div>
+        ) : null}
+
+        {tab === "probar" ? (
+          <div className="space-y-4 print:hidden">
+            <p className="text-sm leading-relaxed text-zinc-400">
+              El cliente entra con <strong className="font-medium text-zinc-200">su propia cuenta</strong>.
+              Se crea un espacio aislado (RLS): no ve tus expedientes. Primero el
+              importador, después la factura.
+            </p>
+            <ul className="space-y-3">
+              {DEMO_PROBAR_ACCIONES.map((accion) => {
+                const Icon = accion.id === "cliente" ? UserPlus : FileUp;
+                return (
+                  <li
+                    key={accion.id}
+                    className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4"
+                  >
+                    <p className="flex items-center gap-2 font-medium text-zinc-50">
+                      <Icon className="h-4 w-4 text-cyan-400" />
+                      {accion.titulo}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                      {accion.detalle}
+                    </p>
+                    <Link
+                      href={accion.href}
+                      className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 sm:w-auto"
+                    >
+                      {accion.cta} →
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-xs leading-relaxed text-zinc-500">
+              Si Supabase pide confirmar el correo, ten una cuenta demo lista
+              (email + clave) para no frenar la reunión.
+            </p>
           </div>
         ) : null}
 

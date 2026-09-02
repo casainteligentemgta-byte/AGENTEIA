@@ -20,11 +20,15 @@ function ImportacionLoginForm() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirectTo");
   const errorParam = searchParams.get("error");
+  const fromDemo = searchParams.get("from") === "demo";
+  const modeParam = searchParams.get("mode");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">(
+    modeParam === "signup" ? "signup" : "login"
+  );
   const [message, setMessage] = useState<{
     type: "error" | "success";
     text: string;
@@ -59,11 +63,16 @@ function ImportacionLoginForm() {
         await recordPortalLoginAction(effectiveRedirect);
         window.location.href = effectiveRedirect;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         void notifySmartImportRegistrationAction({ email }).catch(() => {
           /* soft-fail: no bloquear UI */
         });
+        if (data.session) {
+          await recordPortalLoginAction(effectiveRedirect);
+          window.location.href = effectiveRedirect;
+          return;
+        }
         setMessage({
           type: "success",
           text: "Cuenta creada. Revisa tu correo para confirmar o inicia sesión.",
@@ -84,6 +93,14 @@ function ImportacionLoginForm() {
       <div className="mb-8">
         <BrandLogo size="md" theme="dark" showDot={false} product="smartimport" />
       </div>
+
+      {fromDemo ? (
+        <p className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-sm leading-relaxed text-cyan-100">
+          Prueba de SmartImport: al entrar se crea tu propio espacio. No ves
+          expedientes de otros. Luego puedes crear un cliente y cargar una
+          factura.
+        </p>
+      ) : null}
 
       <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-6 sm:p-8">
         <div className="mb-6 flex rounded-xl bg-zinc-900 p-1">

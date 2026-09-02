@@ -241,7 +241,7 @@ export const DEMO_GUION: readonly DemoGuionPaso[] = [
     minutos: "35–45",
     titulo: "Ellos prueban",
     detalle:
-      "Login demo. Tarea: encuentra la unidad B y dime qué le falta para SENIAT. Ahí ves si el producto es claro.",
+      "Pestaña Probar: crear un cliente (importador) y cargar una importación (factura + certificado). Usan su cuenta; el espacio es el suyo, no tus expedientes.",
   },
   {
     id: "cuestionario",
@@ -256,8 +256,37 @@ export const DEMO_NO_HACER: readonly string[] = [
   "No recorras Registro → Matrícula entero. Si preguntan por una fase, ábrela.",
   "No demuestres roles máster ni paneles internos.",
   "No prometas Stripe, Telegram ni un dominio propio como parte del piloto.",
-  "No los dejes en producción con tus expedientes.",
+  "No los dejes en tus expedientes de producción: ellos trabajan en su propio espacio.",
 ];
+
+export function demoProbarLoginHref(redirectTo: string): string {
+  const path = redirectTo.startsWith("/") ? redirectTo : `/${redirectTo}`;
+  const params = new URLSearchParams({
+    redirectTo: path,
+    mode: "signup",
+    from: "demo",
+  });
+  return `${IMPORTACION_BASE}/login?${params.toString()}`;
+}
+
+export const DEMO_PROBAR_ACCIONES = [
+  {
+    id: "cliente",
+    titulo: "Crear un cliente",
+    detalle:
+      "Alta de importador (nombre, RIF o cédula, dirección fiscal). Queda solo en su espacio.",
+    href: demoProbarLoginHref(`${IMPORTACION_BASE}/clientes`),
+    cta: "Crear cliente",
+  },
+  {
+    id: "importacion",
+    titulo: "Cargar una importación",
+    detalle:
+      "En el mismo flujo pueden crear el cliente y subir factura + certificado. Cada VIN genera un expediente PL-…",
+    href: demoProbarLoginHref(`${IMPORTACION_BASE}/importaciones/nueva`),
+    cta: "Cargar importación",
+  },
+] as const;
 
 function dash(value: string | undefined): string {
   const t = value?.trim();

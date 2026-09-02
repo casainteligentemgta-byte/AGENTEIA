@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   EMPTY_DEMO_CUESTIONARIO,
   buildMapaDeseos,
+  demoProbarLoginHref,
+  DEMO_PROBAR_ACCIONES,
   parseDemoCuestionario,
 } from "../demo-cliente";
 
@@ -66,5 +68,18 @@ describe("buildMapaDeseos", () => {
       rolOtro: "naviera",
     });
     assert.match(mapa, /Ustedes son naviera,/);
+  });
+});
+
+describe("demoProbarLoginHref", () => {
+  it("manda a login con signup y destino clientes", () => {
+    const href = demoProbarLoginHref("/smartimport/clientes");
+    assert.match(href, /^\/smartimport\/login\?/);
+    assert.match(href, /mode=signup/);
+    assert.match(href, /from=demo/);
+    assert.match(href, /redirectTo=%2Fsmartimport%2Fclientes/);
+    assert.equal(DEMO_PROBAR_ACCIONES.length, 2);
+    assert.equal(DEMO_PROBAR_ACCIONES[0].id, "cliente");
+    assert.equal(DEMO_PROBAR_ACCIONES[1].id, "importacion");
   });
 });
