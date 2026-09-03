@@ -36,16 +36,16 @@ export function DashboardBlLineas({
       className={
         open
           ? "space-y-2"
-          : "rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-2.5"
+            : "min-w-0 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-2.5"
       }
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <Link
           href={href}
           className={
             open
-              ? `${titleClassName} block`
-              : `${titleClassName} block text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
+              ? `${titleClassName} block min-w-0`
+              : `${titleClassName} block min-w-0 text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
           }
         >
           {blLabel}

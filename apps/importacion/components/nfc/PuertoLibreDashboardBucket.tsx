@@ -95,7 +95,7 @@ type Props = {
 };
 
 const EXPEDIENTE_CODE_CLASS =
-  "smartimport-expediente-title inline-block whitespace-nowrap font-mono tracking-wide text-zinc-100 hover:text-cyan-300";
+  "smartimport-expediente-title inline-block break-words font-mono tracking-wide text-zinc-100 hover:text-cyan-300";
 
 const ACTION_TONE: Record<
   NonNullable<DashboardBucketRow["actionTone"]>,
@@ -223,9 +223,11 @@ export function PuertoLibreDashboardBucket({
   );
 
   const titleRow = (
-    <h2 className="smartimport-bucket-title flex min-w-0 items-center gap-2 text-zinc-200">
-      <BucketIcon name={icon} />
-      <span className="truncate">{title}</span>
+    <h2 className="smartimport-bucket-title flex min-w-0 flex-1 items-start gap-2 text-zinc-200">
+      <span className="mt-0.5 shrink-0">
+        <BucketIcon name={icon} />
+      </span>
+      <span className="min-w-0 text-pretty break-words">{title}</span>
     </h2>
   );
 
@@ -327,9 +329,9 @@ export function PuertoLibreDashboardBucket({
   }
 
   const tablePanel = showTable ? (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="relative min-w-0 flex-1">
+    <div className="min-w-0 space-y-3">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="relative min-w-0 w-full flex-1">
           <span className="sr-only">Filtrar {title}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
           <input
@@ -337,37 +339,37 @@ export function PuertoLibreDashboardBucket({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
+            className="w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-700/50 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
           />
         </label>
         {dateFilterLabel ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-end">
+            <label className="flex min-w-0 flex-col gap-1 text-[11px] text-zinc-500">
               {dateFilterLabel} desde
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
+                className="w-full min-w-0 rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
               />
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+            <label className="flex min-w-0 flex-col gap-1 text-[11px] text-zinc-500">
               hasta
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
+                className="w-full min-w-0 rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 text-sm text-zinc-100 focus:border-cyan-700/50 focus:outline-none"
               />
             </label>
           </div>
         ) : null}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
             type="button"
             onClick={handleDownload}
             disabled={pending || displayed.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50 sm:w-auto"
           >
             {pending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -380,7 +382,7 @@ export function PuertoLibreDashboardBucket({
             type="button"
             onClick={handleShare}
             disabled={pending || displayed.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-cyan-700/50 hover:text-cyan-100 disabled:opacity-50 sm:w-auto"
           >
             {pending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -397,7 +399,7 @@ export function PuertoLibreDashboardBucket({
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="inline-flex items-center rounded-xl px-2 py-2 text-xs text-zinc-500 transition hover:text-zinc-300"
+              className="col-span-2 inline-flex items-center justify-center rounded-xl px-2 py-2 text-xs text-zinc-500 transition hover:text-zinc-300 sm:col-auto"
             >
               Limpiar
             </button>
@@ -414,9 +416,9 @@ export function PuertoLibreDashboardBucket({
         </p>
       ) : (
         <div
-          className={`overflow-x-auto rounded-2xl border bg-zinc-950/40 ${borderClassName}`}
+          className={`min-w-0 overflow-hidden rounded-2xl border bg-zinc-950/40 ${borderClassName}`}
         >
-          <table className="w-full border-collapse text-left text-sm">
+          <table className="w-full table-fixed border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
                 {columns.map((col) => {
@@ -432,10 +434,10 @@ export function PuertoLibreDashboardBucket({
                           ? "Doble clic para ordenar por expediente"
                           : undefined
                       }
-                      className={`px-3 py-3 font-medium ${
+                      className={`min-w-0 px-2.5 py-3 font-medium sm:px-3 ${
                         isExpedienteCol
-                          ? "cursor-pointer select-none whitespace-nowrap"
-                          : ""
+                          ? "w-[58%] cursor-pointer select-none"
+                          : "w-[42%]"
                       } ${
                         isExpedienteCol && expedienteSort
                           ? "text-cyan-400"
@@ -482,7 +484,7 @@ export function PuertoLibreDashboardBucket({
                         const ficha = row.ficha;
                         if (row.lineas && row.lineas.length > 0) {
                           return (
-                            <td key={col.key} className="px-3 py-3">
+                            <td key={col.key} className="min-w-0 px-2.5 py-3 sm:px-3">
                               <DashboardBlLineas
                                 blLabel={value}
                                 href={row.href}
@@ -494,7 +496,7 @@ export function PuertoLibreDashboardBucket({
                           );
                         }
                         return (
-                          <td key={col.key} className="px-3 py-3">
+                          <td key={col.key} className="min-w-0 px-2.5 py-3 sm:px-3">
                             <Link
                               href={row.href}
                               className={`${EXPEDIENTE_CODE_CLASS} block`}
@@ -540,17 +542,17 @@ export function PuertoLibreDashboardBucket({
                           value.trim() !== row.actionLabel &&
                           value.trim() !== "—";
                         return (
-                          <td key={col.key} className="px-3 py-3">
-                            <div className="inline-flex flex-col items-start gap-1.5">
+                          <td key={col.key} className="min-w-0 px-2.5 py-3 sm:px-3">
+                            <div className="flex min-w-0 flex-col items-start gap-1.5">
                               <Link
                                 href={row.href}
-                                className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium transition ${ACTION_TONE[tone]}`}
+                                className={`inline-flex max-w-full whitespace-normal rounded-lg border px-2 py-1 text-xs font-medium leading-tight transition ${ACTION_TONE[tone]}`}
                               >
                                 {row.actionLabel}
                               </Link>
                               {showValue ? (
                                 <p
-                                  className={`text-xs whitespace-nowrap sm:text-sm ${
+                                  className={`text-xs sm:text-sm ${
                                     row.urgent ? "text-red-300" : "text-zinc-300"
                                   }`}
                                 >
@@ -566,7 +568,7 @@ export function PuertoLibreDashboardBucket({
                       }
 
                       return (
-                        <td key={col.key} className="px-3 py-3 text-zinc-300">
+                        <td key={col.key} className="min-w-0 px-2.5 py-3 text-zinc-300 sm:px-3">
                           {value.trim() ? (
                             <p className="smartimport-vehiculo-description">
                               {value}
@@ -609,7 +611,7 @@ export function PuertoLibreDashboardBucket({
       return (
         <div
           id={sectionId}
-          className="flex items-center justify-between gap-3 px-3 py-2.5"
+          className="flex items-start justify-between gap-3 px-4 py-3"
         >
           {titleRow}
           {headerExtras}
@@ -626,11 +628,11 @@ export function PuertoLibreDashboardBucket({
           setDetailsOpen((e.currentTarget as HTMLDetailsElement).open)
         }
       >
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
           {titleRow}
           {headerExtras}
         </summary>
-        <div className="space-y-3 border-t border-zinc-800/60 px-3 pb-3 pt-2">
+        <div className="min-w-0 space-y-3 border-t border-zinc-800/60 px-4 pb-4 pt-3">
           {leadingContent}
           {tablePanel}
           {!showTable ? (
