@@ -4,6 +4,7 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL,
   DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
   DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  DOCUMENTO_TIPOS_CARGA_REGISTRO,
   cargaBlPath,
   countDocumentosCargaBl,
   documentosConCopiaLote,
@@ -20,16 +21,16 @@ import {
 } from "../expediente-lote";
 
 describe("expediente lote vs unidad", () => {
-  it("factura, BL, DAV y póliza de transporte son del lote", () => {
+  it("factura, certificado, BL, DAV y póliza de transporte son de la carga", () => {
     assert.equal(isDocumentoLote("factura_comercial"), true);
+    assert.equal(isDocumentoLote("certificado_origen"), true);
     assert.equal(isDocumentoLote("bl_guia"), true);
     assert.equal(isDocumentoLote("dav"), true);
     assert.equal(isDocumentoLote("poliza_transporte"), true);
     assert.equal(isDocumentoLote("lista_empaque"), true);
   });
 
-  it("certificado, fotos, seguro y título son del vehículo", () => {
-    assert.equal(isDocumentoLote("certificado_origen"), false);
+  it("fotos, seguro y título son del vehículo", () => {
     assert.equal(isDocumentoLote("foto_impronta"), false);
     assert.equal(isDocumentoLote("foto_frontal"), false);
     assert.equal(isDocumentoLote("poliza_seguro"), false);
@@ -129,7 +130,11 @@ describe("expediente lote vs unidad", () => {
     assert.equal(next.certificado_origen?.path, "c");
   });
 
-  it("docs de la carga cubren embarque, llegada y desaduanamiento del BL", () => {
+  it("docs de la carga cubren registro, embarque, llegada y desaduanamiento del BL", () => {
+    assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_REGISTRO], [
+      "factura_comercial",
+      "certificado_origen",
+    ]);
     assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE], [
       "bl_guia",
       "lista_empaque",
@@ -140,7 +145,9 @@ describe("expediente lote vs unidad", () => {
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));
-    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 15);
+    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 17);
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL.includes("factura_comercial"));
+    assert.ok(DOCUMENTO_TIPOS_CARGA_BL.includes("certificado_origen"));
     assert.equal(isDocumentoLote("poliza_transporte"), true);
     assert.equal(isDocumentoLote("pase_salida_levante"), true);
     assert.equal(isDocumentoLote("poliza_seguro"), false);
@@ -208,6 +215,18 @@ describe("expediente lote vs unidad", () => {
     );
     assert.equal(next.factura_comercial?.path, "mia");
     assert.equal(next.lista_empaque?.path, "l");
+    assert.equal(next.certificado_origen?.path, "c");
+  });
+
+  it("si el expediente no tiene certificado, lo hereda de la carga", () => {
+    const next = pickDocumentosLoteFaltantes(
+      { factura_comercial: { url: "https://x/mia.pdf", path: "mia" } },
+      {
+        factura_comercial: { url: "https://x/lote.pdf", path: "lote" },
+        certificado_origen: { url: "https://x/c.pdf", path: "c" },
+      }
+    );
+    assert.equal(next.factura_comercial?.path, "mia");
     assert.equal(next.certificado_origen?.path, "c");
   });
 

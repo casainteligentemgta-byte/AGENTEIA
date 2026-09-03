@@ -18,6 +18,7 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL,
   DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
   DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  DOCUMENTO_TIPOS_CARGA_REGISTRO,
   cargaBlPath,
   normalizeLoteBlKey,
 } from "@/lib/importacion/expediente-lote";
@@ -34,6 +35,8 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 
 const DOC_HINT: Partial<Record<DocumentoTipo, string>> = {
+  factura_comercial: "Factura de toda la carga · un PDF para las 3 (o N) unidades",
+  certificado_origen: "Certificado de origen de la carga · se copia a cada expediente",
   bl_guia: "Un PDF o foto · se anexa a todos los expedientes de este BL",
   lista_empaque: "Lista de empaque de toda la carga",
   poliza_transporte: "Póliza de la carga (transporte), no el seguro del auto",
@@ -336,6 +339,15 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           {pending ? "Guardando…" : "Guardar datos en el BL"}
         </button>
       </section>
+
+      <CargaBlDocSection
+        title="Papeles de la carga"
+        hint="Factura y certificado de origen son de toda la carga. Se copian a cada expediente al individualizar."
+        tipos={DOCUMENTO_TIPOS_CARGA_REGISTRO}
+        docs={docs}
+        sourceVehiculoId={lote.sourceVehiculoId}
+        onUploaded={handleUploaded}
+      />
 
       <CargaBlDocSection
         title="Embarque y llegada"

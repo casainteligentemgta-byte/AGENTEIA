@@ -5,9 +5,10 @@ import type {
   VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 
-/** Documentos del embarque/lote: se copian a cada expediente del mismo BL. */
+/** Documentos de la carga/lote: se copian a cada expediente del mismo BL. */
 export const DOCUMENTO_TIPOS_LOTE: readonly DocumentoTipo[] = [
   "factura_comercial",
+  "certificado_origen",
   "bl_guia",
   "lista_empaque",
   "dav",
@@ -136,7 +137,16 @@ export function documentosConCopiaLote(
 }
 
 /**
- * Docs de toda la carga (un PDF por BL). No incluye factura ni certificado.
+ * Papeles generales de la carga (un PDF para todas las unidades).
+ * Tras unificar en el BL se copian a cada expediente.
+ */
+export const DOCUMENTO_TIPOS_CARGA_REGISTRO: readonly DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+];
+
+/**
+ * Docs de toda la carga (un PDF por BL).
  * Póliza = transporte de la carga, no el seguro del vehículo.
  * Partida, fotos y cuestionario siguen por expediente.
  */
@@ -162,6 +172,7 @@ export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
 ];
 
 export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
+  ...DOCUMENTO_TIPOS_CARGA_REGISTRO,
   ...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   ...DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
 ];

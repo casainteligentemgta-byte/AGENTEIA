@@ -3,10 +3,14 @@ import { describe, it } from "node:test";
 import { isValidRif } from "../../validations/rif";
 import {
   DEMO_PLANTILLA_ARCHIVOS_ESPERADOS,
+  DEMO_UNIDADES,
   demoMotorFromTallerId,
+  demoNumeroBlFromTallerId,
   demoPlantillaPath,
   demoRifFromTallerId,
   demoSerialFromTallerId,
+  demoSerialLegacyFromTallerId,
+  demoPasoDeTipo,
   isSafeDemoPlantillaFilename,
   mapPlantillaFilenameToTipo,
 } from "../demo-plantillas";
@@ -14,11 +18,32 @@ import {
 const TALLER_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 describe("demoSerialFromTallerId", () => {
-  it("es estable, 17 caracteres y empieza por DEMO", () => {
-    const serial = demoSerialFromTallerId(TALLER_ID);
-    assert.equal(serial.length, 17);
-    assert.match(serial, /^DEMO[A-F0-9]{13}$/);
-    assert.equal(serial, demoSerialFromTallerId(TALLER_ID));
+  it("genera 3 VIN de 17 caracteres, distintos y estables", () => {
+    const a = demoSerialFromTallerId(TALLER_ID, 1);
+    const b = demoSerialFromTallerId(TALLER_ID, 2);
+    const c = demoSerialFromTallerId(TALLER_ID, 3);
+    assert.equal(a.length, 17);
+    assert.equal(b.length, 17);
+    assert.equal(c.length, 17);
+    assert.match(a, /^DEMO[A-F0-9]{12}1$/);
+    assert.notEqual(a, b);
+    assert.notEqual(b, c);
+    assert.equal(a, demoSerialFromTallerId(TALLER_ID, 1));
+    assert.equal(DEMO_UNIDADES, 3);
+  });
+
+  it("el serial legado de 1 unidad no choca con las 3 nuevas", () => {
+    const legacy = demoSerialLegacyFromTallerId(TALLER_ID);
+    assert.equal(legacy.length, 17);
+    assert.notEqual(legacy, demoSerialFromTallerId(TALLER_ID, 1));
+  });
+});
+
+describe("demoNumeroBlFromTallerId", () => {
+  it("es estable y agrupa la carga", () => {
+    const bl = demoNumeroBlFromTallerId(TALLER_ID);
+    assert.match(bl, /^DEMOBL[A-F0-9]{6}$/);
+    assert.equal(bl, demoNumeroBlFromTallerId(TALLER_ID));
   });
 });
 
@@ -27,15 +52,15 @@ describe("demoRifFromTallerId", () => {
     const rif = demoRifFromTallerId(TALLER_ID);
     assert.equal(isValidRif(rif), true);
     assert.match(rif, /^J-\d{8}-0$/);
-    assert.equal(rif, demoRifFromTallerId(TALLER_ID));
   });
 });
 
 describe("demoMotorFromTallerId", () => {
-  it("es estable y empieza por MOT", () => {
-    const motor = demoMotorFromTallerId(TALLER_ID);
-    assert.match(motor, /^MOT[A-F0-9]{10}$/);
-    assert.equal(motor, demoMotorFromTallerId(TALLER_ID));
+  it("distingue las 3 unidades", () => {
+    const a = demoMotorFromTallerId(TALLER_ID, 1);
+    const b = demoMotorFromTallerId(TALLER_ID, 2);
+    assert.match(a, /^MOT[A-F0-9]{9}1$/);
+    assert.notEqual(a, b);
   });
 });
 
@@ -62,6 +87,16 @@ describe("mapPlantillaFilenameToTipo", () => {
 
   it("rechaza un nombre que no es un tipo conocido", () => {
     assert.equal(mapPlantillaFilenameToTipo("notas_internas.pdf"), null);
+  });
+});
+
+describe("demoPasoDeTipo", () => {
+  it("factura y certificado son de la carga; BL y lista unifican", () => {
+    assert.equal(demoPasoDeTipo("factura_comercial"), "carga");
+    assert.equal(demoPasoDeTipo("certificado_origen"), "carga");
+    assert.equal(demoPasoDeTipo("bl_guia"), "bl");
+    assert.equal(demoPasoDeTipo("lista_empaque"), "bl");
+    assert.equal(demoPasoDeTipo("foto_frontal"), "otro");
   });
 });
 

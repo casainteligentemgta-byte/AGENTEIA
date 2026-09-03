@@ -46,8 +46,9 @@ export default async function ExpedienteDemoPage() {
 
   return (
     <SmartImportDemoExpediente
-      vehiculo={ensured.vehiculo}
+      vehiculos={ensured.vehiculos}
       created={ensured.created}
+      numeroBl={ensured.numeroBl}
       plantillas={listed.success ? listed.plantillas : []}
       listError={listed.success ? null : listed.error}
       bucket={listed.success ? listed.bucket : "vehiculos-documentos"}
