@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  esEnColaEmbarque,
   esNacionalizado,
   esPorCompletarEtapa,
   esPorCompletarRegistro,
@@ -87,6 +88,31 @@ describe("dashboard clasificación", () => {
     assert.equal(esPorCompletarEtapa(v, 3), true);
     assert.equal(esPorPresentacionSeniat(v), true);
     assert.equal(esPorCompletarEtapa(v, 1), false);
+  });
+
+  it("un BL cerrado se queda en embarque y se duplica en llegada", () => {
+    const v = { ...extraido, planillaFase: 3, numeroBl: "321" };
+    assert.equal(esEnColaEmbarque(v), true);
+    assert.equal(esPorCompletarEtapa(v, 2), false);
+    assert.equal(esPorCompletarEtapa(v, 3), true);
+  });
+
+  it("llegada sin BL no se queda en embarque", () => {
+    const v = { ...extraido, planillaFase: 3, numeroBl: null };
+    assert.equal(esEnColaEmbarque(v), false);
+    assert.equal(esPorCompletarEtapa(v, 3), true);
+  });
+
+  it("fase 2 sigue solo en embarque", () => {
+    const v = { ...extraido, planillaFase: 2, numeroBl: "321" };
+    assert.equal(esEnColaEmbarque(v), true);
+    assert.equal(esPorCompletarEtapa(v, 3), false);
+  });
+
+  it("al cerrar llegada el BL sale de embarque", () => {
+    const v = { ...extraido, planillaFase: 4, numeroBl: "321" };
+    assert.equal(esEnColaEmbarque(v), false);
+    assert.equal(esPorCompletarEtapa(v, 4), true);
   });
 
   it("SENIAT con fecha de cita entra aunque siga en registro", () => {
