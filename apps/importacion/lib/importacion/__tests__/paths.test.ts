@@ -1,21 +1,27 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_SEGURO_ID,
   hrefAfterFase2Embarque,
+  hrefDashboardColaLlegada,
   SMARTIMPORT_DEMO_EXPEDIENTE_PATH,
   SMARTIMPORT_DEMO_PATH,
 } from "../paths";
 
 describe("hrefAfterFase2Embarque", () => {
-  it("Continuar a Llegada va al dashboard en la 2.ª cola", () => {
+  it("Continuar a Llegada abre la fase 3 de la planilla", () => {
     assert.equal(
       hrefAfterFase2Embarque("next", "abc-uuid"),
-      `/smartimport#${DASHBOARD_COLA_EMBARQUE_ID}`
+      "/smartimport/abc-uuid/planilla?fase=3"
     );
+  });
+
+  it("sin expediente, Continuar a Llegada va a la cola de llegada", () => {
+    assert.equal(hrefAfterFase2Embarque("next", "  "), hrefDashboardColaLlegada());
+    assert.equal(hrefDashboardColaLlegada(), `/smartimport#${DASHBOARD_COLA_LLEGADA_ID}`);
   });
 
   it("Guardar e ir a la ficha abre el expediente", () => {
@@ -27,6 +33,10 @@ describe("hrefAfterFase2Embarque", () => {
 });
 
 describe("colas dashboard", () => {
+  it("llegada tiene ancla propia", () => {
+    assert.equal(DASHBOARD_COLA_LLEGADA_ID, "cola-llegada");
+  });
+
   it("propietario tiene ancla propia", () => {
     assert.equal(DASHBOARD_COLA_PROPIETARIO_ID, "cola-propietario");
   });

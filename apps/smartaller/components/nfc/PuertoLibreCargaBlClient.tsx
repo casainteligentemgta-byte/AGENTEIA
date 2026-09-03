@@ -28,6 +28,7 @@ import {
   primaryPuertoDescarga,
   resolvePuertoDescarga,
 } from "@/lib/importacion/puertos-venezuela";
+import { hrefDashboardColaLlegada } from "@/lib/importacion/paths";
 import {
   DOCUMENTO_LABELS,
   type DocumentoTipo,
@@ -191,7 +192,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         setError(result.error);
         return;
       }
-      router.push("/smartimport");
+      router.push(hrefDashboardColaLlegada());
     });
   }
 

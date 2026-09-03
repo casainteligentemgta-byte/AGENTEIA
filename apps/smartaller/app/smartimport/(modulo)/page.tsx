@@ -34,6 +34,7 @@ import {
 } from "@/lib/importacion/expediente";
 import {
   DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_SEGURO_ID,
@@ -246,7 +247,7 @@ function rowColaGrupoBl(
   const lineaHref =
     opts?.lineaHref ?? ((id: string) => `/smartimport/${id}`);
   const href =
-    cola === 3 && sorted[0]
+    (cola === 3 || yaEnLlegada) && sorted[0]
       ? `/smartimport/${sorted[0].id}/planilla?fase=3`
       : cargaBlPath(blKey);
   return {
@@ -271,7 +272,7 @@ function rowColaGrupoBl(
     searchText: `BL ${label} ${resumen} ${searchMercancia}`,
     actionLabel:
       opts?.actionLabel ??
-      (yaEnLlegada ? "Ver BL" : completarEtapaLabel(2)),
+      (yaEnLlegada ? completarEtapaLabel(3) : completarEtapaLabel(2)),
     actionTone: "cyan",
   };
 }
@@ -869,9 +870,11 @@ export default async function PuertoLibrePage() {
 
         <PuertoLibreDashboardBucket
           dense
+          sectionId={DASHBOARD_COLA_LLEGADA_ID}
           title={porCompletarEtapaTitle(3)}
           icon="ship"
-          emptyMessage="No hay cargas por completar llegada. Al cerrar un BL aparece aquí una copia con su mercancía."
+          emptyMessage="No hay cargas por completar llegada. Al cerrar el embarque pasan aquí."
+          defaultOpen={rowsPorRecibir.length > 0}
           columns={[
             { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
