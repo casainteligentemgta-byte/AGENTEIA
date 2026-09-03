@@ -16,6 +16,8 @@ export type DashboardClasificacionFuente = {
   completitudDatos?: "rojo" | "ambar" | "verde" | null;
   /** Chip verde de Registro en la planilla. */
   registroCompleto?: boolean;
+  /** Nº BL: la carga se queda en embarque y se duplica en llegada. */
+  numeroBl?: string | null;
 };
 
 export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7] as const;
@@ -64,6 +66,20 @@ export function esPorCompletarEtapa(
 
 export function esPorCompletarRegistro(v: DashboardClasificacionFuente): boolean {
   return esPorCompletarEtapa(v, 1);
+}
+
+export function tieneBlGuardado(v: { numeroBl?: string | null }): boolean {
+  return Boolean(v.numeroBl?.trim());
+}
+
+/**
+ * Embarque: pendientes de fase 2, o BL ya guardado que pasó a llegada.
+ * El original se queda en esta lista; un duplicado va a la cola de llegada.
+ */
+export function esEnColaEmbarque(v: DashboardClasificacionFuente): boolean {
+  const f = faseColaPlanilla(v);
+  if (f === 2) return true;
+  return f === 3 && tieneBlGuardado(v);
 }
 
 /**
