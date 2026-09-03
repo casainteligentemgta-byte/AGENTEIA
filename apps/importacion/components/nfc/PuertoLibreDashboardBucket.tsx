@@ -25,6 +25,10 @@ import {
   type DashboardFichaIdentidad,
 } from "@/lib/importacion/dashboard-ficha";
 import { compareExpedienteLabelsAsc } from "@/lib/importacion/expediente";
+import {
+  DashboardBlLineas,
+  type DashboardBucketLinea,
+} from "@/components/nfc/DashboardBlLineas";
 
 export type DashboardBucketColumn = {
   key: string;
@@ -52,11 +56,7 @@ export type DashboardBucketRow = {
   urgent?: boolean;
 };
 
-export type DashboardBucketLinea = {
-  href: string;
-  titulo: string;
-  detalle?: string;
-};
+export type { DashboardBucketLinea };
 
 type IconName = "ship" | "alert" | "building" | "flag" | "file" | "check" | "none";
 
@@ -480,6 +480,19 @@ export function PuertoLibreDashboardBucket({
 
                       if (isExpediente) {
                         const ficha = row.ficha;
+                        if (row.lineas && row.lineas.length > 0) {
+                          return (
+                            <td key={col.key} className="px-3 py-3">
+                              <DashboardBlLineas
+                                blLabel={value}
+                                href={row.href}
+                                lineas={row.lineas}
+                                resumen={sub}
+                                titleClassName={EXPEDIENTE_CODE_CLASS}
+                              />
+                            </td>
+                          );
+                        }
                         return (
                           <td key={col.key} className="px-3 py-3">
                             <Link
@@ -488,7 +501,7 @@ export function PuertoLibreDashboardBucket({
                             >
                               {value}
                             </Link>
-                            {ficha && !row.lineas?.length ? (
+                            {ficha ? (
                               <div className="mt-1.5 space-y-0.5">
                                 {ficha.marca ? (
                                   <p className="smartimport-vehiculo-description block text-zinc-400">
@@ -512,35 +525,8 @@ export function PuertoLibreDashboardBucket({
                                 ) : null}
                               </div>
                             ) : null}
-                            {row.lineas && row.lineas.length > 0 ? (
-                              <ul className="mt-2 space-y-1.5">
-                                {row.lineas.map((linea) => (
-                                  <li key={linea.href}>
-                                    <Link
-                                      href={linea.href}
-                                      className="block rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-1.5 hover:border-cyan-700/40"
-                                    >
-                                      <span className="font-mono text-xs tracking-wide text-zinc-100">
-                                        {linea.titulo}
-                                      </span>
-                                      {linea.detalle ? (
-                                        <span className="mt-0.5 block text-[11px] text-zinc-400">
-                                          {linea.detalle}
-                                        </span>
-                                      ) : null}
-                                    </Link>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
                             {sub ? (
-                              <p
-                                className={`mt-1 text-[11px] ${
-                                  row.lineas && row.lineas.length > 0
-                                    ? "text-zinc-500"
-                                    : "text-red-300/80"
-                                }`}
-                              >
+                              <p className="mt-1 text-[11px] text-red-300/80">
                                 {sub}
                               </p>
                             ) : null}

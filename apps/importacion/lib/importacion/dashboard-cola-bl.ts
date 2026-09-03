@@ -163,6 +163,11 @@ export function lineasMercanciaBl(items: ColaBlVehiculo[]): MercanciaBlLinea[] {
   });
 }
 
+export function blLineasToggleLabel(open: boolean, count: number): string {
+  if (open) return "Ocultar expedientes";
+  return count === 1 ? "1 expediente" : `${count} expedientes`;
+}
+
 export function resumenUnidadesBl(
   items: { codigoExpediente: string | null }[]
 ): string {

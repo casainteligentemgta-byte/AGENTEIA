@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  blLineasToggleLabel,
   collapseColaPorBl,
   fechaLlegadaCargaBl,
   fichaHomogeneaBl,
@@ -157,6 +158,12 @@ describe("cola embarque/llegada por BL", () => {
       sorted.map((i) => i.codigoExpediente),
       ["PL-2026.8.5", "PL-2026.8.16", "PL-2026.8.20", "PL-2026.8.2"]
     );
+  });
+
+  it("el botón del BL dice cuántos expedientes hay o Ocultar", () => {
+    assert.equal(blLineasToggleLabel(false, 1), "1 expediente");
+    assert.equal(blLineasToggleLabel(false, 4), "4 expedientes");
+    assert.equal(blLineasToggleLabel(true, 4), "Ocultar expedientes");
   });
 
   it("toma la fecha de llegada del buque de los documentos de la carga", () => {
