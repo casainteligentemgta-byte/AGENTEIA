@@ -37,6 +37,8 @@ export function isImportacionAppPath(path: string): boolean {
 
 /** 2.ª cola del dashboard: Por completar embarque. */
 export const DASHBOARD_COLA_EMBARQUE_ID = "cola-embarque";
+/** 3.ª cola del dashboard: Por completar llegada. */
+export const DASHBOARD_COLA_LLEGADA_ID = "cola-llegada";
 /** Cola: Por completar propietario. */
 export const DASHBOARD_COLA_PROPIETARIO_ID = "cola-propietario";
 /** Cola: Por completar seguro. */
@@ -44,8 +46,13 @@ export const DASHBOARD_COLA_SEGURO_ID = "cola-seguro";
 /** Cola: Por completar matrícula. */
 export const DASHBOARD_COLA_MATRICULA_ID = "cola-matricula";
 
+/** Dashboard anclado en Por completar llegada. */
+export function hrefDashboardColaLlegada(): string {
+  return `${IMPORTACION_BASE}#${DASHBOARD_COLA_LLEGADA_ID}`;
+}
+
 /**
- * Tras guardar embarque: «Continuar a Llegada» va al dashboard (2.ª cola);
+ * Tras guardar embarque: «Continuar a Llegada» abre la fase 3;
  * «Guardar e ir a la ficha» abre el expediente.
  */
 export function hrefAfterFase2Embarque(
@@ -56,5 +63,7 @@ export function hrefAfterFase2Embarque(
   if (after === "ficha") {
     return id ? `${IMPORTACION_BASE}/${id}` : IMPORTACION_BASE;
   }
-  return `${IMPORTACION_BASE}#${DASHBOARD_COLA_EMBARQUE_ID}`;
+  return id
+    ? `${IMPORTACION_BASE}/${id}/planilla?fase=3`
+    : hrefDashboardColaLlegada();
 }
