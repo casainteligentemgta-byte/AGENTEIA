@@ -1298,7 +1298,10 @@ export function PuertoLibreCargaMasiva({
         let withBoth = 0;
         const first = result.created[0]!;
         const restIds = result.created.slice(1).map((c) => c.vehiculoId);
-        const loteDocs = [facturaDoc, blDoc].filter(Boolean) as DocItem[];
+        const certUnicoCarga = certDocs.length === 1 ? certDocs[0]! : null;
+        const loteDocs = [facturaDoc, blDoc, certUnicoCarga].filter(
+          Boolean
+        ) as DocItem[];
         const loteTipos: string[] = [];
         let facturaOk = !facturaDoc;
 
@@ -1328,27 +1331,31 @@ export function PuertoLibreCargaMasiva({
           }
         }
 
-        const certResults = await Promise.all(
-          result.created.map(async (c) => {
-            const serial = normalizeSerialKey(c.serial);
-            const certFile =
-              (serial ? certBySerial.get(serial) : null) ??
-              resolveCertFileForSerial(c.serial);
-            if (!certFile) {
-              return { gotCert: certDocs.length === 0 };
-            }
-            const up = await uploadPuertoLibreDocumentoAction(
-              formDataDocUploadSkipOcr(
-                c.vehiculoId,
-                "certificado_origen",
-                certFile
-              )
+        const certResults = certUnicoCarga
+          ? result.created.map(() => ({
+              gotCert: loteTipos.includes("certificado_origen"),
+            }))
+          : await Promise.all(
+              result.created.map(async (c) => {
+                const serial = normalizeSerialKey(c.serial);
+                const certFile =
+                  (serial ? certBySerial.get(serial) : null) ??
+                  resolveCertFileForSerial(c.serial);
+                if (!certFile) {
+                  return { gotCert: certDocs.length === 0 };
+                }
+                const up = await uploadPuertoLibreDocumentoAction(
+                  formDataDocUploadSkipOcr(
+                    c.vehiculoId,
+                    "certificado_origen",
+                    certFile
+                  )
+                );
+                if (up.success) attached += 1;
+                else attachFail += 1;
+                return { gotCert: up.success };
+              })
             );
-            if (up.success) attached += 1;
-            else attachFail += 1;
-            return { gotCert: up.success };
-          })
-        );
         withBoth = certResults.filter((r) => facturaOk && r.gotCert).length;
         if (attached > 0) {
           attachNote = ` Documentos adjuntos: ${attached}.`;

@@ -9,7 +9,23 @@ export const DEMO_PLANTILLAS_FOLDER = "demo-plantillas";
 export const DEMO_PLANTILLA_FILENAME_RE =
   /^[A-Za-z0-9][A-Za-z0-9._-]{0,118}\.pdf$/i;
 
-/** PDFs que se esperan en la nube para la demo (fase 1 + embarque). */
+export const DEMO_UNIDADES = 3 as const;
+
+export type DemoUnidadIndex = 1 | 2 | 3;
+
+/** PDFs de la carga (generales). */
+export const DEMO_PLANTILLA_PASO_CARGA: readonly DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+];
+
+/** PDFs que unifican la carga en un BL. */
+export const DEMO_PLANTILLA_PASO_BL: readonly DocumentoTipo[] = [
+  "bl_guia",
+  "lista_empaque",
+];
+
+/** PDFs que se esperan en la nube para la demo. */
 export const DEMO_PLANTILLA_ARCHIVOS_ESPERADOS = [
   "factura_comercial.pdf",
   "certificado_origen.pdf",
@@ -22,9 +38,14 @@ export const DEMO_IMPORTADOR_NOMBRE = "Importador Demo (piloto)";
 export const DEMO_VEHICULO = {
   marca: "Toyota",
   modelo: "Hilux",
-  color: "Blanco",
   anio: 2024,
 } as const;
+
+export const DEMO_UNIDAD_COLORES: Record<DemoUnidadIndex, string> = {
+  1: "Blanco",
+  2: "Plata",
+  3: "Negro",
+};
 
 const STEM_ALIASES: Record<string, DocumentoTipo> = {
   factura: "factura_comercial",
@@ -74,19 +95,52 @@ export function mapPlantillaFilenameToTipo(
   return STEM_ALIASES[stem] ?? null;
 }
 
-/** Serial / VIN estable por taller (17 caracteres). */
-export function demoSerialFromTallerId(tallerId: string): string {
-  const hex = tallerId.replace(/-/g, "").toUpperCase().slice(0, 13).padEnd(13, "0");
+function tallerHex(tallerId: string): string {
+  return tallerId.replace(/-/g, "").toUpperCase();
+}
+
+/** Serial / VIN estable por taller y unidad (17 caracteres). */
+export function demoSerialFromTallerId(
+  tallerId: string,
+  unidad: DemoUnidadIndex
+): string {
+  const hex = tallerHex(tallerId).slice(0, 12).padEnd(12, "0");
+  return `DEMO${hex}${unidad}`;
+}
+
+/** Serial de la demo de 1 expediente (antes de las 3 unidades). */
+export function demoSerialLegacyFromTallerId(tallerId: string): string {
+  const hex = tallerHex(tallerId).slice(0, 13).padEnd(13, "0");
   return `DEMO${hex}`;
 }
 
-export function demoMotorFromTallerId(tallerId: string): string {
-  const hex = tallerId.replace(/-/g, "").toUpperCase().slice(0, 10).padEnd(10, "0");
-  return `MOT${hex}`;
+export function demoMotorFromTallerId(
+  tallerId: string,
+  unidad: DemoUnidadIndex
+): string {
+  const hex = tallerHex(tallerId).slice(0, 9).padEnd(9, "0");
+  return `MOT${hex}${unidad}`;
+}
+
+export function demoNumeroBlFromTallerId(tallerId: string): string {
+  const hex = tallerHex(tallerId).slice(0, 6).padEnd(6, "0");
+  return `DEMOBL${hex}`;
 }
 
 /** RIF jurídico de formato válido, derivado del taller. */
 export function demoRifFromTallerId(tallerId: string): string {
   const digits = tallerId.replace(/\D/g, "").padEnd(8, "0").slice(0, 8);
   return `J-${digits}-0`;
+}
+
+export function demoPasoDeTipo(
+  tipo: DocumentoTipo
+): "carga" | "bl" | "otro" {
+  if ((DEMO_PLANTILLA_PASO_CARGA as readonly string[]).includes(tipo)) {
+    return "carga";
+  }
+  if ((DEMO_PLANTILLA_PASO_BL as readonly string[]).includes(tipo)) {
+    return "bl";
+  }
+  return "otro";
 }

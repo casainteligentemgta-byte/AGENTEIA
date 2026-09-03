@@ -320,8 +320,8 @@ export function SmartImportDemoCliente() {
             <p className="text-sm leading-relaxed text-zinc-400">
               El cliente entra con <strong className="font-medium text-zinc-200">su propia cuenta</strong>.
               Se crea un espacio aislado (RLS): no ve tus expedientes. Puede crear
-              el importador, cargar una importación o abrir un expediente
-              precargado y adjuntar los PDF que ya están en la nube.
+              el importador, cargar una importación o abrir una carga precargada
+              (factura + certificado → BL → 3 expedientes) con los PDF de la nube.
             </p>
             <ul className="space-y-3">
               {DEMO_PROBAR_ACCIONES.map((accion) => {

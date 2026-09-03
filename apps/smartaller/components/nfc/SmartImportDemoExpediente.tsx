@@ -1,21 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { ArrowLeft, Check, CloudDownload, FileText, Loader2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import {
+  ArrowLeft,
+  Check,
+  CloudDownload,
+  FileText,
+  Loader2,
+  Ship,
+} from "lucide-react";
 import {
   adjuntarPdfDemoAction,
   adjuntarTodosPdfsDemoAction,
   type DemoExpedienteVehiculo,
   type DemoPlantillaItem,
 } from "@/app/actions/nfc/demo-expediente";
+import {
+  DEMO_PLANTILLA_PASO_BL,
+  DEMO_PLANTILLA_PASO_CARGA,
+  demoPasoDeTipo,
+} from "@/lib/importacion/demo-plantillas";
+import { cargaBlPath } from "@/lib/importacion/expediente-lote";
 import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 import { DOCUMENTO_LABELS } from "@/lib/schemas/vehiculo-documentos";
 import type { DocumentoTipo } from "@/lib/schemas/vehiculo-documentos";
 
 type Props = {
-  vehiculo: DemoExpedienteVehiculo;
+  vehiculos: DemoExpedienteVehiculo[];
   created: boolean;
+  numeroBl: string;
   plantillas: DemoPlantillaItem[];
   listError: string | null;
   bucket: string;
@@ -29,32 +43,113 @@ function formatBytes(size: number | null): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function PlantillaList({
+  items,
+  attached,
+  pendingName,
+  isPending,
+  onAdjuntar,
+}: {
+  items: DemoPlantillaItem[];
+  attached: Set<DocumentoTipo>;
+  pendingName: string | null;
+  isPending: boolean;
+  onAdjuntar: (filename: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="mt-3 space-y-2">
+      {items.map((item) => {
+        const ya = item.tipo ? attached.has(item.tipo) : false;
+        const busy = isPending && pendingName === item.name;
+        return (
+          <li
+            key={item.path}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-3"
+          >
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 font-medium text-zinc-100">
+                <FileText className="h-4 w-4 shrink-0 text-cyan-400" />
+                <span className="truncate">
+                  {item.tipo ? DOCUMENTO_LABELS[item.tipo] : item.name}
+                </span>
+                {ya ? (
+                  <Check
+                    className="h-4 w-4 shrink-0 text-emerald-400"
+                    aria-label="Ya adjunto"
+                  />
+                ) : null}
+              </p>
+              <p className="mt-0.5 truncate font-mono text-xs text-zinc-500">
+                {item.name}
+                {formatBytes(item.size) ? ` · ${formatBytes(item.size)}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onAdjuntar(item.name)}
+              disabled={isPending || !item.tipo}
+              className="inline-flex items-center rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {ya ? "Reemplazar" : "Adjuntar"}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function SmartImportDemoExpediente({
-  vehiculo: initial,
+  vehiculos: initial,
   created,
+  numeroBl,
   plantillas,
   listError,
   bucket,
   folder,
 }: Props) {
-  const [vehiculo, setVehiculo] = useState(initial);
+  const [vehiculos, setVehiculos] = useState(initial);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(
-    created ? "Expediente creado en tu espacio. Ya puedes adjuntar los PDF." : null
+    created
+      ? "Carga de 3 unidades creada. Adjunta factura y certificado; luego el BL."
+      : null
   );
   const [isPending, startTransition] = useTransition();
 
-  const attached = new Set<DocumentoTipo>(vehiculo.documentosAdjuntos);
+  const sourceId = vehiculos[0]?.id;
+  const attached = useMemo(() => {
+    const set = new Set<DocumentoTipo>();
+    for (const v of vehiculos) {
+      for (const tipo of v.documentosAdjuntos) set.add(tipo);
+    }
+    return set;
+  }, [vehiculos]);
+
+  const cargaItems = plantillas.filter(
+    (item) => item.tipo && demoPasoDeTipo(item.tipo) === "carga"
+  );
+  const blItems = plantillas.filter(
+    (item) => item.tipo && demoPasoDeTipo(item.tipo) === "bl"
+  );
+  const otherItems = plantillas.filter(
+    (item) => !item.tipo || demoPasoDeTipo(item.tipo) === "otro"
+  );
   const usable = plantillas.filter((item) => item.tipo);
 
   function runAdjuntar(filename: string) {
+    if (!sourceId) return;
     setError(null);
     setNotice(null);
     setPendingName(filename);
     startTransition(async () => {
       const result = await adjuntarPdfDemoAction({
-        vehiculoId: vehiculo.id,
+        vehiculoId: sourceId,
         filename,
       });
       setPendingName(null);
@@ -62,30 +157,40 @@ export function SmartImportDemoExpediente({
         setError(result.error);
         return;
       }
-      setVehiculo(result.vehiculo);
-      setNotice(`${DOCUMENTO_LABELS[result.tipo]} quedó en el expediente.`);
+      setVehiculos(result.vehiculos);
+      const extra =
+        result.copiados > 0
+          ? ` Copiado a ${result.copiados} expediente(s) más.`
+          : "";
+      setNotice(`${DOCUMENTO_LABELS[result.tipo]} quedó en la carga.${extra}`);
     });
   }
 
   function runAdjuntarTodos() {
+    if (!sourceId) return;
     setError(null);
     setNotice(null);
     setPendingName("*");
     startTransition(async () => {
       const result = await adjuntarTodosPdfsDemoAction({
-        vehiculoId: vehiculo.id,
+        vehiculoId: sourceId,
       });
       setPendingName(null);
       if (!result.success) {
         setError(result.error);
         return;
       }
-      setVehiculo(result.vehiculo);
+      setVehiculos(result.vehiculos);
       const extra =
         result.errores.length > 0 ? ` ${result.errores.join(" ")}` : "";
-      setNotice(`Se adjuntaron ${result.adjuntados} PDF de la nube.${extra}`);
+      setNotice(
+        `Se adjuntaron ${result.adjuntados} PDF de la nube a la carga y a los 3 expedientes.${extra}`
+      );
     });
   }
+
+  const cargaOk = DEMO_PLANTILLA_PASO_CARGA.every((t) => attached.has(t));
+  const blOk = DEMO_PLANTILLA_PASO_BL.every((t) => attached.has(t));
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-8 sm:px-6">
@@ -104,48 +209,29 @@ export function SmartImportDemoExpediente({
               Demo
             </p>
             <h1 className="text-xl font-semibold tracking-tight text-zinc-50 sm:text-2xl">
-              Expediente precargado
+              Carga precargada
             </h1>
           </div>
         </div>
 
         <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4">
           <p className="text-sm leading-relaxed text-zinc-400">
-            Vehículo de demostración en <strong className="font-medium text-zinc-200">tu
-            espacio</strong>. Los PDF no se suben desde el teléfono: se copian
-            desde <code className="text-cyan-300">{bucket}/{folder}/</code>.
+            Una carga, dos papeles generales, un BL, tres expedientes. Los PDF
+            se copian desde{" "}
+            <code className="text-cyan-300">
+              {bucket}/{folder}/
+            </code>
+            .
           </p>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-xs text-zinc-500">Expediente</dt>
-              <dd className="font-medium text-zinc-100">
-                {vehiculo.codigoExpediente ?? (vehiculo.placa || "—")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Cliente</dt>
-              <dd className="font-medium text-zinc-100">
-                {vehiculo.importadorNombre}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Vehículo</dt>
-              <dd className="font-medium text-zinc-100">
-                {vehiculo.marca} {vehiculo.modelo} · {vehiculo.color}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Serial</dt>
-              <dd className="font-mono text-xs text-zinc-300">
-                {vehiculo.serialCarroceria}
-              </dd>
-            </div>
-          </dl>
+          <p className="mt-3 font-mono text-xs text-zinc-500">
+            BL {numeroBl}
+          </p>
           <Link
-            href={`${IMPORTACION_BASE}/${vehiculo.id}/planilla`}
-            className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-zinc-900 sm:w-auto"
+            href={cargaBlPath(numeroBl)}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-cyan-400 hover:text-cyan-300"
           >
-            Abrir planilla →
+            <Ship className="h-4 w-4" />
+            Abrir carga del BL →
           </Link>
         </section>
 
@@ -168,82 +254,116 @@ export function SmartImportDemoExpediente({
         <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-zinc-50">
-              PDF en la nube
+              1. Carga — factura y certificado
             </h2>
-            {usable.length > 0 ? (
-              <button
-                type="button"
-                onClick={runAdjuntarTodos}
-                disabled={isPending}
-                className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
-              >
-                {pendingName === "*" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Adjuntar todos
-              </button>
+            {cargaOk ? (
+              <span className="text-xs font-medium text-emerald-400">Listo</span>
             ) : null}
           </div>
-
+          <p className="mt-1 text-sm text-zinc-500">
+            Son de toda la carga, no de un vehículo.
+          </p>
           {plantillas.length === 0 && !listError ? (
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
               No hay archivos en{" "}
               <code className="text-cyan-300">
                 {bucket}/{folder}/
               </code>
-              . Súbelos en el dashboard de Supabase Storage:{" "}
-              <code className="text-zinc-300">factura_comercial.pdf</code>,{" "}
-              <code className="text-zinc-300">certificado_origen.pdf</code>,{" "}
-              <code className="text-zinc-300">bl_guia.pdf</code> y{" "}
-              <code className="text-zinc-300">lista_empaque.pdf</code>.
+              . Sube{" "}
+              <code className="text-zinc-300">factura_comercial.pdf</code> y{" "}
+              <code className="text-zinc-300">certificado_origen.pdf</code>.
             </p>
           ) : (
-            <ul className="mt-3 space-y-2">
-              {plantillas.map((item) => {
-                const ya = item.tipo ? attached.has(item.tipo) : false;
-                const busy = isPending && pendingName === item.name;
-                return (
-                  <li
-                    key={item.path}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="flex items-center gap-2 font-medium text-zinc-100">
-                        <FileText className="h-4 w-4 shrink-0 text-cyan-400" />
-                        <span className="truncate">
-                          {item.tipo
-                            ? DOCUMENTO_LABELS[item.tipo]
-                            : item.name}
-                        </span>
-                        {ya ? (
-                          <Check
-                            className="h-4 w-4 shrink-0 text-emerald-400"
-                            aria-label="Ya adjunto"
-                          />
-                        ) : null}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-xs text-zinc-500">
-                        {item.name}
-                        {formatBytes(item.size) ? ` · ${formatBytes(item.size)}` : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => runAdjuntar(item.name)}
-                      disabled={isPending || !item.tipo}
-                      className="inline-flex items-center rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {busy ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : null}
-                      {ya ? "Reemplazar" : "Adjuntar"}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <PlantillaList
+              items={cargaItems}
+              attached={attached}
+              pendingName={pendingName}
+              isPending={isPending}
+              onAdjuntar={runAdjuntar}
+            />
           )}
         </section>
+
+        <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-zinc-50">
+              2. Unificar en BL
+            </h2>
+            {blOk ? (
+              <span className="text-xs font-medium text-emerald-400">Listo</span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            BL y lista de empaque de la misma carga.
+          </p>
+          <PlantillaList
+            items={blItems}
+            attached={attached}
+            pendingName={pendingName}
+            isPending={isPending}
+            onAdjuntar={runAdjuntar}
+          />
+        </section>
+
+        <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4">
+          <h2 className="text-sm font-semibold text-zinc-50">
+            3. Expedientes individuales
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Cada unidad hereda factura y certificado de la carga.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {vehiculos.map((v, i) => (
+              <li
+                key={v.id}
+                className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-3"
+              >
+                <p className="font-medium text-zinc-100">
+                  Unidad {i + 1} · {v.marca} {v.modelo} {v.color}
+                </p>
+                <p className="mt-0.5 font-mono text-xs text-zinc-500">
+                  {v.codigoExpediente ?? v.placa} · {v.serialCarroceria}
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {v.documentosAdjuntos.length} PDF en el expediente
+                </p>
+                <Link
+                  href={`${IMPORTACION_BASE}/${v.id}/planilla`}
+                  className="mt-2 inline-flex text-sm font-medium text-cyan-400 hover:text-cyan-300"
+                >
+                  Abrir planilla →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {usable.length > 0 ? (
+          <button
+            type="button"
+            onClick={runAdjuntarTodos}
+            disabled={isPending}
+            className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
+          >
+            {pendingName === "*" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Adjuntar todos los PDF de la nube
+          </button>
+        ) : null}
+
+        {otherItems.length > 0 ? (
+          <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/50 p-4">
+            <h2 className="text-sm font-semibold text-zinc-50">Otros PDF</h2>
+            <PlantillaList
+              items={otherItems}
+              attached={attached}
+              pendingName={pendingName}
+              isPending={isPending}
+              onAdjuntar={runAdjuntar}
+            />
+          </section>
+        ) : null}
       </div>
     </main>
   );

@@ -4,20 +4,28 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createPuertoLibreVehiculoAction } from "@/app/actions/nfc/importacion-vehiculo";
 import { ensureImportadorForTaller } from "@/app/actions/nfc/importadores";
+import { syncLoteDocumentoToSiblings } from "@/lib/importacion/expediente-lote-sync";
+import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
 import {
   DEMO_IMPORTADOR_NOMBRE,
   DEMO_PLANTILLAS_FOLDER,
+  DEMO_UNIDAD_COLORES,
+  DEMO_UNIDADES,
   DEMO_VEHICULO,
+  type DemoUnidadIndex,
   demoMotorFromTallerId,
+  demoNumeroBlFromTallerId,
   demoPlantillaPath,
   demoRifFromTallerId,
   demoSerialFromTallerId,
+  demoSerialLegacyFromTallerId,
   isSafeDemoPlantillaFilename,
   mapPlantillaFilenameToTipo,
 } from "@/lib/importacion/demo-plantillas";
 import {
   parseImportacion,
   parseVehiculosDocumentos,
+  serializeImportacion,
   type DocumentoTipo,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
@@ -37,6 +45,7 @@ export type DemoExpedienteVehiculo = {
   serialCarroceria: string;
   codigoExpediente: string | null;
   importadorNombre: string;
+  numeroBl: string | null;
   documentosAdjuntos: DocumentoTipo[];
 };
 
@@ -56,6 +65,8 @@ const adjuntarSchema = z.object({
     .min(1)
     .refine(isSafeDemoPlantillaFilename, "Nombre de archivo inválido"),
 });
+
+const UNIDADES: DemoUnidadIndex[] = [1, 2, 3];
 
 async function requireTallerAuth() {
   const user = await getUser();
@@ -92,10 +103,11 @@ function mapVehiculoRow(row: {
     placa: row.placa ?? "",
     marca: row.marca ?? DEMO_VEHICULO.marca,
     modelo: row.modelo ?? DEMO_VEHICULO.modelo,
-    color: row.color ?? DEMO_VEHICULO.color,
+    color: row.color ?? "",
     serialCarroceria: row.serial_carroceria ?? "",
     codigoExpediente: imp.codigoExpediente ?? null,
     importadorNombre: imp.importadorNombre?.trim() || DEMO_IMPORTADOR_NOMBRE,
+    numeroBl: imp.numeroBl ?? null,
     documentosAdjuntos: tiposAdjuntos(parseVehiculosDocumentos(row.documentos)),
   };
 }
@@ -103,7 +115,7 @@ function mapVehiculoRow(row: {
 const VEHICULO_SELECT =
   "id, placa, marca, modelo, color, serial_carroceria, documentos, importacion";
 
-async function loadDemoVehiculo(tallerId: string, serial: string) {
+async function loadBySerial(tallerId: string, serial: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("vehiculos")
@@ -115,12 +127,55 @@ async function loadDemoVehiculo(tallerId: string, serial: string) {
   return { error: null, row: data };
 }
 
+async function loadCargaDemo(tallerId: string) {
+  const serials = UNIDADES.map((u) => demoSerialFromTallerId(tallerId, u));
+  const legacy = demoSerialLegacyFromTallerId(tallerId);
+  const rows: NonNullable<Awaited<ReturnType<typeof loadBySerial>>["row"]>[] =
+    [];
+  for (const serial of serials) {
+    const found = await loadBySerial(tallerId, serial);
+    if (found.error) return { error: found.error, rows: [] };
+    if (found.row) rows.push(found.row);
+  }
+  if (rows.length < DEMO_UNIDADES) {
+    const old = await loadBySerial(tallerId, legacy);
+    if (old.error) return { error: old.error, rows };
+    if (old.row && !rows.some((r) => r.id === old.row!.id)) {
+      rows.unshift(old.row);
+    }
+  }
+  return { error: null, rows };
+}
+
+async function ensureNumeroBl(
+  tallerId: string,
+  row: { id: string; importacion: unknown },
+  numeroBl: string
+) {
+  const imp = parseImportacion(row.importacion);
+  if ((imp.numeroBl ?? "").trim()) return;
+  const admin = createAdminClient();
+  await admin
+    .from("vehiculos")
+    .update({
+      importacion: serializeImportacion({ ...imp, numeroBl }),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", row.id)
+    .eq("taller_id", tallerId);
+}
+
 /**
- * Crea (o reutiliza) el expediente de demostración del taller de la sesión.
+ * Crea (o reutiliza) la carga de demostración: 3 expedientes, un BL.
  * RLS: service role tras requireTallerAuth; solo escribe en ese taller_id.
  */
 export async function ensureDemoExpedienteAction(): Promise<
-  | { success: true; created: boolean; vehiculo: DemoExpedienteVehiculo }
+  | {
+      success: true;
+      created: boolean;
+      numeroBl: string;
+      vehiculos: DemoExpedienteVehiculo[];
+    }
   | ActionErr
 > {
   const auth = await requireTallerAuth();
@@ -128,14 +183,21 @@ export async function ensureDemoExpedienteAction(): Promise<
     return { success: false, error: auth.error ?? "No autorizado" };
   }
 
-  const serial = demoSerialFromTallerId(auth.taller.id);
-  const existing = await loadDemoVehiculo(auth.taller.id, serial);
+  const numeroBl = demoNumeroBlFromTallerId(auth.taller.id);
+  const existing = await loadCargaDemo(auth.taller.id);
   if (existing.error) return { success: false, error: existing.error };
-  if (existing.row) {
+
+  for (const row of existing.rows) {
+    await ensureNumeroBl(auth.taller.id, row, numeroBl);
+  }
+
+  if (existing.rows.length >= DEMO_UNIDADES) {
+    const reloaded = await loadCargaDemo(auth.taller.id);
     return {
       success: true,
       created: false,
-      vehiculo: mapVehiculoRow(existing.row),
+      numeroBl,
+      vehiculos: (reloaded.rows ?? existing.rows).slice(0, 3).map(mapVehiculoRow),
     };
   }
 
@@ -151,52 +213,62 @@ export async function ensureDemoExpedienteAction(): Promise<
     return { success: false, error: importador.error };
   }
 
-  const created = await createPuertoLibreVehiculoAction({
-    marca: DEMO_VEHICULO.marca,
-    modelo: DEMO_VEHICULO.modelo,
-    color: DEMO_VEHICULO.color,
-    anio: DEMO_VEHICULO.anio,
-    serialMotor: demoMotorFromTallerId(auth.taller.id),
-    vin: serial,
-    serialCarroceria: serial,
-    kilometraje: 0,
-    condicion: "nuevo",
-    esSubasta: false,
-    tipoCombustible: "diesel",
-    fechaLlegadaBuque: "",
-    regimen: "puerto_libre",
-    importadorId: importador.importadorId,
-    paisOrigen: "Japón",
-    observaciones:
-      "Expediente de demostración. Adjunta los PDF que ya están en la nube.",
-  });
+  let createdAny = false;
+  const haveSerials = new Set(
+    existing.rows.map((r) => String(r.serial_carroceria ?? "").toUpperCase())
+  );
 
-  if (!created.success) {
-    const again = await loadDemoVehiculo(auth.taller.id, serial);
-    if (again.row) {
-      return {
-        success: true,
-        created: false,
-        vehiculo: mapVehiculoRow(again.row),
-      };
+  for (const unidad of UNIDADES) {
+    const serial = demoSerialFromTallerId(auth.taller.id, unidad);
+    const legacy = demoSerialLegacyFromTallerId(auth.taller.id);
+    if (haveSerials.has(serial) || (unidad === 1 && haveSerials.has(legacy))) {
+      continue;
     }
-    return { success: false, error: created.error };
+
+    const created = await createPuertoLibreVehiculoAction({
+      marca: DEMO_VEHICULO.marca,
+      modelo: DEMO_VEHICULO.modelo,
+      color: DEMO_UNIDAD_COLORES[unidad],
+      anio: DEMO_VEHICULO.anio,
+      serialMotor: demoMotorFromTallerId(auth.taller.id, unidad),
+      vin: serial,
+      serialCarroceria: serial,
+      kilometraje: 0,
+      condicion: "nuevo",
+      esSubasta: false,
+      tipoCombustible: "diesel",
+      fechaLlegadaBuque: "",
+      regimen: "puerto_libre",
+      importadorId: importador.importadorId,
+      paisOrigen: "Japón",
+      numeroBl,
+      observaciones: `Carga demo unidad ${unidad}/${DEMO_UNIDADES}. Factura y certificado son de la carga; se copian a cada expediente.`,
+    });
+
+    if (!created.success) {
+      const again = await loadBySerial(auth.taller.id, serial);
+      if (again.row) continue;
+      return { success: false, error: created.error };
+    }
+    createdAny = true;
   }
 
-  const loaded = await loadDemoVehiculo(auth.taller.id, serial);
-  if (loaded.error || !loaded.row) {
+  const loaded = await loadCargaDemo(auth.taller.id);
+  if (loaded.error || loaded.rows.length === 0) {
     return {
       success: false,
-      error: loaded.error ?? "Se creó el expediente pero no se pudo recargar",
+      error: loaded.error ?? "No se pudo recargar la carga de demostración",
     };
   }
 
   revalidatePath("/smartimport/expediente-demo");
   revalidatePath("/smartimport");
+  revalidatePath("/smartimport/lote");
   return {
     success: true,
-    created: true,
-    vehiculo: mapVehiculoRow(loaded.row),
+    created: createdAny,
+    numeroBl,
+    vehiculos: loaded.rows.slice(0, 3).map(mapVehiculoRow),
   };
 }
 
@@ -240,9 +312,10 @@ export async function listDemoPlantillaPdfsAction(): Promise<
     const { data: urlData } = admin.storage
       .from(VEHICULO_DOCS_BUCKET)
       .getPublicUrl(path);
-    const sizeRaw = item.metadata && typeof item.metadata === "object"
-      ? (item.metadata as { size?: unknown }).size
-      : undefined;
+    const sizeRaw =
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as { size?: unknown }).size
+        : undefined;
     plantillas.push({
       name: item.name,
       path,
@@ -260,14 +333,26 @@ export async function listDemoPlantillaPdfsAction(): Promise<
   };
 }
 
+async function reloadCarga(
+  tallerId: string
+): Promise<DemoExpedienteVehiculo[]> {
+  const loaded = await loadCargaDemo(tallerId);
+  return loaded.rows.map(mapVehiculoRow);
+}
+
 /**
- * Copia un PDF de demo-plantillas/ a la carpeta del vehículo del taller.
- * RLS: session + taller; destino siempre `{tallerId}/{vehiculoId}/…`.
+ * Copia un PDF de demo-plantillas/ al primer expediente y, si es de carga,
+ * lo replica en los 3 del mismo BL.
  */
 export async function adjuntarPdfDemoAction(
   raw: unknown
 ): Promise<
-  | { success: true; tipo: DocumentoTipo; vehiculo: DemoExpedienteVehiculo }
+  | {
+      success: true;
+      tipo: DocumentoTipo;
+      copiados: number;
+      vehiculos: DemoExpedienteVehiculo[];
+    }
   | ActionErr
 > {
   const auth = await requireTallerAuth();
@@ -320,16 +405,14 @@ export async function adjuntarPdfDemoAction(
     .from(VEHICULO_DOCS_BUCKET)
     .getPublicUrl(destPath);
 
-  const current = parseVehiculosDocumentos(row.documentos);
-  const next: VehiculosDocumentos = {
-    ...current,
-    [tipo]: {
-      url: urlData.publicUrl,
-      path: destPath,
-      scanned_at: new Date().toISOString(),
-      file_name: parsed.data.filename,
-    },
+  const documento = {
+    url: urlData.publicUrl,
+    path: destPath,
+    scanned_at: new Date().toISOString(),
+    file_name: parsed.data.filename,
   };
+  const current = parseVehiculosDocumentos(row.documentos);
+  const next: VehiculosDocumentos = { ...current, [tipo]: documento };
 
   const { data: updated, error: updateError } = await admin
     .from("vehiculos")
@@ -348,15 +431,30 @@ export async function adjuntarPdfDemoAction(
     };
   }
 
+  let copiados = 0;
+  const importacion = parseImportacion(updated.importacion);
+  if (isDocumentoLote(tipo)) {
+    copiados = await syncLoteDocumentoToSiblings({
+      admin,
+      tallerId: auth.taller.id,
+      sourceVehiculoId: updated.id,
+      sourceImportacion: importacion,
+      tipo,
+      documento,
+    });
+  }
+
   revalidatePath("/smartimport/expediente-demo");
   revalidatePath("/smartimport");
+  revalidatePath("/smartimport/lote");
   revalidatePath(`/smartimport/${row.id}`);
   revalidatePath(`/smartimport/${row.id}/planilla`);
 
   return {
     success: true,
     tipo,
-    vehiculo: mapVehiculoRow(updated),
+    copiados,
+    vehiculos: await reloadCarga(auth.taller.id),
   };
 }
 
@@ -367,7 +465,7 @@ export async function adjuntarTodosPdfsDemoAction(
       success: true;
       adjuntados: number;
       errores: string[];
-      vehiculo: DemoExpedienteVehiculo;
+      vehiculos: DemoExpedienteVehiculo[];
     }
   | ActionErr
 > {
@@ -396,7 +494,7 @@ export async function adjuntarTodosPdfsDemoAction(
   }
 
   const errores: string[] = [];
-  let vehiculo: DemoExpedienteVehiculo | null = null;
+  let vehiculos: DemoExpedienteVehiculo[] = [];
   let adjuntados = 0;
 
   for (const item of usable) {
@@ -406,18 +504,18 @@ export async function adjuntarTodosPdfsDemoAction(
     });
     if (result.success) {
       adjuntados += 1;
-      vehiculo = result.vehiculo;
+      vehiculos = result.vehiculos;
     } else {
       errores.push(`${item.name}: ${result.error}`);
     }
   }
 
-  if (!vehiculo) {
+  if (vehiculos.length === 0) {
     return {
       success: false,
       error: errores[0] ?? "No se adjuntó ningún PDF",
     };
   }
 
-  return { success: true, adjuntados, errores, vehiculo };
+  return { success: true, adjuntados, errores, vehiculos };
 }

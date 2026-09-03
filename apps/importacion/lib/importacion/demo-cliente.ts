@@ -241,7 +241,7 @@ export const DEMO_GUION: readonly DemoGuionPaso[] = [
     minutos: "35–45",
     titulo: "Ellos prueban",
     detalle:
-      "Pestaña Probar: crear un cliente, cargar una importación, o abrir el expediente precargado y adjuntar los PDF de la nube. Usan su cuenta; el espacio es el suyo, no tus expedientes.",
+      "Pestaña Probar: crear un cliente, cargar una importación, o abrir la carga precargada (factura + certificado → BL → 3 expedientes). Usan su cuenta; el espacio es el suyo, no tus expedientes.",
   },
   {
     id: "cuestionario",
@@ -288,11 +288,11 @@ export const DEMO_PROBAR_ACCIONES = [
   },
   {
     id: "expediente",
-    titulo: "Expediente precargado",
+    titulo: "Carga precargada",
     detalle:
-      "Abre un Toyota Hilux de demostración y adjunta los PDF que ya están en la nube (sin escanear desde el teléfono).",
+      "Una carga con factura + certificado, se unifica en un BL y se parte en 3 expedientes Hilux. Los PDF salen de la nube.",
     href: demoProbarLoginHref(SMARTIMPORT_DEMO_EXPEDIENTE_PATH),
-    cta: "Abrir expediente y cargar PDF",
+    cta: "Abrir carga y cargar PDF",
   },
 ] as const;
 
