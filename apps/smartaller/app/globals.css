@@ -115,6 +115,7 @@
   --sp-xl: 20px;
   font-size: var(--body);
   line-height: var(--lh-normal);
+  overflow-x: clip;
 }
 
 /* Tarjetas claras (botón blanco del vehículo, cards). */

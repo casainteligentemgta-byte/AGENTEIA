@@ -834,7 +834,7 @@ export default async function PuertoLibrePage() {
         )}
       </header>
 
-      <div className="divide-y divide-zinc-800/70 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
+      <div className="min-w-0 divide-y divide-zinc-800/70 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40">
         <PuertoLibreDashboardBucket
           dense
           title={porCompletarEtapaTitle(1)}
@@ -1110,8 +1110,10 @@ export default async function PuertoLibrePage() {
 
 function PuertoLibreShell({ children }: { children: ReactNode }) {
   return (
-    <main className="smartimport-typography min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-3 pb-6 pt-3 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-lg sm:max-w-2xl lg:max-w-3xl">{children}</div>
+    <main className="smartimport-typography min-h-screen overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
+      <div className="mx-auto w-full min-w-0 max-w-lg sm:max-w-2xl lg:max-w-3xl">
+        {children}
+      </div>
     </main>
   );
 }
