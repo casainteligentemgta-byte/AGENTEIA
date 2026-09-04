@@ -4,6 +4,7 @@ import {
   aplicarTasaOficialAlPago,
   debeActualizarTasaOficial,
   marcarPagoAranceles,
+  puedeCompletarPagoImpuesto,
   snapshotPagoAranceles,
   sumarPagosBs,
   usdABsOficial,
@@ -113,5 +114,24 @@ describe("pago de aranceles en bolívares", () => {
     });
     assert.equal(snap.totalUsd, 37_990);
     assert.equal(snap.totalBs, 1_519_600);
+  });
+
+  it("completa pago impuesto con precálculo + pagado o voucher", () => {
+    assert.equal(puedeCompletarPagoImpuesto({ valorCif: 0 }, false), false);
+    assert.equal(
+      puedeCompletarPagoImpuesto({ valorCif: 12_000 }, false),
+      false
+    );
+    assert.equal(
+      puedeCompletarPagoImpuesto(
+        { valorCif: 12_000, pagoArancelesEstado: "pagado" },
+        false
+      ),
+      true
+    );
+    assert.equal(
+      puedeCompletarPagoImpuesto({ valorCif: 12_000 }, true),
+      true
+    );
   });
 });

@@ -124,7 +124,7 @@ async function applyDemoFase(
 }
 
 /**
- * Crea (o reubica) 8 expedientes de prueba: uno en cada cola 1–8.
+ * Crea (o reubica) expedientes de prueba: uno en cada cola 1–10.
  * RLS: service role tras requireTallerAuth; solo escribe en ese taller_id.
  */
 export async function ensureDemoFasesAction(): Promise<
