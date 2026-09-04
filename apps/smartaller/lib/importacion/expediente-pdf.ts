@@ -7,6 +7,12 @@ import {
 } from "@/lib/importacion/plazos";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
+  formatBs,
+  formatUsd,
+  inputFromImportacion,
+  precalcularAranceles,
+} from "@/lib/importacion/precalculo-aranceles";
+import {
   docsDesaduanamientoPdfPorRegimen,
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
@@ -74,6 +80,16 @@ function txt(v: string | number | null | undefined, fallback = "-"): string {
   if (v == null) return fallback;
   if (typeof v === "string" && !v.trim()) return fallback;
   return winAnsi(String(v));
+}
+
+function precalculoTotalUsd(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc ? formatUsd(calc.totalUsd) : null;
+}
+
+function precalculoTotalBs(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc?.totalBs != null ? formatBs(calc.totalBs) : null;
 }
 
 function uniqueTipos(...groups: DocumentoTipo[][]): DocumentoTipo[] {
@@ -533,7 +549,10 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Fecha liquidación SENIAT", value: txt(imp.fechaLiquidacion) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
     { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
-    { label: "Ad-Valorem (%)", value: txt(imp.tarifaAdValoremPct) },
+    { label: "Ad-Valorem (%)", value: txt(imp.arancelPct ?? imp.tarifaAdValoremPct) },
+    { label: "Lujo %", value: txt(imp.impuestoLujoPct) },
+    { label: "Precálculo total USD", value: txt(precalculoTotalUsd(imp)) },
+    { label: "Precálculo total Bs", value: txt(precalculoTotalBs(imp)) },
     { label: "Aranceles (USD)", value: txt(imp.costosArancelariosUsd) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
     { label: "Nº DAV", value: txt(imp.numeroDav) },

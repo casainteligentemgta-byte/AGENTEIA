@@ -714,6 +714,10 @@ export const importacionSchema = z.object({
   partidaArancelariaFundamento: z.string().trim().max(500).optional().nullable(),
   /** % Ad-Valorem indicado por el operador (el anexo FH no lo trae). */
   tarifaAdValoremPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % ad-valorem del arancel (20–40). Si falta, se usa tarifaAdValoremPct. */
+  arancelPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % impuesto al lujo (10–15) si CIF > USD 30 000. */
+  impuestoLujoPct: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Cilindrada del motor en cc. */
   cilindradaCc: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tipo de combustible del vehículo. */
@@ -940,6 +944,12 @@ export function parseImportacion(raw: unknown): ImportacionData {
     tarifaAdValoremPct: asOptionalMoney(
       row.tarifaAdValoremPct ?? row.tarifa_ad_valorem_pct
     ),
+    arancelPct: asOptionalMoney(
+      row.arancelPct ?? row.arancel_pct ?? row.tarifaAdValoremPct ?? row.tarifa_ad_valorem_pct
+    ),
+    impuestoLujoPct: asOptionalMoney(
+      row.impuestoLujoPct ?? row.impuesto_lujo_pct
+    ),
     cilindradaCc:
       typeof row.cilindradaCc === "number"
         ? row.cilindradaCc
@@ -1094,8 +1104,20 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     partida_arancelaria_fundamento:
       data.partidaArancelariaFundamento?.trim() || null,
     tarifa_ad_valorem_pct:
-      data.tarifaAdValoremPct != null && !Number.isNaN(data.tarifaAdValoremPct)
-        ? data.tarifaAdValoremPct
+      data.arancelPct != null && !Number.isNaN(data.arancelPct)
+        ? data.arancelPct
+        : data.tarifaAdValoremPct != null && !Number.isNaN(data.tarifaAdValoremPct)
+          ? data.tarifaAdValoremPct
+          : null,
+    arancel_pct:
+      data.arancelPct != null && !Number.isNaN(data.arancelPct)
+        ? data.arancelPct
+        : data.tarifaAdValoremPct != null && !Number.isNaN(data.tarifaAdValoremPct)
+          ? data.tarifaAdValoremPct
+          : null,
+    impuesto_lujo_pct:
+      data.impuestoLujoPct != null && !Number.isNaN(data.impuestoLujoPct)
+        ? data.impuestoLujoPct
         : null,
     cilindrada_cc:
       data.cilindradaCc != null && !Number.isNaN(data.cilindradaCc)

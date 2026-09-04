@@ -55,6 +55,10 @@ export type CargaBlUnidad = {
   vin: string | null;
   marca: string | null;
   modelo: string | null;
+  valorCif: number | null;
+  arancelPct: number | null;
+  impuestoLujoPct: number | null;
+  tasaCambioBcv: number | null;
 };
 
 export type CargaBlLote = {
@@ -101,6 +105,10 @@ function unidadFromRow(row: {
     vin: (row.serial_carroceria as string | null) ?? imp.vin ?? null,
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
+    valorCif: imp.valorCif ?? null,
+    arancelPct: imp.arancelPct ?? imp.tarifaAdValoremPct ?? null,
+    impuestoLujoPct: imp.impuestoLujoPct ?? null,
+    tasaCambioBcv: imp.tasaCambioBcv ?? null,
   };
 }
 

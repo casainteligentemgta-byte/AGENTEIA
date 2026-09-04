@@ -25,6 +25,7 @@ import {
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
+import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -210,6 +211,8 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
+          <Dato label="Arancel %" value={imp.arancelPct} />
+          <Dato label="Lujo %" value={imp.impuestoLujoPct} />
           <Dato label="Nº expediente SENIAT" value={imp.numeroExpedienteSeniat} mono />
           <Dato label="Nº DAV" value={imp.numeroDav} mono />
           <Dato
@@ -243,6 +246,16 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <AlertaDiasNacionalizacion importacion={imp} />
         </div>
       </section>
+
+      <PrecalculoArancelesCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        valorCif={imp.valorCif}
+        arancelPct={imp.arancelPct}
+        impuestoLujoPct={imp.impuestoLujoPct}
+        tasaCambioBcv={imp.tasaCambioBcv}
+        partidaArancelaria={imp.partidaArancelaria}
+        canEdit={canMutate}
+      />
 
       <PuertoLibreExpedienteDocsSection
         vehiculoId={ficha.id}

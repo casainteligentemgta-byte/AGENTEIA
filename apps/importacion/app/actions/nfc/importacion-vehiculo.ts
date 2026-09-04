@@ -36,6 +36,11 @@ import {
   type ViaNacionalizacion,
 } from "@/lib/schemas/vehiculo-documentos";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
+import {
+  clampArancelPct,
+  clampImpuestoLujoPct,
+  precalcularAranceles,
+} from "@/lib/importacion/precalculo-aranceles";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
@@ -1414,6 +1419,71 @@ export async function savePuertoLibreFase2LlegadaAction(
       seguro,
       updated_at: new Date().toISOString(),
     })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+const precalculoArancelesSaveSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  valorCif: z.number().positive("Indica el valor CIF en USD").max(50_000_000),
+  arancelPct: z.number().min(20, "Arancel mínimo 20%").max(40, "Arancel máximo 40%"),
+  impuestoLujoPct: z
+    .number()
+    .min(10, "Lujo mínimo 10%")
+    .max(15, "Lujo máximo 15%"),
+});
+
+/**
+ * Guarda CIF y % del precálculo de aranceles (fase desaduanamiento).
+ * vehiculos.importacion es JSONB; se escribe con admin tras assertVehiculoTaller.
+ */
+export async function savePrecalculoArancelesAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = precalculoArancelesSaveSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const arancelPct = clampArancelPct(parsed.data.arancelPct);
+  const impuestoLujoPct = clampImpuestoLujoPct(parsed.data.impuestoLujoPct);
+  const calc = precalcularAranceles({
+    valorCif: parsed.data.valorCif,
+    arancelPct,
+    impuestoLujoPct,
+    tasaBs: existing.tasaCambioBcv,
+  });
+  if (!calc) {
+    return { success: false, error: "Indica el valor CIF del vehículo" };
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    valorCif: calc.valorCif,
+    arancelPct: calc.arancelPct,
+    impuestoLujoPct: calc.impuestoLujoPct,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
     .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 

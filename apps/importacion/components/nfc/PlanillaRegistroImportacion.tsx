@@ -33,6 +33,7 @@ import {
   syncPuertoLibreBlEmbarqueAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
 import { PropietarioCedulaScan } from "@/components/nfc/PropietarioCedulaScan";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import {
@@ -641,6 +642,11 @@ export function PlanillaRegistroImportacion({
           pending={pending}
           canComplete={aduanaCompleta}
           agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
+          valorCif={initialImportacion.valorCif}
+          arancelPct={initialImportacion.arancelPct}
+          impuestoLujoPct={initialImportacion.impuestoLujoPct}
+          tasaCambioBcv={initialImportacion.tasaCambioBcv}
+          partidaArancelaria={initialImportacion.partidaArancelaria}
           onComplete={(agenteAduanal, after) => {
             setError(null);
             setMessage(null);
@@ -1890,6 +1896,11 @@ function Fase3Aduana({
   pending,
   canComplete,
   agenteAduanalInicial,
+  valorCif,
+  arancelPct,
+  impuestoLujoPct,
+  tasaCambioBcv,
+  partidaArancelaria,
   onComplete,
   onUploadedMessage,
 }: {
@@ -1905,6 +1916,11 @@ function Fase3Aduana({
   pending: boolean;
   canComplete: boolean;
   agenteAduanalInicial: string;
+  valorCif?: number | null;
+  arancelPct?: number | null;
+  impuestoLujoPct?: number | null;
+  tasaCambioBcv?: number | null;
+  partidaArancelaria?: string | null;
   onComplete: (agenteAduanal: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
@@ -1991,6 +2007,16 @@ function Fase3Aduana({
           <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
       </section>
+
+      <PrecalculoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        partidaArancelaria={partidaArancelaria}
+        onSaved={() => onUploadedMessage("Precálculo de aranceles guardado")}
+      />
 
       <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">

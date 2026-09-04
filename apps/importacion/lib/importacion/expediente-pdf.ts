@@ -6,6 +6,12 @@ import {
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import {
+  formatBs,
+  formatUsd,
+  inputFromImportacion,
+  precalcularAranceles,
+} from "@/lib/importacion/precalculo-aranceles";
+import {
   DOCUMENTO_LABELS,
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
@@ -69,6 +75,16 @@ function txt(v: string | number | null | undefined, fallback = "-"): string {
   if (v == null) return fallback;
   if (typeof v === "string" && !v.trim()) return fallback;
   return winAnsi(String(v));
+}
+
+function precalculoTotalUsd(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc ? formatUsd(calc.totalUsd) : null;
+}
+
+function precalculoTotalBs(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc?.totalBs != null ? formatBs(calc.totalBs) : null;
 }
 
 function uniqueTipos(...groups: DocumentoTipo[][]): DocumentoTipo[] {
@@ -517,6 +533,10 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Fecha ingreso PL", value: txt(imp.fechaIngreso) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
     { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
+    { label: "Arancel %", value: txt(imp.arancelPct) },
+    { label: "Lujo %", value: txt(imp.impuestoLujoPct) },
+    { label: "Precálculo total USD", value: txt(precalculoTotalUsd(imp)) },
+    { label: "Precálculo total Bs", value: txt(precalculoTotalBs(imp)) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
     { label: "Nº DAV", value: txt(imp.numeroDav) },
     { label: "Nº certificado origen", value: txt(imp.numeroCertificadoOrigen) },

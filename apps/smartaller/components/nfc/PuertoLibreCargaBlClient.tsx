@@ -12,6 +12,8 @@ import {
   type CargaBlLote,
 } from "@/app/actions/nfc/importacion-lote";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { formatUsd } from "@/lib/importacion/precalculo-aranceles";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import {
@@ -368,6 +370,15 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         onUploaded={handleUploaded}
       />
 
+      <PrecalculoArancelesCard
+        valorCif={lote.unidades[0]?.valorCif}
+        arancelPct={lote.unidades[0]?.arancelPct}
+        impuestoLujoPct={lote.unidades[0]?.impuestoLujoPct}
+        tasaCambioBcv={lote.unidades[0]?.tasaCambioBcv ?? undefined}
+        unidades={lote.unidades}
+        canEdit={false}
+      />
+
       {error ? (
         <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
           {error}
@@ -408,6 +419,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
                 {u.marca || u.modelo
                   ? ` · ${[u.marca, u.modelo].filter(Boolean).join(" ")}`
                   : ""}
+                {u.valorCif != null ? ` · CIF ${formatUsd(u.valorCif)}` : ""}
               </Link>
             </li>
           ))}

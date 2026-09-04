@@ -643,6 +643,10 @@ export const importacionSchema = z.object({
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tasa BCV del día de la declaración (Bs por USD). */
   tasaCambioBcv: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % ad-valorem del arancel (20–40). */
+  arancelPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % impuesto al lujo (10–15) si CIF > USD 30 000. */
+  impuestoLujoPct: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Nº de expediente asignado por SENIAT (distinto del PL interno). */
   numeroExpedienteSeniat: z.string().trim().max(64).optional().nullable(),
   numeroDav: z.string().trim().max(80).optional().nullable(),
@@ -794,6 +798,18 @@ export function parseImportacion(raw: unknown): ImportacionData {
         : typeof row.tasa_cambio_bcv === "number"
           ? row.tasa_cambio_bcv
           : row.tasaCambioBcv ?? row.tasa_cambio_bcv,
+    arancelPct:
+      typeof row.arancelPct === "number"
+        ? row.arancelPct
+        : typeof row.arancel_pct === "number"
+          ? row.arancel_pct
+          : row.arancelPct ?? row.arancel_pct,
+    impuestoLujoPct:
+      typeof row.impuestoLujoPct === "number"
+        ? row.impuestoLujoPct
+        : typeof row.impuesto_lujo_pct === "number"
+          ? row.impuesto_lujo_pct
+          : row.impuestoLujoPct ?? row.impuesto_lujo_pct,
     numeroExpedienteSeniat:
       row.numeroExpedienteSeniat ?? row.numero_expediente_seniat,
     numeroDav: row.numeroDav ?? row.numero_dav,
@@ -945,6 +961,14 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
     tasa_cambio_bcv:
       data.tasaCambioBcv != null && !Number.isNaN(data.tasaCambioBcv)
         ? data.tasaCambioBcv
+        : null,
+    arancel_pct:
+      data.arancelPct != null && !Number.isNaN(data.arancelPct)
+        ? data.arancelPct
+        : null,
+    impuesto_lujo_pct:
+      data.impuestoLujoPct != null && !Number.isNaN(data.impuestoLujoPct)
+        ? data.impuestoLujoPct
         : null,
     numero_expediente_seniat: data.numeroExpedienteSeniat?.trim() || null,
     numero_dav: data.numeroDav?.trim() || null,

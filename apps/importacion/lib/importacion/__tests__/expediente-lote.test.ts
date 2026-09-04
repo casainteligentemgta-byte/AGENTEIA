@@ -83,6 +83,11 @@ describe("expediente lote vs unidad", () => {
     assert.equal(patch.observaciones, undefined);
     assert.equal("planillaFase" in patch, false);
     assert.equal("partidaArancelaria" in patch, false);
+    assert.equal(
+      "arancelPct" in
+        pickImportacionLoteFields({ arancelPct: 30, impuestoLujoPct: 10 } as never),
+      true
+    );
   });
 
   it("al copiar lote conserva CIF y contenedor del hermano", () => {
