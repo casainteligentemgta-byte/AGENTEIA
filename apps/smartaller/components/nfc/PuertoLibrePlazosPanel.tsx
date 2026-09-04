@@ -133,7 +133,7 @@ export function PuertoLibrePlazosPanel({
             </div>
           ) : null}
           {plazos.elegibleNacionalizacion &&
-          (importacion.planillaFase ?? 0) >= 7 ? (
+          (importacion.planillaFase ?? 0) >= 11 ? (
             <Link
               href={`/importacion/${vehiculoId}/nacionalizar`}
               className="mt-3 inline-flex text-xs font-medium text-cyan-400 hover:text-cyan-300"

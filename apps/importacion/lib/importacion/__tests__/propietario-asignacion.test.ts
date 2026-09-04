@@ -15,7 +15,7 @@ describe("vehiculoPatchFromPropietario", () => {
         fechaNacimiento: "1990-05-01",
         direccion: "Calle 1",
       },
-      { planillaFase: 5, codigoExpediente: "PL-2026.9.1" }
+      { planillaFase: 7, planillaEtapasRev: 2, codigoExpediente: "PL-2026.9.1" }
     );
     assert.equal(patch.nombre_cliente, "Ana Pérez");
     assert.equal(patch.cedula_propietario, "V-12345678");
@@ -24,7 +24,7 @@ describe("vehiculoPatchFromPropietario", () => {
     assert.equal(patch.fecha_nacimiento_propietario, "1990-05-01");
     const imp = parseImportacion(patch.importacion);
     assert.equal(imp.compradorDireccion, "Calle 1");
-    assert.equal(imp.planillaFase, 5);
+    assert.equal(imp.planillaFase, 7);
     assert.equal(imp.codigoExpediente, "PL-2026.9.1");
   });
 });

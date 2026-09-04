@@ -157,6 +157,18 @@ export function marcarPagoAranceles<T extends ImportacionPagoFields>(
   };
 }
 
+/** Precálculo guardado y pago marcado o voucher (liquidación) cargado. */
+export function puedeCompletarPagoImpuesto(
+  imp: ImportacionPagoFields,
+  tieneVoucher: boolean
+): boolean {
+  const cif = imp.valorCif;
+  const tienePrecalculo = typeof cif === "number" && Number.isFinite(cif) && cif > 0;
+  if (!tienePrecalculo) return false;
+  if (parseEstadoPagoAranceles(imp.pagoArancelesEstado) === "pagado") return true;
+  return tieneVoucher;
+}
+
 export function sumarPagosBs(
   items: ImportacionPagoFields[]
 ): { totalUsd: number; totalBs: number | null; pendientes: number } {

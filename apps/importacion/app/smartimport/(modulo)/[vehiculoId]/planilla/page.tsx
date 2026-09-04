@@ -6,6 +6,7 @@ import {
   listPuertoLibreVehiculos,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { PlanillaRegistroImportacion } from "@/components/nfc/PlanillaRegistroImportacion";
+import { parsePlanillaFaseQuery } from "@/lib/importacion/planilla-etapas";
 import { canForzarImprontaSinVerificar } from "@/lib/importacion/access";
 import { resolveCodigoExpediente } from "@/lib/importacion/expediente";
 import { resolvePortalAccess } from "@/lib/portal/roles";
@@ -46,27 +47,7 @@ export default async function PlanillaRegistroImportacionPage({
   const canForzarImpronta = access
     ? canForzarImprontaSinVerificar(access)
     : false;
-  const faseParam = searchParams?.fase;
-  const faseInicial =
-    faseParam === "1" || faseParam === "registro"
-      ? (1 as const)
-      : faseParam === "1a" || faseParam === "1A"
-        ? (2 as const)
-        : faseParam === "8"
-          ? (8 as const)
-          : faseParam === "7"
-          ? (7 as const)
-          : faseParam === "6"
-            ? (6 as const)
-            : faseParam === "5"
-              ? (5 as const)
-              : faseParam === "4"
-                ? (4 as const)
-                : faseParam === "3"
-                  ? (3 as const)
-                  : faseParam === "2"
-                    ? (2 as const)
-                    : undefined;
+  const faseInicial = parsePlanillaFaseQuery(searchParams?.fase);
 
   const vehiculos = (list.success ? list.vehiculos : []).map((v) => ({
     id: v.id,

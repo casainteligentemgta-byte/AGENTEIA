@@ -35,8 +35,10 @@ import {
 import {
   DASHBOARD_COLA_DESADUANAMIENTO_ID,
   DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_INSPECCION_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
+  DASHBOARD_COLA_PAGO_IMPUESTO_ID,
   DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_REGISTRO_ID,
@@ -44,9 +46,7 @@ import {
 } from "@/lib/importacion/paths";
 import {
   hrefNacionalizar,
-  hrefPresentacionSeniat,
   nacionalizarAccionLabel,
-  seniatAccionLabel,
 } from "@/lib/importacion/planilla-en-construccion";
 import { listPropietariosAction } from "@/app/actions/nfc/propietarios";
 import { listSegurosAction } from "@/app/actions/nfc/seguros";
@@ -87,7 +87,6 @@ import {
   esNacionalizado,
   placaAccionLabel,
   esPorCompletarEtapa,
-  esPorPresentacionSeniat,
   esRechazadoSeniat,
   faseColaPlanilla,
   registroAccionLabel,
@@ -182,10 +181,12 @@ function sortPorExpediente(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = faseColaPlanilla(v);
-  if (f === 8) return `/smartimport/${v.id}/planilla?fase=8`;
-  if (f >= 7) return `/smartimport/matriculas?expediente=${v.id}`;
-  if (f === 6) return `/smartimport/seguros?expediente=${v.id}`;
-  if (f === 5) return `/smartimport/propietarios?expediente=${v.id}`;
+  if (f === 10) return `/smartimport/${v.id}/planilla?fase=10`;
+  if (f >= 9) return `/smartimport/matriculas?expediente=${v.id}`;
+  if (f === 8) return `/smartimport/seguros?expediente=${v.id}`;
+  if (f === 7) return `/smartimport/propietarios?expediente=${v.id}`;
+  if (f === 6) return `/smartimport/${v.id}/planilla?fase=6`;
+  if (f === 5) return `/smartimport/${v.id}/planilla?fase=5`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
   if (f === 2) return cargaBlPath(v.numeroBl, v.id);
@@ -210,7 +211,7 @@ function rowPorCompletarFase(
     dateValue: modificadoIso || null,
     searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${fase}`,
     actionLabel:
-      fase === 8
+      fase === 10
         ? placaAccionLabel(esEntregaPlacaListaEnDashboard(v))
         : completarEtapaLabel(fase),
     actionTone: "cyan",
@@ -617,11 +618,6 @@ export default async function PuertoLibrePage() {
     (v) => v.fechaLimiteNacionalizacion,
     (v) => v.diasNacionalizacion
   );
-  const porSeniat = sortByFechaAsc(
-    vehiculos.filter(esPorPresentacionSeniat),
-    (v) => v.fechaPresentacionSeniat,
-    (v) => v.diasSeniat
-  );
   const rechazadosSeniat = [...vehiculos.filter(esRechazadoSeniat)].sort(
     (a, b) => {
       const fa = a.fechaRechazoSeniat ?? "";
@@ -672,18 +668,24 @@ export default async function PuertoLibrePage() {
   const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
   ).map((v) => rowPorCompletarFase(v, 4));
-  const rowsPorPropietario: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorPagoImpuesto: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 5))
   ).map((v) => rowPorCompletarFase(v, 5));
-  const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorInspeccion: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 6))
   ).map((v) => rowPorCompletarFase(v, 6));
-  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorPropietario: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 7))
   ).map((v) => rowPorCompletarFase(v, 7));
-  const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 8))
   ).map((v) => rowPorCompletarFase(v, 8));
+  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 9))
+  ).map((v) => rowPorCompletarFase(v, 9));
+  const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 10))
+  ).map((v) => rowPorCompletarFase(v, 10));
 
   const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
     const expediente = labelExpediente(v);
@@ -703,28 +705,6 @@ export default async function PuertoLibrePage() {
       searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Corregir",
       actionTone: "red",
-    };
-  });
-
-  const rowsPorSeniat: DashboardBucketRow[] = porSeniat.map((v) => {
-    const expediente = labelExpediente(v);
-    const ficha = fichaDe(v);
-    return {
-      id: v.id,
-      href: hrefPresentacionSeniat(v.id),
-      cells: {
-        expediente,
-        presentacion: formatFechaDia(v.fechaPresentacionSeniat),
-      },
-      ficha,
-      subcells: {
-        presentacion: etiquetaDias(v.diasSeniat, "Sin fecha"),
-      },
-      dateValue: v.fechaPresentacionSeniat,
-      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-      actionLabel: seniatAccionLabel(),
-      actionTone: "sky",
-      urgent: v.diasSeniat != null && v.diasSeniat <= 7,
     };
   });
 
@@ -923,8 +903,40 @@ export default async function PuertoLibrePage() {
 
         <PuertoLibreDashboardBucket
           dense
-          sectionId={DASHBOARD_COLA_PROPIETARIO_ID}
           title={porCompletarEtapaTitle(5)}
+          icon="file"
+          sectionId={DASHBOARD_COLA_PAGO_IMPUESTO_ID}
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(5).toLowerCase()}.`}
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorPagoImpuesto}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          title={porCompletarEtapaTitle(6)}
+          icon="file"
+          sectionId={DASHBOARD_COLA_INSPECCION_ID}
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(6).toLowerCase()}.`}
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorInspeccion}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_PROPIETARIO_ID}
+          title={porCompletarEtapaTitle(7)}
           icon="file"
           emptyMessage="No hay expedientes por completar propietario. Crea una ficha y asígnale un expediente."
           columns={[
@@ -976,7 +988,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_SEGURO_ID}
-          title={porCompletarEtapaTitle(6)}
+          title={porCompletarEtapaTitle(8)}
           icon="file"
           emptyMessage="No hay expedientes por completar seguro. Crea una ficha y enlázala."
           columns={[
@@ -1013,7 +1025,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_MATRICULA_ID}
-          title={porCompletarEtapaTitle(7)}
+          title={porCompletarEtapaTitle(9)}
           icon="file"
           emptyMessage="No hay expedientes por completar matrícula. Crea una ficha y enlázala."
           columns={[
@@ -1050,7 +1062,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_PLACA_ID}
-          title={porCompletarEtapaTitle(8)}
+          title={porCompletarEtapaTitle(10)}
           icon="file"
           emptyMessage="No hay expedientes por completar placa y circulación."
           columns={[
@@ -1061,21 +1073,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-        />
-
-        <PuertoLibreDashboardBucket
-          dense
-          title="Por presentación SENIAT"
-          icon="building"
-          emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
-          columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-            { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
-          ]}
-          rows={rowsPorSeniat}
-          dateFilterLabel="Presentación"
-          borderClassName="border-sky-900/30"
-          actionColumnKey="presentacion"
         />
 
         <PuertoLibreDashboardBucket

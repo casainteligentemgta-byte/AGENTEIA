@@ -46,6 +46,10 @@ export const DASHBOARD_COLA_EMBARQUE_ID = "cola-embarque";
 export const DASHBOARD_COLA_LLEGADA_ID = "cola-llegada";
 /** 4.ª cola del dashboard: Por completar desaduanamiento. */
 export const DASHBOARD_COLA_DESADUANAMIENTO_ID = "cola-desaduanamiento";
+/** Cola: Por completar pago impuesto. */
+export const DASHBOARD_COLA_PAGO_IMPUESTO_ID = "cola-pago-impuesto";
+/** Cola: Por completar inspección. */
+export const DASHBOARD_COLA_INSPECCION_ID = "cola-inspeccion";
 /** Cola: Por completar propietario. */
 export const DASHBOARD_COLA_PROPIETARIO_ID = "cola-propietario";
 /** Cola: Por completar seguro. */
@@ -60,10 +64,12 @@ export const DASHBOARD_COLA_IDS = {
   2: DASHBOARD_COLA_EMBARQUE_ID,
   3: DASHBOARD_COLA_LLEGADA_ID,
   4: DASHBOARD_COLA_DESADUANAMIENTO_ID,
-  5: DASHBOARD_COLA_PROPIETARIO_ID,
-  6: DASHBOARD_COLA_SEGURO_ID,
-  7: DASHBOARD_COLA_MATRICULA_ID,
-  8: DASHBOARD_COLA_PLACA_ID,
+  5: DASHBOARD_COLA_PAGO_IMPUESTO_ID,
+  6: DASHBOARD_COLA_INSPECCION_ID,
+  7: DASHBOARD_COLA_PROPIETARIO_ID,
+  8: DASHBOARD_COLA_SEGURO_ID,
+  9: DASHBOARD_COLA_MATRICULA_ID,
+  10: DASHBOARD_COLA_PLACA_ID,
 } as const;
 
 /** Dashboard anclado en Por completar llegada. */

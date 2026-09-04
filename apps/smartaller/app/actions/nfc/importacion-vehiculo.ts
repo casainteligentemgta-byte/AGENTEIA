@@ -45,8 +45,10 @@ import {
   aplicarTasaOficialAlPago,
   debeActualizarTasaOficial,
   marcarPagoAranceles,
+  puedeCompletarPagoImpuesto,
   snapshotPagoAranceles,
 } from "@/lib/importacion/pago-aranceles";
+import { PLANILLA_FASE_COMPLETA } from "@/lib/importacion/planilla-etapas";
 import { lookupTasaBcv, todayYmdCaracas } from "@/lib/importacion/tasa-bcv";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
@@ -1516,58 +1518,9 @@ export async function savePuertoLibreFase2LlegadaAction(
   }
 
   const existingImportacion = parseImportacion(row.importacion);
-  const docs = parseVehiculosDocumentos(row.documentos);
-
-  const faltantesLlegada = PL_LLEGADA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
-  if (faltantesLlegada.length > 0) {
-    return {
-      success: false,
-      error:
-        "Carga el Acta de recepción (AR) y el reconocimiento / constancia del estado de la carga.",
-    };
-  }
-
-  const faltantesMemoria = MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.filter(
-    (t) => !docs[t]?.url
-  );
-  if (faltantesMemoria.length > 0) {
-    return {
-      success: false,
-      error:
-        "Completa la memoria descriptiva: fotos del vehículo (la impronta es opcional).",
-    };
-  }
-
-  const checklist = parsed.data.checklistLlegada;
-  if (!isLlegadaChecklistCompleto(checklist)) {
-    return {
-      success: false,
-      error:
-        "Completa el cuestionario de revisión del vehículo (todos los ítems).",
-    };
-  }
-
-  const estadoImpronta = existingImportacion.serialImprontaEstado;
-  // Impronta opcional: solo valida serial si hay foto cargada.
-  if (docs.foto_impronta?.url) {
-    if (estadoImpronta === "no_coincide") {
-      return {
-        success: false,
-        error:
-          "El serial de la impronta no coincide con el del expediente. Corrige el serial en Registro o vuelve a tomar la foto.",
-      };
-    }
-    if (estadoImpronta !== "coincide" && !parsed.data.forzarImprontaSinVerificar) {
-      return {
-        success: false,
-        error:
-          "Debes verificar que el serial de la impronta coincida con el del expediente (o omite la foto de impronta).",
-      };
-    }
-  }
-
-  const checklistNotas = parsed.data.checklistLlegadaNotas;
   const existingSeguro = parseSeguro(row.seguro);
+  const checklist = parsed.data.checklistLlegada;
+  const checklistNotas = parsed.data.checklistLlegadaNotas;
 
   const importacion = serializeImportacion({
     ...existingImportacion,
@@ -1581,15 +1534,26 @@ export async function savePuertoLibreFase2LlegadaAction(
     fechaPresentacionSeniat:
       existingImportacion.fechaPresentacionSeniat?.trim() ||
       addYearsIso(parsed.data.fechaIngreso, 1),
-    checklistLlegada: checklist,
-    checklistLlegadaNotas: checklistNotas,
-    otrosDispositivosNotas: parsed.data.otrosDispositivosNotas || null,
+    checklistLlegada: Object.keys(checklist).length
+      ? checklist
+      : existingImportacion.checklistLlegada,
+    checklistLlegadaNotas: Object.keys(checklistNotas).length
+      ? checklistNotas
+      : existingImportacion.checklistLlegadaNotas,
+    otrosDispositivosNotas:
+      parsed.data.otrosDispositivosNotas ??
+      existingImportacion.otrosDispositivosNotas,
     planillaFase: 4,
   });
 
   const seguro = serializeSeguro({
     ...existingSeguro,
-    tieneAlarma: checklist.alarma === "sin_dano" ? true : checklist.alarma === "falla" ? false : existingSeguro.tieneAlarma,
+    tieneAlarma:
+      checklist.alarma === "sin_dano"
+        ? true
+        : checklist.alarma === "falla"
+          ? false
+          : existingSeguro.tieneAlarma,
     tieneGps:
       checklist.gps_rastreador === "sin_dano"
         ? true
@@ -1603,7 +1567,8 @@ export async function savePuertoLibreFase2LlegadaAction(
           ? false
           : existingSeguro.tieneInmovilizador,
     dispositivosSeguridad:
-      parsed.data.otrosDispositivosNotas?.trim() || existingSeguro.dispositivosSeguridad,
+      parsed.data.otrosDispositivosNotas?.trim() ||
+      existingSeguro.dispositivosSeguridad,
   });
 
   const admin = createAdminClient();
@@ -1834,8 +1799,9 @@ const desaduanamientoCompleteSchema = z.object({
 });
 
 /**
- * Marca fase 4 (desaduanamiento SENIAT) completa → fase 5 propietario.
- * Exige carpeta documental completa + Agente de Aduanas.
+ * Marca fase 4 (desaduanamiento SENIAT) completa → fase 5 pago impuesto.
+ * Exige carpeta documental + Agente de Aduanas. Precálculo, voucher e
+ * inspección van en las fases siguientes.
  */
 export async function completePuertoLibreFase3Action(
   raw: unknown
@@ -1870,17 +1836,135 @@ export async function completePuertoLibreFase3Action(
     return {
       success: false,
       error:
-        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, SENCAMER, constancia del agente, reconocimiento, liquidación, residencia y pase de salida" +
-        (esJuridica ? ", registro PL" : "") +
-        " y recaudos del régimen",
+        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, pase de salida y recaudos del régimen",
+    };
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    agenteAduanal: parsed.data.agenteAduanal,
+    planillaFase: 5,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+const pagoImpuestoCompleteSchema = z.object({
+  vehiculoId: z.string().uuid(),
+});
+
+/** Marca fase 5 (pago impuesto) completa → fase 6 inspección. */
+export async function completePuertoLibrePagoImpuestoAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = pagoImpuestoCompleteSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Vehículo inválido" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const docs = parseVehiculosDocumentos(row.documentos);
+  const tieneVoucher = Boolean(docs.planilla_liquidacion_aduanera?.url);
+  if (!puedeCompletarPagoImpuesto(existing, tieneVoucher)) {
+    return {
+      success: false,
+      error:
+        "Guarda el precálculo (CIF) y registra el pago o carga el voucher / liquidación de tributos.",
+    };
+  }
+
+  const importacion = serializeImportacion({
+    ...existing,
+    planillaFase: 6,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+const inspeccionCompleteSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  checklistLlegada: z.record(z.string()).optional(),
+  checklistLlegadaNotas: z.record(z.string()).optional(),
+  otrosDispositivosNotas: z.string().max(2000).optional().nullable(),
+  forzarImprontaSinVerificar: z.boolean().optional().default(false),
+});
+
+/**
+ * Marca fase 6 (inspección) completa → fase 7 propietario.
+ * Exige documentos de llegada, memoria fotográfica, cuestionario y constancia.
+ */
+export async function completePuertoLibreInspeccionAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = inspeccionCompleteSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  if (parsed.data.forzarImprontaSinVerificar) {
+    const access = await resolvePortalAccess();
+    if (!access || !canForzarImprontaSinVerificar(access)) {
+      return {
+        success: false,
+        error:
+          "No tienes permiso para forzar el avance sin verificación de impronta. Solo operadores (admin/taller) pueden confirmar revisión manual.",
+      };
+    }
+  }
+
+  const existing = parseImportacion(row.importacion);
+  const docs = parseVehiculosDocumentos(row.documentos);
+
+  const faltantesLlegada = PL_LLEGADA_DOCUMENTO_TIPOS.filter((t) => !docs[t]?.url);
+  if (faltantesLlegada.length > 0) {
+    return {
+      success: false,
+      error:
+        "Carga el Acta de recepción (AR) y el reconocimiento / constancia del estado de la carga.",
     };
   }
 
   if (!constanciaInspeccionLista(docs)) {
     return {
       success: false,
-      error:
-        "Carga la constancia de inspección del puerto (PDF) después del pago.",
+      error: "Carga la constancia de inspección del puerto (PDF).",
     };
   }
 
@@ -1904,21 +1988,68 @@ export async function completePuertoLibreFase3Action(
     };
   }
 
+  const estadoImpronta = existing.serialImprontaEstado;
+  if (docs.foto_impronta?.url) {
+    if (estadoImpronta === "no_coincide") {
+      return {
+        success: false,
+        error:
+          "El serial de la impronta no coincide con el del expediente. Corrige el serial en Registro o vuelve a tomar la foto.",
+      };
+    }
+    if (estadoImpronta !== "coincide" && !parsed.data.forzarImprontaSinVerificar) {
+      return {
+        success: false,
+        error:
+          "Debes verificar que el serial de la impronta coincida con el del expediente (o omite la foto de impronta).",
+      };
+    }
+  }
+
+  const existingSeguro = parseSeguro(row.seguro);
   const importacion = serializeImportacion({
     ...existing,
-    agenteAduanal: parsed.data.agenteAduanal,
     checklistLlegada: checklist,
     checklistLlegadaNotas:
       parsed.data.checklistLlegadaNotas ?? existing.checklistLlegadaNotas,
     otrosDispositivosNotas:
       parsed.data.otrosDispositivosNotas ?? existing.otrosDispositivosNotas,
-    planillaFase: 5,
+    planillaFase: 7,
+  });
+
+  const seguro = serializeSeguro({
+    ...existingSeguro,
+    tieneAlarma:
+      checklist.alarma === "sin_dano"
+        ? true
+        : checklist.alarma === "falla"
+          ? false
+          : existingSeguro.tieneAlarma,
+    tieneGps:
+      checklist.gps_rastreador === "sin_dano"
+        ? true
+        : checklist.gps_rastreador === "falla"
+          ? false
+          : existingSeguro.tieneGps,
+    tieneInmovilizador:
+      checklist.inmovilizador === "sin_dano"
+        ? true
+        : checklist.inmovilizador === "falla"
+          ? false
+          : existingSeguro.tieneInmovilizador,
+    dispositivosSeguridad:
+      parsed.data.otrosDispositivosNotas?.trim() ||
+      existingSeguro.dispositivosSeguridad,
   });
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
-    .update({ importacion, updated_at: new Date().toISOString() })
+    .update({
+      importacion,
+      seguro,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 
@@ -1927,7 +2058,7 @@ export async function completePuertoLibreFase3Action(
   return { success: true };
 }
 
-/** Guarda propietario (fase 5) y avanza a fase 6 (seguro). */
+/** Guarda propietario (fase 7) y avanza a fase 8 (seguro). */
 export async function completePuertoLibreFase4PropietarioAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1951,7 +2082,7 @@ export async function completePuertoLibreFase4PropietarioAction(
   const importacion = serializeImportacion({
     ...existingImportacion,
     compradorDireccion: parsed.data.direccion ?? existingImportacion.compradorDireccion,
-    planillaFase: 6,
+    planillaFase: 8,
   });
 
   const admin = createAdminClient();
@@ -1974,7 +2105,7 @@ export async function completePuertoLibreFase4PropietarioAction(
   return { success: true };
 }
 
-/** Guarda seguro (fase 5) y avanza a fase 6 (matriculación). */
+/** Guarda seguro (fase 8) y avanza a fase 9 (matriculación). */
 export async function completePuertoLibreFase5SeguroAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -2001,7 +2132,7 @@ export async function completePuertoLibreFase5SeguroAction(
   const existingImportacion = parseImportacion(row.importacion);
   const importacion = serializeImportacion({
     ...existingImportacion,
-    planillaFase: 7,
+    planillaFase: 9,
   });
 
   const admin = createAdminClient();
@@ -2021,7 +2152,7 @@ export async function completePuertoLibreFase5SeguroAction(
 }
 
 /**
- * Completa Matriculación (fase 7 → 8) con el archivo INTT
+ * Completa Matriculación (fase 9 → 10) con el archivo INTT
  * (9 recaudos en orden; homologación solo si aplica).
  */
 export async function savePuertoLibreCarpetaMatriculacionAction(
@@ -2067,7 +2198,7 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
 
   const importacion = serializeImportacion({
     ...existing,
-    planillaFase: 8,
+    planillaFase: 10,
     matriculacionPaso: 2,
     requiereHomologacion,
     estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
@@ -2137,7 +2268,7 @@ async function persistPlacaUnicaEnTaller(params: {
   return { success: true };
 }
 
-/** Completa fase 8: placa única + docs de circulación → planilla 9. */
+/** Completa fase 10: placa única + docs de circulación → planilla 11. */
 export async function savePuertoLibreEntregaPlacaAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -2179,7 +2310,7 @@ export async function savePuertoLibreEntregaPlacaAction(
     }) ?? null;
   const importacion = serializeImportacion({
     ...existing,
-    planillaFase: 9,
+    planillaFase: PLANILLA_FASE_COMPLETA,
     matriculacionPaso: 2,
     estadoNacionalizacion: existing.estadoNacionalizacion ?? "pendiente",
     nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
@@ -2276,7 +2407,7 @@ export async function elegirViaNacionalizacionAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const existing = parseImportacion(row.importacion);
-  if ((existing.planillaFase ?? 0) < 9) {
+  if ((existing.planillaFase ?? 0) < PLANILLA_FASE_COMPLETA) {
     return {
       success: false,
       error: "Completa la planilla, la matrícula y la placa (circulación) antes de nacionalizar",

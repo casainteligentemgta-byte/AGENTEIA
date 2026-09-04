@@ -173,11 +173,6 @@ export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
   "rif_importador",
   "nacionalizacion",
   "dav",
-  "sencamer",
-  "registro_puerto_libre",
-  "agente_aduanal_doc",
-  "planilla_liquidacion_aduanera",
-  "constancia_residencia_permanencia",
   "pase_salida_levante",
 ];
 

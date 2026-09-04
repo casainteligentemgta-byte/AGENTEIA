@@ -16,19 +16,19 @@ import {
 const TALLER_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 describe("demo fases — un expediente por cola", () => {
-  it("define las 8 fases de planilla", () => {
-    assert.deepEqual([...DEMO_FASES], [1, 2, 3, 4, 5, 6, 7, 8]);
-    assert.equal(demoFaseSpecs(TALLER_ID).length, 8);
+  it("define las 10 fases de planilla", () => {
+    assert.deepEqual([...DEMO_FASES], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.equal(demoFaseSpecs(TALLER_ID).length, 10);
   });
 
   it("genera VIN de 17 caracteres, distintos y estables", () => {
     const serials = DEMO_FASES.map((fase) =>
       demoFaseSerialFromTallerId(TALLER_ID, fase)
     );
-    assert.equal(new Set(serials).size, 8);
+    assert.equal(new Set(serials).size, 10);
     for (const serial of serials) {
       assert.equal(serial.length, 17);
-      assert.match(serial, /^FASE[A-F0-9]{12}[1-8]$/);
+      assert.match(serial, /^FASE[A-F0-9]{11,12}(10|[1-9])$/);
     }
     assert.equal(
       demoFaseSerialFromTallerId(TALLER_ID, 3),
