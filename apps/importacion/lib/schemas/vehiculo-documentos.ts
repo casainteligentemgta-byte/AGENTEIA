@@ -425,9 +425,73 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Matriculación INTT (fase 7): solo docs propios de esta fase.
- * Homologación es opcional según el vehículo (`requiereHomologacion`).
- * El resto del expediente se cargó en fases anteriores.
+ * Archivo para presentar ante el INTT (fase 7).
+ * Orden fijo; homologación solo entra si `requiereHomologacion`.
+ * Los que ya están en el expediente se precargan.
+ */
+export const PL_INTT_PRESENTACION_TIPOS = [
+  "cedula_importador",
+  "rif_importador",
+  "factura_comercial",
+  "certificado_origen",
+  "homologacion",
+  "planilla_liquidacion_aduanera",
+  "constancia_inspeccion",
+  "declaracion_jurada_propietario",
+  "pago_tasas",
+] as const satisfies readonly DocumentoTipo[];
+
+export type InttPresentacionTipo = (typeof PL_INTT_PRESENTACION_TIPOS)[number];
+
+export const PL_INTT_PRESENTACION_LABELS: Record<InttPresentacionTipo, string> = {
+  cedula_importador: "Cédula de identidad vigente (copia legible)",
+  rif_importador: "RIF vigente",
+  factura_comercial: "Factura original de compra",
+  certificado_origen: "Certificado de origen",
+  homologacion: "Constancia de homologación (si es requerida)",
+  planilla_liquidacion_aduanera: "Liquidación de tributos pagados (SENIAT)",
+  constancia_inspeccion: "Constancia de inspección del puerto",
+  declaracion_jurada_propietario: "Declaración de propiedad",
+  pago_tasas: "Comprobante de pago de tasas INTT",
+};
+
+export const PL_INTT_PRESENTACION_ORIGEN: Partial<
+  Record<InttPresentacionTipo, string>
+> = {
+  cedula_importador: "Precargada desde desaduanamiento / cliente",
+  rif_importador: "Precargado desde desaduanamiento / cliente",
+  factura_comercial: "Precargada desde Registro",
+  certificado_origen: "Precargado desde Registro",
+  homologacion: "Solo si el vehículo lo requiere",
+  planilla_liquidacion_aduanera: "Precargada desde el pago SENIAT",
+  constancia_inspeccion: "Precargada desde la inspección del puerto",
+  declaracion_jurada_propietario: "Declaración de propiedad del titular",
+  pago_tasas: "Comprobante de tasas del trámite INTT",
+};
+
+export function docsInttPresentacionTipos(
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  return PL_INTT_PRESENTACION_TIPOS.filter(
+    (tipo) => tipo !== "homologacion" || requiereHomologacion
+  );
+}
+
+/** Cédula: usa la del importador; si no hay, la cédula ya cargada. */
+export function inttPresentacionRef(
+  docs: VehiculosDocumentos | null | undefined,
+  tipo: DocumentoTipo
+): VehiculoDocumentoRef | undefined {
+  if (!docs) return undefined;
+  if (tipo === "cedula_importador") {
+    return docs.cedula_importador ?? docs.cedula;
+  }
+  return docs[tipo];
+}
+
+/**
+ * Matriculación INTT (fase 7): docs que aún se pueden cargar aparte.
+ * @deprecated El archivo INTT usa PL_INTT_PRESENTACION_TIPOS.
  */
 export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
   "inspeccion_pnb",
@@ -435,8 +499,8 @@ export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Recaudos de fases anteriores: solo referencia en Matriculación (sin re-cargar).
- * Se incluyen en el PDF de carpeta INTT si ya están en el expediente.
+ * Recaudos de fases anteriores (legado).
+ * @deprecated Usar PL_INTT_PRESENTACION_TIPOS.
  */
 export const PL_MATRICULACION_REFERENCIA_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
@@ -496,23 +560,13 @@ export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
 };
 
 /**
- * Orden de documentos del PDF de Matriculación INTT:
- * referencias previas + docs cargados en esta fase.
+ * Orden del PDF / archivo INTT: los 9 recaudos de presentación
+ * (sin homologación si no aplica).
  */
 export function docsMatriculacionPdfTipos(
   requiereHomologacion: boolean
 ): DocumentoTipo[] {
-  const seen = new Set<DocumentoTipo>();
-  const out: DocumentoTipo[] = [];
-  const push = (tipo: DocumentoTipo) => {
-    if (seen.has(tipo)) return;
-    seen.add(tipo);
-    out.push(tipo);
-  };
-  for (const t of PL_MATRICULACION_REFERENCIA_TIPOS) push(t);
-  for (const t of tiposMatriculacionBase(requiereHomologacion)) push(t);
-  for (const t of PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS) push(t);
-  return out;
+  return docsInttPresentacionTipos(requiereHomologacion);
 }
 
 /** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
@@ -533,28 +587,26 @@ export function tieneLiquidacionOExencion(
   );
 }
 
-/** Faltantes de matriculación (PNB, PUT, homologación si aplica, liquidación/oficio). */
+/** Faltantes del archivo INTT (los 9 recaudos; homologación solo si aplica). */
 export function faltantesMatriculacionCarpeta(
   docs: VehiculosDocumentos,
   requiereHomologacion: boolean
 ): DocumentoTipo[] {
-  const faltantes = tiposMatriculacionBase(requiereHomologacion).filter(
-    (t) => !docs[t]?.url
+  return docsInttPresentacionTipos(requiereHomologacion).filter(
+    (tipo) => !inttPresentacionRef(docs, tipo)?.url
   );
-  if (!tieneLiquidacionOExencion(docs)) {
-    faltantes.push("planilla_liquidacion_aduanera");
-  }
-  return faltantes;
 }
 
 export function countMatriculacionCarpeta(
   docs: VehiculosDocumentos,
   requiereHomologacion: boolean
 ): { listos: number; total: number } {
-  const base = tiposMatriculacionBase(requiereHomologacion);
-  const baseListos = base.filter((t) => docs[t]?.url).length;
-  const liq = tieneLiquidacionOExencion(docs) ? 1 : 0;
-  return { listos: baseListos + liq, total: base.length + 1 };
+  const tipos = docsInttPresentacionTipos(requiereHomologacion);
+  return {
+    listos: tipos.filter((tipo) => Boolean(inttPresentacionRef(docs, tipo)?.url))
+      .length,
+    total: tipos.length,
+  };
 }
 
 /**

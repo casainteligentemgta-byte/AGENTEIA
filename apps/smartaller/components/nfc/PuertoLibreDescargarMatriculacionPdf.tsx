@@ -78,8 +78,8 @@ export function PuertoLibreDescargarMatriculacionPdf({
           </>
         )}
         {pending
-          ? "Generando carpeta PDF INTT…"
-          : "Generar / descargar carpeta PDF INTT"}
+          ? "Generando archivo PDF INTT…"
+          : "Generar / descargar archivo PDF INTT"}
       </button>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
     </div>

@@ -1857,8 +1857,8 @@ export async function completePuertoLibreFase5SeguroAction(
 }
 
 /**
- * Completa Matriculación (fase 7 → 8) con los docs propios de la fase:
- * PNB, PUT, homologación si aplica, liquidación u oficio SENIAT.
+ * Completa Matriculación (fase 7 → 8) con el archivo INTT
+ * (9 recaudos en orden; homologación solo si aplica).
  */
 export async function savePuertoLibreCarpetaMatriculacionAction(
   raw: unknown
@@ -1893,7 +1893,7 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
     return {
       success: false,
       error:
-        "Completa inspección PNB, PUT, homologación (si aplica) y liquidación u oficio SENIAT",
+        "Completa el archivo INTT: cédula, RIF, factura, certificado de origen, homologación (si aplica), liquidación SENIAT, constancia de inspección, declaración de propiedad y pago de tasas INTT",
     };
   }
 

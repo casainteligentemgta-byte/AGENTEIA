@@ -77,13 +77,12 @@ import {
   PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_ENTREGA_PLACA_TIPOS,
-  PL_MATRICULACION_CARGAR_TIPOS,
-  PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
-  PL_MATRICULACION_ORIGEN,
-  PL_MATRICULACION_REFERENCIA_TIPOS,
+  PL_INTT_PRESENTACION_LABELS,
+  PL_INTT_PRESENTACION_ORIGEN,
+  PL_INTT_PRESENTACION_TIPOS,
   constanciaInspeccionLista,
   countMatriculacionCarpeta,
-  tieneLiquidacionOExencion,
+  inttPresentacionRef,
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type ImportacionData,
@@ -2394,116 +2393,6 @@ function Fase5Seguro({
   );
 }
 
-function MatriculacionDocRow({
-  vehiculoId,
-  tipo,
-  docs,
-  setDocs,
-  origen,
-  onUploadedMessage,
-}: {
-  vehiculoId: string;
-  tipo: DocumentoTipo;
-  docs: VehiculosDocumentos;
-  setDocs: (d: VehiculosDocumentos) => void;
-  origen?: string;
-  onUploadedMessage: (msg: string) => void;
-}) {
-  const loaded = Boolean(docs[tipo]?.url);
-  return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">
-            {DOCUMENTO_LABELS[tipo]}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {origen ?? "Cargar en PDF o foto / escaneo"}
-          </p>
-        </div>
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-            loaded
-              ? "bg-emerald-950/60 text-emerald-300"
-              : "bg-red-950/50 text-red-300"
-          }`}
-        >
-          {loaded ? "Listo" : "Pendiente"}
-        </span>
-      </div>
-      {loaded && docs[tipo]?.url ? (
-        <a
-          href={docs[tipo]!.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
-        >
-          Ver documento
-        </a>
-      ) : null}
-      <ImportDocumentoUpload
-        vehiculoId={vehiculoId}
-        tipo={tipo}
-        existingUrl={docs[tipo]?.url}
-        acceptMode="both"
-        hint="Foto o PDF · máx. 10 MB"
-        actionLabel={loaded ? "Reemplazar" : "Cargar"}
-        onUploaded={(next) => {
-          setDocs(next);
-          onUploadedMessage("Documento guardado");
-        }}
-      />
-    </li>
-  );
-}
-
-function MatriculacionReferenciaRow({
-  tipo,
-  docs,
-}: {
-  tipo: DocumentoTipo;
-  docs: VehiculosDocumentos;
-}) {
-  const loaded = Boolean(docs[tipo]?.url);
-  return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">
-            {DOCUMENTO_LABELS[tipo]}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {PL_MATRICULACION_ORIGEN[tipo] ?? "Cargado en una fase anterior"}
-          </p>
-        </div>
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-            loaded
-              ? "bg-emerald-950/60 text-emerald-300"
-              : "bg-amber-950/50 text-amber-200"
-          }`}
-        >
-          {loaded ? "En expediente" : "No encontrado"}
-        </span>
-      </div>
-      {loaded && docs[tipo]?.url ? (
-        <a
-          href={docs[tipo]!.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex text-xs text-cyan-400 hover:underline"
-        >
-          Ver documento
-        </a>
-      ) : (
-        <p className="mt-2 text-xs text-slate-500">
-          Vuelve a la fase de origen para cargarlo; aquí solo se referencia.
-        </p>
-      )}
-    </li>
-  );
-}
-
 function Fase6Matriculacion({
   vehiculoId,
   docs,
@@ -2529,10 +2418,6 @@ function Fase6Matriculacion({
   );
   const stats = countMatriculacionCarpeta(docs, requiereHomologacion);
   const carpetaCompleta = stats.listos === stats.total;
-  const liquidacionListo = tieneLiquidacionOExencion(docs);
-  const refsListos = PL_MATRICULACION_REFERENCIA_TIPOS.filter((t) =>
-    Boolean(docs[t]?.url)
-  ).length;
 
   useEffect(() => {
     setRequiereHomologacion(requiereHomologacionInicial);
@@ -2543,107 +2428,74 @@ function Fase6Matriculacion({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Matriculación — trámite INTT
+          Archivo INTT — presentación
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {stats.listos}/{stats.total}
           </span>
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Nueve recaudos, en este orden, precargados del expediente. Completa
+          los que falten; la homologación solo si aplica.
+        </p>
 
-        <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
-          Cargar en esta fase
-        </h3>
-        <ul className="mt-3 space-y-3">
-          {PL_MATRICULACION_CARGAR_TIPOS.map((tipo) => (
-            <MatriculacionDocRow
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              docs={docs}
-              setDocs={setDocs}
-              origen={PL_MATRICULACION_ORIGEN[tipo]}
-              onUploadedMessage={onUploadedMessage}
-            />
-          ))}
-          <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={requiereHomologacion}
-                onChange={(e) => setRequiereHomologacion(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
-              />
-              <span>
-                <span className="block text-sm font-medium text-slate-100">
-                  Este vehículo requiere homologación
-                </span>
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  Márcalo solo si aplica; entonces la homologación es obligatoria.
-                </span>
-              </span>
-            </label>
-          </li>
-          {requiereHomologacion ? (
-            <MatriculacionDocRow
-              vehiculoId={vehiculoId}
-              tipo="homologacion"
-              docs={docs}
-              setDocs={setDocs}
-              origen={PL_MATRICULACION_ORIGEN.homologacion}
-              onUploadedMessage={onUploadedMessage}
-            />
-          ) : null}
-          <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-100">
-                  Liquidación / exención y oficio SENIAT
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Basta con la liquidación o el oficio de exención del SENIAT
-                </p>
-              </div>
-              <span
-                className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                  liquidacionListo
-                    ? "bg-emerald-950/60 text-emerald-300"
-                    : "bg-red-950/50 text-red-300"
-                }`}
+        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
+          <input
+            type="checkbox"
+            checked={requiereHomologacion}
+            onChange={(e) => setRequiereHomologacion(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-100">
+              Este vehículo requiere homologación
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Si lo marcas, el ítem 5 entra en el archivo.
+            </span>
+          </span>
+        </label>
+
+        <ol className="mt-5 space-y-3">
+          {PL_INTT_PRESENTACION_TIPOS.map((tipo, index) => {
+            const skipped = tipo === "homologacion" && !requiereHomologacion;
+            const ref = inttPresentacionRef(docs, tipo);
+            const loaded = Boolean(ref?.url);
+            return (
+              <li
+                key={tipo}
+                className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
               >
-                {liquidacionListo ? "Listo" : "Pendiente"}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS.map((tipo) => {
-                const loaded = Boolean(docs[tipo]?.url);
-                return (
-                  <div
-                    key={tipo}
-                    className="rounded-lg border border-slate-800/80 bg-slate-950/50 p-3"
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-100">
+                      {index + 1}. {PL_INTT_PRESENTACION_LABELS[tipo]}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {PL_INTT_PRESENTACION_ORIGEN[tipo] ??
+                        "Precargado del expediente"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      skipped
+                        ? "bg-slate-800 text-slate-400"
+                        : loaded
+                          ? "bg-emerald-950/60 text-emerald-300"
+                          : "bg-amber-950/60 text-amber-200"
+                    }`}
                   >
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-100">
-                          {DOCUMENTO_LABELS[tipo]}
-                        </p>
-                        {PL_MATRICULACION_ORIGEN[tipo] ? (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {PL_MATRICULACION_ORIGEN[tipo]}
-                          </p>
-                        ) : null}
-                      </div>
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          loaded
-                            ? "bg-emerald-950/60 text-emerald-300"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {loaded ? "Cargado" : "Opcional si ya hay el otro"}
-                      </span>
-                    </div>
-                    {loaded && docs[tipo]?.url ? (
+                    {skipped
+                      ? "No aplica"
+                      : loaded
+                        ? "En expediente"
+                        : "Pendiente"}
+                  </span>
+                </div>
+                {skipped ? null : (
+                  <>
+                    {loaded && ref?.url ? (
                       <a
-                        href={docs[tipo]!.url}
+                        href={ref.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
@@ -2654,39 +2506,21 @@ function Fase6Matriculacion({
                     <ImportDocumentoUpload
                       vehiculoId={vehiculoId}
                       tipo={tipo}
-                      existingUrl={docs[tipo]?.url}
-                      acceptMode="both"
-                      hint="Foto o PDF · máx. 10 MB"
-                      actionLabel={loaded ? "Reemplazar" : "Cargar"}
+                      existingUrl={ref?.url}
+                      acceptMode="pdf"
+                      hint="PDF · máx. 10 MB"
+                      actionLabel={loaded ? "Reemplazar PDF" : "Cargar PDF"}
                       onUploaded={(next) => {
                         setDocs(next);
-                        onUploadedMessage("Documento guardado");
+                        onUploadedMessage("Documento del archivo INTT guardado");
                       }}
                     />
-                  </div>
-                );
-              })}
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-100">
-          Referencia — ya en el expediente
-          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {refsListos}/{PL_MATRICULACION_REFERENCIA_TIPOS.length}
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          No se vuelven a cargar aquí. Si figuran como “En expediente”, entran
-          al PDF de la carpeta INTT.
-        </p>
-        <ul className="mt-4 space-y-2.5">
-          {PL_MATRICULACION_REFERENCIA_TIPOS.map((tipo) => (
-            <MatriculacionReferenciaRow key={tipo} tipo={tipo} docs={docs} />
-          ))}
-        </ul>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ol>
 
         <div className="mt-6 space-y-3">
           <PuertoLibreDescargarMatriculacionPdf
@@ -2694,8 +2528,8 @@ function Fase6Matriculacion({
             variant="compact"
           />
           <p className="text-xs text-slate-500">
-            El PDF incluye portada, índice, los documentos de esta fase y las
-            referencias cargadas en fases anteriores.
+            El PDF sale con estos recaudos, en este orden, para presentar ante
+            el INTT.
           </p>
         </div>
       </section>

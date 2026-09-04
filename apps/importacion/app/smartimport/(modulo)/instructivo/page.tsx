@@ -77,10 +77,9 @@ const FASES = [
     n: 7,
     titulo: "Matriculación (INTT)",
     puntos: [
-      "Solo se cargan aquí: inspección PNB, PUT, homologación (si aplica).",
-      "Liquidación / exención u oficio del SENIAT (basta con uno).",
-      "Los demás recaudos aparecen como referencia (ya cargados en fases anteriores).",
-      "Genera la carpeta PDF INTT con los nuevos + las referencias del expediente.",
+      "Archivo de 9 recaudos, en orden, precargados del expediente.",
+      "Cédula, RIF, factura, certificado, homologación (si aplica), liquidación SENIAT, constancia de inspección, declaración de propiedad y tasas INTT.",
+      "Genera el PDF para presentar ante el INTT.",
     ],
   },
 ] as const;

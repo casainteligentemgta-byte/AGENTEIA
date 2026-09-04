@@ -23,6 +23,9 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   docsMatriculacionPdfTipos,
+  inttPresentacionRef,
+  PL_INTT_PRESENTACION_LABELS,
+  PL_INTT_PRESENTACION_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
   PL_NACIONALIZACION_M3_TIPOS,
@@ -109,6 +112,7 @@ function expedienteDocTipos(): DocumentoTipo[] {
     PL_DESADUANAMIENTO_NUEVOS_TIPOS,
     [...PL_PAGO_SENIAT_DOCUMENTO_TIPOS],
     [...PL_CONSTANCIA_INSPECCION_TIPO],
+    [...PL_INTT_PRESENTACION_TIPOS],
     ["manual_vehiculo", "cedula", "titulo", "foto_comprador"],
     SEGURO_DOCUMENTO_TIPOS,
     PL_MATRICULACION_NUEVOS_TIPOS,
@@ -801,7 +805,7 @@ export async function buildMatriculacionPdf(
     page,
     font,
     bold,
-    "Carpeta PDF Matriculacion INTT",
+    "Archivo INTT — presentacion",
     `${codigo} · SmartTaller`
   );
 
@@ -832,19 +836,28 @@ export async function buildMatriculacionPdf(
   ));
 
   page = addBlankPage(pdf);
-  y = drawHeader(page, font, bold, "Indice — Carpeta INTT", codigo);
-  y = drawSectionTitle(page, bold, "Documentos (referencia + carga)", y);
+  y = drawHeader(page, font, bold, "Indice — Archivo INTT", codigo);
+  y = drawSectionTitle(page, bold, "Documentos en orden de presentacion", y);
 
   const carpetaTipos = docsMatriculacionPdfTipos(requiereHomologacion);
-  const indexPairs: LinePair[] = carpetaTipos.map((tipo, i) => ({
-    label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
-    value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
-  }));
+  const indexPairs: LinePair[] = PL_INTT_PRESENTACION_TIPOS.map((tipo, i) => {
+    const label =
+      PL_INTT_PRESENTACION_LABELS[tipo] ?? DOCUMENTO_LABELS[tipo];
+    if (tipo === "homologacion" && !requiereHomologacion) {
+      return { label: `${i + 1}. ${label}`, value: "No aplica" };
+    }
+    return {
+      label: `${i + 1}. ${label}`,
+      value: inttPresentacionRef(ficha.documentos, tipo)?.url
+        ? "Cargado"
+        : "Pendiente",
+    };
+  });
   ({ page, y } = drawPairs(pdf, page, font, bold, indexPairs, y));
 
   page.drawText(
     winAnsi(
-      "Carpeta PDF para tramite INTT. Incluye recaudos de fases anteriores y los de Matriculacion."
+      "Archivo para presentar ante el INTT. Recaudos precargados del expediente, en este orden."
     ),
     {
       x: MARGIN,
@@ -857,26 +870,25 @@ export async function buildMatriculacionPdf(
 
   const pagesUsed = { count: 0 };
   for (const tipo of carpetaTipos) {
-    const url = ficha.documentos[tipo]?.url;
+    const url = inttPresentacionRef(ficha.documentos, tipo)?.url;
+    const label =
+      tipo in PL_INTT_PRESENTACION_LABELS
+        ? PL_INTT_PRESENTACION_LABELS[
+            tipo as keyof typeof PL_INTT_PRESENTACION_LABELS
+          ]
+        : DOCUMENTO_LABELS[tipo];
     if (!url) {
       separatorPage(
         pdf,
         bold,
         font,
-        DOCUMENTO_LABELS[tipo],
+        label,
         "Documento pendiente de carga en el expediente digital."
       );
       pagesUsed.count += 1;
       continue;
     }
-    await appendAttachment(
-      pdf,
-      bold,
-      font,
-      DOCUMENTO_LABELS[tipo],
-      url,
-      pagesUsed
-    );
+    await appendAttachment(pdf, bold, font, label, url, pagesUsed);
   }
 
   return pdf.save({ useObjectStreams: false });
