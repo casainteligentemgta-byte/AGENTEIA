@@ -33,11 +33,13 @@ import {
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
 import {
+  DASHBOARD_COLA_DESADUANAMIENTO_ID,
   DASHBOARD_COLA_EMBARQUE_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
   DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
+  DASHBOARD_COLA_REGISTRO_ID,
   DASHBOARD_COLA_SEGURO_ID,
 } from "@/lib/importacion/paths";
 import {
@@ -852,6 +854,7 @@ export default async function PuertoLibrePage() {
           dense
           title={porCompletarEtapaTitle(1)}
           icon="file"
+          sectionId={DASHBOARD_COLA_REGISTRO_ID}
           emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(1).toLowerCase()}.`}
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
@@ -900,6 +903,7 @@ export default async function PuertoLibrePage() {
           dense
           title={porCompletarEtapaTitle(4)}
           icon="file"
+          sectionId={DASHBOARD_COLA_DESADUANAMIENTO_ID}
           emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(4).toLowerCase()}.`}
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },

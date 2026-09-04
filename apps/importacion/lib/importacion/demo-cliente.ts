@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { REGIMEN_IMPORTACION_LABELS, REGIMENES_IMPORTACION } from "./regimenes";
-import { IMPORTACION_BASE, SMARTIMPORT_DEMO_EXPEDIENTE_PATH } from "./paths";
+import { IMPORTACION_BASE, SMARTIMPORT_DEMO_EXPEDIENTE_PATH, SMARTIMPORT_DEMO_FASES_PATH } from "./paths";
 
 export const DEMO_CUESTIONARIO_STORAGE_KEY = "smartimport-demo-cliente-v1";
 
@@ -293,6 +293,14 @@ export const DEMO_PROBAR_ACCIONES = [
       "Una carga con factura + certificado, se unifica en un BL y se parte en 3 expedientes Hilux. Los PDF salen de la nube.",
     href: demoProbarLoginHref(SMARTIMPORT_DEMO_EXPEDIENTE_PATH),
     cta: "Abrir carga y cargar PDF",
+  },
+  {
+    id: "fases",
+    titulo: "Un expediente por fase",
+    detalle:
+      "Deja un Hilux de prueba en cada cola (registro → placa) para recorrer el dashboard.",
+    href: demoProbarLoginHref(SMARTIMPORT_DEMO_FASES_PATH),
+    cta: "Crear 8 expedientes",
   },
 ] as const;
 
