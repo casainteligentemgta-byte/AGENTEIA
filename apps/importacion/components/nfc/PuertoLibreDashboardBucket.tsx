@@ -25,6 +25,7 @@ import {
   type DashboardFichaIdentidad,
 } from "@/lib/importacion/dashboard-ficha";
 import { compareExpedienteLabelsAsc } from "@/lib/importacion/expediente";
+import { BuqueTrackingChip } from "@/components/nfc/BuqueTrackingChip";
 import {
   DashboardBlLineas,
   type DashboardBucketLinea,
@@ -51,6 +52,9 @@ export type DashboardBucketRow = {
   searchText: string;
   /** Mercancía apilada bajo el BL (expediente + ficha). */
   lineas?: DashboardBucketLinea[];
+  /** Nº BL para ubicar el buque y contar días a la llegada. */
+  numeroBl?: string | null;
+  fechaLlegadaBuque?: string | null;
   actionLabel: string;
   actionTone?: "cyan" | "red" | "sky" | "amber";
   urgent?: boolean;
@@ -491,6 +495,8 @@ export function PuertoLibreDashboardBucket({
                                 lineas={row.lineas}
                                 resumen={sub}
                                 titleClassName={EXPEDIENTE_CODE_CLASS}
+                                numeroBl={row.numeroBl}
+                                fechaLlegadaBuque={row.fechaLlegadaBuque}
                               />
                             </td>
                           );
@@ -532,6 +538,11 @@ export function PuertoLibreDashboardBucket({
                                 {sub}
                               </p>
                             ) : null}
+                            <BuqueTrackingChip
+                              numeroBl={row.numeroBl}
+                              fechaLlegadaBuque={row.fechaLlegadaBuque}
+                              compact
+                            />
                           </td>
                         );
                       }
