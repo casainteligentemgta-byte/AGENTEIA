@@ -16,6 +16,9 @@ export const DOCUMENTO_TIPOS = [
   "cedula",
   "cedula_importador",
   "rif_importador",
+  "acta_constitutiva",
+  "constancia_domicilio",
+  "comprobante_inscripcion_tributaria",
   "titulo",
   "factura_comercial",
   "bl_guia",
@@ -82,6 +85,9 @@ export const vehiculosDocumentosSchema = z.object({
   cedula: vehiculoDocumentoRefSchema.optional(),
   cedula_importador: vehiculoDocumentoRefSchema.optional(),
   rif_importador: vehiculoDocumentoRefSchema.optional(),
+  acta_constitutiva: vehiculoDocumentoRefSchema.optional(),
+  constancia_domicilio: vehiculoDocumentoRefSchema.optional(),
+  comprobante_inscripcion_tributaria: vehiculoDocumentoRefSchema.optional(),
   titulo: vehiculoDocumentoRefSchema.optional(),
   factura_comercial: vehiculoDocumentoRefSchema.optional(),
   bl_guia: vehiculoDocumentoRefSchema.optional(),
@@ -150,8 +156,11 @@ export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
 
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   cedula: "Cédula del comprador",
-  cedula_importador: "Cédula del importador",
-  rif_importador: "RIF del importador (dir. Nueva Esparta, Venezuela)",
+  cedula_importador: "Cédula de identidad o pasaporte (laminado y vigente)",
+  rif_importador: "RIF vigente (Registro de Información Fiscal)",
+  acta_constitutiva: "Acta constitutiva de la empresa",
+  constancia_domicilio: "Constancia de domicilio",
+  comprobante_inscripcion_tributaria: "Comprobante de inscripción tributaria",
   titulo: "Título de propiedad",
   factura_comercial: "Factura de compra",
   bl_guia: "BL / Guía",
@@ -237,6 +246,37 @@ export const PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS: DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
 ];
+
+/**
+ * Papeles del importador en Embarque (vienen del cliente si ya están).
+ * El acta constitutiva solo aplica a persona jurídica.
+ */
+export const PL_EMBARQUE_IMPORTADOR_DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  "rif_importador",
+  "cedula_importador",
+  "constancia_domicilio",
+  "comprobante_inscripcion_tributaria",
+  "acta_constitutiva",
+];
+
+export function embarqueImportadorTipos(
+  esJuridica: boolean
+): DocumentoTipo[] {
+  if (esJuridica) return [...PL_EMBARQUE_IMPORTADOR_DOCUMENTO_TIPOS];
+  return PL_EMBARQUE_IMPORTADOR_DOCUMENTO_TIPOS.filter(
+    (t) => t !== "acta_constitutiva"
+  );
+}
+
+/** BL + lista + docs del importador (acta solo si es jurídica). */
+export function embarqueDocumentosObligatorios(
+  esJuridica: boolean
+): DocumentoTipo[] {
+  return [
+    ...PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
+    ...embarqueImportadorTipos(esJuridica),
+  ];
+}
 
 /**
  * Documentos de llegada (fase 3 UI): AR y constancia EDI / reconocimiento.
@@ -342,6 +382,9 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "constancia_edi_reconocimiento",
   "cedula_importador",
   "rif_importador",
+  "acta_constitutiva",
+  "constancia_domicilio",
+  "comprobante_inscripcion_tributaria",
   "sencamer",
   "registro_puerto_libre",
   "agente_aduanal_doc",
@@ -449,8 +492,8 @@ export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
   bl_guia: "Desde fase Embarque",
   nacionalizacion: "Desde fase Desaduanamiento (DUA)",
   rcv_seguro: "Desde fase Seguro",
-  cedula_importador: "Desde fase Desaduanamiento",
-  rif_importador: "Desde fase Desaduanamiento",
+  cedula_importador: "Desde fase Embarque",
+  rif_importador: "Desde fase Embarque",
   constancia_residencia_permanencia: "Desde fase Desaduanamiento",
   planilla_liquidacion_aduanera: "Liquidación de impuestos / tasas aduaneras",
   oficio_exoneracion_seniat: "Oficio de exención / exoneración del SENIAT",

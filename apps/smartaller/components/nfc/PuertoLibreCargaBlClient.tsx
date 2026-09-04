@@ -45,6 +45,9 @@ const DOC_HINT: Partial<Record<DocumentoTipo, string>> = {
   constancia_edi_reconocimiento: "Reconocimiento / constancia EDI",
   cedula_importador: "Del cliente, o cárgala aquí",
   rif_importador: "Del cliente (dir. Nueva Esparta), o cárgalo aquí",
+  constancia_domicilio: "Del cliente, o cárgala aquí",
+  comprobante_inscripcion_tributaria: "Del cliente, o cárgalo aquí",
+  acta_constitutiva: "Solo persona jurídica · del cliente o cárgala aquí",
   nacionalizacion: "DUA de la carga",
   dav: "DAV de la carga",
   sencamer: "SENCAMER del lote",
@@ -352,7 +355,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
 
       <CargaBlDocSection
         title="Embarque y llegada"
-        hint="BL, lista, póliza de la carga, acta de recepción y reconocimiento."
+        hint="BL, lista, póliza de la carga, acta de recepción, reconocimiento y papeles del importador que falten."
         tipos={DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE}
         docs={docs}
         sourceVehiculoId={lote.sourceVehiculoId}

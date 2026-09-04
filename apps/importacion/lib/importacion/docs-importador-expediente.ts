@@ -1,10 +1,26 @@
+import type { ImportadorDocTipo } from "@/lib/importadores/documentos";
 import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import type {
+  DocumentoTipo,
   VehiculoDocumentoRef,
   VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 
-export type DocImportadorExpediente = "cedula_importador" | "rif_importador";
+export type DocImportadorExpediente =
+  | "cedula_importador"
+  | "rif_importador"
+  | "acta_constitutiva"
+  | "constancia_domicilio"
+  | "comprobante_inscripcion_tributaria";
+
+const CLIENTE_A_EXPEDIENTE: Record<ImportadorDocTipo, DocImportadorExpediente> =
+  {
+    rif: "rif_importador",
+    cedula: "cedula_importador",
+    acta_constitutiva: "acta_constitutiva",
+    constancia_domicilio: "constancia_domicilio",
+    comprobante_inscripcion_tributaria: "comprobante_inscripcion_tributaria",
+  };
 
 function asVehiculoRef(ref: {
   url: string;
@@ -21,8 +37,7 @@ function asVehiculoRef(ref: {
 }
 
 /**
- * Cédula y RIF del cliente → docs del expediente.
- * No pisa un archivo que ya esté en el expediente.
+ * Docs del cliente → expediente. No pisa un archivo que ya esté cargado.
  */
 export function mergeCedulaRifDesdeCliente(
   current: VehiculosDocumentos,
@@ -31,13 +46,14 @@ export function mergeCedulaRifDesdeCliente(
   const next: VehiculosDocumentos = { ...current };
   const added: DocImportadorExpediente[] = [];
 
-  if (cliente.cedula?.url && !current.cedula_importador?.url) {
-    next.cedula_importador = asVehiculoRef(cliente.cedula);
-    added.push("cedula_importador");
-  }
-  if (cliente.rif?.url && !current.rif_importador?.url) {
-    next.rif_importador = asVehiculoRef(cliente.rif);
-    added.push("rif_importador");
+  for (const [clienteTipo, vehiculoTipo] of Object.entries(
+    CLIENTE_A_EXPEDIENTE
+  ) as Array<[ImportadorDocTipo, DocImportadorExpediente]>) {
+    const ref = cliente[clienteTipo];
+    if (!ref?.url) continue;
+    if (current[vehiculoTipo as DocumentoTipo]?.url) continue;
+    next[vehiculoTipo] = asVehiculoRef(ref);
+    added.push(vehiculoTipo);
   }
 
   return { next, added };
