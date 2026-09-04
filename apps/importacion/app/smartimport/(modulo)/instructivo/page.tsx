@@ -53,9 +53,7 @@ const FASES = [
     puntos: [
       "Nombre del agente de aduanas (va en la portada del PDF).",
       "Cédula y RIF del importador (si ya están cargados, puedes reemplazarlos).",
-      "Lista de empaque, DUA, DAV, SENCAMER, constancia del agente, reconocimiento.",
-      "Pago de tasas o impuestos y constancia de residencia permanente.",
-      "Registro de Puerto Libre (solo persona jurídica).",
+      "Lista de empaque, DUA y DAV.",
       "Genera el Expediente PDF SENIAT con esos documentos.",
       "En la misma pantalla, fuera del PDF: carga el pase de salida.",
     ],

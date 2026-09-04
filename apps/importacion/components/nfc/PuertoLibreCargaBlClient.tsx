@@ -372,7 +372,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
 
       <CargaBlDocSection
         title="Desaduanamiento del lote"
-        hint="Cédula y RIF del importador, DUA, DAV, SENCAMER, registro PL, agente, liquidación, residencia y pase de salida."
+        hint="Cédula y RIF del importador, DUA, DAV y pase de salida."
         tipos={DOCUMENTO_TIPOS_CARGA_BL_DESADUANA}
         docs={docs}
         sourceVehiculoId={lote.sourceVehiculoId}

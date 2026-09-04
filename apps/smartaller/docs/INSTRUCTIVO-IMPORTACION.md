@@ -102,15 +102,9 @@ Y completa:
 | 3 | Lista de embarque / empaque |
 | 4 | DUA |
 | 5 | DAV |
-| 6 | SENCAMER |
-| 7 | Registro de Puerto Libre |
-| 8 | Agente aduanal (documento) |
-| 9 | Reconocimiento (EDI, desde Llegada) |
-| 10 | Pase de salida y levante |
-| 11 | Cancelación de gastos portuarios |
-| 12 | Nota del levante (SENIAT) |
+| 6 | Pase de salida y levante |
 
-Según el régimen pueden pedirse extras (ej. constancia de residencia en Puerto Libre).
+Los recaudos SENCAMER, registro PL, constancia del agente, reconocimiento, liquidación de tributos y constancia de residencia quedan fuera de esta fase (siguen guardados si ya se cargaron).
 
 3. Descarga el **Expediente PDF SENIAT** para imprimir / consignar.
 4. **Continuar a Propietario** cuando la carpeta esté completa.

@@ -1974,9 +1974,6 @@ function Fase3Aduana({
           {docTipos.includes("licencia_importacion_automotriz")
             ? ". Incluye licencia de importación (este régimen la pide)"
             : ""}
-          {docTipos.includes("registro_puerto_libre")
-            ? ". Registro PL si es jurídica"
-            : ""}
           .
         </p>
 

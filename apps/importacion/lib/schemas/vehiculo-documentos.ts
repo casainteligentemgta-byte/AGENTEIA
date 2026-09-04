@@ -329,21 +329,18 @@ export const PL_DESADUANAMIENTO_PRECARGA_TIPOS: DocumentoTipo[] = [
   "rif_importador",
 ];
 
+export {
+  PL_DESADUANAMIENTO_RESERVADOS,
+} from "@/lib/importacion/desaduanamiento-reservados";
+
 /**
  * Carpeta completa de desaduanamiento (fase 4 UI).
- * Primero el expediente a presentar; luego recaudos extra.
+ * Primero el expediente a presentar; luego DAV y pase de salida.
  * Incluye el pase de salida (se carga en pantalla pero NO va al Expediente PDF).
- * Registro PL solo aplica a importador jurídico (se filtra en runtime).
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   ...PL_DESADUANAMIENTO_PRESENTAR_TIPOS,
   "dav",
-  "sencamer",
-  "registro_puerto_libre",
-  "agente_aduanal_doc",
-  "constancia_edi_reconocimiento",
-  "planilla_liquidacion_aduanera",
-  "constancia_residencia_permanencia",
   "pase_salida_levante",
 ];
 
@@ -384,11 +381,6 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
   "rif_importador",
   "nacionalizacion",
   "dav",
-  "sencamer",
-  "registro_puerto_libre",
-  "agente_aduanal_doc",
-  "planilla_liquidacion_aduanera",
-  "constancia_residencia_permanencia",
   "pase_salida_levante",
 ];
 

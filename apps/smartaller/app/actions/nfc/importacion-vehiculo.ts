@@ -1870,9 +1870,7 @@ export async function completePuertoLibreFase3Action(
     return {
       success: false,
       error:
-        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, SENCAMER, constancia del agente, reconocimiento, liquidación, residencia y pase de salida" +
-        (esJuridica ? ", registro PL" : "") +
-        " y recaudos del régimen",
+        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, pase de salida y recaudos del régimen",
     };
   }
 
