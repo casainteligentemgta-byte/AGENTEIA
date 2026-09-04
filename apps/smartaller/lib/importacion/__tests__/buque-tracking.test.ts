@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  badgeContadorLlegada,
   detectarNaviera,
   diasHastaLlegadaBuque,
   etiquetaLlegadaBuque,
@@ -31,6 +32,11 @@ describe("buque tracking por BL", () => {
     assert.equal(etiquetaLlegadaBuque(0), "Llega hoy");
     assert.equal(etiquetaLlegadaBuque(-2), "Llegó hace 2 d");
     assert.equal(etiquetaLlegadaBuque(null), null);
+    assert.equal(badgeContadorLlegada(12), "12 d");
+    assert.equal(badgeContadorLlegada(1), "1 d");
+    assert.equal(badgeContadorLlegada(0), "hoy");
+    assert.equal(badgeContadorLlegada(-2), "llegó");
+    assert.equal(badgeContadorLlegada(null), null);
   });
 
   it("sin BL no hay tracking", () => {

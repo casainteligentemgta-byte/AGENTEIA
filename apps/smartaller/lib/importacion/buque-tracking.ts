@@ -109,12 +109,21 @@ export function etiquetaLlegadaBuque(dias: number | null): string | null {
   return `Llega en ${dias} d`;
 }
 
+/** Badge corto para el botón del BL: "12 d", "hoy", "llegó". */
+export function badgeContadorLlegada(dias: number | null): string | null {
+  if (dias == null) return null;
+  if (dias < 0) return "llegó";
+  if (dias === 0) return "hoy";
+  return `${dias} d`;
+}
+
 export type BuqueTracking = {
   numeroBl: string;
   navieraNombre: string | null;
   trackingUrl: string;
   dias: number | null;
   llegadaLabel: string | null;
+  contadorBadge: string | null;
 };
 
 export function resolveBuqueTracking(params: {
@@ -132,5 +141,6 @@ export function resolveBuqueTracking(params: {
     trackingUrl: naviera ? naviera.trackingUrl(numeroBl) : searatesBlUrl(numeroBl),
     dias,
     llegadaLabel: etiquetaLlegadaBuque(dias),
+    contadorBadge: badgeContadorLlegada(dias),
   };
 }

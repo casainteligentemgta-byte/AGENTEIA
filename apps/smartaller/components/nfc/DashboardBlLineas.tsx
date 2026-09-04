@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { BuqueTrackingChip } from "@/components/nfc/BuqueTrackingChip";
+import {
+  BuqueLlegadaBadge,
+  BuqueTrackingChip,
+} from "@/components/nfc/BuqueTrackingChip";
 import { blLineasToggleLabel } from "@/lib/importacion/dashboard-cola-bl";
 
 export type DashboardBucketLinea = {
@@ -49,11 +52,12 @@ export function DashboardBlLineas({
           href={href}
           className={
             open
-              ? `${titleClassName} block min-w-0`
-              : `${titleClassName} block min-w-0 text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
+              ? `${titleClassName} flex min-w-0 items-center gap-2`
+              : `${titleClassName} flex min-w-0 items-center gap-2 text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
           }
         >
-          {blLabel}
+          <span className="min-w-0 truncate">{blLabel}</span>
+          <BuqueLlegadaBadge fechaLlegadaBuque={fechaLlegadaBuque} />
         </Link>
         <button
           type="button"
@@ -74,6 +78,7 @@ export function DashboardBlLineas({
         numeroBl={numeroBl ?? blLabel.replace(/^BL\s+/i, "")}
         fechaLlegadaBuque={fechaLlegadaBuque}
         compact
+        showCountdown={false}
       />
 
       {open ? (
