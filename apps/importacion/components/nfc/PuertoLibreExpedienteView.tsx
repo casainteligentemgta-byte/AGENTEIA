@@ -26,6 +26,7 @@ import {
 } from "@/lib/importacion/regimenes";
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -211,6 +212,17 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Fecha ingreso al PL" value={imp.fechaIngreso} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
+          <Dato label="Tasa oficial fecha" value={imp.tasaOficialFecha} />
+          <Dato
+            label="Pago aranceles"
+            value={
+              imp.pagoArancelesEstado === "pagado"
+                ? "Pagado"
+                : imp.pagoArancelesUsd != null
+                  ? "Pendiente"
+                  : null
+            }
+          />
           <Dato label="Arancel %" value={imp.arancelPct} />
           <Dato label="Lujo %" value={imp.impuestoLujoPct} />
           <Dato label="Nº expediente SENIAT" value={imp.numeroExpedienteSeniat} mono />
@@ -254,6 +266,19 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         impuestoLujoPct={imp.impuestoLujoPct}
         tasaCambioBcv={imp.tasaCambioBcv}
         partidaArancelaria={imp.partidaArancelaria}
+        canEdit={canMutate}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        valorCif={imp.valorCif}
+        arancelPct={imp.arancelPct}
+        impuestoLujoPct={imp.impuestoLujoPct}
+        tasaCambioBcv={imp.tasaCambioBcv}
+        tasaOficialFecha={imp.tasaOficialFecha}
+        pagoArancelesEstado={imp.pagoArancelesEstado}
+        pagoArancelesUsd={imp.pagoArancelesUsd}
+        pagoArancelesBs={imp.pagoArancelesBs}
         canEdit={canMutate}
       />
 

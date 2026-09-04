@@ -5,6 +5,7 @@ import {
   formatTasaBcvInput,
   hintTasaBcv,
   lookupTasaBcv,
+  todayYmdCaracas,
 } from "@/lib/importacion/tasa-bcv";
 
 export type TasaBcvActionResult =
@@ -31,4 +32,9 @@ export async function getTasaBcvAction(
     hint: hintTasaBcv(lookup),
     fechaVigente: lookup.fechaVigente,
   };
+}
+
+/** Tasa oficial SENIAT/BCV del día civil en Venezuela. */
+export async function getTasaOficialHoyAction(): Promise<TasaBcvActionResult> {
+  return getTasaBcvAction(todayYmdCaracas());
 }

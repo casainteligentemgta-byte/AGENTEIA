@@ -41,6 +41,13 @@ import {
   clampImpuestoLujoPct,
   precalcularAranceles,
 } from "@/lib/importacion/precalculo-aranceles";
+import {
+  aplicarTasaOficialAlPago,
+  debeActualizarTasaOficial,
+  marcarPagoAranceles,
+  snapshotPagoAranceles,
+} from "@/lib/importacion/pago-aranceles";
+import { lookupTasaBcv, todayYmdCaracas } from "@/lib/importacion/tasa-bcv";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
@@ -1504,6 +1511,14 @@ export async function savePrecalculoArancelesAction(
     tarifaAdValoremPct: calc.arancelPct,
     costosArancelariosUsd: calc.arancelUsd,
     costoTotalLandedUsd: calc.totalUsd,
+    pagoArancelesUsd:
+      existing.pagoArancelesEstado === "pagado"
+        ? existing.pagoArancelesUsd
+        : calc.totalUsd,
+    pagoArancelesBs:
+      existing.pagoArancelesEstado === "pagado"
+        ? existing.pagoArancelesBs
+        : calc.totalBs,
   });
 
   const admin = createAdminClient();
@@ -1516,6 +1531,129 @@ export async function savePrecalculoArancelesAction(
   if (error) return { success: false, error: error.message };
   revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
+}
+
+export type PagoArancelesActionResult =
+  | {
+      success: true;
+      totalUsd: number | null;
+      totalBs: number | null;
+      tasa: number | null;
+      fecha: string | null;
+      estado: "pendiente" | "pagado";
+      hint?: string;
+    }
+  | { success: false; error: string };
+
+/**
+ * Reconvierte el precálculo a Bs con la tasa oficial del día (Caracas).
+ * No pisa un pago ya registrado.
+ */
+export async function ensureTasaOficialHoyAction(
+  raw: unknown
+): Promise<PagoArancelesActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z.object({ vehiculoId: z.string().uuid() }).safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Vehículo inválido" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const hoy = todayYmdCaracas();
+  const lookup = await lookupTasaBcv(hoy);
+  if (!lookup) {
+    return { success: false, error: "No se pudo leer la tasa oficial SENIAT/BCV" };
+  }
+
+  let next = existing;
+  if (debeActualizarTasaOficial(existing, hoy)) {
+    next = aplicarTasaOficialAlPago(existing, lookup);
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("vehiculos")
+      .update({
+        importacion: serializeImportacion(next),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", parsed.data.vehiculoId)
+      .eq("taller_id", auth.taller.id);
+    if (error) return { success: false, error: error.message };
+    revalidateFicha(parsed.data.vehiculoId);
+  }
+
+  const snap = snapshotPagoAranceles(next);
+  return {
+    success: true,
+    totalUsd: snap.totalUsd,
+    totalBs: snap.totalBs,
+    tasa: snap.tasaBs ?? lookup.tasa,
+    fecha: snap.tasaFecha ?? lookup.fechaVigente,
+    estado: snap.estado,
+  };
+}
+
+const registrarPagoSchema = z.object({
+  vehiculoId: z.string().uuid(),
+});
+
+/** Marca el pago de aranceles en Bs y congela tasa y monto. */
+export async function registrarPagoArancelesAction(
+  raw: unknown
+): Promise<PagoArancelesActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = registrarPagoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Vehículo inválido" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const hoy = todayYmdCaracas();
+  const lookup = await lookupTasaBcv(hoy);
+  const conTasa =
+    existing.pagoArancelesEstado === "pagado" || !lookup
+      ? existing
+      : aplicarTasaOficialAlPago(existing, lookup);
+  const snapPre = snapshotPagoAranceles(conTasa);
+  if (snapPre.totalUsd == null) {
+    return { success: false, error: "Guarda el precálculo (CIF) antes de pagar" };
+  }
+
+  const next = marcarPagoAranceles(conTasa, new Date().toISOString());
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      importacion: serializeImportacion(next),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+
+  const snap = snapshotPagoAranceles(next);
+  return {
+    success: true,
+    totalUsd: snap.totalUsd,
+    totalBs: snap.totalBs,
+    tasa: snap.tasaBs,
+    fecha: snap.tasaFecha,
+    estado: snap.estado,
+  };
 }
 
 const desaduanamientoCompleteSchema = z.object({

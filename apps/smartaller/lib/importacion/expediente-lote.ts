@@ -55,6 +55,8 @@ export const IMPORTACION_CAMPOS_LOTE = [
   "numeroBl",
   "paisOrigen",
   "tasaCambioBcv",
+  "tasaOficialFecha",
+  "tasaOficialFuente",
   "arancelPct",
   "impuestoLujoPct",
   "numeroExpedienteSeniat",

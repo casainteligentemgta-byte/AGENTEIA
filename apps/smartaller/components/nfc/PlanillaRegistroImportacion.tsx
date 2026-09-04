@@ -34,6 +34,7 @@ import {
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
 import { PropietarioCedulaScan } from "@/components/nfc/PropietarioCedulaScan";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import {
@@ -681,6 +682,10 @@ export function PlanillaRegistroImportacion({
           arancelPct={initialImportacion.arancelPct ?? initialImportacion.tarifaAdValoremPct}
           impuestoLujoPct={initialImportacion.impuestoLujoPct}
           tasaCambioBcv={initialImportacion.tasaCambioBcv}
+          tasaOficialFecha={initialImportacion.tasaOficialFecha}
+          pagoArancelesEstado={initialImportacion.pagoArancelesEstado}
+          pagoArancelesUsd={initialImportacion.pagoArancelesUsd}
+          pagoArancelesBs={initialImportacion.pagoArancelesBs}
           partidaArancelaria={initialImportacion.partidaArancelaria}
           onComplete={(agenteAduanal, after) => {
             setError(null);
@@ -1973,6 +1978,10 @@ function Fase3Aduana({
   arancelPct,
   impuestoLujoPct,
   tasaCambioBcv,
+  tasaOficialFecha,
+  pagoArancelesEstado,
+  pagoArancelesUsd,
+  pagoArancelesBs,
   partidaArancelaria,
   onComplete,
   onUploadedMessage,
@@ -1993,6 +2002,10 @@ function Fase3Aduana({
   arancelPct?: number | null;
   impuestoLujoPct?: number | null;
   tasaCambioBcv?: number | null;
+  tasaOficialFecha?: string | null;
+  pagoArancelesEstado?: string | null;
+  pagoArancelesUsd?: number | null;
+  pagoArancelesBs?: number | null;
   partidaArancelaria?: string | null;
   onComplete: (agenteAduanal: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
@@ -2089,6 +2102,19 @@ function Fase3Aduana({
         tasaCambioBcv={tasaCambioBcv}
         partidaArancelaria={partidaArancelaria}
         onSaved={() => onUploadedMessage("Precálculo de aranceles guardado")}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        tasaOficialFecha={tasaOficialFecha}
+        pagoArancelesEstado={pagoArancelesEstado}
+        pagoArancelesUsd={pagoArancelesUsd}
+        pagoArancelesBs={pagoArancelesBs}
+        onUpdated={() => onUploadedMessage("Tasa oficial actualizada")}
       />
 
       <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">

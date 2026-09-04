@@ -43,12 +43,27 @@ async function fetchJson(url: string): Promise<unknown | null> {
   }
 }
 
+/** Día civil en Venezuela (SENIAT / BCV). No usar UTC: a las 8pm VET ya es el día siguiente. */
+export function todayYmdCaracas(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Caracas",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
 function todayYmd(): string {
-  const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(now.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return todayYmdCaracas();
+}
+
+/** True si la tasa guardada es la oficial de hoy (Caracas). */
+export function tasaOficialEsDeHoy(
+  fecha: string | null | undefined,
+  hoy = todayYmdCaracas()
+): boolean {
+  const day = (fecha ?? "").trim().slice(0, 10);
+  return DATE_RE.test(day) && day === hoy;
 }
 
 /** Tasa oficial BCV (Bs por 1 USD) vigente en esa fecha, o la última publicada. */
@@ -122,5 +137,5 @@ export function hintTasaBcv(lookup: TasaBcvLookup): string {
   if (lookup.fechaVigente && lookup.fechaVigente !== lookup.fechaConsulta) {
     return `Tasa BCV vigente el ${formatFechaCorta(lookup.fechaConsulta)} (publicada ${vigente}).`;
   }
-  return `Tasa BCV oficial del ${vigente}.`;
+  return `Tasa oficial SENIAT (BCV) del ${vigente}.`;
 }

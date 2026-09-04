@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/nfc/importacion-lote";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
 import { formatUsd } from "@/lib/importacion/precalculo-aranceles";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
@@ -375,6 +376,15 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         arancelPct={lote.unidades[0]?.arancelPct}
         impuestoLujoPct={lote.unidades[0]?.impuestoLujoPct}
         tasaCambioBcv={lote.unidades[0]?.tasaCambioBcv ?? undefined}
+        unidades={lote.unidades}
+        canEdit={false}
+      />
+
+      <PagoArancelesCard
+        valorCif={lote.unidades[0]?.valorCif}
+        arancelPct={lote.unidades[0]?.arancelPct}
+        impuestoLujoPct={lote.unidades[0]?.impuestoLujoPct}
+        tasaCambioBcv={lote.unidades[0]?.tasaCambioBcv}
         unidades={lote.unidades}
         canEdit={false}
       />

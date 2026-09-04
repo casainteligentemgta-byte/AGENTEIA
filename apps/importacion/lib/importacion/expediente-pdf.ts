@@ -537,6 +537,13 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Lujo %", value: txt(imp.impuestoLujoPct) },
     { label: "Precálculo total USD", value: txt(precalculoTotalUsd(imp)) },
     { label: "Precálculo total Bs", value: txt(precalculoTotalBs(imp)) },
+    {
+      label: "Pago aranceles",
+      value: txt(
+        imp.pagoArancelesEstado === "pagado" ? "Pagado" : "Pendiente"
+      ),
+    },
+    { label: "Tasa oficial fecha", value: txt(imp.tasaOficialFecha) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
     { label: "Nº DAV", value: txt(imp.numeroDav) },
     { label: "Nº certificado origen", value: txt(imp.numeroCertificadoOrigen) },

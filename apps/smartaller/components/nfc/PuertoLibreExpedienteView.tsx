@@ -28,6 +28,7 @@ import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
 import { PuertoLibrePlazosPanel } from "@/components/nfc/PuertoLibrePlazosPanel";
 import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -222,6 +223,17 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Fecha liquidación SENIAT" value={imp.fechaLiquidacion} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
+          <Dato label="Tasa oficial fecha" value={imp.tasaOficialFecha} />
+          <Dato
+            label="Pago aranceles"
+            value={
+              imp.pagoArancelesEstado === "pagado"
+                ? "Pagado"
+                : imp.pagoArancelesUsd != null
+                  ? "Pendiente"
+                  : null
+            }
+          />
           <Dato label="Ad-Valorem (%)" value={imp.arancelPct ?? imp.tarifaAdValoremPct} />
           <Dato label="Lujo %" value={imp.impuestoLujoPct} />
           <Dato label="Aranceles (USD)" value={imp.costosArancelariosUsd} />
@@ -270,6 +282,19 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         impuestoLujoPct={imp.impuestoLujoPct}
         tasaCambioBcv={imp.tasaCambioBcv}
         partidaArancelaria={imp.partidaArancelaria}
+        canEdit={canMutate}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        valorCif={imp.valorCif}
+        arancelPct={imp.arancelPct}
+        impuestoLujoPct={imp.impuestoLujoPct}
+        tasaCambioBcv={imp.tasaCambioBcv}
+        tasaOficialFecha={imp.tasaOficialFecha}
+        pagoArancelesEstado={imp.pagoArancelesEstado}
+        pagoArancelesUsd={imp.pagoArancelesUsd}
+        pagoArancelesBs={imp.pagoArancelesBs}
         canEdit={canMutate}
       />
 

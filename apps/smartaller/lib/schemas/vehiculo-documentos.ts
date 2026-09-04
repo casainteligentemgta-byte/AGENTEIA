@@ -718,6 +718,13 @@ export const importacionSchema = z.object({
   arancelPct: z.union([z.number(), z.nan()]).optional().nullable(),
   /** % impuesto al lujo (10–15) si CIF > USD 30 000. */
   impuestoLujoPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** Día (America/Caracas) de la última tasa oficial BCV/SENIAT. */
+  tasaOficialFecha: z.string().trim().max(32).optional().nullable(),
+  tasaOficialFuente: z.enum(["bcv", "manual"]).optional().nullable(),
+  pagoArancelesEstado: z.enum(["pendiente", "pagado"]).optional().nullable(),
+  pagoArancelesUsd: z.union([z.number(), z.nan()]).optional().nullable(),
+  pagoArancelesBs: z.union([z.number(), z.nan()]).optional().nullable(),
+  pagoArancelesPagadoAt: z.string().trim().max(40).optional().nullable(),
   /** Cilindrada del motor en cc. */
   cilindradaCc: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tipo de combustible del vehículo. */
@@ -950,6 +957,23 @@ export function parseImportacion(raw: unknown): ImportacionData {
     impuestoLujoPct: asOptionalMoney(
       row.impuestoLujoPct ?? row.impuesto_lujo_pct
     ),
+    tasaOficialFecha: row.tasaOficialFecha ?? row.tasa_oficial_fecha,
+    tasaOficialFuente: asOptionalEnum(
+      row.tasaOficialFuente ?? row.tasa_oficial_fuente,
+      ["bcv", "manual"] as const
+    ),
+    pagoArancelesEstado: asOptionalEnum(
+      row.pagoArancelesEstado ?? row.pago_aranceles_estado,
+      ["pendiente", "pagado"] as const
+    ),
+    pagoArancelesUsd: asOptionalMoney(
+      row.pagoArancelesUsd ?? row.pago_aranceles_usd
+    ),
+    pagoArancelesBs: asOptionalMoney(
+      row.pagoArancelesBs ?? row.pago_aranceles_bs
+    ),
+    pagoArancelesPagadoAt:
+      row.pagoArancelesPagadoAt ?? row.pago_aranceles_pagado_at,
     cilindradaCc:
       typeof row.cilindradaCc === "number"
         ? row.cilindradaCc
@@ -1119,6 +1143,18 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
       data.impuestoLujoPct != null && !Number.isNaN(data.impuestoLujoPct)
         ? data.impuestoLujoPct
         : null,
+    tasa_oficial_fecha: data.tasaOficialFecha?.trim() || null,
+    tasa_oficial_fuente: data.tasaOficialFuente || null,
+    pago_aranceles_estado: data.pagoArancelesEstado || null,
+    pago_aranceles_usd:
+      data.pagoArancelesUsd != null && !Number.isNaN(data.pagoArancelesUsd)
+        ? data.pagoArancelesUsd
+        : null,
+    pago_aranceles_bs:
+      data.pagoArancelesBs != null && !Number.isNaN(data.pagoArancelesBs)
+        ? data.pagoArancelesBs
+        : null,
+    pago_aranceles_pagado_at: data.pagoArancelesPagadoAt?.trim() || null,
     cilindrada_cc:
       data.cilindradaCc != null && !Number.isNaN(data.cilindradaCc)
         ? data.cilindradaCc
