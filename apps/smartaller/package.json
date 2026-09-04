@@ -9,7 +9,7 @@
     "lint": "next lint",
     "qa": "tsx scripts/qa-check.ts",
     "audit:importacion-auth": "tsx scripts/audit-importacion-auth.ts",
-    "test:ocr": "tsx --test lib/importacion/__tests__/*.test.ts"
+    "test:ocr": "tsx --test lib/importacion/__tests__/*.test.ts lib/importadores/__tests__/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",
