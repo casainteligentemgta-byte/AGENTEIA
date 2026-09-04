@@ -39,13 +39,13 @@ export function DashboardBlLineas({
             : "min-w-0 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-2.5"
       }
     >
-      <div className="flex min-w-0 items-start justify-between gap-2">
+      <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={href}
           className={
             open
-              ? `${titleClassName} block min-w-0`
-              : `${titleClassName} block min-w-0 text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
+              ? `${titleClassName} whitespace-nowrap`
+              : `${titleClassName} whitespace-nowrap text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
           }
         >
           {blLabel}
