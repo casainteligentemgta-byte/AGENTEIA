@@ -78,7 +78,7 @@ describe("demoProbarLoginHref", () => {
     assert.match(href, /mode=signup/);
     assert.match(href, /from=demo/);
     assert.match(href, /redirectTo=%2Fsmartimport%2Fclientes/);
-    assert.equal(DEMO_PROBAR_ACCIONES.length, 3);
+    assert.equal(DEMO_PROBAR_ACCIONES.length, 4);
     assert.equal(DEMO_PROBAR_ACCIONES[0].id, "cliente");
     assert.equal(DEMO_PROBAR_ACCIONES[1].id, "importacion");
     assert.equal(DEMO_PROBAR_ACCIONES[2].id, "expediente");
@@ -86,6 +86,12 @@ describe("demoProbarLoginHref", () => {
     assert.match(
       DEMO_PROBAR_ACCIONES[2].href,
       /redirectTo=%2Fsmartimport%2Fexpediente-demo/
+    );
+    assert.equal(DEMO_PROBAR_ACCIONES[3].id, "fases");
+    assert.equal(DEMO_PROBAR_ACCIONES[3].titulo, "Un expediente por fase");
+    assert.match(
+      DEMO_PROBAR_ACCIONES[3].href,
+      /redirectTo=%2Fsmartimport%2Fdemo-fases/
     );
   });
 });

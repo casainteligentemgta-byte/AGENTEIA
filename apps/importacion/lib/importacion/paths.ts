@@ -5,6 +5,9 @@ export const SMARTIMPORT_DEMO_PATH = `${IMPORTACION_BASE}/demo` as const;
 /** Carga precargada (requiere sesión): 3 expedientes + PDF de la nube. */
 export const SMARTIMPORT_DEMO_EXPEDIENTE_PATH =
   `${IMPORTACION_BASE}/expediente-demo` as const;
+/** QA: un expediente por fase de planilla (requiere sesión). */
+export const SMARTIMPORT_DEMO_FASES_PATH =
+  `${IMPORTACION_BASE}/demo-fases` as const;
 /** Ruta anterior; se redirige a IMPORTACION_BASE. */
 export const IMPORTACION_LEGACY_BASE = "/importacion" as const;
 
@@ -35,10 +38,14 @@ export function isImportacionAppPath(path: string): boolean {
   );
 }
 
+/** 1.ª cola del dashboard: Por completar registro. */
+export const DASHBOARD_COLA_REGISTRO_ID = "cola-registro";
 /** 2.ª cola del dashboard: Por completar embarque. */
 export const DASHBOARD_COLA_EMBARQUE_ID = "cola-embarque";
 /** 3.ª cola del dashboard: Por completar llegada. */
 export const DASHBOARD_COLA_LLEGADA_ID = "cola-llegada";
+/** 4.ª cola del dashboard: Por completar desaduanamiento. */
+export const DASHBOARD_COLA_DESADUANAMIENTO_ID = "cola-desaduanamiento";
 /** Cola: Por completar propietario. */
 export const DASHBOARD_COLA_PROPIETARIO_ID = "cola-propietario";
 /** Cola: Por completar seguro. */
@@ -48,9 +55,26 @@ export const DASHBOARD_COLA_MATRICULA_ID = "cola-matricula";
 /** Cola: Por completar placa (foto + título). */
 export const DASHBOARD_COLA_PLACA_ID = "cola-placa";
 
+export const DASHBOARD_COLA_IDS = {
+  1: DASHBOARD_COLA_REGISTRO_ID,
+  2: DASHBOARD_COLA_EMBARQUE_ID,
+  3: DASHBOARD_COLA_LLEGADA_ID,
+  4: DASHBOARD_COLA_DESADUANAMIENTO_ID,
+  5: DASHBOARD_COLA_PROPIETARIO_ID,
+  6: DASHBOARD_COLA_SEGURO_ID,
+  7: DASHBOARD_COLA_MATRICULA_ID,
+  8: DASHBOARD_COLA_PLACA_ID,
+} as const;
+
 /** Dashboard anclado en Por completar llegada. */
 export function hrefDashboardColaLlegada(): string {
   return `${IMPORTACION_BASE}#${DASHBOARD_COLA_LLEGADA_ID}`;
+}
+
+export function hrefDashboardCola(
+  fase: keyof typeof DASHBOARD_COLA_IDS
+): string {
+  return `${IMPORTACION_BASE}#${DASHBOARD_COLA_IDS[fase]}`;
 }
 
 /**
