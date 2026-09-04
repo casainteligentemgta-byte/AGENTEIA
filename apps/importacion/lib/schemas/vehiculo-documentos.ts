@@ -57,6 +57,7 @@ export const DOCUMENTO_TIPOS = [
   "pago_tasas",
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
+  "constancia_nacionalizacion",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -123,6 +124,7 @@ export const vehiculosDocumentosSchema = z.object({
   pago_tasas: vehiculoDocumentoRefSchema.optional(),
   declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
   liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  constancia_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
@@ -163,7 +165,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   nacionalizacion: "Declaración Única de Aduanas (DUA)",
   declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
   planilla_liquidacion_aduanera:
-    "Planilla de liquidación de impuestos y tasas aduaneras",
+    "Liquidación de tributos (comprobante de pago SENIAT)",
   licencia_importacion_automotriz: "Licencia de importación automotriz",
   certificado_uso_consular: "Certificado de uso (consular)",
   oficio_exoneracion_seniat: "Oficio de exoneración SENIAT",
@@ -196,6 +198,8 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   pago_tasas: "Planilla de pago",
   declaracion_complementaria: "Declaración complementaria SENIAT",
   liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
+  constancia_nacionalizacion:
+    "Constancia de nacionalización (autoriza retiro del puerto)",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
@@ -269,6 +273,19 @@ export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 /** Documento de salida: misma pantalla, fuera del Expediente PDF SENIAT. */
 export const PL_PASE_SALIDA_TIPO: DocumentoTipo = "pase_salida_levante";
 
+/** PDFs que emite SENIAT después de pagar aranceles. */
+export const PL_PAGO_SENIAT_DOCUMENTO_TIPOS = [
+  "planilla_liquidacion_aduanera",
+  "constancia_nacionalizacion",
+] as const satisfies readonly DocumentoTipo[];
+
+export function pagoSeniatPdfsListos(
+  docs: VehiculosDocumentos | null | undefined
+): boolean {
+  if (!docs) return false;
+  return PL_PAGO_SENIAT_DOCUMENTO_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
+}
+
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
 export const PL_ADUANA_DOCUMENTO_TIPOS = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS;
 
@@ -300,7 +317,9 @@ export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> =
   constancia_edi_reconocimiento:
     "Desde fase Llegada (Reconocimiento / constancia del estado de la carga)",
   planilla_liquidacion_aduanera:
-    "Pago de tasas o impuestos / planilla de liquidación aduanera",
+    "Liquidación de tributos — comprobante de pago que emite SENIAT",
+  constancia_nacionalizacion:
+    "Constancia de nacionalización — autoriza retirar el vehículo del puerto",
   constancia_residencia_permanencia:
     "Constancia de residencia permanente en zona de Puerto Libre",
   pase_salida_levante:
@@ -355,6 +374,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "pago_tasas",
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
+  "constancia_nacionalizacion",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",

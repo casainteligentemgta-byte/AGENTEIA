@@ -10,6 +10,7 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+  PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
@@ -53,6 +54,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
     new Set<DocumentoTipo>([
       ...PL_EMBARQUE_DOCUMENTO_TIPOS,
       ...PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+      ...PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
       "manual_vehiculo",
       "cedula",
       "titulo",
@@ -295,6 +297,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         pagoArancelesEstado={imp.pagoArancelesEstado}
         pagoArancelesUsd={imp.pagoArancelesUsd}
         pagoArancelesBs={imp.pagoArancelesBs}
+        docs={ficha.documentos}
         canEdit={canMutate}
       />
 

@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Banknote } from "lucide-react";
+import { Banknote, FileUp } from "lucide-react";
 import {
   ensureTasaOficialHoyAction,
   registrarPagoArancelesAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { getTasaOficialHoyAction } from "@/app/actions/nfc/tasa-bcv";
+import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import {
+  DOCUMENTO_LABELS,
+  PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+  pagoSeniatPdfsListos,
+  type VehiculosDocumentos,
+} from "@/lib/schemas/vehiculo-documentos";
 import {
   formatBs,
   formatUsd,
@@ -32,8 +39,11 @@ type Props = {
   pagoArancelesUsd?: number | null;
   pagoArancelesBs?: number | null;
   unidades?: ImportacionPagoFields[];
+  docs?: VehiculosDocumentos;
+  setDocs?: (next: VehiculosDocumentos) => void;
   canEdit?: boolean;
   onUpdated?: () => void;
+  onUploadedMessage?: (msg: string) => void;
 };
 
 export function PagoArancelesCard({
@@ -47,8 +57,11 @@ export function PagoArancelesCard({
   pagoArancelesUsd,
   pagoArancelesBs,
   unidades,
+  docs,
+  setDocs,
   canEdit = Boolean(vehiculoId),
   onUpdated,
+  onUploadedMessage,
 }: Props) {
   const initial = snapshotPagoAranceles({
     valorCif,
@@ -67,6 +80,11 @@ export function PagoArancelesCard({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [localDocs, setLocalDocs] = useState<VehiculosDocumentos>(docs ?? {});
+
+  useEffect(() => {
+    if (docs) setLocalDocs(docs);
+  }, [docs]);
 
   const lote = useMemo(
     () => (unidades && unidades.length > 1 ? sumarPagosBs(unidades) : null),
@@ -218,6 +236,92 @@ export function PagoArancelesCard({
         <p className="mt-3 text-sm text-emerald-300">{message}</p>
       ) : null}
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
+
+      {pagado && vehiculoId ? (
+        <div className="mt-6 border-t border-emerald-900/40 pt-5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <FileUp className="h-4 w-4 text-emerald-400" />
+            SENIAT emitió — cargar en PDF
+            <span
+              className={`rounded-md px-2 py-0.5 text-[11px] font-normal ${
+                pagoSeniatPdfsListos(localDocs)
+                  ? "bg-emerald-950/70 text-emerald-300"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {PL_PAGO_SENIAT_DOCUMENTO_TIPOS.filter((t) => localDocs[t]?.url).length}
+              /{PL_PAGO_SENIAT_DOCUMENTO_TIPOS.length}
+            </span>
+          </h3>
+          <p className="mt-2 text-sm text-slate-400">
+            Liquidación de tributos (comprobante de pago) y constancia de
+            nacionalización, que autoriza retirar el vehículo del puerto.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {PL_PAGO_SENIAT_DOCUMENTO_TIPOS.map((tipo, index) => {
+              const loaded = Boolean(localDocs[tipo]?.url);
+              return (
+                <li
+                  key={tipo}
+                  className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:p-4"
+                >
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-100">
+                      {index + 1}. {DOCUMENTO_LABELS[tipo]}
+                    </p>
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                        loaded
+                          ? "bg-emerald-950/60 text-emerald-300"
+                          : "bg-amber-950/60 text-amber-200"
+                      }`}
+                    >
+                      {loaded ? "Listo" : "PDF pendiente"}
+                    </span>
+                  </div>
+                  <p className="mb-3 text-xs text-slate-500">
+                    {tipo === "constancia_nacionalizacion"
+                      ? "Autoriza retirar el vehículo del puerto. Solo PDF."
+                      : "Comprobante de pago de tributos. Solo PDF."}
+                  </p>
+                  {loaded && localDocs[tipo]?.url ? (
+                    <a
+                      href={localDocs[tipo]!.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
+                    >
+                      Ver PDF
+                    </a>
+                  ) : null}
+                  {canEdit ? (
+                    <ImportDocumentoUpload
+                      vehiculoId={vehiculoId}
+                      tipo={tipo}
+                      existingUrl={localDocs[tipo]?.url}
+                      acceptMode="pdf"
+                      hint="PDF · máx. 10 MB"
+                      actionLabel={loaded ? "Reemplazar PDF" : "Cargar PDF"}
+                      onUploaded={(next) => {
+                        setLocalDocs(next);
+                        setDocs?.(next);
+                        onUploadedMessage?.(
+                          `${DOCUMENTO_LABELS[tipo]} cargado`
+                        );
+                      }}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : !pagado ? (
+        <p className="mt-4 text-xs text-slate-500">
+          Tras registrar el pago, SENIAT emite la liquidación de tributos y la
+          constancia de nacionalización. Cárgalas aquí en PDF.
+        </p>
+      ) : null}
     </section>
   );
 }

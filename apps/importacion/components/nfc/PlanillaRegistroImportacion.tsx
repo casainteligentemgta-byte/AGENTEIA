@@ -2041,7 +2041,10 @@ function Fase3Aduana({
         pagoArancelesEstado={pagoArancelesEstado}
         pagoArancelesUsd={pagoArancelesUsd}
         pagoArancelesBs={pagoArancelesBs}
+        docs={docs}
+        setDocs={setDocs}
         onUpdated={() => onUploadedMessage("Tasa oficial actualizada")}
+        onUploadedMessage={onUploadedMessage}
       />
 
       <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
