@@ -11,8 +11,7 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
-  PL_EMBARQUE_DOCUMENTO_TIPOS,
-  PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
+  embarqueDocumentosObligatorios,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   constanciaInspeccionLista,
@@ -63,7 +62,10 @@ import {
 } from "@/lib/importacion/entrega-placa-planilla";
 import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
 import { parseImportadorDocumentos } from "@/lib/importadores/upload-documento";
-import { copyCedulaRifClienteOntoVehiculos } from "@/lib/importacion/expediente-lote-sync";
+import {
+  copyCedulaRifClienteOntoVehiculos,
+  loadImportadorDocumentos,
+} from "@/lib/importacion/expediente-lote-sync";
 import { uploadVehiculoDocumento, validateVehiculoDocumentoFile, VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 import { nfcPinSchema } from "@/lib/validations/nfc";
 import { puertoLibreAltaSchema } from "@/lib/schemas/importacion-alta";
@@ -1378,14 +1380,28 @@ export async function completePuertoLibreFase2EmbarqueAction(
   const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
-  const docs = parseVehiculosDocumentos(row.documentos);
-  const faltantes = PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.filter(
+  const existing = parseImportacion(row.importacion);
+  const admin = createAdminClient();
+  const clienteDocs = await loadImportadorDocumentos({
+    admin,
+    tallerId: auth.taller.id,
+    importadorId: existing.importadorId,
+  });
+  const docs = mergeCedulaRifDesdeCliente(
+    parseVehiculosDocumentos(row.documentos),
+    clienteDocs
+  ).next;
+  const esJuridica =
+    clasificarTipoImportadorPorRif(existing.importadorDocumento) ===
+    "juridica";
+  const faltantes = embarqueDocumentosObligatorios(esJuridica).filter(
     (t) => !docs[t]?.url
   );
   if (faltantes.length > 0) {
     return {
       success: false,
-      error: "Carga BL/Guía y lista de empaque (póliza de transporte es opcional)",
+      error:
+        "Carga BL/Guía, lista de empaque y los documentos del importador (RIF, cédula o pasaporte, domicilio e inscripción tributaria). La póliza es opcional.",
     };
   }
 
@@ -1400,7 +1416,6 @@ export async function completePuertoLibreFase2EmbarqueAction(
     };
   }
 
-  const existing = parseImportacion(row.importacion);
   const regimen = parsed.data.regimen;
   const prevEstado = existing.estadoNacionalizacion ?? "pendiente";
   const importacion = serializeImportacion({
@@ -1431,10 +1446,13 @@ export async function completePuertoLibreFase2EmbarqueAction(
     planillaFase: Math.max(existing.planillaFase ?? 2, 3),
   });
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from("vehiculos")
-    .update({ importacion, updated_at: new Date().toISOString() })
+    .update({
+      importacion,
+      documentos: docs,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", parsed.data.vehiculoId)
     .eq("taller_id", auth.taller.id);
 

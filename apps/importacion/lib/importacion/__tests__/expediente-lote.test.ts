@@ -146,11 +146,14 @@ describe("expediente lote vs unidad", () => {
       "poliza_transporte",
       "acta_recepcion_mercancia",
       "constancia_edi_reconocimiento",
+      "constancia_domicilio",
+      "comprobante_inscripcion_tributaria",
+      "acta_constitutiva",
     ]);
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));
-    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 17);
+    assert.equal(DOCUMENTO_TIPOS_CARGA_BL.length, 20);
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL.includes("factura_comercial"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL.includes("certificado_origen"));
     assert.equal(isDocumentoLote("poliza_transporte"), true);

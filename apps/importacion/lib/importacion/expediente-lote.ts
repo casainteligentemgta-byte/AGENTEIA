@@ -25,6 +25,9 @@ export const DOCUMENTO_TIPOS_LOTE: readonly DocumentoTipo[] = [
   "constancia_edi_reconocimiento",
   "cedula_importador",
   "rif_importador",
+  "acta_constitutiva",
+  "constancia_domicilio",
+  "comprobante_inscripcion_tributaria",
   "sencamer",
   "registro_puerto_libre",
   "agente_aduanal_doc",
@@ -160,6 +163,9 @@ export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE: readonly DocumentoTipo[] = [
   "poliza_transporte",
   "acta_recepcion_mercancia",
   "constancia_edi_reconocimiento",
+  "constancia_domicilio",
+  "comprobante_inscripcion_tributaria",
+  "acta_constitutiva",
 ];
 
 export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [

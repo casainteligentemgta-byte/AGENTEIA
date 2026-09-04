@@ -75,7 +75,8 @@ import {
   PL_DESADUANAMIENTO_ORIGEN,
   PL_DESADUANAMIENTO_PRECARGA_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
-  PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
+  embarqueDocumentosObligatorios,
+  embarqueImportadorTipos,
   PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_ENTREGA_PLACA_ORIGEN,
@@ -257,10 +258,13 @@ export function PlanillaRegistroImportacion({
     MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS
   );
   const embarqueCount = countDocs(docs, PL_EMBARQUE_DOCUMENTO_TIPOS);
-  const embarqueObligatoriosCount = countDocs(
-    docs,
-    PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS
+  const embarqueImportadorTiposList = embarqueImportadorTipos(
+    esImportadorJuridico
   );
+  const embarqueObligatorios = embarqueDocumentosObligatorios(
+    esImportadorJuridico
+  );
+  const embarqueObligatoriosCount = countDocs(docs, embarqueObligatorios);
   const aduanaCount = countDocs(docs, desaduanamientoTipos);
   const checklistMarked = useMemo(
     () => LLEGADA_CHECKLIST_ITEMS.filter((i) => Boolean(checklist[i.id])).length,
@@ -284,7 +288,7 @@ export function PlanillaRegistroImportacion({
   });
 
   const embarqueCompleto =
-    embarqueObligatoriosCount === PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS.length;
+    embarqueObligatoriosCount === embarqueObligatorios.length;
 
   const llegadaDocsCount = countDocs(docs, PL_LLEGADA_DOCUMENTO_TIPOS);
   const llegadaCompleta =
@@ -571,6 +575,9 @@ export function PlanillaRegistroImportacion({
           docs={docs}
           setDocs={setDocs}
           docsCount={embarqueCount}
+          importadorDocsCount={countDocs(docs, embarqueImportadorTiposList)}
+          importadorDocsTotal={embarqueImportadorTiposList.length}
+          esJuridica={esImportadorJuridico}
           pending={pending}
           canCompleteDocs={embarqueCompleto}
           initial={{
@@ -1231,6 +1238,9 @@ function Fase2Embarque({
   docs,
   setDocs,
   docsCount,
+  importadorDocsCount,
+  importadorDocsTotal,
+  esJuridica,
   pending,
   canCompleteDocs,
   initial,
@@ -1241,6 +1251,9 @@ function Fase2Embarque({
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
+  importadorDocsCount: number;
+  importadorDocsTotal: number;
+  esJuridica: boolean;
   pending: boolean;
   canCompleteDocs: boolean;
   initial: EmbarqueDatosForm;
@@ -1346,6 +1359,10 @@ function Fase2Embarque({
             {docsCount}/{PL_EMBARQUE_DOCUMENTO_TIPOS.length}
           </span>
         </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Obligatorios: BL y lista de empaque. La póliza de transporte es
+          opcional para continuar a Llegada.
+        </p>
         <div className="mt-4 grid gap-3">
           {PL_EMBARQUE_DOCUMENTO_TIPOS.map((tipo) => (
             <ImportDocumentoUpload
@@ -1354,7 +1371,13 @@ function Fase2Embarque({
               tipo={tipo}
               existingUrl={docs[tipo]?.url}
               acceptMode="both"
-              hint={docs[tipo]?.url ? "" : "Foto o PDF · máx. 10 MB"}
+              hint={
+                docs[tipo]?.url
+                  ? ""
+                  : tipo === "poliza_transporte"
+                    ? "Opcional · foto o PDF · máx. 10 MB"
+                    : "Foto o PDF · máx. 10 MB"
+              }
               actionLabel={docs[tipo]?.url ? "Sustituir" : "Escanear / PDF"}
               onUploaded={(next) => {
                 setDocs(next);
@@ -1371,6 +1394,42 @@ function Fase2Embarque({
                       : "Documento guardado"
                   );
                 }
+              }}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <FileUp className="h-5 w-5 text-cyan-400" />
+          Documentos del importador
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {importadorDocsCount}/{importadorDocsTotal}
+          </span>
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Si ya están en el cliente, aparecen aquí. Si faltan, cárgalos para
+          continuar a Llegada
+          {esJuridica ? " (incluye acta constitutiva)" : ""}.
+        </p>
+        <div className="mt-4 grid gap-3">
+          {embarqueImportadorTipos(esJuridica).map((tipo) => (
+            <ImportDocumentoUpload
+              key={tipo}
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={docs[tipo]?.url}
+              acceptMode="both"
+              hint={
+                docs[tipo]?.url
+                  ? "Ya estaba en el cliente o en este expediente"
+                  : "Foto o PDF · máx. 10 MB"
+              }
+              actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
+              onUploaded={(next) => {
+                setDocs(next);
+                onUploadedMessage("Documento del importador guardado");
               }}
             />
           ))}

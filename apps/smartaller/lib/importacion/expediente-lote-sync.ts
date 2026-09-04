@@ -323,7 +323,8 @@ export async function loadImportadorDocumentos(params: {
 }
 
 /**
- * Copia cédula y RIF del cliente a los expedientes que aún no los tienen.
+ * Copia los papeles del cliente (RIF, cédula, domicilio, inscripción, acta)
+ * a los expedientes que aún no los tienen.
  * Devuelve los documentos del primer id (ya fusionados).
  */
 export async function copyCedulaRifClienteOntoVehiculos(params: {
