@@ -104,7 +104,7 @@ export const DEMO_PLACA_LABELS: Record<
   z.infer<typeof demoPlacaQuienSchema>,
   string
 > = {
-  ellos: "ellos cargan placa y título",
+  ellos: "ellos cargan placa y circulación",
   cliente_final: "el cliente final los carga",
   ambos: "a veces ellos, a veces el cliente",
 };

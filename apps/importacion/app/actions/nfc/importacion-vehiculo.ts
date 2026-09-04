@@ -51,7 +51,11 @@ import {
 import { lookupTasaBcv, todayYmdCaracas } from "@/lib/importacion/tasa-bcv";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
-import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
+import {
+  docsEntregaPlacaListos,
+  esEntregaPlacaCompleta,
+  validarPlacaVehicular,
+} from "@/lib/importacion/entrega-placa-planilla";
 import { mergeCedulaRifDesdeCliente } from "@/lib/importacion/docs-importador-expediente";
 import { parseImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import { copyCedulaRifClienteOntoVehiculos } from "@/lib/importacion/expediente-lote-sync";
@@ -1897,7 +1901,57 @@ export async function savePuertoLibreCarpetaMatriculacionAction(
   return { success: true };
 }
 
-/** Completa fase 8: foto de placa + título de propiedad → planilla 9. */
+async function persistPlacaUnicaEnTaller(params: {
+  vehiculoId: string;
+  tallerId: string;
+  placaRaw: string;
+  codigoExpediente: string | null;
+  extra?: Record<string, unknown>;
+}): Promise<PuertoLibreActionResult> {
+  const validated = validarPlacaVehicular(
+    params.placaRaw,
+    params.codigoExpediente
+  );
+  if (!validated.ok) return { success: false, error: validated.error };
+
+  const admin = createAdminClient();
+  const { data: placaDup } = await admin
+    .from("vehiculos")
+    .select("id")
+    .eq("taller_id", params.tallerId)
+    .eq("placa", validated.placa)
+    .neq("id", params.vehiculoId)
+    .maybeSingle();
+  if (placaDup) {
+    return {
+      success: false,
+      error: "Ya existe otro vehículo con esa placa en tu taller.",
+    };
+  }
+
+  const { error } = await admin
+    .from("vehiculos")
+    .update({
+      placa: validated.placa,
+      updated_at: new Date().toISOString(),
+      ...params.extra,
+    })
+    .eq("id", params.vehiculoId)
+    .eq("taller_id", params.tallerId);
+
+  if (error) {
+    if (error.code === "23505" && error.message.includes("placa")) {
+      return {
+        success: false,
+        error: "Ya existe otro vehículo con esa placa en tu taller.",
+      };
+    }
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
+/** Completa fase 8: placa única + docs de circulación → planilla 9. */
 export async function savePuertoLibreEntregaPlacaAction(
   raw: unknown
 ): Promise<PuertoLibreActionResult> {
@@ -1907,7 +1961,10 @@ export async function savePuertoLibreEntregaPlacaAction(
   }
 
   const parsed = z
-    .object({ vehiculoId: z.string().uuid() })
+    .object({
+      vehiculoId: z.string().uuid(),
+      placa: z.string().trim().min(1).max(20),
+    })
     .safeParse(raw);
   if (!parsed.success) {
     return {
@@ -1920,14 +1977,20 @@ export async function savePuertoLibreEntregaPlacaAction(
   if (!row) return { success: false, error: "Vehículo no encontrado" };
 
   const docs = parseVehiculosDocumentos(row.documentos);
-  if (!esEntregaPlacaCompleta(docs)) {
+  if (!docsEntregaPlacaListos(docs)) {
     return {
       success: false,
-      error: "Carga la foto de la placa y el título de propiedad",
+      error:
+        "Carga el documento de circulación, la póliza de responsabilidad civil y la tarjeta de circulación",
     };
   }
 
   const existing = parseImportacion(row.importacion);
+  const codigoExpediente =
+    resolveCodigoExpediente({
+      codigoExpediente: existing.codigoExpediente,
+      placa: row.placa,
+    }) ?? null;
   const importacion = serializeImportacion({
     ...existing,
     planillaFase: 9,
@@ -1936,14 +1999,14 @@ export async function savePuertoLibreEntregaPlacaAction(
     nacionalizacionPaso: existing.nacionalizacionPaso ?? 1,
   });
 
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("vehiculos")
-    .update({ importacion, updated_at: new Date().toISOString() })
-    .eq("id", parsed.data.vehiculoId)
-    .eq("taller_id", auth.taller.id);
-
-  if (error) return { success: false, error: error.message };
+  const persisted = await persistPlacaUnicaEnTaller({
+    vehiculoId: parsed.data.vehiculoId,
+    tallerId: auth.taller.id,
+    placaRaw: parsed.data.placa,
+    codigoExpediente,
+    extra: { importacion },
+  });
+  if (!persisted.success) return persisted;
   revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
@@ -1993,44 +2056,13 @@ export async function completePuertoLibreFase6MatriculacionAction(
       placa: row.placa,
     }) ?? null;
 
-  const placa = placaRaw.toUpperCase().replace(/\s+/g, "");
-  if (parseCodigoExpediente(placa)) {
-    return {
-      success: false,
-      error: "La placa no puede ser el número de expediente (PL-Año.Mes.N).",
-    };
-  }
-  if (!placaRealVisible(placa, codigoExpediente)) {
-    return { success: false, error: "Ingresa un número de placa válido" };
-  }
-
-  const admin = createAdminClient();
-  const { data: placaDup } = await admin
-    .from("vehiculos")
-    .select("id")
-    .eq("taller_id", auth.taller.id)
-    .eq("placa", placa)
-    .neq("id", parsed.data.vehiculoId)
-    .maybeSingle();
-  if (placaDup) {
-    return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
-  }
-
-  const { error } = await admin
-    .from("vehiculos")
-    .update({
-      placa,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", parsed.data.vehiculoId)
-    .eq("taller_id", auth.taller.id);
-
-  if (error) {
-    if (error.code === "23505" && error.message.includes("placa")) {
-      return { success: false, error: "Ya existe otro vehículo con esa placa en tu taller." };
-    }
-    return { success: false, error: error.message };
-  }
+  const persisted = await persistPlacaUnicaEnTaller({
+    vehiculoId: parsed.data.vehiculoId,
+    tallerId: auth.taller.id,
+    placaRaw,
+    codigoExpediente,
+  });
+  if (!persisted.success) return persisted;
   revalidateFicha(parsed.data.vehiculoId);
   return { success: true };
 }
@@ -2061,7 +2093,7 @@ export async function elegirViaNacionalizacionAction(
   if ((existing.planillaFase ?? 0) < 9) {
     return {
       success: false,
-      error: "Completa la planilla, la matrícula y la placa (foto y título) antes de nacionalizar",
+      error: "Completa la planilla, la matrícula y la placa (circulación) antes de nacionalizar",
     };
   }
   if (existing.estadoNacionalizacion === "nacionalizado") {
@@ -2603,7 +2635,7 @@ export type PuertoLibreVehiculoListItem = {
   datosPendientes: string[];
   /** Chip verde de Registro: datos + factura + certificado. */
   registroCompleto: boolean;
-  /** Foto de placa + título de propiedad. */
+  /** Placa única + docs de circulación (tras INTT). */
   entregaPlacaCompleta: boolean;
 };
 
@@ -2700,6 +2732,10 @@ function mapListItem(
     Number.isFinite(importacion.planillaFase)
       ? importacion.planillaFase
       : null;
+  const codigoExpediente = resolveCodigoExpediente({
+    codigoExpediente: importacion.codigoExpediente,
+    placa,
+  });
   return {
     id,
     placa,
@@ -2737,10 +2773,7 @@ function mapListItem(
     proximoNacionalizar: esProximoNacionalizar(importacion),
     proximoSeniat: esProximoSeniat(importacion),
     rechazadoSeniat: (importacion.estadoSeniat ?? "pendiente") === "rechazada",
-    codigoExpediente: resolveCodigoExpediente({
-      codigoExpediente: importacion.codigoExpediente,
-      placa,
-    }),
+    codigoExpediente,
     fotoUrl: docs.foto_frontal?.url ?? docs.foto_placa?.url ?? null,
     completitudDatos: importacion.completitudDatos ?? null,
     datosPendientes: importacion.datosPendientes ?? [],
@@ -2762,7 +2795,7 @@ function mapListItem(
       tieneFactura: Boolean(docs.factura_comercial?.url),
       tieneCertificado: Boolean(docs.certificado_origen?.url),
     }),
-    entregaPlacaCompleta: esEntregaPlacaCompleta(docs),
+    entregaPlacaCompleta: esEntregaPlacaCompleta(docs, placa, codigoExpediente),
   };
 }
 

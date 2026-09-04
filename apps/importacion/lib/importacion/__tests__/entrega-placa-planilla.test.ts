@@ -1,22 +1,63 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { esEntregaPlacaCompleta } from "../entrega-placa-planilla";
+import {
+  ENTREGA_PLACA_TIPOS,
+  docsEntregaPlacaListos,
+  esEntregaPlacaCompleta,
+  validarPlacaVehicular,
+} from "../entrega-placa-planilla";
 
-describe("esEntregaPlacaCompleta", () => {
-  it("pide foto de placa y título", () => {
-    assert.equal(esEntregaPlacaCompleta({}), false);
+const pdf = (path: string) => ({
+  url: `https://example.com/${path}`,
+  path,
+});
+
+const docsCompletos = {
+  documento_circulacion: pdf("circulacion.pdf"),
+  rcv_seguro: pdf("rcv.pdf"),
+  tarjeta_circulacion: pdf("tarjeta.pdf"),
+};
+
+describe("entrega de placa tras INTT", () => {
+  it("exige documento de circulación, RCV y tarjeta", () => {
+    assert.deepEqual([...ENTREGA_PLACA_TIPOS], [
+      "documento_circulacion",
+      "rcv_seguro",
+      "tarjeta_circulacion",
+    ]);
+    assert.equal(docsEntregaPlacaListos({}), false);
     assert.equal(
-      esEntregaPlacaCompleta({
-        foto_placa: { url: "https://x/placa.jpg", path: "placa.jpg" },
+      docsEntregaPlacaListos({
+        documento_circulacion: pdf("circulacion.pdf"),
+        rcv_seguro: pdf("rcv.pdf"),
       }),
       false
     );
+    assert.equal(docsEntregaPlacaListos(docsCompletos), true);
+  });
+
+  it("no está completa sin placa real", () => {
+    assert.equal(esEntregaPlacaCompleta(docsCompletos), false);
+    assert.equal(esEntregaPlacaCompleta(docsCompletos, "", "PL-2026.9.1"), false);
     assert.equal(
-      esEntregaPlacaCompleta({
-        foto_placa: { url: "https://x/placa.jpg", path: "placa.jpg" },
-        titulo: { url: "https://x/titulo.pdf", path: "titulo.pdf" },
-      }),
+      esEntregaPlacaCompleta(docsCompletos, "PL-2026.9.1", "PL-2026.9.1"),
+      false
+    );
+    assert.equal(
+      esEntregaPlacaCompleta(docsCompletos, "NP-2026.9.1", "PL-2026.9.1"),
+      false
+    );
+    assert.equal(
+      esEntregaPlacaCompleta(docsCompletos, "AB123CD", "PL-2026.9.1"),
       true
     );
+  });
+
+  it("valida placa única y rechaza el código de expediente", () => {
+    assert.equal(validarPlacaVehicular("").ok, false);
+    assert.equal(validarPlacaVehicular("PL-2026.9.1").ok, false);
+    assert.equal(validarPlacaVehicular("NP-2026.9.1", "PL-2026.9.1").ok, false);
+    const ok = validarPlacaVehicular("ab 123cd", "PL-2026.9.1");
+    assert.deepEqual(ok, { ok: true, placa: "AB123CD" });
   });
 });

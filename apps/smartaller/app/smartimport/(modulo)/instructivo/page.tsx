@@ -82,6 +82,16 @@ const FASES = [
       "Genera el PDF para presentar ante el INTT.",
     ],
   },
+  {
+    n: 8,
+    titulo: "Placa y circulación",
+    puntos: [
+      "Tras presentar el archivo al INTT, registra la placa vehicular (número único por auto).",
+      "Documento de circulación (comprobante de registro).",
+      "Póliza de responsabilidad civil (RCV, obligatoria; se precarga si ya está en Seguro).",
+      "Tarjeta de circulación.",
+    ],
+  },
 ] as const;
 
 const TIPS = [

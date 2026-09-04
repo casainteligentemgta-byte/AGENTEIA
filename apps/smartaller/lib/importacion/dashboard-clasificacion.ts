@@ -110,7 +110,7 @@ export function registroAccionLabel(
   return completitud === "verde" ? "Confirmar registro" : "Completar registro";
 }
 
-/** Foto de placa + título listos (o ya cerró la planilla). */
+/** Placa única + docs de circulación listos (o ya cerró la planilla). */
 export function esEntregaPlacaListaEnDashboard(v: {
   planillaFase?: number | null;
   entregaPlacaCompleta?: boolean;

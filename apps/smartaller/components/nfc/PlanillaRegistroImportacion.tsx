@@ -77,6 +77,7 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
+  PL_ENTREGA_PLACA_ORIGEN,
   PL_ENTREGA_PLACA_TIPOS,
   PL_INTT_PRESENTACION_LABELS,
   PL_INTT_PRESENTACION_ORIGEN,
@@ -103,6 +104,7 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
+import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
 
@@ -310,8 +312,10 @@ export function PlanillaRegistroImportacion({
     matriculacionStats.listos === matriculacionStats.total ||
     (initialImportacion.planillaFase != null &&
       initialImportacion.planillaFase >= 8);
-  const entregaPlacaCompleta = PL_ENTREGA_PLACA_TIPOS.every((t) =>
-    Boolean(docs[t]?.url)
+  const entregaPlacaCompleta = esEntregaPlacaCompleta(
+    docs,
+    placa,
+    initialImportacion.codigoExpediente
   );
 
   const codigoExpediente =
@@ -813,7 +817,9 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMessage("Matriculación completa · carga placa y título");
+              setMessage(
+                "Archivo INTT presentado · registra placa y circulación"
+              );
               navigateAfterSave(after, 8);
             });
           }}
@@ -826,21 +832,24 @@ export function PlanillaRegistroImportacion({
       ) : (
         <Fase8EntregaPlaca
           vehiculoId={vehiculoId}
+          placaInicial={placa}
+          codigoExpediente={initialImportacion.codigoExpediente}
           docs={docs}
           setDocs={setDocs}
           pending={pending}
-          onComplete={(after) => {
+          onComplete={(after, placaValue) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
               const result = await savePuertoLibreEntregaPlacaAction({
                 vehiculoId,
+                placa: placaValue,
               });
               if (!result.success) {
                 setError(result.error);
                 return;
               }
-              setMessage("Placa y título listos · puedes nacionalizar");
+              setMessage("Placa y circulación listas · puedes nacionalizar");
               if (after === "ficha") {
                 router.push(`/smartimport/${vehiculoId}`);
               } else {
@@ -2619,6 +2628,8 @@ function Fase6Matriculacion({
 
 function Fase8EntregaPlaca({
   vehiculoId,
+  placaInicial,
+  codigoExpediente,
   docs,
   setDocs,
   pending,
@@ -2626,29 +2637,53 @@ function Fase8EntregaPlaca({
   onUploadedMessage,
 }: {
   vehiculoId: string;
+  placaInicial: string;
+  codigoExpediente?: string | null;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   pending: boolean;
-  onComplete: (after: PlanillaAfterSave) => void;
+  onComplete: (after: PlanillaAfterSave, placa: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const listos = PL_ENTREGA_PLACA_TIPOS.filter((t) => Boolean(docs[t]?.url))
-    .length;
-  const completo = listos === PL_ENTREGA_PLACA_TIPOS.length;
+  const [placaInput, setPlacaInput] = useState(
+    () => placaRealVisible(placaInicial, codigoExpediente) ?? ""
+  );
+  const docsListos = PL_ENTREGA_PLACA_TIPOS.filter((t) =>
+    Boolean(docs[t]?.url)
+  ).length;
+  const placaOk = Boolean(placaRealVisible(placaInput, codigoExpediente));
+  const completo = docsListos === PL_ENTREGA_PLACA_TIPOS.length && placaOk;
 
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Placa y título
+          Placa y circulación
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {listos}/{PL_ENTREGA_PLACA_TIPOS.length}
+            {docsListos}/{PL_ENTREGA_PLACA_TIPOS.length}
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Carga la foto de la placa asignada y el título de propiedad del INTT.
+          Tras presentar el archivo al INTT, registra la placa única del
+          vehículo y carga los documentos de circulación. La póliza RCV se
+          precarga si ya está en Seguro.
         </p>
+
+        <label className="mt-5 block space-y-1.5">
+          <span className="text-sm text-slate-400">
+            Placa vehicular (número único) *
+          </span>
+          <input
+            value={placaInput}
+            onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Ej. AB123CD"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
+
         <ul className="mt-5 space-y-3">
           {PL_ENTREGA_PLACA_TIPOS.map((tipo) => {
             const loaded = Boolean(docs[tipo]?.url);
@@ -2657,9 +2692,25 @@ function Fase8EntregaPlaca({
                 key={tipo}
                 className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
               >
-                <p className="mb-2 text-sm font-medium text-slate-100">
-                  {DOCUMENTO_LABELS[tipo]} *
-                </p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-100">
+                      {DOCUMENTO_LABELS[tipo]} *
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {PL_ENTREGA_PLACA_ORIGEN[tipo]}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      loaded
+                        ? "bg-emerald-950/60 text-emerald-300"
+                        : "bg-amber-950/60 text-amber-200"
+                    }`}
+                  >
+                    {loaded ? "En expediente" : "Pendiente"}
+                  </span>
+                </div>
                 {loaded && docs[tipo]?.url ? (
                   <a
                     href={docs[tipo]!.url}
@@ -2679,7 +2730,7 @@ function Fase8EntregaPlaca({
                   actionLabel={loaded ? "Reemplazar" : "Cargar"}
                   onUploaded={(next) => {
                     setDocs(next);
-                    onUploadedMessage("Documento guardado");
+                    onUploadedMessage("Documento de circulación guardado");
                   }}
                 />
               </li>
@@ -2692,7 +2743,7 @@ function Fase8EntregaPlaca({
         pending={pending}
         disabled={!completo}
         continueLabel="Finalizar y nacionalizar"
-        onAction={onComplete}
+        onAction={(after) => onComplete(after, placaInput)}
       />
     </div>
   );

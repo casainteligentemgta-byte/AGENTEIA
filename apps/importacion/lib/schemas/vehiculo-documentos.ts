@@ -63,6 +63,8 @@ export const DOCUMENTO_TIPOS = [
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
   "titulo_libre_circulacion",
+  "documento_circulacion",
+  "tarjeta_circulacion",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -131,6 +133,8 @@ export const vehiculosDocumentosSchema = z.object({
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
   titulo_libre_circulacion: vehiculoDocumentoRefSchema.optional(),
+  documento_circulacion: vehiculoDocumentoRefSchema.optional(),
+  tarjeta_circulacion: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -207,6 +211,8 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
   titulo_libre_circulacion: "Título de libre circulación nacional",
+  documento_circulacion: "Documento de circulación (comprobante de registro)",
+  tarjeta_circulacion: "Tarjeta de circulación",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -395,6 +401,8 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
   "titulo_libre_circulacion",
+  "documento_circulacion",
+  "tarjeta_circulacion",
   "titulo",
   "otro_importacion",
 ];
@@ -522,12 +530,21 @@ export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Entrega INTT (fase 8): foto de la placa y título de propiedad.
+ * Tras presentar el archivo al INTT (fase 8):
+ * documento de circulación, póliza RCV y tarjeta de circulación.
+ * La placa vehicular (número único) se guarda en `vehiculos.placa`.
  */
 export const PL_ENTREGA_PLACA_TIPOS: DocumentoTipo[] = [
-  "foto_placa",
-  "titulo",
+  "documento_circulacion",
+  "rcv_seguro",
+  "tarjeta_circulacion",
 ];
+
+export const PL_ENTREGA_PLACA_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
+  documento_circulacion: "Comprobante de registro INTT",
+  rcv_seguro: "Desde fase Seguro · requisito obligatorio",
+  tarjeta_circulacion: "Emitida por el INTT",
+};
 
 /** @deprecated Usar PL_ENTREGA_PLACA_TIPOS. */
 export const PL_MATRICULACION_ENTREGA_TIPOS = PL_ENTREGA_PLACA_TIPOS;
@@ -802,12 +819,12 @@ export const importacionSchema = z.object({
    * 1 = registro (+ factura, certificado origen),
    * 2 = embarque (BL, lista, DAV, póliza),
    * 3 = llegada, 4 = desaduanamiento SENIAT, 5 = propietario, 6 = seguro,
-   * 7 = matriculación, 8 = placa y título, 9 = planilla completa.
+   * 7 = matriculación, 8 = placa y circulación, 9 = planilla completa.
    */
   planillaFase: z.coerce.number().int().min(1).max(9).optional().nullable(),
   /**
    * Subpaso de fase 7 Matriculación INTT:
-   * 1 = carpeta (cargar + físico), 2 = título y placas PL.
+   * 1 = carpeta INTT, 2 = placa y documentos de circulación.
    */
   matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
   /** Si el vehículo requiere homologación ante el INTT. */
