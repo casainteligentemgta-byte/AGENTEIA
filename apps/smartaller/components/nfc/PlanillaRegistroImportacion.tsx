@@ -27,6 +27,7 @@ import {
   completePuertoLibreFase4PropietarioAction,
   completePuertoLibreFase5SeguroAction,
   savePuertoLibreCarpetaMatriculacionAction,
+  savePuertoLibreEntregaPlacaAction,
   savePuertoLibreFase1RegistroAction,
   savePuertoLibreFase2LlegadaAction,
   syncPuertoLibreBlEmbarqueAction,
@@ -79,6 +80,7 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
+  PL_ENTREGA_PLACA_TIPOS,
   PL_MATRICULACION_CARGAR_TIPOS,
   PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
   PL_MATRICULACION_ORIGEN,
@@ -107,8 +109,8 @@ import {
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
 
-/** UI chips 1–7. En BD planillaFase 8 = completa. */
-export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+/** UI chips 1–8. En BD planillaFase 9 = completa. */
+export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 /** Tras guardar una fase: seguir en planilla o volver a la ficha. */
 type PlanillaAfterSave = "next" | "ficha";
@@ -130,7 +132,7 @@ type Props = {
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
-  /** Fase forzada por query (?fase=1|2|3|4|5|6|7). */
+  /** Fase forzada por query (?fase=1|2|3|4|5|6|7|8). */
   faseInicial?: PlanillaFaseUi;
   /**
    * Operador (admin/taller/concesionario) puede forzar avance si OCR no lee la impronta.
@@ -154,11 +156,13 @@ function resolveFase(
     forced === 4 ||
     forced === 5 ||
     forced === 6 ||
-    forced === 7
+    forced === 7 ||
+    forced === 8
   ) {
     return forced;
   }
   const f = importacion.planillaFase ?? 1;
+  if (f >= 8) return 8;
   if (f >= 7) return 7;
   if (f === 6) return 6;
   if (f === 5) return 5;
@@ -304,7 +308,12 @@ export function PlanillaRegistroImportacion({
     initialImportacion.codigoExpediente
   );
   const matriculacionCompleta =
-    matriculacionStats.listos === matriculacionStats.total;
+    matriculacionStats.listos === matriculacionStats.total ||
+    (initialImportacion.planillaFase != null &&
+      initialImportacion.planillaFase >= 8);
+  const entregaPlacaCompleta = PL_ENTREGA_PLACA_TIPOS.every((t) =>
+    Boolean(docs[t]?.url)
+  );
 
   const codigoExpediente =
     resolveCodigoExpediente({
@@ -360,7 +369,7 @@ export function PlanillaRegistroImportacion({
         </Link>
       </div>
 
-      <div className="grid w-full grid-cols-4 gap-1 sm:grid-cols-7 sm:gap-1.5">
+      <div className="grid w-full grid-cols-4 gap-1 sm:grid-cols-8 sm:gap-1.5">
         <FaseChip
           n={1}
           label="Registro"
@@ -409,6 +418,13 @@ export function PlanillaRegistroImportacion({
           completo={matriculacionCompleta}
           current={fase === 7}
           onClick={() => goFase(7)}
+        />
+        <FaseChip
+          n={8}
+          label="Placa"
+          completo={entregaPlacaCompleta}
+          current={fase === 8}
+          onClick={() => goFase(8)}
         />
       </div>
 
@@ -753,7 +769,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : (
+      ) : fase === 7 ? (
         <Fase6Matriculacion
           vehiculoId={vehiculoId}
           docs={docs}
@@ -774,7 +790,34 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMessage("Matriculación completa · puedes nacionalizar");
+              setMessage("Matriculación completa · carga placa y título");
+              navigateAfterSave(after, 8);
+            });
+          }}
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      ) : (
+        <Fase8EntregaPlaca
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
+          pending={pending}
+          onComplete={(after) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await savePuertoLibreEntregaPlacaAction({
+                vehiculoId,
+              });
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Placa y título listos · puedes nacionalizar");
               if (after === "ficha") {
                 router.push(`/smartimport/${vehiculoId}`);
               } else {
@@ -2724,8 +2767,89 @@ function Fase6Matriculacion({
       <PlanillaFaseActions
         pending={pending}
         disabled={!carpetaCompleta}
-        continueLabel="Finalizar y nacionalizar"
+        continueLabel="Continuar a Placa"
         onAction={(after) => onComplete(requiereHomologacion, after)}
+      />
+    </div>
+  );
+}
+
+function Fase8EntregaPlaca({
+  vehiculoId,
+  docs,
+  setDocs,
+  pending,
+  onComplete,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  pending: boolean;
+  onComplete: (after: PlanillaAfterSave) => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  const listos = PL_ENTREGA_PLACA_TIPOS.filter((t) => Boolean(docs[t]?.url))
+    .length;
+  const completo = listos === PL_ENTREGA_PLACA_TIPOS.length;
+
+  return (
+    <div className="space-y-8">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <FileUp className="h-5 w-5 text-cyan-400" />
+          Placa y título
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {listos}/{PL_ENTREGA_PLACA_TIPOS.length}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Carga la foto de la placa asignada y el título de propiedad del INTT.
+        </p>
+        <ul className="mt-5 space-y-3">
+          {PL_ENTREGA_PLACA_TIPOS.map((tipo) => {
+            const loaded = Boolean(docs[tipo]?.url);
+            return (
+              <li
+                key={tipo}
+                className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
+              >
+                <p className="mb-2 text-sm font-medium text-slate-100">
+                  {DOCUMENTO_LABELS[tipo]} *
+                </p>
+                {loaded && docs[tipo]?.url ? (
+                  <a
+                    href={docs[tipo]!.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
+                  >
+                    Ver documento
+                  </a>
+                ) : null}
+                <ImportDocumentoUpload
+                  vehiculoId={vehiculoId}
+                  tipo={tipo}
+                  existingUrl={docs[tipo]?.url}
+                  acceptMode="both"
+                  hint="Foto o PDF · máx. 10 MB"
+                  actionLabel={loaded ? "Reemplazar" : "Cargar"}
+                  onUploaded={(next) => {
+                    setDocs(next);
+                    onUploadedMessage("Documento guardado");
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!completo}
+        continueLabel="Finalizar y nacionalizar"
+        onAction={onComplete}
       />
     </div>
   );

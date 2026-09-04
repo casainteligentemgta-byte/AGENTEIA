@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   esEnColaEmbarque,
   esNacionalizado,
+  esEntregaPlacaListaEnDashboard,
+  placaAccionLabel,
   esPorCompletarEtapa,
   esPorCompletarRegistro,
   esPorPresentacionSeniat,
@@ -59,16 +61,17 @@ describe("dashboard clasificación", () => {
     assert.deepEqual(colasPlanillaDe(v), [2]);
   });
 
-  it("cada fase 2–7 tiene su cola y no se mezcla con las demás", () => {
+  it("cada fase 2–8 tiene su cola y no se mezcla con las demás", () => {
     for (const fase of PLANILLA_FASES_PENDIENTES.filter((n) => n >= 2)) {
       const v = { ...extraido, planillaFase: fase };
       assert.deepEqual(colasPlanillaDe(v), [fase]);
     }
   });
 
-  it("fase 8 (planilla completa) no entra en ninguna cola por completar", () => {
-    assert.deepEqual(colasPlanillaDe({ planillaFase: 8 }), []);
-    assert.equal(esPorCompletarRegistro({ planillaFase: 8 }), false);
+  it("fase 8 es cola de placa; la 9 ya no entra en colas por completar", () => {
+    assert.deepEqual(colasPlanillaDe({ planillaFase: 8 }), [8]);
+    assert.deepEqual(colasPlanillaDe({ planillaFase: 9 }), []);
+    assert.equal(esPorCompletarRegistro({ planillaFase: 9 }), false);
   });
 
   it("fase null sin datos listos se trata como registro", () => {
@@ -136,5 +139,31 @@ describe("dashboard clasificación", () => {
       true
     );
     assert.equal(registroAccionLabel("ambar"), "Completar registro");
+  });
+
+  it("placa: Completar si falta dato, Placa completada si está llena", () => {
+    assert.equal(placaAccionLabel(false), "Completar placa");
+    assert.equal(placaAccionLabel(true), "Placa completada");
+    assert.equal(
+      esEntregaPlacaListaEnDashboard({
+        planillaFase: 8,
+        entregaPlacaCompleta: false,
+      }),
+      false
+    );
+    assert.equal(
+      esEntregaPlacaListaEnDashboard({
+        planillaFase: 8,
+        entregaPlacaCompleta: true,
+      }),
+      true
+    );
+    assert.equal(
+      esEntregaPlacaListaEnDashboard({
+        planillaFase: 9,
+        entregaPlacaCompleta: false,
+      }),
+      true
+    );
   });
 });

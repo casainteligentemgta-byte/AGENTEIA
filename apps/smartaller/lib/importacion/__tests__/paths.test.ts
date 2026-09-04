@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
+  DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_SEGURO_ID,
   hrefAfterFase2Embarque,
@@ -44,6 +45,7 @@ describe("colas dashboard", () => {
   it("seguro y matrícula tienen ancla propia", () => {
     assert.equal(DASHBOARD_COLA_SEGURO_ID, "cola-seguro");
     assert.equal(DASHBOARD_COLA_MATRICULA_ID, "cola-matricula");
+    assert.equal(DASHBOARD_COLA_PLACA_ID, "cola-placa");
   });
 });
 

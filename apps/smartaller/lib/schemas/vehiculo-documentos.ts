@@ -422,13 +422,15 @@ export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Entrega INTT (título / foto placa): no se cargan en Matriculación.
- * @deprecated Fuera del alcance de la fase Matriculación.
+ * Entrega INTT (fase 8): foto de la placa y título de propiedad.
  */
-export const PL_MATRICULACION_ENTREGA_TIPOS: DocumentoTipo[] = [
-  "titulo",
+export const PL_ENTREGA_PLACA_TIPOS: DocumentoTipo[] = [
   "foto_placa",
+  "titulo",
 ];
+
+/** @deprecated Usar PL_ENTREGA_PLACA_TIPOS. */
+export const PL_MATRICULACION_ENTREGA_TIPOS = PL_ENTREGA_PLACA_TIPOS;
 
 /**
  * Docs que se cargan por primera vez en matriculación
@@ -729,9 +731,9 @@ export const importacionSchema = z.object({
    * 1 = registro (+ factura, certificado origen),
    * 2 = embarque (BL, lista, DAV, póliza),
    * 3 = llegada, 4 = desaduanamiento SENIAT, 5 = propietario, 6 = seguro,
-   * 7 = matriculación, 8 = planilla completa.
+   * 7 = matriculación, 8 = placa y título, 9 = planilla completa.
    */
-  planillaFase: z.coerce.number().int().min(1).max(8).optional().nullable(),
+  planillaFase: z.coerce.number().int().min(1).max(9).optional().nullable(),
   /**
    * Subpaso de fase 7 Matriculación INTT:
    * 1 = carpeta (cargar + físico), 2 = título y placas PL.
@@ -1152,7 +1154,7 @@ export function esProximoNacionalizar(data: ImportacionData): boolean {
   const estado = data.estadoNacionalizacion ?? "pendiente";
   if (estado !== "pendiente" && estado !== "en_proceso") return false;
   const fase = data.planillaFase ?? 0;
-  return fase >= 8;
+  return fase >= 9;
 }
 
 export function esProximoSeniat(data: ImportacionData): boolean {
