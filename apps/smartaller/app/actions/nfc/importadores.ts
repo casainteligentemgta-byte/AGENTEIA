@@ -13,6 +13,10 @@ import {
   type ImportadorTipo,
 } from "@/lib/schemas/importador";
 import {
+  IMPORTADOR_DOC_TIPOS,
+  isImportadorDocTipo,
+} from "@/lib/importadores/documentos";
+import {
   parseImportadorDocumentos,
   uploadImportadorDocumento,
   validateImportadorDocumentoFile,
@@ -430,7 +434,7 @@ export async function attachImportadorDocumentoAction(
   if (!z.string().uuid().safeParse(importadorId).success) {
     return { success: false, error: "Cliente inválido" };
   }
-  if (tipoDoc !== "rif" && tipoDoc !== "cedula") {
+  if (!isImportadorDocTipo(tipoDoc)) {
     return { success: false, error: "Tipo de documento inválido" };
   }
   if (!(file instanceof File)) {
@@ -508,7 +512,7 @@ export async function attachImportadorDocumentosBatchAction(
   }
 
   const files: Array<{ tipo: ImportadorDocTipo; file: File }> = [];
-  for (const tipo of ["rif", "cedula"] as const) {
+  for (const tipo of IMPORTADOR_DOC_TIPOS) {
     const file = formData.get(`file_${tipo}`);
     if (file instanceof File && file.size > 0) {
       const validationError = validateImportadorDocumentoFile(file);

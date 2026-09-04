@@ -1,12 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  IMPORTADOR_DOC_TIPOS,
+  type ImportadorDocTipo,
+} from "@/lib/importadores/documentos";
+import {
   isGenericMimeType,
   resolveImageMimeType,
   validateImageMimeResolved,
 } from "@/lib/mime-image";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
 
-export type ImportadorDocTipo = "rif" | "cedula";
+export type { ImportadorDocTipo } from "@/lib/importadores/documentos";
 
 export type ImportadorDocumentoRef = {
   url: string;
@@ -15,10 +19,9 @@ export type ImportadorDocumentoRef = {
   file_name: string;
 };
 
-export type ImportadorDocumentos = {
-  rif?: ImportadorDocumentoRef;
-  cedula?: ImportadorDocumentoRef;
-};
+export type ImportadorDocumentos = Partial<
+  Record<ImportadorDocTipo, ImportadorDocumentoRef>
+>;
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -51,7 +54,7 @@ export function parseImportadorDocumentos(raw: unknown): ImportadorDocumentos {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const obj = raw as Record<string, unknown>;
   const out: ImportadorDocumentos = {};
-  for (const key of ["rif", "cedula"] as const) {
+  for (const key of IMPORTADOR_DOC_TIPOS) {
     const ref = obj[key];
     if (!ref || typeof ref !== "object" || Array.isArray(ref)) continue;
     const r = ref as Record<string, unknown>;

@@ -10,6 +10,11 @@ import {
   type ImportadorDocKind,
 } from "@/components/nfc/ImportadorDocScan";
 import type { ImportadorScanFields } from "@/lib/extract-identidad-ve";
+import {
+  IMPORTADOR_DOC_LABELS,
+  IMPORTADOR_DOC_TIPOS,
+  importadorDocsFaltantes,
+} from "@/lib/importadores/documentos";
 import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import {
   IMPORTADOR_TIPO_LABELS,
@@ -207,7 +212,7 @@ export function ImportadorForm({
     const fd = new FormData();
     fd.set("importadorId", importadorId);
     let hasFile = false;
-    for (const tipoDoc of ["rif", "cedula"] as const) {
+    for (const tipoDoc of IMPORTADOR_DOC_TIPOS) {
       const file = pendingFiles[tipoDoc];
       if (!file) continue;
       fd.set(`file_${tipoDoc}`, file);
@@ -268,6 +273,14 @@ export function ImportadorForm({
     const parsed = importadorUpsertSchema.safeParse(payload);
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Datos inválidos");
+      return;
+    }
+
+    const faltan = importadorDocsFaltantes(tipo, documentos, pendingFiles);
+    if (faltan.length > 0) {
+      setError(
+        `Carga estos documentos: ${faltan.map((t) => IMPORTADOR_DOC_LABELS[t]).join("; ")}`
+      );
       return;
     }
 

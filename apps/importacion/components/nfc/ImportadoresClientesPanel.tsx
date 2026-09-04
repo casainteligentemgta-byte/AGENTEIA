@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/nfc/importadores";
 import { ImportadorFicha } from "@/components/nfc/ImportadorFicha";
 import { ImportadorForm } from "@/components/nfc/ImportadorForm";
+import { importadorDocsResumen } from "@/lib/importadores/documentos";
 import { formatImportadorDocumentoLine } from "@/lib/schemas/importador";
 
 type Props = {
@@ -211,6 +212,7 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
         <ul className="space-y-2">
           {filtrados.map((c) => {
             const isDeleting = pending && deletingId === c.id;
+            const docs = importadorDocsResumen(c.tipo, c.documentos);
             return (
               <li
                 key={c.id}
@@ -233,6 +235,7 @@ export function ImportadoresClientesPanel({ initialImportadores }: Props) {
                     </p>
                     <p className="mt-0.5 text-[11px] text-zinc-500">
                       {c.tipoLabel}
+                      {` · Docs ${docs.cargados}/${docs.total}`}
                       {c.tipo === "juridica" && c.registroPuertoLibre
                         ? ` · PL ${c.registroPuertoLibre}`
                         : ""}

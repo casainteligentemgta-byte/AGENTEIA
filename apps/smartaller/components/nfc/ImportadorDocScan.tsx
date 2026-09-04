@@ -9,6 +9,13 @@ import {
 } from "lucide-react";
 import { extractImportadorDocumentoAction } from "@/app/actions/nfc/importador-extract";
 import type { ImportadorScanFields } from "@/lib/extract-identidad-ve";
+import {
+  IMPORTADOR_DOC_HINTS,
+  IMPORTADOR_DOC_LABELS,
+  importadorDocUsaOcr,
+  importadorDocsRequeridos,
+  type ImportadorDocTipo,
+} from "@/lib/importadores/documentos";
 import type { ImportadorDocumentos } from "@/lib/importadores/upload-documento";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 import type { ImportadorTipo } from "@/lib/schemas/importador";
@@ -16,7 +23,7 @@ import type { ImportadorTipo } from "@/lib/schemas/importador";
 const ACCEPT_FILE =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf";
 
-export type ImportadorDocKind = "rif" | "cedula";
+export type ImportadorDocKind = ImportadorDocTipo;
 
 type Props = {
   tipoCliente: ImportadorTipo;
@@ -56,6 +63,7 @@ function ScanChip({
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(existingUrl ?? null);
   const [over, setOver] = useState(false);
+  const usaOcr = importadorDocUsaOcr(tipoDoc);
 
   useEffect(() => {
     setUrl(existingUrl ?? null);
@@ -69,19 +77,24 @@ function ScanChip({
     startTransition(async () => {
       try {
         const prepared = await prepareFile(file);
-        const fd = new FormData();
-        fd.set("tipoDoc", tipoDoc);
-        fd.set("tipoCliente", tipoCliente);
-        fd.set("file", prepared);
-        const result = await extractImportadorDocumentoAction(fd);
-        if (!result.success) {
-          setError(result.error);
-          return;
+        if (usaOcr) {
+          const fd = new FormData();
+          fd.set("tipoDoc", tipoDoc);
+          fd.set("tipoCliente", tipoCliente);
+          fd.set("file", prepared);
+          const result = await extractImportadorDocumentoAction(fd);
+          if (!result.success) {
+            setError(result.error);
+            return;
+          }
+          onExtracted(result.fields, tipoDoc, prepared);
+          setDoneMsg(
+            `${result.filledCount} campo${result.filledCount === 1 ? "" : "s"} rellenado${result.filledCount === 1 ? "" : "s"}`
+          );
+        } else {
+          onExtracted({}, tipoDoc, prepared);
+          setDoneMsg("Documento listo para guardar");
         }
-        onExtracted(result.fields, tipoDoc, prepared);
-        setDoneMsg(
-          `${result.filledCount} campo${result.filledCount === 1 ? "" : "s"} rellenado${result.filledCount === 1 ? "" : "s"}`
-        );
         setUrl(URL.createObjectURL(prepared));
       } catch (err) {
         setError(
@@ -102,7 +115,7 @@ function ScanChip({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-[#e9edef]">{label}</p>
+      <p className="text-sm font-medium text-[#e9edef]">{label} *</p>
       <div
         className={`rounded-2xl border border-dashed px-4 py-6 text-center ${
           doneMsg || loaded
@@ -115,26 +128,36 @@ function ScanChip({
       {pending ? (
         <p className="inline-flex items-center justify-center gap-2 text-sm text-cyan-100">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Leyendo…
+          {usaOcr ? "Leyendo…" : "Preparando…"}
         </p>
       ) : doneMsg || loaded ? (
-        <p className="inline-flex items-center justify-center gap-1.5 text-sm text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {doneMsg ?? "Documento guardado"}
-          {existingUrl ? (
-            <>
-              {" · "}
-              <a
-                href={existingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="underline hover:text-emerald-200"
-              >
-                Ver
-              </a>
-            </>
-          ) : null}
-        </p>
+        <div className="space-y-2">
+          <p className="inline-flex items-center justify-center gap-1.5 text-sm text-emerald-300">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {doneMsg ?? "Documento guardado"}
+            {existingUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={existingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-emerald-200"
+                >
+                  Ver
+                </a>
+              </>
+            ) : null}
+          </p>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => fileRef.current?.click()}
+            className="text-xs font-medium text-cyan-300 underline hover:text-cyan-100"
+          >
+            Cambiar
+          </button>
+        </div>
       ) : (
         <button
           type="button"
@@ -173,47 +196,37 @@ function ScanChip({
   );
 }
 
-/** Escaneo OCR de RIF y cédula para autocompletar el formulario de cliente. */
+/** Carga obligatoria de documentos del cliente. RIF y cédula también rellenan datos. */
 export function ImportadorDocScan({
   tipoCliente,
   existingDocumentos,
   onExtracted,
 }: Props) {
+  const requeridos = importadorDocsRequeridos(tipoCliente);
+
   return (
     <section className="space-y-3">
       <div>
         <h2 className="text-sm font-semibold text-white">
-          Autocompletar con documento
+          Documentos del cliente *
         </h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Un PDF o una foto para rellenar los datos del cliente.
+          Hay que cargar todos. El RIF y la cédula o pasaporte también rellenan
+          el formulario.
         </p>
       </div>
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <ScanChip
-          tipoDoc="rif"
-          label="RIF"
-          hint="Carnet o comprobante SENIAT"
-          tipoCliente={tipoCliente}
-          existingUrl={existingDocumentos?.rif?.url}
-          onExtracted={onExtracted}
-        />
-        <ScanChip
-          tipoDoc="cedula"
-          label={
-            tipoCliente === "juridica"
-              ? "Cédula del representante"
-              : "Cédula"
-          }
-          hint={
-            tipoCliente === "juridica"
-              ? "Cédula del representante legal"
-              : "Cédula de identidad venezolana"
-          }
-          tipoCliente={tipoCliente}
-          existingUrl={existingDocumentos?.cedula?.url}
-          onExtracted={onExtracted}
-        />
+        {requeridos.map((tipoDoc) => (
+          <ScanChip
+            key={tipoDoc}
+            tipoDoc={tipoDoc}
+            label={IMPORTADOR_DOC_LABELS[tipoDoc]}
+            hint={IMPORTADOR_DOC_HINTS[tipoDoc]}
+            tipoCliente={tipoCliente}
+            existingUrl={existingDocumentos?.[tipoDoc]?.url}
+            onExtracted={onExtracted}
+          />
+        ))}
       </div>
     </section>
   );
