@@ -47,12 +47,12 @@ describe("vehiculoPatchFromMatricula", () => {
         observaciones: null,
       },
       "PL-2026.9.1",
-      { planillaFase: 7, codigoExpediente: "PL-2026.9.1" }
+      { planillaFase: 9, planillaEtapasRev: 2, codigoExpediente: "PL-2026.9.1" }
     );
     assert.equal(patch.placa, "AB123CD");
     const imp = parseImportacion(patch.importacion);
     assert.equal(imp.requiereHomologacion, true);
-    assert.equal(imp.planillaFase, 7);
+    assert.equal(imp.planillaFase, 9);
   });
 });
 

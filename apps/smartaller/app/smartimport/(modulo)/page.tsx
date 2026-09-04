@@ -46,9 +46,7 @@ import {
 } from "@/lib/importacion/paths";
 import {
   hrefNacionalizar,
-  hrefPresentacionSeniat,
   nacionalizarAccionLabel,
-  seniatAccionLabel,
 } from "@/lib/importacion/planilla-en-construccion";
 import { listPropietariosAction } from "@/app/actions/nfc/propietarios";
 import { listSegurosAction } from "@/app/actions/nfc/seguros";
@@ -89,7 +87,6 @@ import {
   esNacionalizado,
   placaAccionLabel,
   esPorCompletarEtapa,
-  esPorPresentacionSeniat,
   esRechazadoSeniat,
   faseColaPlanilla,
   registroAccionLabel,
@@ -621,11 +618,6 @@ export default async function PuertoLibrePage() {
     (v) => v.fechaLimiteNacionalizacion,
     (v) => v.diasNacionalizacion
   );
-  const porSeniat = sortByFechaAsc(
-    vehiculos.filter(esPorPresentacionSeniat),
-    (v) => v.fechaPresentacionSeniat,
-    (v) => v.diasSeniat
-  );
   const rechazadosSeniat = [...vehiculos.filter(esRechazadoSeniat)].sort(
     (a, b) => {
       const fa = a.fechaRechazoSeniat ?? "";
@@ -713,28 +705,6 @@ export default async function PuertoLibrePage() {
       searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
       actionLabel: "Corregir",
       actionTone: "red",
-    };
-  });
-
-  const rowsPorSeniat: DashboardBucketRow[] = porSeniat.map((v) => {
-    const expediente = labelExpediente(v);
-    const ficha = fichaDe(v);
-    return {
-      id: v.id,
-      href: hrefPresentacionSeniat(v.id),
-      cells: {
-        expediente,
-        presentacion: formatFechaDia(v.fechaPresentacionSeniat),
-      },
-      ficha,
-      subcells: {
-        presentacion: etiquetaDias(v.diasSeniat, "Sin fecha"),
-      },
-      dateValue: v.fechaPresentacionSeniat,
-      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
-      actionLabel: seniatAccionLabel(),
-      actionTone: "sky",
-      urgent: v.diasSeniat != null && v.diasSeniat <= 7,
     };
   });
 
@@ -1103,21 +1073,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-        />
-
-        <PuertoLibreDashboardBucket
-          dense
-          title="Por presentación SENIAT"
-          icon="building"
-          emptyMessage="No hay presentaciones SENIAT pendientes o agendadas."
-          columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-            { key: "presentacion", header: "Presentación", pdfWidth: 1.3 },
-          ]}
-          rows={rowsPorSeniat}
-          dateFilterLabel="Presentación"
-          borderClassName="border-sky-900/30"
-          actionColumnKey="presentacion"
         />
 
         <PuertoLibreDashboardBucket

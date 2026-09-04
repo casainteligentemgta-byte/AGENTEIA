@@ -237,7 +237,7 @@ export function PagoArancelesCard({
       ) : null}
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
 
-      {pagado && vehiculoId ? (
+      {vehiculoId ? (
         <div className="mt-6 border-t border-emerald-900/40 pt-5">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <FileUp className="h-4 w-4 text-emerald-400" />
@@ -316,11 +316,6 @@ export function PagoArancelesCard({
             })}
           </ul>
         </div>
-      ) : !pagado ? (
-        <p className="mt-4 text-xs text-slate-500">
-          Tras registrar el pago, SENIAT emite la liquidación de tributos y la
-          constancia de nacionalización. Cárgalas aquí en PDF.
-        </p>
       ) : null}
     </section>
   );

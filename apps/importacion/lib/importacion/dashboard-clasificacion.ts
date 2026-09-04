@@ -1,11 +1,16 @@
 /**
  * Colas del dashboard Puerto Libre.
- * Planilla: una cola por fase 1–8. La 9 ya está completa.
+ * Planilla: una cola por fase 1–10. La 11 ya está completa.
  * Extraer → Registrar persiste planillaFase 2 (Por completar embarque).
  * Si el registro ya está listo (chip verde / semáforo verde) y la BD
  * sigue en fase 1 (alta suelta), la cola visible es embarque.
  * SENIAT y nacionalización son relojes aparte (pueden coincidir con una etapa).
  */
+
+import {
+  PLANILLA_FASE_COMPLETA,
+  PLANILLA_FASE_UI_MAX,
+} from "@/lib/importacion/planilla-etapas";
 
 export type DashboardClasificacionFuente = {
   planillaFase: number | null;
@@ -20,7 +25,9 @@ export type DashboardClasificacionFuente = {
   numeroBl?: string | null;
 };
 
-export const PLANILLA_FASES_PENDIENTES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+export const PLANILLA_FASES_PENDIENTES = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+] as const;
 
 export type PlanillaFasePendiente = (typeof PLANILLA_FASES_PENDIENTES)[number];
 
@@ -49,18 +56,18 @@ export function esRegistroListoParaEmbarque(
  */
 export function faseColaPlanilla(v: DashboardClasificacionFuente): number {
   const f = faseDe(v);
-  if (f >= 9) return f;
+  if (f >= PLANILLA_FASE_COMPLETA) return f;
   if (f <= 1 && esRegistroListoParaEmbarque(v)) return 2;
   return f;
 }
 
-/** Cola de planilla: el expediente está en esa etapa (1–8). */
+/** Cola de planilla: el expediente está en esa etapa (1–10). */
 export function esPorCompletarEtapa(
   v: DashboardClasificacionFuente,
   etapa: PlanillaFasePendiente
 ): boolean {
   const f = faseColaPlanilla(v);
-  if (f < 1 || f > 8) return false;
+  if (f < 1 || f > PLANILLA_FASE_UI_MAX) return false;
   return f === etapa;
 }
 
@@ -116,7 +123,7 @@ export function esEntregaPlacaListaEnDashboard(v: {
   entregaPlacaCompleta?: boolean;
 }): boolean {
   const fase = v.planillaFase;
-  if (typeof fase === "number" && fase >= 9) return true;
+  if (typeof fase === "number" && fase >= PLANILLA_FASE_COMPLETA) return true;
   return v.entregaPlacaCompleta === true;
 }
 

@@ -1,5 +1,5 @@
 /**
- * Fixture de QA: un expediente por fase de planilla (1–8).
+ * Fixture de QA: un expediente por fase de planilla (1–10).
  * La fase 3 no lleva BL para no duplicarse en embarque.
  */
 import {
@@ -28,6 +28,8 @@ export const DEMO_FASE_COLORES: Record<DemoFase, string> = {
   6: "Gris",
   7: "Blanco",
   8: "Negro",
+  9: "Plateado",
+  10: "Vino",
 };
 
 export const DEMO_FASE_FECHA_BUQUE = "2026-07-20";
@@ -128,7 +130,7 @@ export function colasDashboardDe(
   const colas: PlanillaFasePendiente[] = [];
   if (esPorCompletarEtapa(v, 1)) colas.push(1);
   if (esEnColaEmbarque(v)) colas.push(2);
-  for (const fase of [3, 4, 5, 6, 7, 8] as const) {
+  for (const fase of [3, 4, 5, 6, 7, 8, 9, 10] as const) {
     if (esPorCompletarEtapa(v, fase)) colas.push(fase);
   }
   return colas;

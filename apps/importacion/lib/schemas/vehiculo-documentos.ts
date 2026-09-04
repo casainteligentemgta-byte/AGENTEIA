@@ -3,6 +3,11 @@ import {
   getRegimenConfig,
   resolveRegimenImportacion,
 } from "@/lib/importacion/regimenes";
+import {
+  migratePlanillaFase,
+  PLANILLA_ETAPAS_REV_ACTUAL,
+  PLANILLA_FASE_COMPLETA,
+} from "@/lib/importacion/planilla-etapas";
 
 export const vehiculoDocumentoRefSchema = z.object({
   url: z.string().url(),
@@ -889,14 +894,24 @@ export const importacionSchema = z.object({
   /** Dirección fiscal del importador (SENIAT). */
   importadorDireccion: z.string().trim().max(240).optional().nullable(),
   /**
-   * 1 = registro (+ factura, certificado origen),
-   * 2 = embarque (BL, lista, DAV, póliza),
-   * 3 = llegada, 4 = desaduanamiento SENIAT, 5 = propietario, 6 = seguro,
-   * 7 = matriculación, 8 = placa y circulación, 9 = planilla completa.
+   * 1 registro, 2 embarque, 3 llegada, 4 desaduanamiento,
+   * 5 pago impuesto, 6 inspección, 7 propietario, 8 seguro,
+   * 9 matrícula, 10 placa, 11 planilla completa.
    */
-  planillaFase: z.coerce.number().int().min(1).max(9).optional().nullable(),
+  planillaFase: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(PLANILLA_FASE_COMPLETA)
+    .optional()
+    .nullable(),
   /**
-   * Subpaso de fase 7 Matriculación INTT:
+   * Revisión del mapa de etapas. Ausente = rev 1 (sin pago/inspección).
+   * Al persistir se escribe la revisión actual.
+   */
+  planillaEtapasRev: z.coerce.number().int().min(1).max(20).optional().nullable(),
+  /**
+   * Subpaso de fase 9 Matriculación INTT:
    * 1 = carpeta INTT, 2 = placa y documentos de circulación.
    */
   matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
@@ -1101,6 +1116,9 @@ export function parseImportacion(raw: unknown): ImportacionData {
     importadorEmail: row.importadorEmail ?? row.importador_email,
     importadorDireccion: row.importadorDireccion ?? row.importador_direccion,
     planillaFase: asOptionalAnio(row.planillaFase ?? row.planilla_fase),
+    planillaEtapasRev: asOptionalAnio(
+      row.planillaEtapasRev ?? row.planilla_etapas_rev
+    ),
     matriculacionPaso: asOptionalAnio(
       row.matriculacionPaso ?? row.matriculacion_paso
     ),
@@ -1142,9 +1160,15 @@ export function parseImportacion(raw: unknown): ImportacionData {
     compradorDireccion: row.compradorDireccion ?? row.comprador_direccion,
   });
   if (!parsed.success) return {};
+  const rawFase = parsed.data.planillaFase;
   return {
     ...parsed.data,
     regimen: resolveRegimenImportacion(parsed.data.regimen),
+    planillaFase:
+      rawFase != null && !Number.isNaN(rawFase)
+        ? migratePlanillaFase(rawFase, parsed.data.planillaEtapasRev ?? undefined)
+        : parsed.data.planillaFase,
+    planillaEtapasRev: PLANILLA_ETAPAS_REV_ACTUAL,
   };
 }
 
@@ -1246,6 +1270,7 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
       data.planillaFase != null && !Number.isNaN(data.planillaFase)
         ? data.planillaFase
         : null,
+    planilla_etapas_rev: PLANILLA_ETAPAS_REV_ACTUAL,
     matriculacion_paso:
       data.matriculacionPaso != null && !Number.isNaN(data.matriculacionPaso)
         ? data.matriculacionPaso
@@ -1295,7 +1320,7 @@ export function esProximoNacionalizar(data: ImportacionData): boolean {
   }
   if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const fase = data.planillaFase ?? 0;
-  return fase >= 9;
+  return fase >= PLANILLA_FASE_COMPLETA;
 }
 
 export function esProximoSeniat(data: ImportacionData): boolean {
