@@ -247,15 +247,40 @@ export const PL_LLEGADA_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
+ * Expediente a presentar en SENIAT (tras Llegada).
+ * Los de Registro/Embarque salen precargados; el DUA lo carga el agente aquí.
+ * Licencia de importación entra solo si el régimen la pide (ordinario).
+ */
+export const PL_DESADUANAMIENTO_PRESENTAR_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "bl_guia",
+  "lista_empaque",
+  "poliza_transporte",
+  "cedula_importador",
+  "rif_importador",
+  "nacionalizacion",
+];
+
+/** Tipos que suelen venir de fases anteriores (solo se cargan aquí si faltan). */
+export const PL_DESADUANAMIENTO_PRECARGA_TIPOS: DocumentoTipo[] = [
+  "factura_comercial",
+  "certificado_origen",
+  "bl_guia",
+  "lista_empaque",
+  "poliza_transporte",
+  "cedula_importador",
+  "rif_importador",
+];
+
+/**
  * Carpeta completa de desaduanamiento (fase 4 UI).
+ * Primero el expediente a presentar; luego recaudos extra.
  * Incluye el pase de salida (se carga en pantalla pero NO va al Expediente PDF).
  * Registro PL solo aplica a importador jurídico (se filtra en runtime).
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
-  "cedula_importador",
-  "rif_importador",
-  "lista_empaque",
-  "nacionalizacion",
+  ...PL_DESADUANAMIENTO_PRESENTAR_TIPOS,
   "dav",
   "sencamer",
   "registro_puerto_libre",
@@ -287,11 +312,20 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
-  cedula_importador: "Cédula del importador (si ya está cargada, puedes reemplazarla)",
+  factura_comercial:
+    "Factura original de compra de este vehículo. Precargada desde Registro si ya está.",
+  certificado_origen:
+    "Precargado desde Registro. Si falta, cárgalo aquí.",
+  bl_guia: "Bill of Lading. Precargado desde Embarque. Si falta, cárgalo aquí.",
+  lista_empaque: "Precargada desde Embarque. Si falta, cárgala aquí.",
+  poliza_transporte:
+    "Póliza de seguro de la carga. Precargada desde Embarque si la subiste.",
+  cedula_importador:
+    "Cédula o pasaporte del importador (si ya está, aparece precargada).",
   rif_importador:
-    "RIF con dirección en Nueva Esparta, Venezuela (si ya está cargado, puedes reemplazarlo)",
-  lista_empaque: "Desde fase Embarque (lista de empaque)",
-  nacionalizacion: "Declaración Única de Aduanas (DUA) ante SENIAT",
+    "RIF vigente del importador (si ya está, aparece precargado).",
+  nacionalizacion:
+    "DUA. La prepara el agente de aduanas. Cárgala aquí.",
   dav: "Declaración Andina de Valor (DAV)",
   sencamer: "Certificado / documento SENCAMER",
   registro_puerto_libre:

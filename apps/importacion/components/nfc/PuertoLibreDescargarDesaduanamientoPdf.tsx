@@ -98,7 +98,8 @@ export function PuertoLibreDescargarDesaduanamientoPdf({ vehiculoId }: Props) {
         </button>
       </div>
       <p className="text-xs text-zinc-500">
-        Expediente PDF SENIAT — portada, índice y documentos consignables.
+        Expediente imprimible: factura, certificado, BL, lista, póliza,
+        cédula/RIF, DUA y recaudos. Lo precargado ya entra.
       </p>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
     </div>

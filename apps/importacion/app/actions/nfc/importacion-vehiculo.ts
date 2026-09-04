@@ -1468,7 +1468,7 @@ export async function completePuertoLibreFase3Action(
     return {
       success: false,
       error:
-        "Completa desaduanamiento: cédula/RIF, lista de empaque, DUA, DAV, SENCAMER, constancia del agente, reconocimiento, pago de tasas/impuestos, constancia de residencia, pase de salida" +
+        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, SENCAMER, constancia del agente, reconocimiento, liquidación, residencia y pase de salida" +
         (esJuridica ? ", registro PL" : "") +
         " y recaudos del régimen",
     };
