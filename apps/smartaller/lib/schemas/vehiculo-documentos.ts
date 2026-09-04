@@ -58,6 +58,7 @@ export const DOCUMENTO_TIPOS = [
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
   "constancia_nacionalizacion",
+  "constancia_inspeccion",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -125,6 +126,7 @@ export const vehiculosDocumentosSchema = z.object({
   declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
   liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   constancia_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  constancia_inspeccion: vehiculoDocumentoRefSchema.optional(),
   resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
@@ -200,6 +202,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
   constancia_nacionalizacion:
     "Constancia de nacionalización (autoriza retiro del puerto)",
+  constancia_inspeccion: "Constancia de inspección (puerto)",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
@@ -284,6 +287,18 @@ export function pagoSeniatPdfsListos(
 ): boolean {
   if (!docs) return false;
   return PL_PAGO_SENIAT_DOCUMENTO_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
+}
+
+/** PDF que emite el puerto después del pago / constancia de nacionalización. */
+export const PL_CONSTANCIA_INSPECCION_TIPO = [
+  "constancia_inspeccion",
+] as const satisfies readonly DocumentoTipo[];
+
+export function constanciaInspeccionLista(
+  docs: VehiculosDocumentos | null | undefined
+): boolean {
+  if (!docs) return false;
+  return Boolean(docs.constancia_inspeccion?.url);
 }
 
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
@@ -375,6 +390,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
   "constancia_nacionalizacion",
+  "constancia_inspeccion",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",

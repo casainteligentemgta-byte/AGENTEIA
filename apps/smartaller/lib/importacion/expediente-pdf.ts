@@ -24,6 +24,7 @@ import {
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_NUEVOS_TIPOS,
   PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+  PL_CONSTANCIA_INSPECCION_TIPO,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   docsMatriculacionPdfTipos,
@@ -112,6 +113,7 @@ function expedienteDocTipos(): DocumentoTipo[] {
     PL_EMBARQUE_DOCUMENTO_TIPOS,
     PL_DESADUANAMIENTO_NUEVOS_TIPOS,
     [...PL_PAGO_SENIAT_DOCUMENTO_TIPOS],
+    [...PL_CONSTANCIA_INSPECCION_TIPO],
     ["manual_vehiculo", "cedula", "titulo", "foto_comprador"],
     SEGURO_DOCUMENTO_TIPOS,
     PL_MATRICULACION_NUEVOS_TIPOS,
@@ -569,6 +571,10 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     {
       label: "Constancia de nacionalización",
       value: txt(ficha.documentos.constancia_nacionalizacion?.url ? "Cargada" : null),
+    },
+    {
+      label: "Constancia de inspección",
+      value: txt(ficha.documentos.constancia_inspeccion?.url ? "Cargada" : null),
     },
     { label: "Aranceles (USD)", value: txt(imp.costosArancelariosUsd) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },

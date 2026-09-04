@@ -11,6 +11,7 @@ import {
   ESTADO_SENIAT_LABELS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+  PL_CONSTANCIA_INSPECCION_TIPO,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
@@ -30,6 +31,8 @@ import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
 import { PuertoLibrePlazosPanel } from "@/components/nfc/PuertoLibrePlazosPanel";
 import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
 import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
+import { PostPagoInspeccionCard } from "@/components/nfc/PostPagoInspeccionCard";
+import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -55,6 +58,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       ...PL_EMBARQUE_DOCUMENTO_TIPOS,
       ...PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
       ...PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+      ...PL_CONSTANCIA_INSPECCION_TIPO,
       "manual_vehiculo",
       "cedula",
       "titulo",
@@ -299,6 +303,14 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         pagoArancelesBs={imp.pagoArancelesBs}
         docs={ficha.documentos}
         canEdit={canMutate}
+      />
+
+      <PostPagoInspeccionCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        pagado={imp.pagoArancelesEstado === "pagado"}
+        docs={ficha.documentos}
+        canEdit={canMutate}
+        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
       />
 
       <PuertoLibrePlazosPanel vehiculoId={ficha.id} importacion={imp} />

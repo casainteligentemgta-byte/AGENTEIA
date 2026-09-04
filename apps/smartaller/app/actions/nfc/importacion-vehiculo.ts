@@ -15,6 +15,7 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   PL_LLEGADA_DOCUMENTO_TIPOS,
+  constanciaInspeccionLista,
   faltantesMatriculacionCarpeta,
   PL_REGISTRO_DOCUMENTO_TIPOS,
   VIAS_NACIONALIZACION,
@@ -1663,6 +1664,9 @@ const desaduanamientoCompleteSchema = z.object({
     .trim()
     .min(2, "Indica el Agente de Aduanas autorizado")
     .max(120),
+  checklistLlegada: z.record(z.string()).optional(),
+  checklistLlegadaNotas: z.record(z.string()).optional(),
+  otrosDispositivosNotas: z.string().max(2000).optional().nullable(),
 });
 
 /**
@@ -1708,9 +1712,42 @@ export async function completePuertoLibreFase3Action(
     };
   }
 
+  if (!constanciaInspeccionLista(docs)) {
+    return {
+      success: false,
+      error:
+        "Carga la constancia de inspección del puerto (PDF) después del pago.",
+    };
+  }
+
+  const checklist =
+    parsed.data.checklistLlegada ?? existing.checklistLlegada ?? {};
+  if (!isLlegadaChecklistCompleto(checklist)) {
+    return {
+      success: false,
+      error:
+        "Completa el cuestionario de revisión del vehículo (todos los ítems).",
+    };
+  }
+
+  const faltantesMemoria = MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.filter(
+    (t) => !docs[t]?.url
+  );
+  if (faltantesMemoria.length > 0) {
+    return {
+      success: false,
+      error: "Completa la inspección fotográfica (memoria descriptiva).",
+    };
+  }
+
   const importacion = serializeImportacion({
     ...existing,
     agenteAduanal: parsed.data.agenteAduanal,
+    checklistLlegada: checklist,
+    checklistLlegadaNotas:
+      parsed.data.checklistLlegadaNotas ?? existing.checklistLlegadaNotas,
+    otrosDispositivosNotas:
+      parsed.data.otrosDispositivosNotas ?? existing.otrosDispositivosNotas,
     planillaFase: 5,
   });
 
