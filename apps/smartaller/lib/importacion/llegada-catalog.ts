@@ -33,6 +33,15 @@ const RESPUESTAS_VALIDAS = new Set<LlegadaChecklistRespuesta>([
   "na",
 ]);
 
+export const LLEGADA_CHECKLIST_RESPUESTA_LABELS: Record<
+  LlegadaChecklistRespuesta,
+  string
+> = {
+  sin_dano: "OK",
+  falla: "Daño",
+  na: "N/A",
+};
+
 /** True si todos los ítems del cuestionario de revisión tienen respuesta. */
 export function isLlegadaChecklistCompleto(
   checklist: Record<string, string | undefined | null> | null | undefined

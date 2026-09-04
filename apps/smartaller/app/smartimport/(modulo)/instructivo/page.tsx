@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   ClipboardList,
   FileStack,
@@ -43,6 +44,7 @@ const FASES = [
       "Acta de recepción (AR) y reconocimiento / constancia del estado de la carga.",
       "Memoria descriptiva (7 fotos) + verificación de impronta (serial debe coincidir).",
       "Cuestionario de revisión del vehículo (todos los ítems).",
+      "Guarda la revisión en PDF en el expediente (o carga un PDF ya firmado).",
     ],
   },
   {
@@ -95,6 +97,14 @@ const FASES = [
 ] as const;
 
 const TIPS = [
+  {
+    icon: CalendarClock,
+    titulo: "Relojes de plazo",
+    texto:
+      "En la ficha y la planilla: un reloj cuenta los días para nacionalizar (Puerto Libre o régimen de equipaje) y otro avisa cuándo toca la presentación SENIAT. Agenda la fecha si aún no está.",
+    href: "/smartimport",
+    cta: "Ver expedientes",
+  },
   {
     icon: ClipboardList,
     titulo: "Guarda avance por fase",

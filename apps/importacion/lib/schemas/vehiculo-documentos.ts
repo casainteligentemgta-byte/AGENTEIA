@@ -59,6 +59,7 @@ export const DOCUMENTO_TIPOS = [
   "liquidacion_nacionalizacion",
   "constancia_nacionalizacion",
   "constancia_inspeccion",
+  "revision_vehiculo",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -129,6 +130,7 @@ export const vehiculosDocumentosSchema = z.object({
   liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   constancia_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   constancia_inspeccion: vehiculoDocumentoRefSchema.optional(),
+  revision_vehiculo: vehiculoDocumentoRefSchema.optional(),
   resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
@@ -207,6 +209,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   constancia_nacionalizacion:
     "Constancia de nacionalización (autoriza retiro del puerto)",
   constancia_inspeccion: "Constancia de inspección (puerto)",
+  revision_vehiculo: "Revisión del vehículo (PDF)",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
@@ -397,6 +400,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "liquidacion_nacionalizacion",
   "constancia_nacionalizacion",
   "constancia_inspeccion",
+  "revision_vehiculo",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -1212,9 +1216,15 @@ export function diasHasta(fecha: string | null | undefined): number | null {
  * Listo para (o en) nacionalización: planilla PL completa y aún no nacionalizado.
  */
 export function esProximoNacionalizar(data: ImportacionData): boolean {
-  if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const estado = data.estadoNacionalizacion ?? "pendiente";
   if (estado !== "pendiente" && estado !== "en_proceso") return false;
+  const regimen = resolveRegimenImportacion(data.regimen);
+  if (regimen === "equipaje") {
+    return Boolean(
+      data.fechaLimiteNacionalizacion?.trim() || data.fechaIngreso?.trim()
+    );
+  }
+  if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const fase = data.planillaFase ?? 0;
   return fase >= 9;
 }

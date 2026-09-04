@@ -107,6 +107,8 @@ import {
 import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
+import { RelojesExpediente } from "@/components/nfc/RelojesExpediente";
+import { RevisionVehiculoPdfCard } from "@/components/nfc/RevisionVehiculoPdfCard";
 
 /** UI chips 1–8. En BD planillaFase 9 = completa. */
 export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -361,6 +363,13 @@ export function PlanillaRegistroImportacion({
   return (
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
+
+      <RelojesExpediente
+        vehiculoId={vehiculoId}
+        importacion={initialImportacion}
+        canEdit
+        compact
+      />
 
       <div className="flex justify-end">
         <Link
@@ -1757,6 +1766,17 @@ function Fase2Llegada({
         onUploadedMessage={onUploadedMessage}
       />
 
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={cuestionarioCompleto}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión guardada en PDF");
+        }}
+      />
+
       <PlanillaFaseActions
         pending={pending}
         disabled={!canContinue}
@@ -2079,6 +2099,17 @@ function Fase3Aduana({
           checklistMarked,
           otrosNotas,
           setOtrosNotas,
+        }}
+      />
+
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={isLlegadaChecklistCompleto(checklist)}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión guardada en PDF");
         }}
       />
 

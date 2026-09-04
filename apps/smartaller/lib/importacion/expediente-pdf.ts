@@ -118,6 +118,7 @@ function expedienteDocTipos(): DocumentoTipo[] {
     PL_DESADUANAMIENTO_NUEVOS_TIPOS,
     [...PL_PAGO_SENIAT_DOCUMENTO_TIPOS],
     [...PL_CONSTANCIA_INSPECCION_TIPO],
+    ["revision_vehiculo"],
     [...PL_INTT_PRESENTACION_TIPOS],
     [...PL_ENTREGA_PLACA_TIPOS],
     ["manual_vehiculo", "cedula", "titulo", "foto_comprador"],
@@ -929,4 +930,104 @@ export function matriculacionPdfFileName(
 ): string {
   const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
   return `Carpeta-INTT-${raw}.pdf`;
+}
+
+const REVISION_RESPUESTA: Record<string, string> = {
+  sin_dano: "OK",
+  falla: "Dano",
+  na: "N/A",
+};
+
+/** PDF de la revisión (cuestionario de llegada) para guardar en el expediente. */
+export async function buildRevisionVehiculoPdf(
+  ficha: ExpedientePdfSource
+): Promise<Uint8Array> {
+  const { LLEGADA_CHECKLIST_ITEMS } = await import(
+    "@/lib/importacion/llegada-catalog"
+  );
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const placa = placaRealVisible(ficha.placa, ficha.codigoExpediente);
+  const imp = ficha.importacion;
+  const tituloVehiculo =
+    [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Vehiculo";
+
+  let page = addBlankPage(pdf);
+  let y = drawHeader(
+    page,
+    font,
+    bold,
+    "Revision del vehiculo",
+    `${codigo} · SmartImport`
+  );
+
+  y = drawSectionTitle(page, bold, "Expediente", y);
+  ({ page, y } = drawPairs(
+    pdf,
+    page,
+    font,
+    bold,
+    [
+      { label: "Expediente", value: codigo },
+      { label: "Vehiculo", value: tituloVehiculo },
+      { label: "Color / anio", value: `${txt(ficha.color)} / ${txt(imp.anio)}` },
+      { label: "Placa", value: txt(placa) },
+      { label: "VIN", value: txt(imp.vin) },
+      { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
+      { label: "Kilometraje", value: txt(ficha.kilometraje_ultimo) },
+      { label: "Fecha ingreso", value: txt(imp.fechaIngreso) },
+      {
+        label: "Impronta",
+        value: txt(imp.serialImprontaEstado ?? "sin verificar"),
+      },
+    ],
+    y
+  ));
+
+  y = drawSectionTitle(page, bold, "Cuestionario de revision", y - 8);
+  const checklist = imp.checklistLlegada ?? {};
+  const notas = imp.checklistLlegadaNotas ?? {};
+  const pairs: LinePair[] = LLEGADA_CHECKLIST_ITEMS.map((item) => {
+    const raw = checklist[item.id];
+    const respuesta = REVISION_RESPUESTA[raw ?? ""] ?? "Pendiente";
+    const nota = (notas[item.id] ?? "").trim();
+    return {
+      label: item.etiqueta,
+      value: nota ? `${respuesta} — ${nota}` : respuesta,
+    };
+  });
+  ({ page, y } = drawPairs(pdf, page, font, bold, pairs, y));
+
+  const otros = imp.otrosDispositivosNotas?.trim();
+  if (otros) {
+    y = drawSectionTitle(page, bold, "Otros dispositivos / notas", y - 4);
+    ({ page, y } = drawPairs(
+      pdf,
+      page,
+      font,
+      bold,
+      [{ label: "Notas", value: otros }],
+      y
+    ));
+  }
+
+  const fotos = MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => ({
+    label: DOCUMENTO_LABELS[tipo],
+    value: ficha.documentos[tipo]?.url ? "Cargada" : "Pendiente",
+  }));
+  y = drawSectionTitle(page, bold, "Inspeccion fotografica", y - 4);
+  drawPairs(pdf, page, font, bold, fotos, y);
+
+  return pdf.save({ useObjectStreams: false });
+}
+
+export function revisionVehiculoPdfFileName(
+  codigo: string | null | undefined,
+  placa: string
+): string {
+  const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
+  return `Revision-vehiculo-${raw}.pdf`;
 }

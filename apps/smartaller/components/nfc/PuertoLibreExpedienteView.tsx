@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
-import { AlertaDiasNacionalizacion } from "@/components/nfc/AlertaDiasNacionalizacion";
+import { RelojesExpediente } from "@/components/nfc/RelojesExpediente";
+import { RevisionVehiculoPdfCard } from "@/components/nfc/RevisionVehiculoPdfCard";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreDescargarPdf } from "@/components/nfc/PuertoLibreDescargarPdf";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
@@ -61,6 +62,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       ...PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
       ...PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
       ...PL_CONSTANCIA_INSPECCION_TIPO,
+      "revision_vehiculo",
       ...PL_INTT_PRESENTACION_TIPOS,
       ...PL_ENTREGA_PLACA_TIPOS,
       "manual_vehiculo",
@@ -280,7 +282,11 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Observaciones" value={imp.observaciones} wide />
         </dl>
         <div className="mt-4">
-          <AlertaDiasNacionalizacion importacion={imp} />
+          <RelojesExpediente
+            vehiculoId={ficha.id}
+            importacion={imp}
+            canEdit={canMutate}
+          />
         </div>
       </section>
 
@@ -315,6 +321,13 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         docs={ficha.documentos}
         canEdit={canMutate}
         checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
+      />
+
+      <RevisionVehiculoPdfCard
+        vehiculoId={ficha.id}
+        docs={ficha.documentos}
+        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
+        canEdit={canMutate}
       />
 
       <PuertoLibrePlazosPanel vehiculoId={ficha.id} importacion={imp} />

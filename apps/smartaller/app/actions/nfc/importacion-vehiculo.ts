@@ -52,6 +52,10 @@ import { lookupTasaBcv, todayYmdCaracas } from "@/lib/importacion/tasa-bcv";
 import { computeCompletitudDatos } from "@/lib/importacion/completitud-datos";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import {
+  buildRevisionVehiculoPdf,
+  revisionVehiculoPdfFileName,
+} from "@/lib/importacion/expediente-pdf";
+import {
   docsEntregaPlacaListos,
   esEntregaPlacaCompleta,
   validarPlacaVehicular,
@@ -811,6 +815,145 @@ export async function updatePuertoLibreImportacionAction(
   }
 
   return { success: true, loteCopiados };
+}
+
+const fechaPlazoSchema = z.object({
+  vehiculoId: z.string().uuid(),
+  fechaLimiteNacionalizacion: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  fechaPresentacionSeniat: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
+/** Agenda el reloj de nacionalización (equipaje) o la cita SENIAT. */
+export async function savePuertoLibreFechasPlazoAction(
+  raw: unknown
+): Promise<PuertoLibreActionResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = fechaPlazoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Fecha inválida",
+    };
+  }
+  if (
+    !parsed.data.fechaLimiteNacionalizacion &&
+    !parsed.data.fechaPresentacionSeniat
+  ) {
+    return { success: false, error: "Indica una fecha" };
+  }
+
+  const row = await assertVehiculoTaller(parsed.data.vehiculoId, auth.taller.id);
+  if (!row) return { success: false, error: "Vehículo no encontrado" };
+
+  const existing = parseImportacion(row.importacion);
+  const estadoSeniat =
+    parsed.data.fechaPresentacionSeniat &&
+    (existing.estadoSeniat ?? "pendiente") === "pendiente"
+      ? "agendada"
+      : existing.estadoSeniat;
+
+  const importacion = serializeImportacion({
+    ...existing,
+    fechaLimiteNacionalizacion:
+      parsed.data.fechaLimiteNacionalizacion ??
+      existing.fechaLimiteNacionalizacion,
+    fechaPresentacionSeniat:
+      parsed.data.fechaPresentacionSeniat ?? existing.fechaPresentacionSeniat,
+    estadoSeniat,
+  });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehiculos")
+    .update({ importacion, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vehiculoId)
+    .eq("taller_id", auth.taller.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidateFicha(parsed.data.vehiculoId);
+  return { success: true };
+}
+
+/** Genera el PDF de la revisión y lo guarda en el expediente. */
+export async function guardarRevisionVehiculoPdfAction(
+  raw: unknown
+): Promise<PuertoLibreUploadResult> {
+  const auth = await requireTallerAuth();
+  if (auth.error || !auth.taller) {
+    return { success: false, error: auth.error ?? "No autorizado" };
+  }
+
+  const parsed = z.object({ vehiculoId: z.string().uuid() }).safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Vehículo inválido" };
+  }
+
+  const fichaResult = await getPuertoLibreFicha(parsed.data.vehiculoId);
+  if (!fichaResult.success) {
+    return { success: false, error: fichaResult.error };
+  }
+
+  const ficha = fichaResult.ficha;
+  if (!isLlegadaChecklistCompleto(ficha.importacion.checklistLlegada)) {
+    return {
+      success: false,
+      error: "Completa el cuestionario de revisión antes de generar el PDF",
+    };
+  }
+
+  try {
+    const bytes = await buildRevisionVehiculoPdf(ficha);
+    const fileName = revisionVehiculoPdfFileName(
+      ficha.codigoExpediente,
+      ficha.placa
+    );
+    const file = new File([new Uint8Array(bytes)], fileName, {
+      type: "application/pdf",
+    });
+    const admin = createAdminClient();
+    const documento = await uploadVehiculoDocumento(admin, {
+      tallerId: auth.taller.id,
+      vehiculoId: parsed.data.vehiculoId,
+      tipo: "revision_vehiculo",
+      file,
+    });
+    const next: VehiculosDocumentos = {
+      ...ficha.documentos,
+      revision_vehiculo: documento,
+    };
+    const { error } = await admin
+      .from("vehiculos")
+      .update({ documentos: next, updated_at: new Date().toISOString() })
+      .eq("id", parsed.data.vehiculoId)
+      .eq("taller_id", auth.taller.id);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    revalidateFicha(parsed.data.vehiculoId);
+    return {
+      success: true,
+      tipo: "revision_vehiculo",
+      documentos: next,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : "No se pudo generar el PDF de revisión",
+    };
+  }
 }
 
 export async function updatePuertoLibreSeguroAction(
