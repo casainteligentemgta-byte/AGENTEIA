@@ -73,6 +73,7 @@ import {
   MODALIDADES_TRANSITO,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_ORIGEN,
+  PL_DESADUANAMIENTO_PRECARGA_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
@@ -1815,6 +1816,9 @@ function DesaduanamientoDocSlot({
     PL_DESADUANAMIENTO_ORIGEN
   );
   const loaded = Boolean(docs[tipo]?.url);
+  const precargado =
+    loaded &&
+    (PL_DESADUANAMIENTO_PRECARGA_TIPOS as readonly string[]).includes(tipo);
   const showImportadorHint =
     (tipo === "cedula_importador" || tipo === "rif_importador") &&
     Boolean(importadorDocumento?.trim());
@@ -1847,7 +1851,7 @@ function DesaduanamientoDocSlot({
               : "bg-red-950/50 text-red-300"
           }`}
         >
-          {loaded ? "Listo" : "Pendiente"}
+          {precargado ? "Precargado" : loaded ? "Listo" : "Pendiente"}
         </span>
       </div>
       {loaded && docs[tipo]?.url ? (
@@ -1986,12 +1990,16 @@ function Fase3Aduana({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Régimen: <span className="text-slate-200">{regimenLabel}</span>. Estos
-          documentos forman el Expediente PDF: cédula y RIF del importador, lista
-          de empaque, DUA, DAV, SENCAMER, constancia del agente, reconocimiento,
-          pago de tasas o impuestos y constancia de residencia permanente
+          Régimen: <span className="text-slate-200">{regimenLabel}</span>. A
+          presentar: factura, certificado de origen, BL, lista de empaque, póliza
+          de seguro, cédula/RIF y DUA (la prepara el agente). Lo que ya cargaste
+          en Registro o Embarque sale precargado; lo que falte, cárgalo aquí y
+          genera el PDF imprimible
+          {docTipos.includes("licencia_importacion_automotriz")
+            ? ". Incluye licencia de importación (este régimen la pide)"
+            : ""}
           {docTipos.includes("registro_puerto_libre")
-            ? " (+ registro PL si aplica)"
+            ? ". Registro PL si es jurídica"
             : ""}
           .
         </p>
