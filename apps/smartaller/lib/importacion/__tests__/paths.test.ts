@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DASHBOARD_COLA_DESADUANAMIENTO_ID,
+  DASHBOARD_COLA_INSPECCION_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
+  DASHBOARD_COLA_PAGO_IMPUESTO_ID,
   DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_REGISTRO_ID,
@@ -57,6 +59,12 @@ describe("colas dashboard", () => {
     assert.equal(DASHBOARD_COLA_DESADUANAMIENTO_ID, "cola-desaduanamiento");
     assert.equal(hrefDashboardCola(1), "/smartimport#cola-registro");
     assert.equal(hrefDashboardCola(4), "/smartimport#cola-desaduanamiento");
+    assert.equal(DASHBOARD_COLA_PAGO_IMPUESTO_ID, "cola-pago-impuesto");
+    assert.equal(DASHBOARD_COLA_INSPECCION_ID, "cola-inspeccion");
+    assert.equal(hrefDashboardCola(5), "/smartimport#cola-pago-impuesto");
+    assert.equal(hrefDashboardCola(6), "/smartimport#cola-inspeccion");
+    assert.equal(hrefDashboardCola(7), "/smartimport#cola-propietario");
+    assert.equal(hrefDashboardCola(10), "/smartimport#cola-placa");
   });
 });
 

@@ -61,17 +61,17 @@ describe("dashboard clasificación", () => {
     assert.deepEqual(colasPlanillaDe(v), [2]);
   });
 
-  it("cada fase 2–8 tiene su cola y no se mezcla con las demás", () => {
+  it("cada fase 2–10 tiene su cola y no se mezcla con las demás", () => {
     for (const fase of PLANILLA_FASES_PENDIENTES.filter((n) => n >= 2)) {
       const v = { ...extraido, planillaFase: fase };
       assert.deepEqual(colasPlanillaDe(v), [fase]);
     }
   });
 
-  it("fase 8 es cola de placa; la 9 ya no entra en colas por completar", () => {
-    assert.deepEqual(colasPlanillaDe({ planillaFase: 8 }), [8]);
-    assert.deepEqual(colasPlanillaDe({ planillaFase: 9 }), []);
-    assert.equal(esPorCompletarRegistro({ planillaFase: 9 }), false);
+  it("fase 10 es cola de placa; la 11 ya no entra en colas por completar", () => {
+    assert.deepEqual(colasPlanillaDe({ planillaFase: 10 }), [10]);
+    assert.deepEqual(colasPlanillaDe({ planillaFase: 11 }), []);
+    assert.equal(esPorCompletarRegistro({ planillaFase: 11 }), false);
   });
 
   it("fase null sin datos listos se trata como registro", () => {
@@ -146,21 +146,21 @@ describe("dashboard clasificación", () => {
     assert.equal(placaAccionLabel(true), "Placa completada");
     assert.equal(
       esEntregaPlacaListaEnDashboard({
-        planillaFase: 8,
+        planillaFase: 10,
         entregaPlacaCompleta: false,
       }),
       false
     );
     assert.equal(
       esEntregaPlacaListaEnDashboard({
-        planillaFase: 8,
+        planillaFase: 10,
         entregaPlacaCompleta: true,
       }),
       true
     );
     assert.equal(
       esEntregaPlacaListaEnDashboard({
-        planillaFase: 9,
+        planillaFase: 11,
         entregaPlacaCompleta: false,
       }),
       true

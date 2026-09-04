@@ -25,6 +25,8 @@ import {
   completePuertoLibreFase3Action,
   completePuertoLibreFase4PropietarioAction,
   completePuertoLibreFase5SeguroAction,
+  completePuertoLibreInspeccionAction,
+  completePuertoLibrePagoImpuestoAction,
   savePuertoLibreCarpetaMatriculacionAction,
   savePuertoLibreEntregaPlacaAction,
   savePuertoLibreFase1RegistroAction,
@@ -111,9 +113,14 @@ import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla"
 import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
 import { RelojesExpediente } from "@/components/nfc/RelojesExpediente";
 import { RevisionVehiculoPdfCard } from "@/components/nfc/RevisionVehiculoPdfCard";
+import { PL_DESADUANAMIENTO_RESERVADOS } from "@/lib/importacion/desaduanamiento-reservados";
+import { puedeCompletarPagoImpuesto } from "@/lib/importacion/pago-aranceles";
+import {
+  toPlanillaFaseUi,
+  type PlanillaFaseUi,
+} from "@/lib/importacion/planilla-etapas";
 
-/** UI chips 1–8. En BD planillaFase 9 = completa. */
-export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type { PlanillaFaseUi };
 
 /** Tras guardar una fase: seguir en planilla o volver a la ficha. */
 type PlanillaAfterSave = "next" | "ficha";
@@ -135,7 +142,7 @@ type Props = {
   initialImportacion: ImportacionData;
   initialSeguro: SeguroData;
   initialDocumentos: VehiculosDocumentos;
-  /** Fase forzada por query (?fase=1|2|3|4|5|6|7|8). */
+  /** Fase forzada por query (?fase=1…10). */
   faseInicial?: PlanillaFaseUi;
   /**
    * Operador (admin/taller/concesionario) puede forzar avance si OCR no lee la impronta.
@@ -152,28 +159,8 @@ function resolveFase(
   importacion: ImportacionData,
   forced?: PlanillaFaseUi
 ): PlanillaFaseUi {
-  if (
-    forced === 1 ||
-    forced === 2 ||
-    forced === 3 ||
-    forced === 4 ||
-    forced === 5 ||
-    forced === 6 ||
-    forced === 7 ||
-    forced === 8
-  ) {
-    return forced;
-  }
-  const f = importacion.planillaFase ?? 1;
-  if (f >= 8) return 8;
-  if (f >= 7) return 7;
-  if (f === 6) return 6;
-  if (f === 5) return 5;
-  if (f === 4) return 4;
-  if (f === 3) return 3;
-  if (f === 2) return 2;
-  if (f === 1) return 1;
-  return 1;
+  if (forced) return forced;
+  return toPlanillaFaseUi(importacion.planillaFase ?? 1);
 }
 
 function countDocs(docs: VehiculosDocumentos, tipos: DocumentoTipo[]) {
@@ -293,19 +280,23 @@ export function PlanillaRegistroImportacion({
   const llegadaDocsCount = countDocs(docs, PL_LLEGADA_DOCUMENTO_TIPOS);
   const llegadaCompleta =
     Boolean(initialImportacion.fechaIngreso?.trim()) &&
-    Boolean(initialImportacion.partidaArancelaria?.trim()) &&
+    Boolean(initialImportacion.partidaArancelaria?.trim());
+
+  const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
+  const pagoImpuestoCompleto = puedeCompletarPagoImpuesto(
+    initialImportacion,
+    Boolean(docs.planilla_liquidacion_aduanera?.url)
+  );
+  const inspeccionCompleta =
     llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length &&
     fotosObligatoriasCount === MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length &&
-    isLlegadaChecklistCompleto(checklist);
-
-  const aduanaCompleta =
-    aduanaCount === desaduanamientoTipos.length &&
+    isLlegadaChecklistCompleto(checklist) &&
     constanciaInspeccionLista(docs);
   const propietarioCompleto = Boolean(compradorNombre?.trim());
   const seguroCompleto = Boolean(
     initialSeguro.aseguradora?.trim() ||
       (initialImportacion.planillaFase != null &&
-        initialImportacion.planillaFase >= 7)
+        initialImportacion.planillaFase >= 9)
   );
   const matriculacionStats = countMatriculacionCarpeta(
     docs,
@@ -318,7 +309,7 @@ export function PlanillaRegistroImportacion({
   const matriculacionCompleta =
     matriculacionStats.listos === matriculacionStats.total ||
     (initialImportacion.planillaFase != null &&
-      initialImportacion.planillaFase >= 8);
+      initialImportacion.planillaFase >= 10);
   const entregaPlacaCompleta = esEntregaPlacaCompleta(
     docs,
     placa,
@@ -386,7 +377,7 @@ export function PlanillaRegistroImportacion({
         </Link>
       </div>
 
-      <div className="grid w-full grid-cols-4 gap-1 sm:grid-cols-8 sm:gap-1.5">
+      <div className="grid w-full grid-cols-5 gap-1 sm:grid-cols-5 lg:grid-cols-10 sm:gap-1.5">
         <FaseChip
           n={1}
           label="Registro"
@@ -417,31 +408,45 @@ export function PlanillaRegistroImportacion({
         />
         <FaseChip
           n={5}
-          label="Propietario"
-          completo={propietarioCompleto}
+          label="Pago imp."
+          completo={pagoImpuestoCompleto}
           current={fase === 5}
           onClick={() => goFase(5)}
         />
         <FaseChip
           n={6}
-          label="Seguro"
-          completo={seguroCompleto}
+          label="Inspección"
+          completo={inspeccionCompleta}
           current={fase === 6}
           onClick={() => goFase(6)}
         />
         <FaseChip
           n={7}
-          label="Matrícula"
-          completo={matriculacionCompleta}
+          label="Propietario"
+          completo={propietarioCompleto}
           current={fase === 7}
           onClick={() => goFase(7)}
         />
         <FaseChip
           n={8}
-          label="Placa"
-          completo={entregaPlacaCompleta}
+          label="Seguro"
+          completo={seguroCompleto}
           current={fase === 8}
           onClick={() => goFase(8)}
+        />
+        <FaseChip
+          n={9}
+          label="Matrícula"
+          completo={matriculacionCompleta}
+          current={fase === 9}
+          onClick={() => goFase(9)}
+        />
+        <FaseChip
+          n={10}
+          label="Placa"
+          completo={entregaPlacaCompleta}
+          current={fase === 10}
+          onClick={() => goFase(10)}
         />
       </div>
 
@@ -628,11 +633,6 @@ export function PlanillaRegistroImportacion({
         />
       ) : fase === 3 ? (
         <Fase2Llegada
-          vehiculoId={vehiculoId}
-          serialCarroceria={serialCarroceria}
-          docs={docs}
-          setDocs={setDocs}
-          fotosCount={fotosCount}
           fechaIngresoInicial={initialImportacion.fechaIngreso?.trim() ?? ""}
           partidaArancelariaInicial={
             initialImportacion.partidaArancelaria?.trim() ?? ""
@@ -643,18 +643,8 @@ export function PlanillaRegistroImportacion({
               ? String(initialImportacion.cilindradaCc)
               : ""
           }
-          initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
-          initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
-          checklist={checklist}
-          setChecklist={setChecklist}
-          checklistNotas={checklistNotas}
-          setChecklistNotas={setChecklistNotas}
-          checklistMarked={checklistMarked}
-          otrosNotas={otrosNotas}
-          setOtrosNotas={setOtrosNotas}
           pending={pending}
-          canForzarImpronta={canForzarImpronta}
-          onSave={(fechaIngreso, partidaArancelaria, after, forzarImprontaSinVerificar) => {
+          onSave={(fechaIngreso, partidaArancelaria, after) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
@@ -662,11 +652,6 @@ export function PlanillaRegistroImportacion({
                 vehiculoId,
                 fechaIngreso,
                 partidaArancelaria,
-                checklistLlegada: checklist,
-                checklistLlegadaNotas: checklistNotas,
-                otrosDispositivosNotas: otrosNotas || null,
-                forzarImprontaSinVerificar:
-                  canForzarImpronta && forzarImprontaSinVerificar,
               });
               if (!result.success) {
                 setError(result.error);
@@ -676,16 +661,10 @@ export function PlanillaRegistroImportacion({
               navigateAfterSave(after, 4);
             });
           }}
-          onUploadedMessage={(msg) => {
-            setMessage(msg);
-            setError(null);
-            router.refresh();
-          }}
         />
       ) : fase === 4 ? (
         <Fase3Aduana
           vehiculoId={vehiculoId}
-          serialCarroceria={serialCarroceria}
           docs={docs}
           setDocs={setDocs}
           docsCount={aduanaCount}
@@ -697,26 +676,6 @@ export function PlanillaRegistroImportacion({
           pending={pending}
           canComplete={aduanaCompleta}
           agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
-          valorCif={initialImportacion.valorCif}
-          arancelPct={initialImportacion.arancelPct ?? initialImportacion.tarifaAdValoremPct}
-          impuestoLujoPct={initialImportacion.impuestoLujoPct}
-          tasaCambioBcv={initialImportacion.tasaCambioBcv}
-          tasaOficialFecha={initialImportacion.tasaOficialFecha}
-          pagoArancelesEstado={initialImportacion.pagoArancelesEstado}
-          pagoArancelesUsd={initialImportacion.pagoArancelesUsd}
-          pagoArancelesBs={initialImportacion.pagoArancelesBs}
-          partidaArancelaria={initialImportacion.partidaArancelaria}
-          fotosCount={fotosCount}
-          initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
-          initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
-          checklist={checklist}
-          setChecklist={setChecklist}
-          checklistNotas={checklistNotas}
-          setChecklistNotas={setChecklistNotas}
-          checklistMarked={checklistMarked}
-          otrosNotas={otrosNotas}
-          setOtrosNotas={setOtrosNotas}
-          canForzarImpronta={canForzarImpronta}
           onComplete={(agenteAduanal, after) => {
             setError(null);
             setMessage(null);
@@ -725,9 +684,6 @@ export function PlanillaRegistroImportacion({
                 const result = await completePuertoLibreFase3Action({
                   vehiculoId,
                   agenteAduanal,
-                  checklistLlegada: checklist,
-                  checklistLlegadaNotas: checklistNotas,
-                  otrosDispositivosNotas: otrosNotas || null,
                 });
                 if (!result.success) {
                   setError(result.error);
@@ -751,6 +707,87 @@ export function PlanillaRegistroImportacion({
           }}
         />
       ) : fase === 5 ? (
+        <FasePagoImpuesto
+          vehiculoId={vehiculoId}
+          docs={docs}
+          setDocs={setDocs}
+          pending={pending}
+          canComplete={pagoImpuestoCompleto}
+          valorCif={initialImportacion.valorCif}
+          arancelPct={initialImportacion.arancelPct ?? initialImportacion.tarifaAdValoremPct}
+          impuestoLujoPct={initialImportacion.impuestoLujoPct}
+          tasaCambioBcv={initialImportacion.tasaCambioBcv}
+          tasaOficialFecha={initialImportacion.tasaOficialFecha}
+          pagoArancelesEstado={initialImportacion.pagoArancelesEstado}
+          pagoArancelesUsd={initialImportacion.pagoArancelesUsd}
+          pagoArancelesBs={initialImportacion.pagoArancelesBs}
+          partidaArancelaria={initialImportacion.partidaArancelaria}
+          onComplete={(after) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await completePuertoLibrePagoImpuestoAction({
+                vehiculoId,
+              });
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Pago de impuesto guardado");
+              navigateAfterSave(after, 6);
+            });
+          }}
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      ) : fase === 6 ? (
+        <FaseInspeccion
+          vehiculoId={vehiculoId}
+          serialCarroceria={serialCarroceria}
+          docs={docs}
+          setDocs={setDocs}
+          fotosCount={fotosCount}
+          initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
+          initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
+          checklist={checklist}
+          setChecklist={setChecklist}
+          checklistNotas={checklistNotas}
+          setChecklistNotas={setChecklistNotas}
+          checklistMarked={checklistMarked}
+          otrosNotas={otrosNotas}
+          setOtrosNotas={setOtrosNotas}
+          pending={pending}
+          canForzarImpronta={canForzarImpronta}
+          onComplete={(after, forzarImprontaSinVerificar) => {
+            setError(null);
+            setMessage(null);
+            startTransition(async () => {
+              const result = await completePuertoLibreInspeccionAction({
+                vehiculoId,
+                checklistLlegada: checklist,
+                checklistLlegadaNotas: checklistNotas,
+                otrosDispositivosNotas: otrosNotas || null,
+                forzarImprontaSinVerificar:
+                  canForzarImpronta && forzarImprontaSinVerificar,
+              });
+              if (!result.success) {
+                setError(result.error);
+                return;
+              }
+              setMessage("Inspección guardada");
+              navigateAfterSave(after, 7);
+            });
+          }}
+          onUploadedMessage={(msg) => {
+            setMessage(msg);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      ) : fase === 7 ? (
         <Fase4Propietario
           vehiculoId={vehiculoId}
           docs={docs}
@@ -775,7 +812,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Propietario guardado");
-              navigateAfterSave(after, 6);
+              navigateAfterSave(after, 8);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -784,7 +821,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 6 ? (
+      ) : fase === 8 ? (
         <Fase5Seguro
           vehiculoId={vehiculoId}
           docs={docs}
@@ -804,7 +841,7 @@ export function PlanillaRegistroImportacion({
                 return;
               }
               setMessage("Seguro guardado");
-              navigateAfterSave(after, 7);
+              navigateAfterSave(after, 9);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -813,7 +850,7 @@ export function PlanillaRegistroImportacion({
             router.refresh();
           }}
         />
-      ) : fase === 7 ? (
+      ) : fase === 9 ? (
         <Fase6Matriculacion
           vehiculoId={vehiculoId}
           docs={docs}
@@ -837,7 +874,7 @@ export function PlanillaRegistroImportacion({
               setMessage(
                 "Archivo INTT presentado · registra placa y circulación"
               );
-              navigateAfterSave(after, 8);
+              navigateAfterSave(after, 10);
             });
           }}
           onUploadedMessage={(msg) => {
@@ -1622,104 +1659,36 @@ function Fase2Embarque({
 }
 
 function Fase2Llegada({
-  vehiculoId,
-  serialCarroceria,
-  docs,
-  setDocs,
-  fotosCount,
   fechaIngresoInicial,
   partidaArancelariaInicial,
   tipoCombustibleInicial,
   cilindradaCcInicial,
-  initialImprontaEstado,
-  initialImprontaLeido,
-  checklist,
-  setChecklist,
-  checklistNotas,
-  setChecklistNotas,
-  checklistMarked,
-  otrosNotas,
-  setOtrosNotas,
   pending,
-  canForzarImpronta,
   onSave,
-  onUploadedMessage,
 }: {
-  vehiculoId: string;
-  serialCarroceria: string | null;
-  docs: VehiculosDocumentos;
-  setDocs: (d: VehiculosDocumentos) => void;
-  fotosCount: number;
   fechaIngresoInicial: string;
   partidaArancelariaInicial: string;
   tipoCombustibleInicial: string;
   cilindradaCcInicial: string;
-  initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
-  initialImprontaLeido: string | null;
-  checklist: LlegadaChecklistState;
-  setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
-  checklistNotas: LlegadaChecklistNotasState;
-  setChecklistNotas: Dispatch<SetStateAction<LlegadaChecklistNotasState>>;
-  checklistMarked: number;
-  otrosNotas: string;
-  setOtrosNotas: (v: string) => void;
   pending: boolean;
-  /** Solo operadores con permiso de mutación (admin/taller). */
-  canForzarImpronta: boolean;
   onSave: (
     fechaIngreso: string,
     partidaArancelaria: string,
-    after: PlanillaAfterSave,
-    forzarImprontaSinVerificar: boolean
+    after: PlanillaAfterSave
   ) => void;
-  onUploadedMessage: (msg: string) => void;
 }) {
   const [fecha, setFecha] = useState(fechaIngresoInicial);
   const [partidaArancelaria, setPartidaArancelaria] = useState(
     partidaArancelariaInicial
   );
-  const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
-  const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
-  const [forzarImpronta, setForzarImpronta] = useState(false);
 
   useEffect(() => {
     setFecha((prev) => fechaIngresoInicial || prev);
     setPartidaArancelaria((prev) => partidaArancelariaInicial || prev);
   }, [fechaIngresoInicial, partidaArancelariaInicial]);
 
-  useEffect(() => {
-    setImprontaEstado(initialImprontaEstado);
-    setImprontaLeido(initialImprontaLeido);
-  }, [initialImprontaEstado, initialImprontaLeido]);
-
-  const expectedSerial = (serialCarroceria ?? "").trim();
-  const tieneImpronta = Boolean(docs.foto_impronta?.url);
-  const improntaOk = improntaEstado === "coincide";
-  const canForce =
-    canForzarImpronta &&
-    tieneImpronta &&
-    (improntaEstado === "no_leido" || improntaEstado == null);
-  const llegadaDocsCount = PL_LLEGADA_DOCUMENTO_TIPOS.filter(
-    (t) => Boolean(docs[t]?.url)
-  ).length;
-  const llegadaDocsOk = llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length;
-  const memoriaCompleta =
-    countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS) ===
-    MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length;
-  const cuestionarioCompleto = isLlegadaChecklistCompleto(checklist);
-  const datosLlegadaOk =
-    Boolean(fecha.trim()) && Boolean(partidaArancelaria.trim());
-  const improntaPermiteContinuar =
-    !tieneImpronta ||
-    improntaOk ||
-    (canForce && forzarImpronta);
   const canContinue =
-    datosLlegadaOk &&
-    llegadaDocsOk &&
-    memoriaCompleta &&
-    cuestionarioCompleto &&
-    !(tieneImpronta && improntaEstado === "no_coincide") &&
-    improntaPermiteContinuar;
+    Boolean(fecha.trim()) && Boolean(partidaArancelaria.trim());
 
   return (
     <div className="space-y-6">
@@ -1727,6 +1696,11 @@ function Fase2Llegada({
         <h2 className="text-lg font-semibold leading-snug text-slate-100">
           Datos de llegada
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Fecha de ingreso y partida arancelaria. La revisión del vehículo y los
+          documentos de llegada se cargan en Inspección, después del pago del
+          impuesto.
+        </p>
         <div className="mt-4 min-w-0 w-full">
           <PlanillaFechaField
             label="Fecha de ingreso al PL *"
@@ -1770,80 +1744,11 @@ function Fase2Llegada({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
-        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
-          <FileUp className="h-5 w-5 shrink-0 text-cyan-400" />
-          Documentos de llegada
-          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {llegadaDocsCount}/{PL_LLEGADA_DOCUMENTO_TIPOS.length}
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Acta de recepción (AR) y reconocimiento / constancia del estado de la
-          carga.
-        </p>
-        <div className="mt-5 grid gap-3">
-          {PL_LLEGADA_DOCUMENTO_TIPOS.map((tipo) => (
-            <ImportDocumentoUpload
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              existingUrl={docs[tipo]?.url}
-              acceptMode="both"
-              hint="PDF o foto · máx. 10 MB"
-              actionLabel={docs[tipo]?.url ? "Reemplazar" : "Cargar"}
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Documento de llegada guardado");
-              }}
-            />
-          ))}
-        </div>
-      </section>
-
-      <LlegadaRevisionSections
-        vehiculoId={vehiculoId}
-        docs={docs}
-        setDocs={setDocs}
-        fotosCount={fotosCount}
-        expectedSerial={expectedSerial}
-        improntaEstado={improntaEstado}
-        setImprontaEstado={setImprontaEstado}
-        improntaLeido={improntaLeido}
-        setImprontaLeido={setImprontaLeido}
-        forzarImpronta={forzarImpronta}
-        setForzarImpronta={setForzarImpronta}
-        canForzarImpronta={canForzarImpronta}
-        canForce={canForce}
-        improntaOk={improntaOk}
-        checklist={checklist}
-        setChecklist={setChecklist}
-        checklistNotas={checklistNotas}
-        setChecklistNotas={setChecklistNotas}
-        checklistMarked={checklistMarked}
-        otrosNotas={otrosNotas}
-        setOtrosNotas={setOtrosNotas}
-        onUploadedMessage={onUploadedMessage}
-      />
-
-      <RevisionVehiculoPdfCard
-        vehiculoId={vehiculoId}
-        docs={docs}
-        checklistCompleto={cuestionarioCompleto}
-        canEdit
-        onUploaded={(next) => {
-          setDocs(next);
-          onUploadedMessage("Revisión guardada en PDF");
-        }}
-      />
-
       <PlanillaFaseActions
         pending={pending}
         disabled={!canContinue}
         continueLabel="Continuar a Desaduanamiento"
-        onAction={(after) =>
-          onSave(fecha, partidaArancelaria.trim(), after, forzarImpronta && canForce)
-        }
+        onAction={(after) => onSave(fecha, partidaArancelaria.trim(), after)}
       />
     </div>
   );
@@ -1941,7 +1846,6 @@ function DesaduanamientoDocSlot({
 
 function Fase3Aduana({
   vehiculoId,
-  serialCarroceria,
   docs,
   setDocs,
   docsCount,
@@ -1953,31 +1857,10 @@ function Fase3Aduana({
   pending,
   canComplete,
   agenteAduanalInicial,
-  valorCif,
-  arancelPct,
-  impuestoLujoPct,
-  tasaCambioBcv,
-  tasaOficialFecha,
-  pagoArancelesEstado,
-  pagoArancelesUsd,
-  pagoArancelesBs,
-  partidaArancelaria,
-  fotosCount,
-  initialImprontaEstado,
-  initialImprontaLeido,
-  checklist,
-  setChecklist,
-  checklistNotas,
-  setChecklistNotas,
-  checklistMarked,
-  otrosNotas,
-  setOtrosNotas,
-  canForzarImpronta,
   onComplete,
   onUploadedMessage,
 }: {
   vehiculoId: string;
-  serialCarroceria: string | null;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
@@ -1989,41 +1872,11 @@ function Fase3Aduana({
   pending: boolean;
   canComplete: boolean;
   agenteAduanalInicial: string;
-  valorCif?: number | null;
-  arancelPct?: number | null;
-  impuestoLujoPct?: number | null;
-  tasaCambioBcv?: number | null;
-  tasaOficialFecha?: string | null;
-  pagoArancelesEstado?: string | null;
-  pagoArancelesUsd?: number | null;
-  pagoArancelesBs?: number | null;
-  partidaArancelaria?: string | null;
-  fotosCount: number;
-  initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
-  initialImprontaLeido: string | null;
-  checklist: LlegadaChecklistState;
-  setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
-  checklistNotas: LlegadaChecklistNotasState;
-  setChecklistNotas: Dispatch<SetStateAction<LlegadaChecklistNotasState>>;
-  checklistMarked: number;
-  otrosNotas: string;
-  setOtrosNotas: (v: string) => void;
-  canForzarImpronta: boolean;
   onComplete: (agenteAduanal: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [agenteAduanal, setAgenteAduanal] = useState(agenteAduanalInicial);
-  const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
-  const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
-  const [forzarImpronta, setForzarImpronta] = useState(false);
   const agenteOk = agenteAduanal.trim().length >= 2;
-  const expectedSerial = (serialCarroceria ?? "").trim();
-  const tieneImpronta = Boolean(docs.foto_impronta?.url);
-  const improntaOk = improntaEstado === "coincide";
-  const canForce =
-    canForzarImpronta &&
-    tieneImpronta &&
-    (improntaEstado === "no_leido" || improntaEstado == null);
 
   const pdfTipos = docTipos.filter((t) => t !== PL_PASE_SALIDA_TIPO);
   const paseLoaded = Boolean(docs[PL_PASE_SALIDA_TIPO]?.url);
@@ -2032,11 +1885,6 @@ function Fase3Aduana({
   useEffect(() => {
     setAgenteAduanal((prev) => agenteAduanalInicial || prev);
   }, [agenteAduanalInicial]);
-
-  useEffect(() => {
-    setImprontaEstado(initialImprontaEstado);
-    setImprontaLeido(initialImprontaLeido);
-  }, [initialImprontaEstado, initialImprontaLeido]);
 
   return (
     <div className="space-y-8">
@@ -2112,71 +1960,6 @@ function Fase3Aduana({
         </div>
       </section>
 
-      <PrecalculoArancelesCard
-        vehiculoId={vehiculoId}
-        valorCif={valorCif}
-        arancelPct={arancelPct}
-        impuestoLujoPct={impuestoLujoPct}
-        tasaCambioBcv={tasaCambioBcv}
-        partidaArancelaria={partidaArancelaria}
-        onSaved={() => onUploadedMessage("Precálculo de aranceles guardado")}
-      />
-
-      <PagoArancelesCard
-        vehiculoId={vehiculoId}
-        valorCif={valorCif}
-        arancelPct={arancelPct}
-        impuestoLujoPct={impuestoLujoPct}
-        tasaCambioBcv={tasaCambioBcv}
-        tasaOficialFecha={tasaOficialFecha}
-        pagoArancelesEstado={pagoArancelesEstado}
-        pagoArancelesUsd={pagoArancelesUsd}
-        pagoArancelesBs={pagoArancelesBs}
-        docs={docs}
-        setDocs={setDocs}
-        onUpdated={() => onUploadedMessage("Tasa oficial actualizada")}
-        onUploadedMessage={onUploadedMessage}
-      />
-
-      <PostPagoInspeccionCard
-        vehiculoId={vehiculoId}
-        pagado={pagoArancelesEstado === "pagado"}
-        docs={docs}
-        setDocs={setDocs}
-        onUploadedMessage={onUploadedMessage}
-        revision={{
-          fotosCount,
-          expectedSerial,
-          improntaEstado,
-          setImprontaEstado,
-          improntaLeido,
-          setImprontaLeido,
-          forzarImpronta,
-          setForzarImpronta,
-          canForzarImpronta,
-          canForce,
-          improntaOk,
-          checklist,
-          setChecklist,
-          checklistNotas,
-          setChecklistNotas,
-          checklistMarked,
-          otrosNotas,
-          setOtrosNotas,
-        }}
-      />
-
-      <RevisionVehiculoPdfCard
-        vehiculoId={vehiculoId}
-        docs={docs}
-        checklistCompleto={isLlegadaChecklistCompleto(checklist)}
-        canEdit
-        onUploaded={(next) => {
-          setDocs(next);
-          onUploadedMessage("Revisión guardada en PDF");
-        }}
-      />
-
       <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           Pase de salida
@@ -2233,8 +2016,302 @@ function Fase3Aduana({
               ? "Escribe el nombre del agente de aduanas para continuar"
               : null
         }
-        continueLabel="Continuar a Propietario"
+        continueLabel="Continuar a Pago impuesto"
         onAction={(after) => onComplete(agenteAduanal.trim(), after)}
+      />
+    </div>
+  );
+}
+
+function FasePagoImpuesto({
+  vehiculoId,
+  docs,
+  setDocs,
+  pending,
+  canComplete,
+  valorCif,
+  arancelPct,
+  impuestoLujoPct,
+  tasaCambioBcv,
+  tasaOficialFecha,
+  pagoArancelesEstado,
+  pagoArancelesUsd,
+  pagoArancelesBs,
+  partidaArancelaria,
+  onComplete,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  pending: boolean;
+  canComplete: boolean;
+  valorCif?: number | null;
+  arancelPct?: number | null;
+  impuestoLujoPct?: number | null;
+  tasaCambioBcv?: number | null;
+  tasaOficialFecha?: string | null;
+  pagoArancelesEstado?: string | null;
+  pagoArancelesUsd?: number | null;
+  pagoArancelesBs?: number | null;
+  partidaArancelaria?: string | null;
+  onComplete: (after: PlanillaAfterSave) => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  return (
+    <div className="space-y-8">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-slate-100">Pago impuesto</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Precálculo de aranceles y carga del pago o voucher / liquidación de
+          tributos. Luego continúa a Inspección.
+        </p>
+      </section>
+
+      <PrecalculoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        partidaArancelaria={partidaArancelaria}
+        onSaved={() => onUploadedMessage("Precálculo de aranceles guardado")}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        tasaOficialFecha={tasaOficialFecha}
+        pagoArancelesEstado={pagoArancelesEstado}
+        pagoArancelesUsd={pagoArancelesUsd}
+        pagoArancelesBs={pagoArancelesBs}
+        docs={docs}
+        setDocs={setDocs}
+        onUpdated={() => onUploadedMessage("Tasa oficial actualizada")}
+        onUploadedMessage={onUploadedMessage}
+      />
+
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!canComplete}
+        blockedReason={
+          canComplete
+            ? null
+            : "Guarda el precálculo (CIF) y registra el pago o carga el voucher"
+        }
+        continueLabel="Continuar a Inspección"
+        onAction={onComplete}
+      />
+    </div>
+  );
+}
+
+function FaseInspeccion({
+  vehiculoId,
+  serialCarroceria,
+  docs,
+  setDocs,
+  fotosCount,
+  initialImprontaEstado,
+  initialImprontaLeido,
+  checklist,
+  setChecklist,
+  checklistNotas,
+  setChecklistNotas,
+  checklistMarked,
+  otrosNotas,
+  setOtrosNotas,
+  pending,
+  canForzarImpronta,
+  onComplete,
+  onUploadedMessage,
+}: {
+  vehiculoId: string;
+  serialCarroceria: string | null;
+  docs: VehiculosDocumentos;
+  setDocs: (d: VehiculosDocumentos) => void;
+  fotosCount: number;
+  initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
+  initialImprontaLeido: string | null;
+  checklist: LlegadaChecklistState;
+  setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
+  checklistNotas: LlegadaChecklistNotasState;
+  setChecklistNotas: Dispatch<SetStateAction<LlegadaChecklistNotasState>>;
+  checklistMarked: number;
+  otrosNotas: string;
+  setOtrosNotas: (v: string) => void;
+  pending: boolean;
+  canForzarImpronta: boolean;
+  onComplete: (
+    after: PlanillaAfterSave,
+    forzarImprontaSinVerificar: boolean
+  ) => void;
+  onUploadedMessage: (msg: string) => void;
+}) {
+  const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
+  const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
+  const [forzarImpronta, setForzarImpronta] = useState(false);
+
+  useEffect(() => {
+    setImprontaEstado(initialImprontaEstado);
+    setImprontaLeido(initialImprontaLeido);
+  }, [initialImprontaEstado, initialImprontaLeido]);
+
+  const expectedSerial = (serialCarroceria ?? "").trim();
+  const tieneImpronta = Boolean(docs.foto_impronta?.url);
+  const improntaOk = improntaEstado === "coincide";
+  const canForce =
+    canForzarImpronta &&
+    tieneImpronta &&
+    (improntaEstado === "no_leido" || improntaEstado == null);
+  const llegadaDocsCount = PL_LLEGADA_DOCUMENTO_TIPOS.filter((t) =>
+    Boolean(docs[t]?.url)
+  ).length;
+  const llegadaDocsOk = llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length;
+  const memoriaCompleta =
+    countDocs(docs, MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS) ===
+    MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length;
+  const cuestionarioCompleto = isLlegadaChecklistCompleto(checklist);
+  const constanciaOk = constanciaInspeccionLista(docs);
+  const improntaPermiteContinuar =
+    !tieneImpronta || improntaOk || (canForce && forzarImpronta);
+  const canContinue =
+    llegadaDocsOk &&
+    memoriaCompleta &&
+    cuestionarioCompleto &&
+    constanciaOk &&
+    !(tieneImpronta && improntaEstado === "no_coincide") &&
+    improntaPermiteContinuar;
+
+  const recaudosInspeccion = PL_DESADUANAMIENTO_RESERVADOS.filter(
+    (t) =>
+      !(PL_LLEGADA_DOCUMENTO_TIPOS as readonly string[]).includes(t) &&
+      t !== "planilla_liquidacion_aduanera"
+  );
+  const recaudosCount = recaudosInspeccion.filter((t) =>
+    Boolean(docs[t]?.url)
+  ).length;
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
+        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
+          <FileUp className="h-5 w-5 shrink-0 text-cyan-400" />
+          Documentos de llegada
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {llegadaDocsCount}/{PL_LLEGADA_DOCUMENTO_TIPOS.length}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Acta de recepción (AR) y reconocimiento / constancia del estado de la
+          carga.
+        </p>
+        <div className="mt-5 grid gap-3">
+          {PL_LLEGADA_DOCUMENTO_TIPOS.map((tipo) => (
+            <ImportDocumentoUpload
+              key={tipo}
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={docs[tipo]?.url}
+              acceptMode="both"
+              hint="PDF o foto · máx. 10 MB"
+              actionLabel={docs[tipo]?.url ? "Reemplazar" : "Cargar"}
+              onUploaded={(next) => {
+                setDocs(next);
+                onUploadedMessage("Documento de llegada guardado");
+              }}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
+        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
+          Recaudos de inspección
+          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+            {recaudosCount}/{recaudosInspeccion.length}
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          SENCAMER, registro de puerto libre, constancia del agente y constancia
+          de residencia. Puedes cargarlos ahora o más adelante.
+        </p>
+        <div className="mt-5 grid gap-3">
+          {recaudosInspeccion.map((tipo) => (
+            <ImportDocumentoUpload
+              key={tipo}
+              vehiculoId={vehiculoId}
+              tipo={tipo}
+              existingUrl={docs[tipo]?.url}
+              acceptMode="both"
+              hint="PDF o foto · máx. 10 MB"
+              actionLabel={docs[tipo]?.url ? "Reemplazar" : "Cargar"}
+              onUploaded={(next) => {
+                setDocs(next);
+                onUploadedMessage("Recaudo de inspección guardado");
+              }}
+            />
+          ))}
+        </div>
+      </section>
+
+      <LlegadaRevisionSections
+        vehiculoId={vehiculoId}
+        docs={docs}
+        setDocs={setDocs}
+        fotosCount={fotosCount}
+        expectedSerial={expectedSerial}
+        improntaEstado={improntaEstado}
+        setImprontaEstado={setImprontaEstado}
+        improntaLeido={improntaLeido}
+        setImprontaLeido={setImprontaLeido}
+        forzarImpronta={forzarImpronta}
+        setForzarImpronta={setForzarImpronta}
+        canForzarImpronta={canForzarImpronta}
+        canForce={canForce}
+        improntaOk={improntaOk}
+        checklist={checklist}
+        setChecklist={setChecklist}
+        checklistNotas={checklistNotas}
+        setChecklistNotas={setChecklistNotas}
+        checklistMarked={checklistMarked}
+        otrosNotas={otrosNotas}
+        setOtrosNotas={setOtrosNotas}
+        onUploadedMessage={onUploadedMessage}
+      />
+
+      <PostPagoInspeccionCard
+        vehiculoId={vehiculoId}
+        pagado
+        docs={docs}
+        setDocs={setDocs}
+        onUploadedMessage={onUploadedMessage}
+      />
+
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={cuestionarioCompleto}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión guardada en PDF");
+        }}
+      />
+
+      <PlanillaFaseActions
+        pending={pending}
+        disabled={!canContinue}
+        blockedReason={
+          canContinue
+            ? null
+            : "Completa documentos de llegada, fotos, cuestionario y constancia de inspección"
+        }
+        continueLabel="Continuar a Propietario"
+        onAction={(after) => onComplete(after, forzarImpronta && canForce)}
       />
     </div>
   );

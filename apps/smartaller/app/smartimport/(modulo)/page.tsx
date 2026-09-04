@@ -35,8 +35,10 @@ import {
 import {
   DASHBOARD_COLA_DESADUANAMIENTO_ID,
   DASHBOARD_COLA_EMBARQUE_ID,
+  DASHBOARD_COLA_INSPECCION_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
+  DASHBOARD_COLA_PAGO_IMPUESTO_ID,
   DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
   DASHBOARD_COLA_REGISTRO_ID,
@@ -182,10 +184,12 @@ function sortPorExpediente(items: PuertoLibreVehiculoListItem[]) {
 
 function completarHref(v: PuertoLibreVehiculoListItem): string {
   const f = faseColaPlanilla(v);
-  if (f === 8) return `/smartimport/${v.id}/planilla?fase=8`;
-  if (f >= 7) return `/smartimport/matriculas?expediente=${v.id}`;
-  if (f === 6) return `/smartimport/seguros?expediente=${v.id}`;
-  if (f === 5) return `/smartimport/propietarios?expediente=${v.id}`;
+  if (f === 10) return `/smartimport/${v.id}/planilla?fase=10`;
+  if (f >= 9) return `/smartimport/matriculas?expediente=${v.id}`;
+  if (f === 8) return `/smartimport/seguros?expediente=${v.id}`;
+  if (f === 7) return `/smartimport/propietarios?expediente=${v.id}`;
+  if (f === 6) return `/smartimport/${v.id}/planilla?fase=6`;
+  if (f === 5) return `/smartimport/${v.id}/planilla?fase=5`;
   if (f === 4) return `/smartimport/${v.id}/planilla?fase=4`;
   if (f === 3) return `/smartimport/${v.id}/planilla?fase=3`;
   if (f === 2) return cargaBlPath(v.numeroBl, v.id);
@@ -210,7 +214,7 @@ function rowPorCompletarFase(
     dateValue: modificadoIso || null,
     searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""} fase ${fase}`,
     actionLabel:
-      fase === 8
+      fase === 10
         ? placaAccionLabel(esEntregaPlacaListaEnDashboard(v))
         : completarEtapaLabel(fase),
     actionTone: "cyan",
@@ -672,18 +676,24 @@ export default async function PuertoLibrePage() {
   const rowsPorDesaduanamiento: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 4))
   ).map((v) => rowPorCompletarFase(v, 4));
-  const rowsPorPropietario: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorPagoImpuesto: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 5))
   ).map((v) => rowPorCompletarFase(v, 5));
-  const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorInspeccion: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 6))
   ).map((v) => rowPorCompletarFase(v, 6));
-  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorPropietario: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 7))
   ).map((v) => rowPorCompletarFase(v, 7));
-  const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
+  const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 8))
   ).map((v) => rowPorCompletarFase(v, 8));
+  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 9))
+  ).map((v) => rowPorCompletarFase(v, 9));
+  const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
+    vehiculos.filter((v) => esPorCompletarEtapa(v, 10))
+  ).map((v) => rowPorCompletarFase(v, 10));
 
   const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
     const expediente = labelExpediente(v);
@@ -923,8 +933,40 @@ export default async function PuertoLibrePage() {
 
         <PuertoLibreDashboardBucket
           dense
-          sectionId={DASHBOARD_COLA_PROPIETARIO_ID}
           title={porCompletarEtapaTitle(5)}
+          icon="file"
+          sectionId={DASHBOARD_COLA_PAGO_IMPUESTO_ID}
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(5).toLowerCase()}.`}
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorPagoImpuesto}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          title={porCompletarEtapaTitle(6)}
+          icon="file"
+          sectionId={DASHBOARD_COLA_INSPECCION_ID}
+          emptyMessage={`No hay vehículos ${porCompletarEtapaTitle(6).toLowerCase()}.`}
+          columns={[
+            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
+            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
+          ]}
+          rows={rowsPorInspeccion}
+          dateFilterLabel="Modificado"
+          actionColumnKey="modificado"
+          defaultExpedienteSort="asc"
+        />
+
+        <PuertoLibreDashboardBucket
+          dense
+          sectionId={DASHBOARD_COLA_PROPIETARIO_ID}
+          title={porCompletarEtapaTitle(7)}
           icon="file"
           emptyMessage="No hay expedientes por completar propietario. Crea una ficha y asígnale un expediente."
           columns={[
@@ -976,7 +1018,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_SEGURO_ID}
-          title={porCompletarEtapaTitle(6)}
+          title={porCompletarEtapaTitle(8)}
           icon="file"
           emptyMessage="No hay expedientes por completar seguro. Crea una ficha y enlázala."
           columns={[
@@ -1013,7 +1055,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_MATRICULA_ID}
-          title={porCompletarEtapaTitle(7)}
+          title={porCompletarEtapaTitle(9)}
           icon="file"
           emptyMessage="No hay expedientes por completar matrícula. Crea una ficha y enlázala."
           columns={[
@@ -1050,7 +1092,7 @@ export default async function PuertoLibrePage() {
         <PuertoLibreDashboardBucket
           dense
           sectionId={DASHBOARD_COLA_PLACA_ID}
-          title={porCompletarEtapaTitle(8)}
+          title={porCompletarEtapaTitle(10)}
           icon="file"
           emptyMessage="No hay expedientes por completar placa y circulación."
           columns={[
