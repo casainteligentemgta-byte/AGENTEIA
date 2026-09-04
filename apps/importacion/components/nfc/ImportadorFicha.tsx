@@ -4,6 +4,11 @@ import { ArrowLeft, Pencil, UserRound } from "lucide-react";
 import type { ImportadorListItem } from "@/app/actions/nfc/importadores";
 import { ImportadorDocShareButtons } from "@/components/nfc/ImportadorDocShareButtons";
 import { importadorFichaDatos } from "@/lib/importadores/ficha-datos";
+import {
+  IMPORTADOR_DOC_LABELS,
+  importadorDocsFaltantes,
+  importadorDocsRequeridos,
+} from "@/lib/importadores/documentos";
 
 type Props = {
   cliente: ImportadorListItem;
@@ -13,8 +18,8 @@ type Props = {
 
 export function ImportadorFicha({ cliente, onBack, onEdit }: Props) {
   const datos = importadorFichaDatos(cliente);
-  const cedulaLabel =
-    cliente.tipo === "juridica" ? "Cédula del representante" : "Cédula";
+  const requeridos = importadorDocsRequeridos(cliente.tipo);
+  const faltan = importadorDocsFaltantes(cliente.tipo, cliente.documentos);
 
   return (
     <div className="space-y-4">
@@ -59,19 +64,24 @@ export function ImportadorFicha({ cliente, onBack, onEdit }: Props) {
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-zinc-200">Documentos</h3>
         <p className="text-xs text-zinc-500">
-          Visualiza o comparte la cédula y el RIF desde aquí.
+          Obligatorios: RIF vigente, cédula o pasaporte, constancia de domicilio
+          y comprobante de inscripción tributaria
+          {cliente.tipo === "juridica" ? ", más el acta constitutiva" : ""}.
         </p>
+        {faltan.length > 0 ? (
+          <p className="rounded-xl border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+            Falta cargar: {faltan.map((t) => IMPORTADOR_DOC_LABELS[t]).join("; ")}
+          </p>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
-          <ImportadorDocShareButtons
-            label={cedulaLabel}
-            doc={cliente.documentos?.cedula}
-            shareTitle={`${cedulaLabel} · ${cliente.nombre}`}
-          />
-          <ImportadorDocShareButtons
-            label="RIF"
-            doc={cliente.documentos?.rif}
-            shareTitle={`RIF · ${cliente.nombre}`}
-          />
+          {requeridos.map((tipo) => (
+            <ImportadorDocShareButtons
+              key={tipo}
+              label={IMPORTADOR_DOC_LABELS[tipo]}
+              doc={cliente.documentos?.[tipo]}
+              shareTitle={`${IMPORTADOR_DOC_LABELS[tipo]} · ${cliente.nombre}`}
+            />
+          ))}
         </div>
       </section>
     </div>

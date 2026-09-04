@@ -1046,7 +1046,7 @@ export default async function PuertoLibrePage() {
           sectionId={DASHBOARD_COLA_PLACA_ID}
           title={porCompletarEtapaTitle(8)}
           icon="file"
-          emptyMessage="No hay expedientes por completar placa y título."
+          emptyMessage="No hay expedientes por completar placa y circulación."
           columns={[
             { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
             { key: "modificado", header: "Modificado", pdfWidth: 1.2 },

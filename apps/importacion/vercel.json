@@ -8,6 +8,10 @@
   "ignoreCommand": "bash ../../scripts/vercel-ignored-build.sh",
   "crons": [
     {
+      "path": "/api/cron/tasa-oficial-pago",
+      "schedule": "0 11 * * *"
+    },
+    {
       "path": "/api/cron/alertas-vencimiento",
       "schedule": "0 13 * * *"
     }

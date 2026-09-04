@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   ClipboardList,
   FileStack,
@@ -43,6 +44,7 @@ const FASES = [
       "Acta de recepción (AR) y reconocimiento / constancia del estado de la carga.",
       "Memoria descriptiva (7 fotos) + verificación de impronta (serial debe coincidir).",
       "Cuestionario de revisión del vehículo (todos los ítems).",
+      "Guarda la revisión en PDF en el expediente (o carga un PDF ya firmado).",
     ],
   },
   {
@@ -77,15 +79,32 @@ const FASES = [
     n: 7,
     titulo: "Matriculación (INTT)",
     puntos: [
-      "Solo se cargan aquí: inspección PNB, PUT, homologación (si aplica).",
-      "Liquidación / exención u oficio del SENIAT (basta con uno).",
-      "Los demás recaudos aparecen como referencia (ya cargados en fases anteriores).",
-      "Genera la carpeta PDF INTT con los nuevos + las referencias del expediente.",
+      "Archivo de 9 recaudos, en orden, precargados del expediente.",
+      "Cédula, RIF, factura, certificado, homologación (si aplica), liquidación SENIAT, constancia de inspección, declaración de propiedad y tasas INTT.",
+      "Genera el PDF para presentar ante el INTT.",
+    ],
+  },
+  {
+    n: 8,
+    titulo: "Placa y circulación",
+    puntos: [
+      "Tras presentar el archivo al INTT, registra la placa vehicular (número único por auto).",
+      "Documento de circulación (comprobante de registro).",
+      "Póliza de responsabilidad civil (RCV, obligatoria; se precarga si ya está en Seguro).",
+      "Tarjeta de circulación.",
     ],
   },
 ] as const;
 
 const TIPS = [
+  {
+    icon: CalendarClock,
+    titulo: "Relojes de plazo",
+    texto:
+      "En la ficha y la planilla: un reloj cuenta los días para nacionalizar (Puerto Libre o régimen de equipaje) y otro avisa cuándo toca la presentación SENIAT. Agenda la fecha si aún no está.",
+    href: "/smartimport",
+    cta: "Ver expedientes",
+  },
   {
     icon: ClipboardList,
     titulo: "Guarda avance por fase",

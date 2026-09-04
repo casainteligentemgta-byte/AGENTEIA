@@ -53,11 +53,11 @@ function Icono({ urgencia }: { urgencia: UrgenciaNacionalizacion }) {
   return <CalendarClock className={cls} aria-hidden />;
 }
 
-function AlertaBanner({
+export function AlertaBanner({
   alerta,
   compact,
 }: {
-  alerta: AlertaNacionalizacion;
+  alerta: Pick<AlertaNacionalizacion, "titulo" | "detalle" | "dias" | "urgencia">;
   compact?: boolean;
 }) {
   const style = STYLES[alerta.urgencia];

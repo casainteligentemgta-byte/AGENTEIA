@@ -13,7 +13,6 @@ import {
 import {
   AlertCircle,
   BookOpen,
-  Camera,
   CheckCircle2,
   FileUp,
   Ship,
@@ -33,18 +32,16 @@ import {
   syncPuertoLibreBlEmbarqueAction,
 } from "@/app/actions/nfc/importacion-vehiculo";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
+import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
+import { PostPagoInspeccionCard } from "@/components/nfc/PostPagoInspeccionCard";
+import { LlegadaRevisionSections } from "@/components/nfc/LlegadaRevisionSections";
 import { PropietarioCedulaScan } from "@/components/nfc/PropietarioCedulaScan";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
-import {
-  OPCIONES_OK_DANO,
-  PlanillaChecklistProgress,
-  PlanillaChecklistRow,
-} from "@/components/nfc/PlanillaChecklistTap";
 import {
   isLlegadaChecklistCompleto,
   LLEGADA_CHECKLIST_ITEMS,
   type LlegadaChecklistNotasState,
-  type LlegadaChecklistRespuesta,
   type LlegadaChecklistState,
 } from "@/lib/importacion/llegada-catalog";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
@@ -80,13 +77,14 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS_OBLIGATORIOS,
   PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
+  PL_ENTREGA_PLACA_ORIGEN,
   PL_ENTREGA_PLACA_TIPOS,
-  PL_MATRICULACION_CARGAR_TIPOS,
-  PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS,
-  PL_MATRICULACION_ORIGEN,
-  PL_MATRICULACION_REFERENCIA_TIPOS,
+  PL_INTT_PRESENTACION_LABELS,
+  PL_INTT_PRESENTACION_ORIGEN,
+  PL_INTT_PRESENTACION_TIPOS,
+  constanciaInspeccionLista,
   countMatriculacionCarpeta,
-  tieneLiquidacionOExencion,
+  inttPresentacionRef,
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type ImportacionData,
@@ -106,8 +104,11 @@ import {
   placaRealVisible,
   resolveCodigoExpediente,
 } from "@/lib/importacion/expediente";
+import { esEntregaPlacaCompleta } from "@/lib/importacion/entrega-placa-planilla";
 import { esRegistroPlanillaCompleto } from "@/lib/importacion/registro-planilla";
 import { hrefAfterFase2Embarque } from "@/lib/importacion/paths";
+import { RelojesExpediente } from "@/components/nfc/RelojesExpediente";
+import { RevisionVehiculoPdfCard } from "@/components/nfc/RevisionVehiculoPdfCard";
 
 /** UI chips 1–8. En BD planillaFase 9 = completa. */
 export type PlanillaFaseUi = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -292,7 +293,9 @@ export function PlanillaRegistroImportacion({
     fotosObligatoriasCount === MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length &&
     isLlegadaChecklistCompleto(checklist);
 
-  const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
+  const aduanaCompleta =
+    aduanaCount === desaduanamientoTipos.length &&
+    constanciaInspeccionLista(docs);
   const propietarioCompleto = Boolean(compradorNombre?.trim());
   const seguroCompleto = Boolean(
     initialSeguro.aseguradora?.trim() ||
@@ -311,8 +314,10 @@ export function PlanillaRegistroImportacion({
     matriculacionStats.listos === matriculacionStats.total ||
     (initialImportacion.planillaFase != null &&
       initialImportacion.planillaFase >= 8);
-  const entregaPlacaCompleta = PL_ENTREGA_PLACA_TIPOS.every((t) =>
-    Boolean(docs[t]?.url)
+  const entregaPlacaCompleta = esEntregaPlacaCompleta(
+    docs,
+    placa,
+    initialImportacion.codigoExpediente
   );
 
   const codigoExpediente =
@@ -358,6 +363,13 @@ export function PlanillaRegistroImportacion({
   return (
     <div className="space-y-6">
       <PlanillaVehiculoSelector current={selectorCurrent} vehiculos={selectorList} />
+
+      <RelojesExpediente
+        vehiculoId={vehiculoId}
+        importacion={initialImportacion}
+        canEdit
+        compact
+      />
 
       <div className="flex justify-end">
         <Link
@@ -665,6 +677,7 @@ export function PlanillaRegistroImportacion({
       ) : fase === 4 ? (
         <Fase3Aduana
           vehiculoId={vehiculoId}
+          serialCarroceria={serialCarroceria}
           docs={docs}
           setDocs={setDocs}
           docsCount={aduanaCount}
@@ -676,6 +689,26 @@ export function PlanillaRegistroImportacion({
           pending={pending}
           canComplete={aduanaCompleta}
           agenteAduanalInicial={initialImportacion.agenteAduanal ?? ""}
+          valorCif={initialImportacion.valorCif}
+          arancelPct={initialImportacion.arancelPct ?? initialImportacion.tarifaAdValoremPct}
+          impuestoLujoPct={initialImportacion.impuestoLujoPct}
+          tasaCambioBcv={initialImportacion.tasaCambioBcv}
+          tasaOficialFecha={initialImportacion.tasaOficialFecha}
+          pagoArancelesEstado={initialImportacion.pagoArancelesEstado}
+          pagoArancelesUsd={initialImportacion.pagoArancelesUsd}
+          pagoArancelesBs={initialImportacion.pagoArancelesBs}
+          partidaArancelaria={initialImportacion.partidaArancelaria}
+          fotosCount={fotosCount}
+          initialImprontaEstado={initialImportacion.serialImprontaEstado ?? null}
+          initialImprontaLeido={initialImportacion.serialImprontaLeido ?? null}
+          checklist={checklist}
+          setChecklist={setChecklist}
+          checklistNotas={checklistNotas}
+          setChecklistNotas={setChecklistNotas}
+          checklistMarked={checklistMarked}
+          otrosNotas={otrosNotas}
+          setOtrosNotas={setOtrosNotas}
+          canForzarImpronta={canForzarImpronta}
           onComplete={(agenteAduanal, after) => {
             setError(null);
             setMessage(null);
@@ -684,6 +717,9 @@ export function PlanillaRegistroImportacion({
                 const result = await completePuertoLibreFase3Action({
                   vehiculoId,
                   agenteAduanal,
+                  checklistLlegada: checklist,
+                  checklistLlegadaNotas: checklistNotas,
+                  otrosDispositivosNotas: otrosNotas || null,
                 });
                 if (!result.success) {
                   setError(result.error);
@@ -790,7 +826,9 @@ export function PlanillaRegistroImportacion({
                 setError(result.error);
                 return;
               }
-              setMessage("Matriculación completa · carga placa y título");
+              setMessage(
+                "Archivo INTT presentado · registra placa y circulación"
+              );
               navigateAfterSave(after, 8);
             });
           }}
@@ -803,21 +841,24 @@ export function PlanillaRegistroImportacion({
       ) : (
         <Fase8EntregaPlaca
           vehiculoId={vehiculoId}
+          placaInicial={placa}
+          codigoExpediente={initialImportacion.codigoExpediente}
           docs={docs}
           setDocs={setDocs}
           pending={pending}
-          onComplete={(after) => {
+          onComplete={(after, placaValue) => {
             setError(null);
             setMessage(null);
             startTransition(async () => {
               const result = await savePuertoLibreEntregaPlacaAction({
                 vehiculoId,
+                placa: placaValue,
               });
               if (!result.success) {
                 setError(result.error);
                 return;
               }
-              setMessage("Placa y título listos · puedes nacionalizar");
+              setMessage("Placa y circulación listas · puedes nacionalizar");
               if (after === "ficha") {
                 router.push(`/smartimport/${vehiculoId}`);
               } else {
@@ -1700,156 +1741,41 @@ function Fase2Llegada({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
-        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
-          <Camera className="h-5 w-5 shrink-0 text-cyan-400" />
-          Memoria descriptiva
-          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Fotos del vehículo al llegar. La impronta es opcional; si la cargas,
-          el serial debe coincidir con el del expediente.
-        </p>
-        <div className="mt-5 grid gap-3">
-          {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
-            <ImportDocumentoUpload
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              existingUrl={docs[tipo]?.url}
-              hint={
-                tipo === "foto_impronta"
-                  ? "Opcional · si la subes, se verifica el serial"
-                  : ""
-              }
-              actionLabel="Tomar / subir foto"
-              annotateBeforeUpload
-              verifySerialAgainstExpediente={tipo === "foto_impronta"}
-              initialImprontaVerify={
-                tipo === "foto_impronta" && improntaEstado
-                  ? {
-                      estado: improntaEstado,
-                      expected: expectedSerial,
-                      leido: improntaLeido,
-                      message:
-                        improntaEstado === "coincide"
-                          ? `Serial verificado: coincide con el del expediente (${expectedSerial}).`
-                          : improntaEstado === "no_coincide"
-                            ? `El serial leído (${improntaLeido ?? "—"}) no coincide con el precargado (${expectedSerial || "—"}).`
-                            : "No se pudo leer el serial en la foto anterior. Vuelve a tomarla.",
-                    }
-                  : null
-              }
-              onImprontaVerified={(result) => {
-                setImprontaEstado(result.estado);
-                setImprontaLeido(result.leido);
-                if (result.estado === "coincide") setForzarImpronta(false);
-              }}
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage(
-                  tipo === "foto_impronta"
-                    ? "Foto de impronta guardada · verificación de serial"
-                    : "Foto guardada"
-                );
-              }}
-            />
-          ))}
-        </div>
+      <LlegadaRevisionSections
+        vehiculoId={vehiculoId}
+        docs={docs}
+        setDocs={setDocs}
+        fotosCount={fotosCount}
+        expectedSerial={expectedSerial}
+        improntaEstado={improntaEstado}
+        setImprontaEstado={setImprontaEstado}
+        improntaLeido={improntaLeido}
+        setImprontaLeido={setImprontaLeido}
+        forzarImpronta={forzarImpronta}
+        setForzarImpronta={setForzarImpronta}
+        canForzarImpronta={canForzarImpronta}
+        canForce={canForce}
+        improntaOk={improntaOk}
+        checklist={checklist}
+        setChecklist={setChecklist}
+        checklistNotas={checklistNotas}
+        setChecklistNotas={setChecklistNotas}
+        checklistMarked={checklistMarked}
+        otrosNotas={otrosNotas}
+        setOtrosNotas={setOtrosNotas}
+        onUploadedMessage={onUploadedMessage}
+      />
 
-        {improntaEstado === "no_coincide" ? (
-          <p className="mt-4 rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
-            No puedes continuar mientras el serial de la impronta no coincida.
-            Corrige el serial en Registro o toma otra foto.
-          </p>
-        ) : null}
-
-        {canForce && !improntaOk ? (
-          <label className="mt-4 flex items-start gap-2 rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2.5 text-sm text-amber-100">
-            <input
-              type="checkbox"
-              checked={forzarImpronta}
-              onChange={(e) => setForzarImpronta(e.target.checked)}
-              className="mt-1"
-            />
-            <span>
-              Confirmo que revisé la impronta manualmente (OCR no pudo leer el
-              serial con claridad).
-            </span>
-          </label>
-        ) : null}
-
-        {!canForzarImpronta &&
-        !improntaOk &&
-        improntaEstado !== "no_coincide" &&
-        Boolean(docs.foto_impronta?.url) ? (
-          <p className="mt-4 rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-300">
-            El OCR no verificó el serial. Un operador del taller debe confirmar
-            la impronta o debes tomar otra foto más clara.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
-        <h2 className="text-lg font-semibold leading-snug text-slate-100">
-          Cuestionario de revisión del vehículo
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Marca cada ítem (OK / Daño). Obligatorio completar los{" "}
-          {LLEGADA_CHECKLIST_ITEMS.length} puntos para continuar.
-        </p>
-        <div className="mt-4">
-          <PlanillaChecklistProgress
-            marked={checklistMarked}
-            total={LLEGADA_CHECKLIST_ITEMS.length}
-            tone="dark"
-          />
-        </div>
-        <ul className="mt-5 space-y-2.5">
-          {LLEGADA_CHECKLIST_ITEMS.map((item) => (
-            <PlanillaChecklistRow
-              key={item.id}
-              etiqueta={item.etiqueta}
-              value={checklist[item.id]}
-              opciones={OPCIONES_OK_DANO}
-              tone="dark"
-              nota={checklistNotas[item.id] ?? ""}
-              onNotaChange={(texto) =>
-                setChecklistNotas((prev) => ({
-                  ...prev,
-                  [item.id]: texto,
-                }))
-              }
-              onChange={(v) => {
-                setChecklist((prev) => ({
-                  ...prev,
-                  [item.id]: v as LlegadaChecklistRespuesta,
-                }));
-                if (v !== "falla") {
-                  setChecklistNotas((prev) => {
-                    if (!prev[item.id]) return prev;
-                    const next = { ...prev };
-                    delete next[item.id];
-                    return next;
-                  });
-                }
-              }}
-            />
-          ))}
-        </ul>
-        <label className="mt-5 block space-y-2.5">
-          <span className="text-sm text-slate-400">Otros dispositivos / notas</span>
-          <textarea
-            rows={3}
-            value={otrosNotas}
-            onChange={(e) => setOtrosNotas(e.target.value)}
-            placeholder="Ej. candado de volante, corte de combustible…"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-          />
-        </label>
-      </section>
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={cuestionarioCompleto}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión guardada en PDF");
+        }}
+      />
 
       <PlanillaFaseActions
         pending={pending}
@@ -1952,6 +1878,7 @@ function DesaduanamientoDocSlot({
 
 function Fase3Aduana({
   vehiculoId,
+  serialCarroceria,
   docs,
   setDocs,
   docsCount,
@@ -1963,10 +1890,31 @@ function Fase3Aduana({
   pending,
   canComplete,
   agenteAduanalInicial,
+  valorCif,
+  arancelPct,
+  impuestoLujoPct,
+  tasaCambioBcv,
+  tasaOficialFecha,
+  pagoArancelesEstado,
+  pagoArancelesUsd,
+  pagoArancelesBs,
+  partidaArancelaria,
+  fotosCount,
+  initialImprontaEstado,
+  initialImprontaLeido,
+  checklist,
+  setChecklist,
+  checklistNotas,
+  setChecklistNotas,
+  checklistMarked,
+  otrosNotas,
+  setOtrosNotas,
+  canForzarImpronta,
   onComplete,
   onUploadedMessage,
 }: {
   vehiculoId: string;
+  serialCarroceria: string | null;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   docsCount: number;
@@ -1978,11 +1926,41 @@ function Fase3Aduana({
   pending: boolean;
   canComplete: boolean;
   agenteAduanalInicial: string;
+  valorCif?: number | null;
+  arancelPct?: number | null;
+  impuestoLujoPct?: number | null;
+  tasaCambioBcv?: number | null;
+  tasaOficialFecha?: string | null;
+  pagoArancelesEstado?: string | null;
+  pagoArancelesUsd?: number | null;
+  pagoArancelesBs?: number | null;
+  partidaArancelaria?: string | null;
+  fotosCount: number;
+  initialImprontaEstado: "coincide" | "no_coincide" | "no_leido" | null;
+  initialImprontaLeido: string | null;
+  checklist: LlegadaChecklistState;
+  setChecklist: Dispatch<SetStateAction<LlegadaChecklistState>>;
+  checklistNotas: LlegadaChecklistNotasState;
+  setChecklistNotas: Dispatch<SetStateAction<LlegadaChecklistNotasState>>;
+  checklistMarked: number;
+  otrosNotas: string;
+  setOtrosNotas: (v: string) => void;
+  canForzarImpronta: boolean;
   onComplete: (agenteAduanal: string, after: PlanillaAfterSave) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
   const [agenteAduanal, setAgenteAduanal] = useState(agenteAduanalInicial);
+  const [improntaEstado, setImprontaEstado] = useState(initialImprontaEstado);
+  const [improntaLeido, setImprontaLeido] = useState(initialImprontaLeido);
+  const [forzarImpronta, setForzarImpronta] = useState(false);
   const agenteOk = agenteAduanal.trim().length >= 2;
+  const expectedSerial = (serialCarroceria ?? "").trim();
+  const tieneImpronta = Boolean(docs.foto_impronta?.url);
+  const improntaOk = improntaEstado === "coincide";
+  const canForce =
+    canForzarImpronta &&
+    tieneImpronta &&
+    (improntaEstado === "no_leido" || improntaEstado == null);
 
   const pdfTipos = docTipos.filter((t) => t !== PL_PASE_SALIDA_TIPO);
   const paseLoaded = Boolean(docs[PL_PASE_SALIDA_TIPO]?.url);
@@ -1991,6 +1969,11 @@ function Fase3Aduana({
   useEffect(() => {
     setAgenteAduanal((prev) => agenteAduanalInicial || prev);
   }, [agenteAduanalInicial]);
+
+  useEffect(() => {
+    setImprontaEstado(initialImprontaEstado);
+    setImprontaLeido(initialImprontaLeido);
+  }, [initialImprontaEstado, initialImprontaLeido]);
 
   return (
     <div className="space-y-8">
@@ -2064,6 +2047,71 @@ function Fase3Aduana({
           <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
       </section>
+
+      <PrecalculoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        partidaArancelaria={partidaArancelaria}
+        onSaved={() => onUploadedMessage("Precálculo de aranceles guardado")}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={vehiculoId}
+        valorCif={valorCif}
+        arancelPct={arancelPct}
+        impuestoLujoPct={impuestoLujoPct}
+        tasaCambioBcv={tasaCambioBcv}
+        tasaOficialFecha={tasaOficialFecha}
+        pagoArancelesEstado={pagoArancelesEstado}
+        pagoArancelesUsd={pagoArancelesUsd}
+        pagoArancelesBs={pagoArancelesBs}
+        docs={docs}
+        setDocs={setDocs}
+        onUpdated={() => onUploadedMessage("Tasa oficial actualizada")}
+        onUploadedMessage={onUploadedMessage}
+      />
+
+      <PostPagoInspeccionCard
+        vehiculoId={vehiculoId}
+        pagado={pagoArancelesEstado === "pagado"}
+        docs={docs}
+        setDocs={setDocs}
+        onUploadedMessage={onUploadedMessage}
+        revision={{
+          fotosCount,
+          expectedSerial,
+          improntaEstado,
+          setImprontaEstado,
+          improntaLeido,
+          setImprontaLeido,
+          forzarImpronta,
+          setForzarImpronta,
+          canForzarImpronta,
+          canForce,
+          improntaOk,
+          checklist,
+          setChecklist,
+          checklistNotas,
+          setChecklistNotas,
+          checklistMarked,
+          otrosNotas,
+          setOtrosNotas,
+        }}
+      />
+
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={isLlegadaChecklistCompleto(checklist)}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión guardada en PDF");
+        }}
+      />
 
       <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
@@ -2458,116 +2506,6 @@ function Fase5Seguro({
   );
 }
 
-function MatriculacionDocRow({
-  vehiculoId,
-  tipo,
-  docs,
-  setDocs,
-  origen,
-  onUploadedMessage,
-}: {
-  vehiculoId: string;
-  tipo: DocumentoTipo;
-  docs: VehiculosDocumentos;
-  setDocs: (d: VehiculosDocumentos) => void;
-  origen?: string;
-  onUploadedMessage: (msg: string) => void;
-}) {
-  const loaded = Boolean(docs[tipo]?.url);
-  return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">
-            {DOCUMENTO_LABELS[tipo]}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {origen ?? "Cargar en PDF o foto / escaneo"}
-          </p>
-        </div>
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-            loaded
-              ? "bg-emerald-950/60 text-emerald-300"
-              : "bg-red-950/50 text-red-300"
-          }`}
-        >
-          {loaded ? "Listo" : "Pendiente"}
-        </span>
-      </div>
-      {loaded && docs[tipo]?.url ? (
-        <a
-          href={docs[tipo]!.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
-        >
-          Ver documento
-        </a>
-      ) : null}
-      <ImportDocumentoUpload
-        vehiculoId={vehiculoId}
-        tipo={tipo}
-        existingUrl={docs[tipo]?.url}
-        acceptMode="both"
-        hint="Foto o PDF · máx. 10 MB"
-        actionLabel={loaded ? "Reemplazar" : "Cargar"}
-        onUploaded={(next) => {
-          setDocs(next);
-          onUploadedMessage("Documento guardado");
-        }}
-      />
-    </li>
-  );
-}
-
-function MatriculacionReferenciaRow({
-  tipo,
-  docs,
-}: {
-  tipo: DocumentoTipo;
-  docs: VehiculosDocumentos;
-}) {
-  const loaded = Boolean(docs[tipo]?.url);
-  return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-3 sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">
-            {DOCUMENTO_LABELS[tipo]}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {PL_MATRICULACION_ORIGEN[tipo] ?? "Cargado en una fase anterior"}
-          </p>
-        </div>
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-            loaded
-              ? "bg-emerald-950/60 text-emerald-300"
-              : "bg-amber-950/50 text-amber-200"
-          }`}
-        >
-          {loaded ? "En expediente" : "No encontrado"}
-        </span>
-      </div>
-      {loaded && docs[tipo]?.url ? (
-        <a
-          href={docs[tipo]!.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex text-xs text-cyan-400 hover:underline"
-        >
-          Ver documento
-        </a>
-      ) : (
-        <p className="mt-2 text-xs text-slate-500">
-          Vuelve a la fase de origen para cargarlo; aquí solo se referencia.
-        </p>
-      )}
-    </li>
-  );
-}
-
 function Fase6Matriculacion({
   vehiculoId,
   docs,
@@ -2593,10 +2531,6 @@ function Fase6Matriculacion({
   );
   const stats = countMatriculacionCarpeta(docs, requiereHomologacion);
   const carpetaCompleta = stats.listos === stats.total;
-  const liquidacionListo = tieneLiquidacionOExencion(docs);
-  const refsListos = PL_MATRICULACION_REFERENCIA_TIPOS.filter((t) =>
-    Boolean(docs[t]?.url)
-  ).length;
 
   useEffect(() => {
     setRequiereHomologacion(requiereHomologacionInicial);
@@ -2607,107 +2541,74 @@ function Fase6Matriculacion({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Matriculación — trámite INTT
+          Archivo INTT — presentación
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {stats.listos}/{stats.total}
           </span>
         </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Nueve recaudos, en este orden, precargados del expediente. Completa
+          los que falten; la homologación solo si aplica.
+        </p>
 
-        <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-300">
-          Cargar en esta fase
-        </h3>
-        <ul className="mt-3 space-y-3">
-          {PL_MATRICULACION_CARGAR_TIPOS.map((tipo) => (
-            <MatriculacionDocRow
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              docs={docs}
-              setDocs={setDocs}
-              origen={PL_MATRICULACION_ORIGEN[tipo]}
-              onUploadedMessage={onUploadedMessage}
-            />
-          ))}
-          <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={requiereHomologacion}
-                onChange={(e) => setRequiereHomologacion(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
-              />
-              <span>
-                <span className="block text-sm font-medium text-slate-100">
-                  Este vehículo requiere homologación
-                </span>
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  Márcalo solo si aplica; entonces la homologación es obligatoria.
-                </span>
-              </span>
-            </label>
-          </li>
-          {requiereHomologacion ? (
-            <MatriculacionDocRow
-              vehiculoId={vehiculoId}
-              tipo="homologacion"
-              docs={docs}
-              setDocs={setDocs}
-              origen={PL_MATRICULACION_ORIGEN.homologacion}
-              onUploadedMessage={onUploadedMessage}
-            />
-          ) : null}
-          <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-100">
-                  Liquidación / exención y oficio SENIAT
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Basta con la liquidación o el oficio de exención del SENIAT
-                </p>
-              </div>
-              <span
-                className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                  liquidacionListo
-                    ? "bg-emerald-950/60 text-emerald-300"
-                    : "bg-red-950/50 text-red-300"
-                }`}
+        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4">
+          <input
+            type="checkbox"
+            checked={requiereHomologacion}
+            onChange={(e) => setRequiereHomologacion(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-100">
+              Este vehículo requiere homologación
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Si lo marcas, el ítem 5 entra en el archivo.
+            </span>
+          </span>
+        </label>
+
+        <ol className="mt-5 space-y-3">
+          {PL_INTT_PRESENTACION_TIPOS.map((tipo, index) => {
+            const skipped = tipo === "homologacion" && !requiereHomologacion;
+            const ref = inttPresentacionRef(docs, tipo);
+            const loaded = Boolean(ref?.url);
+            return (
+              <li
+                key={tipo}
+                className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
               >
-                {liquidacionListo ? "Listo" : "Pendiente"}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS.map((tipo) => {
-                const loaded = Boolean(docs[tipo]?.url);
-                return (
-                  <div
-                    key={tipo}
-                    className="rounded-lg border border-slate-800/80 bg-slate-950/50 p-3"
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-100">
+                      {index + 1}. {PL_INTT_PRESENTACION_LABELS[tipo]}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {PL_INTT_PRESENTACION_ORIGEN[tipo] ??
+                        "Precargado del expediente"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      skipped
+                        ? "bg-slate-800 text-slate-400"
+                        : loaded
+                          ? "bg-emerald-950/60 text-emerald-300"
+                          : "bg-amber-950/60 text-amber-200"
+                    }`}
                   >
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-100">
-                          {DOCUMENTO_LABELS[tipo]}
-                        </p>
-                        {PL_MATRICULACION_ORIGEN[tipo] ? (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {PL_MATRICULACION_ORIGEN[tipo]}
-                          </p>
-                        ) : null}
-                      </div>
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          loaded
-                            ? "bg-emerald-950/60 text-emerald-300"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {loaded ? "Cargado" : "Opcional si ya hay el otro"}
-                      </span>
-                    </div>
-                    {loaded && docs[tipo]?.url ? (
+                    {skipped
+                      ? "No aplica"
+                      : loaded
+                        ? "En expediente"
+                        : "Pendiente"}
+                  </span>
+                </div>
+                {skipped ? null : (
+                  <>
+                    {loaded && ref?.url ? (
                       <a
-                        href={docs[tipo]!.url}
+                        href={ref.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
@@ -2718,39 +2619,21 @@ function Fase6Matriculacion({
                     <ImportDocumentoUpload
                       vehiculoId={vehiculoId}
                       tipo={tipo}
-                      existingUrl={docs[tipo]?.url}
-                      acceptMode="both"
-                      hint="Foto o PDF · máx. 10 MB"
-                      actionLabel={loaded ? "Reemplazar" : "Cargar"}
+                      existingUrl={ref?.url}
+                      acceptMode="pdf"
+                      hint="PDF · máx. 10 MB"
+                      actionLabel={loaded ? "Reemplazar PDF" : "Cargar PDF"}
                       onUploaded={(next) => {
                         setDocs(next);
-                        onUploadedMessage("Documento guardado");
+                        onUploadedMessage("Documento del archivo INTT guardado");
                       }}
                     />
-                  </div>
-                );
-              })}
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-100">
-          Referencia — ya en el expediente
-          <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {refsListos}/{PL_MATRICULACION_REFERENCIA_TIPOS.length}
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          No se vuelven a cargar aquí. Si figuran como “En expediente”, entran
-          al PDF de la carpeta INTT.
-        </p>
-        <ul className="mt-4 space-y-2.5">
-          {PL_MATRICULACION_REFERENCIA_TIPOS.map((tipo) => (
-            <MatriculacionReferenciaRow key={tipo} tipo={tipo} docs={docs} />
-          ))}
-        </ul>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ol>
 
         <div className="mt-6 space-y-3">
           <PuertoLibreDescargarMatriculacionPdf
@@ -2758,8 +2641,8 @@ function Fase6Matriculacion({
             variant="compact"
           />
           <p className="text-xs text-slate-500">
-            El PDF incluye portada, índice, los documentos de esta fase y las
-            referencias cargadas en fases anteriores.
+            El PDF sale con estos recaudos, en este orden, para presentar ante
+            el INTT.
           </p>
         </div>
       </section>
@@ -2776,6 +2659,8 @@ function Fase6Matriculacion({
 
 function Fase8EntregaPlaca({
   vehiculoId,
+  placaInicial,
+  codigoExpediente,
   docs,
   setDocs,
   pending,
@@ -2783,29 +2668,53 @@ function Fase8EntregaPlaca({
   onUploadedMessage,
 }: {
   vehiculoId: string;
+  placaInicial: string;
+  codigoExpediente?: string | null;
   docs: VehiculosDocumentos;
   setDocs: (d: VehiculosDocumentos) => void;
   pending: boolean;
-  onComplete: (after: PlanillaAfterSave) => void;
+  onComplete: (after: PlanillaAfterSave, placa: string) => void;
   onUploadedMessage: (msg: string) => void;
 }) {
-  const listos = PL_ENTREGA_PLACA_TIPOS.filter((t) => Boolean(docs[t]?.url))
-    .length;
-  const completo = listos === PL_ENTREGA_PLACA_TIPOS.length;
+  const [placaInput, setPlacaInput] = useState(
+    () => placaRealVisible(placaInicial, codigoExpediente) ?? ""
+  );
+  const docsListos = PL_ENTREGA_PLACA_TIPOS.filter((t) =>
+    Boolean(docs[t]?.url)
+  ).length;
+  const placaOk = Boolean(placaRealVisible(placaInput, codigoExpediente));
+  const completo = docsListos === PL_ENTREGA_PLACA_TIPOS.length && placaOk;
 
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Placa y título
+          Placa y circulación
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {listos}/{PL_ENTREGA_PLACA_TIPOS.length}
+            {docsListos}/{PL_ENTREGA_PLACA_TIPOS.length}
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Carga la foto de la placa asignada y el título de propiedad del INTT.
+          Tras presentar el archivo al INTT, registra la placa única del
+          vehículo y carga los documentos de circulación. La póliza RCV se
+          precarga si ya está en Seguro.
         </p>
+
+        <label className="mt-5 block space-y-1.5">
+          <span className="text-sm text-slate-400">
+            Placa vehicular (número único) *
+          </span>
+          <input
+            value={placaInput}
+            onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Ej. AB123CD"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm uppercase text-slate-100 outline-none focus:border-cyan-500/60"
+          />
+        </label>
+
         <ul className="mt-5 space-y-3">
           {PL_ENTREGA_PLACA_TIPOS.map((tipo) => {
             const loaded = Boolean(docs[tipo]?.url);
@@ -2814,9 +2723,25 @@ function Fase8EntregaPlaca({
                 key={tipo}
                 className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4"
               >
-                <p className="mb-2 text-sm font-medium text-slate-100">
-                  {DOCUMENTO_LABELS[tipo]} *
-                </p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-100">
+                      {DOCUMENTO_LABELS[tipo]} *
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {PL_ENTREGA_PLACA_ORIGEN[tipo]}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      loaded
+                        ? "bg-emerald-950/60 text-emerald-300"
+                        : "bg-amber-950/60 text-amber-200"
+                    }`}
+                  >
+                    {loaded ? "En expediente" : "Pendiente"}
+                  </span>
+                </div>
                 {loaded && docs[tipo]?.url ? (
                   <a
                     href={docs[tipo]!.url}
@@ -2836,7 +2761,7 @@ function Fase8EntregaPlaca({
                   actionLabel={loaded ? "Reemplazar" : "Cargar"}
                   onUploaded={(next) => {
                     setDocs(next);
-                    onUploadedMessage("Documento guardado");
+                    onUploadedMessage("Documento de circulación guardado");
                   }}
                 />
               </li>
@@ -2849,7 +2774,7 @@ function Fase8EntregaPlaca({
         pending={pending}
         disabled={!completo}
         continueLabel="Finalizar y nacionalizar"
-        onAction={onComplete}
+        onAction={(after) => onComplete(after, placaInput)}
       />
     </div>
   );

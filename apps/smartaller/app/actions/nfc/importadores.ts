@@ -13,6 +13,10 @@ import {
   type ImportadorTipo,
 } from "@/lib/schemas/importador";
 import {
+  IMPORTADOR_DOC_TIPOS,
+  isImportadorDocTipo,
+} from "@/lib/importadores/documentos";
+import {
   parseImportadorDocumentos,
   uploadImportadorDocumento,
   validateImportadorDocumentoFile,
@@ -411,7 +415,7 @@ export async function deleteImportadorAction(raw: unknown): Promise<
   return { success: true, importadorId: data.id as string };
 }
 
-/** Sube RIF o cédula al cliente y lo guarda en importadores.documentos. */
+/** Sube un documento del cliente y lo guarda en importadores.documentos. */
 export async function attachImportadorDocumentoAction(
   formData: FormData
 ): Promise<
@@ -430,7 +434,7 @@ export async function attachImportadorDocumentoAction(
   if (!z.string().uuid().safeParse(importadorId).success) {
     return { success: false, error: "Cliente inválido" };
   }
-  if (tipoDoc !== "rif" && tipoDoc !== "cedula") {
+  if (!isImportadorDocTipo(tipoDoc)) {
     return { success: false, error: "Tipo de documento inválido" };
   }
   if (!(file instanceof File)) {
@@ -493,7 +497,7 @@ export async function attachImportadorDocumentoAction(
   }
 }
 
-/** Sube RIF y/o cédula en paralelo y persiste ambos en un solo update. */
+/** Sube documentos del cliente en paralelo y persiste todos en un solo update. */
 export async function attachImportadorDocumentosBatchAction(
   formData: FormData
 ): Promise<ActionOk<{ documentos: ImportadorDocumentos }> | ActionErr> {
@@ -508,7 +512,7 @@ export async function attachImportadorDocumentosBatchAction(
   }
 
   const files: Array<{ tipo: ImportadorDocTipo; file: File }> = [];
-  for (const tipo of ["rif", "cedula"] as const) {
+  for (const tipo of IMPORTADOR_DOC_TIPOS) {
     const file = formData.get(`file_${tipo}`);
     if (file instanceof File && file.size > 0) {
       const validationError = validateImportadorDocumentoFile(file);

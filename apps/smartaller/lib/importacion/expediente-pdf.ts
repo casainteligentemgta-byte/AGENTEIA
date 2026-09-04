@@ -7,6 +7,12 @@ import {
 } from "@/lib/importacion/plazos";
 import { clasificarTipoImportadorPorRif } from "@/lib/importacion/cumplimiento-importador";
 import {
+  formatBs,
+  formatUsd,
+  inputFromImportacion,
+  precalcularAranceles,
+} from "@/lib/importacion/precalculo-aranceles";
+import {
   docsDesaduanamientoPdfPorRegimen,
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
@@ -17,9 +23,15 @@ import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
   PL_DESADUANAMIENTO_NUEVOS_TIPOS,
+  PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+  PL_CONSTANCIA_INSPECCION_TIPO,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
   docsMatriculacionPdfTipos,
+  inttPresentacionRef,
+  PL_INTT_PRESENTACION_LABELS,
+  PL_ENTREGA_PLACA_TIPOS,
+  PL_INTT_PRESENTACION_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
   PL_NACIONALIZACION_M3_TIPOS,
@@ -76,6 +88,16 @@ function txt(v: string | number | null | undefined, fallback = "-"): string {
   return winAnsi(String(v));
 }
 
+function precalculoTotalUsd(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc ? formatUsd(calc.totalUsd) : null;
+}
+
+function precalculoTotalBs(imp: ImportacionData): string | null {
+  const calc = precalcularAranceles(inputFromImportacion(imp));
+  return calc?.totalBs != null ? formatBs(calc.totalBs) : null;
+}
+
 function uniqueTipos(...groups: DocumentoTipo[][]): DocumentoTipo[] {
   const seen = new Set<DocumentoTipo>();
   const out: DocumentoTipo[] = [];
@@ -94,6 +116,11 @@ function expedienteDocTipos(): DocumentoTipo[] {
     PL_FASE1_REGISTRO_DOCUMENTO_TIPOS,
     PL_EMBARQUE_DOCUMENTO_TIPOS,
     PL_DESADUANAMIENTO_NUEVOS_TIPOS,
+    [...PL_PAGO_SENIAT_DOCUMENTO_TIPOS],
+    [...PL_CONSTANCIA_INSPECCION_TIPO],
+    ["revision_vehiculo"],
+    [...PL_INTT_PRESENTACION_TIPOS],
+    [...PL_ENTREGA_PLACA_TIPOS],
     ["manual_vehiculo", "cedula", "titulo", "foto_comprador"],
     SEGURO_DOCUMENTO_TIPOS,
     PL_MATRICULACION_NUEVOS_TIPOS,
@@ -533,7 +560,29 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     { label: "Fecha liquidación SENIAT", value: txt(imp.fechaLiquidacion) },
     { label: "Valor CIF", value: txt(imp.valorCif) },
     { label: "Tasa BCV", value: txt(imp.tasaCambioBcv) },
-    { label: "Ad-Valorem (%)", value: txt(imp.tarifaAdValoremPct) },
+    { label: "Ad-Valorem (%)", value: txt(imp.arancelPct ?? imp.tarifaAdValoremPct) },
+    { label: "Lujo %", value: txt(imp.impuestoLujoPct) },
+    { label: "Precálculo total USD", value: txt(precalculoTotalUsd(imp)) },
+    { label: "Precálculo total Bs", value: txt(precalculoTotalBs(imp)) },
+    {
+      label: "Pago aranceles",
+      value: txt(
+        imp.pagoArancelesEstado === "pagado" ? "Pagado" : "Pendiente"
+      ),
+    },
+    { label: "Tasa oficial fecha", value: txt(imp.tasaOficialFecha) },
+    {
+      label: "Liquidación de tributos",
+      value: txt(ficha.documentos.planilla_liquidacion_aduanera?.url ? "Cargada" : null),
+    },
+    {
+      label: "Constancia de nacionalización",
+      value: txt(ficha.documentos.constancia_nacionalizacion?.url ? "Cargada" : null),
+    },
+    {
+      label: "Constancia de inspección",
+      value: txt(ficha.documentos.constancia_inspeccion?.url ? "Cargada" : null),
+    },
     { label: "Aranceles (USD)", value: txt(imp.costosArancelariosUsd) },
     { label: "Nº expediente SENIAT", value: txt(imp.numeroExpedienteSeniat) },
     { label: "Nº DAV", value: txt(imp.numeroDav) },
@@ -786,7 +835,7 @@ export async function buildMatriculacionPdf(
     page,
     font,
     bold,
-    "Carpeta PDF Matriculacion INTT",
+    "Archivo INTT — presentacion",
     `${codigo} · SmartTaller`
   );
 
@@ -817,19 +866,28 @@ export async function buildMatriculacionPdf(
   ));
 
   page = addBlankPage(pdf);
-  y = drawHeader(page, font, bold, "Indice — Carpeta INTT", codigo);
-  y = drawSectionTitle(page, bold, "Documentos (referencia + carga)", y);
+  y = drawHeader(page, font, bold, "Indice — Archivo INTT", codigo);
+  y = drawSectionTitle(page, bold, "Documentos en orden de presentacion", y);
 
   const carpetaTipos = docsMatriculacionPdfTipos(requiereHomologacion);
-  const indexPairs: LinePair[] = carpetaTipos.map((tipo, i) => ({
-    label: `${i + 1}. ${DOCUMENTO_LABELS[tipo]}`,
-    value: ficha.documentos[tipo]?.url ? "Cargado" : "Pendiente",
-  }));
+  const indexPairs: LinePair[] = PL_INTT_PRESENTACION_TIPOS.map((tipo, i) => {
+    const label =
+      PL_INTT_PRESENTACION_LABELS[tipo] ?? DOCUMENTO_LABELS[tipo];
+    if (tipo === "homologacion" && !requiereHomologacion) {
+      return { label: `${i + 1}. ${label}`, value: "No aplica" };
+    }
+    return {
+      label: `${i + 1}. ${label}`,
+      value: inttPresentacionRef(ficha.documentos, tipo)?.url
+        ? "Cargado"
+        : "Pendiente",
+    };
+  });
   ({ page, y } = drawPairs(pdf, page, font, bold, indexPairs, y));
 
   page.drawText(
     winAnsi(
-      "Carpeta PDF para tramite INTT. Incluye recaudos de fases anteriores y los de Matriculacion."
+      "Archivo para presentar ante el INTT. Recaudos precargados del expediente, en este orden."
     ),
     {
       x: MARGIN,
@@ -842,26 +900,25 @@ export async function buildMatriculacionPdf(
 
   const pagesUsed = { count: 0 };
   for (const tipo of carpetaTipos) {
-    const url = ficha.documentos[tipo]?.url;
+    const url = inttPresentacionRef(ficha.documentos, tipo)?.url;
+    const label =
+      tipo in PL_INTT_PRESENTACION_LABELS
+        ? PL_INTT_PRESENTACION_LABELS[
+            tipo as keyof typeof PL_INTT_PRESENTACION_LABELS
+          ]
+        : DOCUMENTO_LABELS[tipo];
     if (!url) {
       separatorPage(
         pdf,
         bold,
         font,
-        DOCUMENTO_LABELS[tipo],
+        label,
         "Documento pendiente de carga en el expediente digital."
       );
       pagesUsed.count += 1;
       continue;
     }
-    await appendAttachment(
-      pdf,
-      bold,
-      font,
-      DOCUMENTO_LABELS[tipo],
-      url,
-      pagesUsed
-    );
+    await appendAttachment(pdf, bold, font, label, url, pagesUsed);
   }
 
   return pdf.save({ useObjectStreams: false });
@@ -873,4 +930,104 @@ export function matriculacionPdfFileName(
 ): string {
   const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
   return `Carpeta-INTT-${raw}.pdf`;
+}
+
+const REVISION_RESPUESTA: Record<string, string> = {
+  sin_dano: "OK",
+  falla: "Dano",
+  na: "N/A",
+};
+
+/** PDF de la revisión (cuestionario de llegada) para guardar en el expediente. */
+export async function buildRevisionVehiculoPdf(
+  ficha: ExpedientePdfSource
+): Promise<Uint8Array> {
+  const { LLEGADA_CHECKLIST_ITEMS } = await import(
+    "@/lib/importacion/llegada-catalog"
+  );
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const codigo = ficha.codigoExpediente ?? ficha.placa;
+  const placa = placaRealVisible(ficha.placa, ficha.codigoExpediente);
+  const imp = ficha.importacion;
+  const tituloVehiculo =
+    [ficha.marca, ficha.modelo].filter(Boolean).join(" ") || "Vehiculo";
+
+  let page = addBlankPage(pdf);
+  let y = drawHeader(
+    page,
+    font,
+    bold,
+    "Revision del vehiculo",
+    `${codigo} · SmartImport`
+  );
+
+  y = drawSectionTitle(page, bold, "Expediente", y);
+  ({ page, y } = drawPairs(
+    pdf,
+    page,
+    font,
+    bold,
+    [
+      { label: "Expediente", value: codigo },
+      { label: "Vehiculo", value: tituloVehiculo },
+      { label: "Color / anio", value: `${txt(ficha.color)} / ${txt(imp.anio)}` },
+      { label: "Placa", value: txt(placa) },
+      { label: "VIN", value: txt(imp.vin) },
+      { label: "Serial carroceria", value: txt(ficha.serial_carroceria) },
+      { label: "Kilometraje", value: txt(ficha.kilometraje_ultimo) },
+      { label: "Fecha ingreso", value: txt(imp.fechaIngreso) },
+      {
+        label: "Impronta",
+        value: txt(imp.serialImprontaEstado ?? "sin verificar"),
+      },
+    ],
+    y
+  ));
+
+  y = drawSectionTitle(page, bold, "Cuestionario de revision", y - 8);
+  const checklist = imp.checklistLlegada ?? {};
+  const notas = imp.checklistLlegadaNotas ?? {};
+  const pairs: LinePair[] = LLEGADA_CHECKLIST_ITEMS.map((item) => {
+    const raw = checklist[item.id];
+    const respuesta = REVISION_RESPUESTA[raw ?? ""] ?? "Pendiente";
+    const nota = (notas[item.id] ?? "").trim();
+    return {
+      label: item.etiqueta,
+      value: nota ? `${respuesta} — ${nota}` : respuesta,
+    };
+  });
+  ({ page, y } = drawPairs(pdf, page, font, bold, pairs, y));
+
+  const otros = imp.otrosDispositivosNotas?.trim();
+  if (otros) {
+    y = drawSectionTitle(page, bold, "Otros dispositivos / notas", y - 4);
+    ({ page, y } = drawPairs(
+      pdf,
+      page,
+      font,
+      bold,
+      [{ label: "Notas", value: otros }],
+      y
+    ));
+  }
+
+  const fotos = MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => ({
+    label: DOCUMENTO_LABELS[tipo],
+    value: ficha.documentos[tipo]?.url ? "Cargada" : "Pendiente",
+  }));
+  y = drawSectionTitle(page, bold, "Inspeccion fotografica", y - 4);
+  drawPairs(pdf, page, font, bold, fotos, y);
+
+  return pdf.save({ useObjectStreams: false });
+}
+
+export function revisionVehiculoPdfFileName(
+  codigo: string | null | undefined,
+  placa: string
+): string {
+  const raw = (codigo?.trim() || placa || "expediente").replace(/[^\w.\-]+/g, "_");
+  return `Revision-vehiculo-${raw}.pdf`;
 }

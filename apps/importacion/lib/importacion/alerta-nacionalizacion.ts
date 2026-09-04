@@ -1,5 +1,8 @@
 import { fechaLimitePermanencia3Anios } from "@/lib/importacion/nacionalizacion";
-import { getRegimenConfig } from "@/lib/importacion/regimenes";
+import {
+  resolveRegimenImportacion,
+  type RegimenImportacion,
+} from "@/lib/importacion/regimenes";
 import {
   diasHasta,
   type ImportacionData,
@@ -22,6 +25,8 @@ export type AlertaNacionalizacion = {
   urgencia: UrgenciaNacionalizacion;
   titulo: string;
   detalle: string;
+  /** Régimen que alimenta este reloj. */
+  regimen: Extract<RegimenImportacion, "puerto_libre" | "equipaje">;
 };
 
 /** Fecha límite efectiva: guardada o ingreso + 3 años. */
@@ -43,53 +48,77 @@ export function urgenciaPorDias(dias: number): UrgenciaNacionalizacion {
   return "ok";
 }
 
-function formatFechaLimite(iso: string): string {
+export function formatFechaPlazo(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!match) return iso;
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function textoAlerta(dias: number, fechaLimite: string): Pick<
-  AlertaNacionalizacion,
-  "titulo" | "detalle"
-> {
-  const fecha = formatFechaLimite(fechaLimite);
+function textoAlerta(
+  dias: number,
+  fechaLimite: string,
+  regimen: Extract<RegimenImportacion, "puerto_libre" | "equipaje">
+): Pick<AlertaNacionalizacion, "titulo" | "detalle"> {
+  const fecha = formatFechaPlazo(fechaLimite);
+  const esEquipaje = regimen === "equipaje";
+  const via = esEquipaje
+    ? "régimen de equipaje"
+    : "Puerto Libre";
   if (dias < 0) {
     const n = Math.abs(dias);
     return {
       titulo:
         n === 1
-          ? "Plazo de nacionalización vencido hace 1 día"
-          : `Plazo de nacionalización vencido hace ${n} días`,
-      detalle: `El límite (ingreso + 3 años) era el ${fecha}. Gestiona la vía con el agente aduanal / SENIAT.`,
+          ? `Nacionalización (${via}) vencida hace 1 día`
+          : `Nacionalización (${via}) vencida hace ${n} días`,
+      detalle: esEquipaje
+        ? `El límite era el ${fecha}. Presenta el expediente ante el SENIAT.`
+        : `El límite (ingreso + 3 años) era el ${fecha}. Gestiona la vía con el agente aduanal / SENIAT.`,
     };
   }
   if (dias === 0) {
     return {
-      titulo: "Hoy vence el plazo de nacionalización",
-      detalle: `Límite ${fecha} (3 años en Puerto Libre). Continúa el trámite hoy.`,
+      titulo: esEquipaje
+        ? "Hoy vence la nacionalización por equipaje"
+        : "Hoy vence el plazo de nacionalización",
+      detalle: `Límite ${fecha}. Continúa el trámite hoy.`,
     };
   }
   if (dias === 1) {
     return {
-      titulo: "Queda 1 día para nacionalizar",
-      detalle: `Límite ${fecha}. Prepara documentos y vía de nacionalización.`,
+      titulo: esEquipaje
+        ? "Queda 1 día para nacionalizar por equipaje"
+        : "Queda 1 día para nacionalizar",
+      detalle: `Límite ${fecha}.`,
     };
   }
   return {
-    titulo: `Quedan ${dias} días para nacionalizar`,
-    detalle: `Límite ${fecha} (3 años desde el ingreso a Puerto Libre).`,
+    titulo: esEquipaje
+      ? `Quedan ${dias} días para nacionalizar por equipaje`
+      : `Quedan ${dias} días para nacionalizar`,
+    detalle: esEquipaje
+      ? `Límite ${fecha} (régimen de equipaje · cupo 1 vehículo / 3 años).`
+      : `Límite ${fecha} (3 años desde el ingreso a Puerto Libre).`,
   };
 }
 
+/** Puerto Libre (permanencia 3 años) y régimen de equipaje. */
+export function regimenTieneRelojNacionalizacion(
+  regimen: string | null | undefined
+): boolean {
+  const codigo = resolveRegimenImportacion(regimen);
+  return codigo === "puerto_libre" || codigo === "equipaje";
+}
+
 /**
- * Alerta de días restantes hasta el umbral de nacionalización (permanencia 3 años).
- * Null si no aplica (régimen sin PL, ya nacionalizado, o sin fecha de ingreso/límite).
+ * Alerta de días restantes hasta el umbral de nacionalización.
+ * Null si no aplica (otro régimen, ya nacionalizado, o sin fecha).
  */
 export function buildAlertaNacionalizacion(
   importacion: ImportacionData
 ): AlertaNacionalizacion | null {
-  if (!getRegimenConfig(importacion.regimen).nacionalizacionPuertoLibre) {
+  const regimen = resolveRegimenImportacion(importacion.regimen);
+  if (regimen !== "puerto_libre" && regimen !== "equipaje") {
     return null;
   }
   const estado = importacion.estadoNacionalizacion ?? "pendiente";
@@ -104,6 +133,6 @@ export function buildAlertaNacionalizacion(
   if (dias == null) return null;
 
   const urgencia = urgenciaPorDias(dias);
-  const { titulo, detalle } = textoAlerta(dias, fechaLimite);
-  return { fechaLimite, dias, urgencia, titulo, detalle };
+  const { titulo, detalle } = textoAlerta(dias, fechaLimite, regimen);
+  return { fechaLimite, dias, urgencia, titulo, detalle, regimen };
 }

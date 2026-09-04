@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import type { PuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
-import { AlertaDiasNacionalizacion } from "@/components/nfc/AlertaDiasNacionalizacion";
+import { RelojesExpediente } from "@/components/nfc/RelojesExpediente";
+import { RevisionVehiculoPdfCard } from "@/components/nfc/RevisionVehiculoPdfCard";
 import { PuertoLibreDeleteExpediente } from "@/components/nfc/PuertoLibreDeleteExpediente";
 import { PuertoLibreDescargarPdf } from "@/components/nfc/PuertoLibreDescargarPdf";
 import { PuertoLibreDescargarDesaduanamientoPdf } from "@/components/nfc/PuertoLibreDescargarDesaduanamientoPdf";
@@ -10,6 +11,10 @@ import {
   ESTADO_NACIONALIZACION_LABELS,
   ESTADO_SENIAT_LABELS,
   PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+  PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+  PL_CONSTANCIA_INSPECCION_TIPO,
+  PL_ENTREGA_PLACA_TIPOS,
+  PL_INTT_PRESENTACION_TIPOS,
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
@@ -27,6 +32,10 @@ import {
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
 import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
 import { PuertoLibrePlazosPanel } from "@/components/nfc/PuertoLibrePlazosPanel";
+import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
+import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
+import { PostPagoInspeccionCard } from "@/components/nfc/PostPagoInspeccionCard";
+import { isLlegadaChecklistCompleto } from "@/lib/importacion/llegada-catalog";
 
 type Props = {
   ficha: PuertoLibreFicha;
@@ -51,6 +60,11 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
     new Set<DocumentoTipo>([
       ...PL_EMBARQUE_DOCUMENTO_TIPOS,
       ...PL_DESADUANAMIENTO_DOCUMENTO_TIPOS,
+      ...PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
+      ...PL_CONSTANCIA_INSPECCION_TIPO,
+      "revision_vehiculo",
+      ...PL_INTT_PRESENTACION_TIPOS,
+      ...PL_ENTREGA_PLACA_TIPOS,
       "manual_vehiculo",
       "cedula",
       "titulo",
@@ -221,7 +235,19 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Fecha liquidación SENIAT" value={imp.fechaLiquidacion} />
           <Dato label="Valor CIF" value={imp.valorCif} />
           <Dato label="Tasa BCV" value={imp.tasaCambioBcv} />
-          <Dato label="Ad-Valorem (%)" value={imp.tarifaAdValoremPct} />
+          <Dato label="Tasa oficial fecha" value={imp.tasaOficialFecha} />
+          <Dato
+            label="Pago aranceles"
+            value={
+              imp.pagoArancelesEstado === "pagado"
+                ? "Pagado"
+                : imp.pagoArancelesUsd != null
+                  ? "Pendiente"
+                  : null
+            }
+          />
+          <Dato label="Ad-Valorem (%)" value={imp.arancelPct ?? imp.tarifaAdValoremPct} />
+          <Dato label="Lujo %" value={imp.impuestoLujoPct} />
           <Dato label="Aranceles (USD)" value={imp.costosArancelariosUsd} />
           <Dato label="Gastos puerto (USD)" value={imp.gastosPuertoUsd} />
           <Dato label="Flete internacional (USD)" value={imp.fleteInternacionalUsd} />
@@ -256,9 +282,53 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           <Dato label="Observaciones" value={imp.observaciones} wide />
         </dl>
         <div className="mt-4">
-          <AlertaDiasNacionalizacion importacion={imp} />
+          <RelojesExpediente
+            vehiculoId={ficha.id}
+            importacion={imp}
+            canEdit={canMutate}
+          />
         </div>
       </section>
+
+      <PrecalculoArancelesCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        valorCif={imp.valorCif}
+        arancelPct={imp.arancelPct}
+        tarifaAdValoremPct={imp.tarifaAdValoremPct}
+        impuestoLujoPct={imp.impuestoLujoPct}
+        tasaCambioBcv={imp.tasaCambioBcv}
+        partidaArancelaria={imp.partidaArancelaria}
+        canEdit={canMutate}
+      />
+
+      <PagoArancelesCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        valorCif={imp.valorCif}
+        arancelPct={imp.arancelPct}
+        impuestoLujoPct={imp.impuestoLujoPct}
+        tasaCambioBcv={imp.tasaCambioBcv}
+        tasaOficialFecha={imp.tasaOficialFecha}
+        pagoArancelesEstado={imp.pagoArancelesEstado}
+        pagoArancelesUsd={imp.pagoArancelesUsd}
+        pagoArancelesBs={imp.pagoArancelesBs}
+        docs={ficha.documentos}
+        canEdit={canMutate}
+      />
+
+      <PostPagoInspeccionCard
+        vehiculoId={canMutate ? ficha.id : undefined}
+        pagado={imp.pagoArancelesEstado === "pagado"}
+        docs={ficha.documentos}
+        canEdit={canMutate}
+        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
+      />
+
+      <RevisionVehiculoPdfCard
+        vehiculoId={ficha.id}
+        docs={ficha.documentos}
+        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
+        canEdit={canMutate}
+      />
 
       <PuertoLibrePlazosPanel vehiculoId={ficha.id} importacion={imp} />
 

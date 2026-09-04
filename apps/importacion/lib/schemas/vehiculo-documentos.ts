@@ -57,10 +57,15 @@ export const DOCUMENTO_TIPOS = [
   "pago_tasas",
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
+  "constancia_nacionalizacion",
+  "constancia_inspeccion",
+  "revision_vehiculo",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
   "titulo_libre_circulacion",
+  "documento_circulacion",
+  "tarjeta_circulacion",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -123,10 +128,15 @@ export const vehiculosDocumentosSchema = z.object({
   pago_tasas: vehiculoDocumentoRefSchema.optional(),
   declaracion_complementaria: vehiculoDocumentoRefSchema.optional(),
   liquidacion_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  constancia_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
+  constancia_inspeccion: vehiculoDocumentoRefSchema.optional(),
+  revision_vehiculo: vehiculoDocumentoRefSchema.optional(),
   resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
   titulo_libre_circulacion: vehiculoDocumentoRefSchema.optional(),
+  documento_circulacion: vehiculoDocumentoRefSchema.optional(),
+  tarjeta_circulacion: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -163,7 +173,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   nacionalizacion: "Declaración Única de Aduanas (DUA)",
   declaracion_jurada_origen_fondos: "Declaración jurada de origen de fondos",
   planilla_liquidacion_aduanera:
-    "Planilla de liquidación de impuestos y tasas aduaneras",
+    "Liquidación de tributos (comprobante de pago SENIAT)",
   licencia_importacion_automotriz: "Licencia de importación automotriz",
   certificado_uso_consular: "Certificado de uso (consular)",
   oficio_exoneracion_seniat: "Oficio de exoneración SENIAT",
@@ -196,10 +206,16 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   pago_tasas: "Planilla de pago",
   declaracion_complementaria: "Declaración complementaria SENIAT",
   liquidacion_nacionalizacion: "Liquidación / pago de nacionalización",
+  constancia_nacionalizacion:
+    "Constancia de nacionalización (autoriza retiro del puerto)",
+  constancia_inspeccion: "Constancia de inspección (puerto)",
+  revision_vehiculo: "Revisión del vehículo (PDF)",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
   titulo_libre_circulacion: "Título de libre circulación nacional",
+  documento_circulacion: "Documento de circulación (comprobante de registro)",
+  tarjeta_circulacion: "Tarjeta de circulación",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -269,6 +285,31 @@ export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 /** Documento de salida: misma pantalla, fuera del Expediente PDF SENIAT. */
 export const PL_PASE_SALIDA_TIPO: DocumentoTipo = "pase_salida_levante";
 
+/** PDFs que emite SENIAT después de pagar aranceles. */
+export const PL_PAGO_SENIAT_DOCUMENTO_TIPOS = [
+  "planilla_liquidacion_aduanera",
+  "constancia_nacionalizacion",
+] as const satisfies readonly DocumentoTipo[];
+
+export function pagoSeniatPdfsListos(
+  docs: VehiculosDocumentos | null | undefined
+): boolean {
+  if (!docs) return false;
+  return PL_PAGO_SENIAT_DOCUMENTO_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
+}
+
+/** PDF que emite el puerto después del pago / constancia de nacionalización. */
+export const PL_CONSTANCIA_INSPECCION_TIPO = [
+  "constancia_inspeccion",
+] as const satisfies readonly DocumentoTipo[];
+
+export function constanciaInspeccionLista(
+  docs: VehiculosDocumentos | null | undefined
+): boolean {
+  if (!docs) return false;
+  return Boolean(docs.constancia_inspeccion?.url);
+}
+
 /** @deprecated Usar PL_DESADUANAMIENTO_DOCUMENTO_TIPOS. */
 export const PL_ADUANA_DOCUMENTO_TIPOS = PL_DESADUANAMIENTO_DOCUMENTO_TIPOS;
 
@@ -300,7 +341,9 @@ export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> =
   constancia_edi_reconocimiento:
     "Desde fase Llegada (Reconocimiento / constancia del estado de la carga)",
   planilla_liquidacion_aduanera:
-    "Pago de tasas o impuestos / planilla de liquidación aduanera",
+    "Liquidación de tributos — comprobante de pago que emite SENIAT",
+  constancia_nacionalizacion:
+    "Constancia de nacionalización — autoriza retirar el vehículo del puerto",
   constancia_residencia_permanencia:
     "Constancia de residencia permanente en zona de Puerto Libre",
   pase_salida_levante:
@@ -355,10 +398,15 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "pago_tasas",
   "declaracion_complementaria",
   "liquidacion_nacionalizacion",
+  "constancia_nacionalizacion",
+  "constancia_inspeccion",
+  "revision_vehiculo",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
   "titulo_libre_circulacion",
+  "documento_circulacion",
+  "tarjeta_circulacion",
   "titulo",
   "otro_importacion",
 ];
@@ -389,9 +437,73 @@ export const SEGURO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Matriculación INTT (fase 7): solo docs propios de esta fase.
- * Homologación es opcional según el vehículo (`requiereHomologacion`).
- * El resto del expediente se cargó en fases anteriores.
+ * Archivo para presentar ante el INTT (fase 7).
+ * Orden fijo; homologación solo entra si `requiereHomologacion`.
+ * Los que ya están en el expediente se precargan.
+ */
+export const PL_INTT_PRESENTACION_TIPOS = [
+  "cedula_importador",
+  "rif_importador",
+  "factura_comercial",
+  "certificado_origen",
+  "homologacion",
+  "planilla_liquidacion_aduanera",
+  "constancia_inspeccion",
+  "declaracion_jurada_propietario",
+  "pago_tasas",
+] as const satisfies readonly DocumentoTipo[];
+
+export type InttPresentacionTipo = (typeof PL_INTT_PRESENTACION_TIPOS)[number];
+
+export const PL_INTT_PRESENTACION_LABELS: Record<InttPresentacionTipo, string> = {
+  cedula_importador: "Cédula de identidad vigente (copia legible)",
+  rif_importador: "RIF vigente",
+  factura_comercial: "Factura original de compra",
+  certificado_origen: "Certificado de origen",
+  homologacion: "Constancia de homologación (si es requerida)",
+  planilla_liquidacion_aduanera: "Liquidación de tributos pagados (SENIAT)",
+  constancia_inspeccion: "Constancia de inspección del puerto",
+  declaracion_jurada_propietario: "Declaración de propiedad",
+  pago_tasas: "Comprobante de pago de tasas INTT",
+};
+
+export const PL_INTT_PRESENTACION_ORIGEN: Partial<
+  Record<InttPresentacionTipo, string>
+> = {
+  cedula_importador: "Precargada desde desaduanamiento / cliente",
+  rif_importador: "Precargado desde desaduanamiento / cliente",
+  factura_comercial: "Precargada desde Registro",
+  certificado_origen: "Precargado desde Registro",
+  homologacion: "Solo si el vehículo lo requiere",
+  planilla_liquidacion_aduanera: "Precargada desde el pago SENIAT",
+  constancia_inspeccion: "Precargada desde la inspección del puerto",
+  declaracion_jurada_propietario: "Declaración de propiedad del titular",
+  pago_tasas: "Comprobante de tasas del trámite INTT",
+};
+
+export function docsInttPresentacionTipos(
+  requiereHomologacion: boolean
+): DocumentoTipo[] {
+  return PL_INTT_PRESENTACION_TIPOS.filter(
+    (tipo) => tipo !== "homologacion" || requiereHomologacion
+  );
+}
+
+/** Cédula: usa la del importador; si no hay, la cédula ya cargada. */
+export function inttPresentacionRef(
+  docs: VehiculosDocumentos | null | undefined,
+  tipo: DocumentoTipo
+): VehiculoDocumentoRef | undefined {
+  if (!docs) return undefined;
+  if (tipo === "cedula_importador") {
+    return docs.cedula_importador ?? docs.cedula;
+  }
+  return docs[tipo];
+}
+
+/**
+ * Matriculación INTT (fase 7): docs que aún se pueden cargar aparte.
+ * @deprecated El archivo INTT usa PL_INTT_PRESENTACION_TIPOS.
  */
 export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
   "inspeccion_pnb",
@@ -399,8 +511,8 @@ export const PL_MATRICULACION_CARGAR_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Recaudos de fases anteriores: solo referencia en Matriculación (sin re-cargar).
- * Se incluyen en el PDF de carpeta INTT si ya están en el expediente.
+ * Recaudos de fases anteriores (legado).
+ * @deprecated Usar PL_INTT_PRESENTACION_TIPOS.
  */
 export const PL_MATRICULACION_REFERENCIA_TIPOS: DocumentoTipo[] = [
   "factura_comercial",
@@ -422,12 +534,21 @@ export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
 ];
 
 /**
- * Entrega INTT (fase 8): foto de la placa y título de propiedad.
+ * Tras presentar el archivo al INTT (fase 8):
+ * documento de circulación, póliza RCV y tarjeta de circulación.
+ * La placa vehicular (número único) se guarda en `vehiculos.placa`.
  */
 export const PL_ENTREGA_PLACA_TIPOS: DocumentoTipo[] = [
-  "foto_placa",
-  "titulo",
+  "documento_circulacion",
+  "rcv_seguro",
+  "tarjeta_circulacion",
 ];
+
+export const PL_ENTREGA_PLACA_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
+  documento_circulacion: "Comprobante de registro INTT",
+  rcv_seguro: "Desde fase Seguro · requisito obligatorio",
+  tarjeta_circulacion: "Emitida por el INTT",
+};
 
 /** @deprecated Usar PL_ENTREGA_PLACA_TIPOS. */
 export const PL_MATRICULACION_ENTREGA_TIPOS = PL_ENTREGA_PLACA_TIPOS;
@@ -460,23 +581,13 @@ export const PL_MATRICULACION_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
 };
 
 /**
- * Orden de documentos del PDF de Matriculación INTT:
- * referencias previas + docs cargados en esta fase.
+ * Orden del PDF / archivo INTT: los 9 recaudos de presentación
+ * (sin homologación si no aplica).
  */
 export function docsMatriculacionPdfTipos(
   requiereHomologacion: boolean
 ): DocumentoTipo[] {
-  const seen = new Set<DocumentoTipo>();
-  const out: DocumentoTipo[] = [];
-  const push = (tipo: DocumentoTipo) => {
-    if (seen.has(tipo)) return;
-    seen.add(tipo);
-    out.push(tipo);
-  };
-  for (const t of PL_MATRICULACION_REFERENCIA_TIPOS) push(t);
-  for (const t of tiposMatriculacionBase(requiereHomologacion)) push(t);
-  for (const t of PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS) push(t);
-  return out;
+  return docsInttPresentacionTipos(requiereHomologacion);
 }
 
 /** Tipos obligatorios de carpeta (sin liquidación/exención ni homologación). */
@@ -497,28 +608,26 @@ export function tieneLiquidacionOExencion(
   );
 }
 
-/** Faltantes de matriculación (PNB, PUT, homologación si aplica, liquidación/oficio). */
+/** Faltantes del archivo INTT (los 9 recaudos; homologación solo si aplica). */
 export function faltantesMatriculacionCarpeta(
   docs: VehiculosDocumentos,
   requiereHomologacion: boolean
 ): DocumentoTipo[] {
-  const faltantes = tiposMatriculacionBase(requiereHomologacion).filter(
-    (t) => !docs[t]?.url
+  return docsInttPresentacionTipos(requiereHomologacion).filter(
+    (tipo) => !inttPresentacionRef(docs, tipo)?.url
   );
-  if (!tieneLiquidacionOExencion(docs)) {
-    faltantes.push("planilla_liquidacion_aduanera");
-  }
-  return faltantes;
 }
 
 export function countMatriculacionCarpeta(
   docs: VehiculosDocumentos,
   requiereHomologacion: boolean
 ): { listos: number; total: number } {
-  const base = tiposMatriculacionBase(requiereHomologacion);
-  const baseListos = base.filter((t) => docs[t]?.url).length;
-  const liq = tieneLiquidacionOExencion(docs) ? 1 : 0;
-  return { listos: baseListos + liq, total: base.length + 1 };
+  const tipos = docsInttPresentacionTipos(requiereHomologacion);
+  return {
+    listos: tipos.filter((tipo) => Boolean(inttPresentacionRef(docs, tipo)?.url))
+      .length,
+    total: tipos.length,
+  };
 }
 
 /**
@@ -643,6 +752,17 @@ export const importacionSchema = z.object({
   valorCif: z.union([z.number(), z.nan()]).optional().nullable(),
   /** Tasa BCV del día de la declaración (Bs por USD). */
   tasaCambioBcv: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % ad-valorem del arancel (20–40). */
+  arancelPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** % impuesto al lujo (10–15) si CIF > USD 30 000. */
+  impuestoLujoPct: z.union([z.number(), z.nan()]).optional().nullable(),
+  /** Día (America/Caracas) de la última tasa oficial BCV/SENIAT. */
+  tasaOficialFecha: z.string().trim().max(32).optional().nullable(),
+  tasaOficialFuente: z.enum(["bcv", "manual"]).optional().nullable(),
+  pagoArancelesEstado: z.enum(["pendiente", "pagado"]).optional().nullable(),
+  pagoArancelesUsd: z.union([z.number(), z.nan()]).optional().nullable(),
+  pagoArancelesBs: z.union([z.number(), z.nan()]).optional().nullable(),
+  pagoArancelesPagadoAt: z.string().trim().max(40).optional().nullable(),
   /** Nº de expediente asignado por SENIAT (distinto del PL interno). */
   numeroExpedienteSeniat: z.string().trim().max(64).optional().nullable(),
   numeroDav: z.string().trim().max(80).optional().nullable(),
@@ -703,12 +823,12 @@ export const importacionSchema = z.object({
    * 1 = registro (+ factura, certificado origen),
    * 2 = embarque (BL, lista, DAV, póliza),
    * 3 = llegada, 4 = desaduanamiento SENIAT, 5 = propietario, 6 = seguro,
-   * 7 = matriculación, 8 = placa y título, 9 = planilla completa.
+   * 7 = matriculación, 8 = placa y circulación, 9 = planilla completa.
    */
   planillaFase: z.coerce.number().int().min(1).max(9).optional().nullable(),
   /**
    * Subpaso de fase 7 Matriculación INTT:
-   * 1 = carpeta (cargar + físico), 2 = título y placas PL.
+   * 1 = carpeta INTT, 2 = placa y documentos de circulación.
    */
   matriculacionPaso: z.coerce.number().int().min(1).max(2).optional().nullable(),
   /** Si el vehículo requiere homologación ante el INTT. */
@@ -794,6 +914,41 @@ export function parseImportacion(raw: unknown): ImportacionData {
         : typeof row.tasa_cambio_bcv === "number"
           ? row.tasa_cambio_bcv
           : row.tasaCambioBcv ?? row.tasa_cambio_bcv,
+    arancelPct:
+      typeof row.arancelPct === "number"
+        ? row.arancelPct
+        : typeof row.arancel_pct === "number"
+          ? row.arancel_pct
+          : row.arancelPct ?? row.arancel_pct,
+    impuestoLujoPct:
+      typeof row.impuestoLujoPct === "number"
+        ? row.impuestoLujoPct
+        : typeof row.impuesto_lujo_pct === "number"
+          ? row.impuesto_lujo_pct
+          : row.impuestoLujoPct ?? row.impuesto_lujo_pct,
+    tasaOficialFecha: row.tasaOficialFecha ?? row.tasa_oficial_fecha,
+    tasaOficialFuente: asOptionalEnum(
+      row.tasaOficialFuente ?? row.tasa_oficial_fuente,
+      ["bcv", "manual"] as const
+    ),
+    pagoArancelesEstado: asOptionalEnum(
+      row.pagoArancelesEstado ?? row.pago_aranceles_estado,
+      ["pendiente", "pagado"] as const
+    ),
+    pagoArancelesUsd:
+      typeof row.pagoArancelesUsd === "number"
+        ? row.pagoArancelesUsd
+        : typeof row.pago_aranceles_usd === "number"
+          ? row.pago_aranceles_usd
+          : row.pagoArancelesUsd ?? row.pago_aranceles_usd,
+    pagoArancelesBs:
+      typeof row.pagoArancelesBs === "number"
+        ? row.pagoArancelesBs
+        : typeof row.pago_aranceles_bs === "number"
+          ? row.pago_aranceles_bs
+          : row.pagoArancelesBs ?? row.pago_aranceles_bs,
+    pagoArancelesPagadoAt:
+      row.pagoArancelesPagadoAt ?? row.pago_aranceles_pagado_at,
     numeroExpedienteSeniat:
       row.numeroExpedienteSeniat ?? row.numero_expediente_seniat,
     numeroDav: row.numeroDav ?? row.numero_dav,
@@ -946,6 +1101,26 @@ export function serializeImportacion(data: ImportacionData): Record<string, unkn
       data.tasaCambioBcv != null && !Number.isNaN(data.tasaCambioBcv)
         ? data.tasaCambioBcv
         : null,
+    arancel_pct:
+      data.arancelPct != null && !Number.isNaN(data.arancelPct)
+        ? data.arancelPct
+        : null,
+    impuesto_lujo_pct:
+      data.impuestoLujoPct != null && !Number.isNaN(data.impuestoLujoPct)
+        ? data.impuestoLujoPct
+        : null,
+    tasa_oficial_fecha: data.tasaOficialFecha?.trim() || null,
+    tasa_oficial_fuente: data.tasaOficialFuente || null,
+    pago_aranceles_estado: data.pagoArancelesEstado || null,
+    pago_aranceles_usd:
+      data.pagoArancelesUsd != null && !Number.isNaN(data.pagoArancelesUsd)
+        ? data.pagoArancelesUsd
+        : null,
+    pago_aranceles_bs:
+      data.pagoArancelesBs != null && !Number.isNaN(data.pagoArancelesBs)
+        ? data.pagoArancelesBs
+        : null,
+    pago_aranceles_pagado_at: data.pagoArancelesPagadoAt?.trim() || null,
     numero_expediente_seniat: data.numeroExpedienteSeniat?.trim() || null,
     numero_dav: data.numeroDav?.trim() || null,
     numero_certificado_origen: data.numeroCertificadoOrigen?.trim() || null,
@@ -1041,9 +1216,15 @@ export function diasHasta(fecha: string | null | undefined): number | null {
  * Listo para (o en) nacionalización: planilla PL completa y aún no nacionalizado.
  */
 export function esProximoNacionalizar(data: ImportacionData): boolean {
-  if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const estado = data.estadoNacionalizacion ?? "pendiente";
   if (estado !== "pendiente" && estado !== "en_proceso") return false;
+  const regimen = resolveRegimenImportacion(data.regimen);
+  if (regimen === "equipaje") {
+    return Boolean(
+      data.fechaLimiteNacionalizacion?.trim() || data.fechaIngreso?.trim()
+    );
+  }
+  if (!getRegimenConfig(data.regimen).nacionalizacionPuertoLibre) return false;
   const fase = data.planillaFase ?? 0;
   return fase >= 9;
 }
