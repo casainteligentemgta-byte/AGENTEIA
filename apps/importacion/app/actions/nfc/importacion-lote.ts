@@ -78,6 +78,7 @@ export type CargaBlIndexItem = {
   unidades: number;
   docsCargados: number;
   fechaIngreso: string | null;
+  fechaLlegadaBuque: string | null;
 };
 
 function unidadFromRow(row: {
@@ -206,6 +207,7 @@ export async function listCargaBlIndexAction(): Promise<
       id: row.id as string,
       numeroBl: imp.numeroBl ?? null,
       fechaIngreso: imp.fechaIngreso?.trim() || null,
+      fechaLlegadaBuque: imp.fechaLlegadaBuque?.trim() || null,
       docsCargados: countDocumentosCargaBl(parseVehiculosDocumentos(row.documentos)),
     };
   });
@@ -218,6 +220,8 @@ export async function listCargaBlIndexAction(): Promise<
       unidades: g.items.length,
       docsCargados: Math.max(...g.items.map((i) => i.docsCargados), 0),
       fechaIngreso: g.items.find((i) => i.fechaIngreso)?.fechaIngreso ?? null,
+      fechaLlegadaBuque:
+        g.items.find((i) => i.fechaLlegadaBuque)?.fechaLlegadaBuque ?? null,
     }));
 
   return { success: true, lotes };

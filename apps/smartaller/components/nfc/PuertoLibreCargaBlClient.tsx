@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileUp, Save, Ship, UserRound } from "lucide-react";
+import { BuqueTrackingChip } from "@/components/nfc/BuqueTrackingChip";
 import {
   assignNumeroBlAction,
   saveCargaBlDatosAction,
@@ -242,6 +243,10 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
             {docsCount}/{DOCUMENTO_TIPOS_CARGA_BL.length} papeles. Partida,
             fotos y cuestionario siguen en cada expediente.
           </p>
+          <BuqueTrackingChip
+            numeroBl={numeroBl}
+            fechaLlegadaBuque={fechaLlegadaBuque}
+          />
         </div>
       </header>
 
@@ -517,10 +522,13 @@ export function PuertoLibreCargaBlIndex({ lotes }: { lotes: CargaBlIndexItem[] }
       ) : (
         <ul className="space-y-2">
           {lotes.map((lote) => (
-            <li key={lote.blKey}>
+            <li
+              key={lote.blKey}
+              className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 hover:border-cyan-500/40"
+            >
               <Link
                 href={cargaBlPath(lote.blKey)}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 hover:border-cyan-500/40"
+                className="flex items-center justify-between gap-3"
               >
                 <div className="min-w-0">
                   <p className="font-mono text-sm font-semibold text-slate-100">
@@ -535,6 +543,11 @@ export function PuertoLibreCargaBlIndex({ lotes }: { lotes: CargaBlIndexItem[] }
                   {lote.docsCargados}/{DOCUMENTO_TIPOS_CARGA_BL.length}
                 </span>
               </Link>
+              <BuqueTrackingChip
+                numeroBl={lote.label}
+                fechaLlegadaBuque={lote.fechaLlegadaBuque}
+                compact
+              />
             </li>
           ))}
         </ul>

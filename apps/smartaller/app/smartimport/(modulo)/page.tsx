@@ -214,6 +214,8 @@ function rowPorCompletarFase(
         ? placaAccionLabel(esEntregaPlacaListaEnDashboard(v))
         : completarEtapaLabel(fase),
     actionTone: "cyan",
+    numeroBl: v.numeroBl,
+    fechaLlegadaBuque: v.fechaLlegadaBuque,
   };
 }
 
@@ -232,6 +234,8 @@ function rowLlegadaUnidad(v: PuertoLibreVehiculoListItem): DashboardBucketRow {
     searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.nombre_cliente ?? ""}`,
     actionLabel: completarEtapaLabel(3),
     actionTone: "cyan",
+    numeroBl: v.numeroBl,
+    fechaLlegadaBuque: v.fechaLlegadaBuque,
   };
 }
 
@@ -274,6 +278,8 @@ function rowColaGrupoBl(
       detalle: m.detalle || undefined,
     })),
     subcells: { expediente: resumen },
+    numeroBl: label,
+    fechaLlegadaBuque: fechaLlegadaCargaBl(sorted),
     dateValue:
       cola === 3
         ? fechaLlegadaCargaBl(sorted)

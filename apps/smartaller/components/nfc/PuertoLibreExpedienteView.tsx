@@ -25,6 +25,7 @@ import {
   labelRegimenImportacion,
 } from "@/lib/importacion/regimenes";
 import { SeniatRechazoPanel } from "@/components/nfc/SeniatRechazoPanel";
+import { BuqueTrackingChip } from "@/components/nfc/BuqueTrackingChip";
 import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
 import { PuertoLibrePlazosPanel } from "@/components/nfc/PuertoLibrePlazosPanel";
 
@@ -255,6 +256,12 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
           />
           <Dato label="Observaciones" value={imp.observaciones} wide />
         </dl>
+        {imp.numeroBl?.trim() ? (
+          <BuqueTrackingChip
+            numeroBl={imp.numeroBl}
+            fechaLlegadaBuque={imp.fechaLlegadaBuque}
+          />
+        ) : null}
         <div className="mt-4">
           <AlertaDiasNacionalizacion importacion={imp} />
         </div>

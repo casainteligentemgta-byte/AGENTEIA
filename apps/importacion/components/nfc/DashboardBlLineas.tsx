@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { BuqueTrackingChip } from "@/components/nfc/BuqueTrackingChip";
 import { blLineasToggleLabel } from "@/lib/importacion/dashboard-cola-bl";
 
 export type DashboardBucketLinea = {
@@ -17,6 +18,8 @@ type Props = {
   lineas: DashboardBucketLinea[];
   resumen?: string;
   titleClassName: string;
+  numeroBl?: string | null;
+  fechaLlegadaBuque?: string | null;
 };
 
 export function DashboardBlLineas({
@@ -25,6 +28,8 @@ export function DashboardBlLineas({
   lineas,
   resumen,
   titleClassName,
+  numeroBl,
+  fechaLlegadaBuque,
 }: Props) {
   const [open, setOpen] = useState(false);
   const listId = useId();
@@ -65,6 +70,11 @@ export function DashboardBlLineas({
           {label}
         </button>
       </div>
+      <BuqueTrackingChip
+        numeroBl={numeroBl ?? blLabel.replace(/^BL\s+/i, "")}
+        fechaLlegadaBuque={fechaLlegadaBuque}
+        compact
+      />
 
       {open ? (
         <>
