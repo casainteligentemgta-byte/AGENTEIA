@@ -1,35 +1,25 @@
 /**
- * Mientras la app está en construcción, SENIAT y «por nacionalizar»
- * abren la planilla aunque falten recaudos.
- * Poner en `false` para volver al flujo anterior:
- * SENIAT → /nacionalizar · nacionalizar no abre la planilla si faltan recaudos.
+ * Destinos de los relojes y colas SENIAT / nacionalizar.
+ * La planilla en preview queda solo como atajo interno.
  */
-export const PLANILLA_PREVIEW_EN_CONSTRUCCION = true;
+export const PLANILLA_PREVIEW_EN_CONSTRUCCION = false;
 
 export function hrefPlanillaPreview(vehiculoId: string): string {
   return `/smartimport/${vehiculoId.trim()}/planilla?preview=1`;
 }
 
 export function hrefPresentacionSeniat(vehiculoId: string): string {
-  const id = vehiculoId.trim();
-  if (PLANILLA_PREVIEW_EN_CONSTRUCCION) {
-    return hrefPlanillaPreview(id);
-  }
-  return `/smartimport/${id}/nacionalizar`;
+  return `/smartimport/${vehiculoId.trim()}/seniat`;
 }
 
 export function seniatAccionLabel(): "Previsualizar" | "Gestionar" {
-  return PLANILLA_PREVIEW_EN_CONSTRUCCION ? "Previsualizar" : "Gestionar";
+  return "Gestionar";
 }
 
 export function hrefNacionalizar(vehiculoId: string): string {
-  const id = vehiculoId.trim();
-  if (PLANILLA_PREVIEW_EN_CONSTRUCCION) {
-    return hrefPlanillaPreview(id);
-  }
-  return `/smartimport/${id}/nacionalizar`;
+  return `/smartimport/${vehiculoId.trim()}/nacionalizar`;
 }
 
 export function nacionalizarAccionLabel(): "Previsualizar" | "Nacionalizar" {
-  return PLANILLA_PREVIEW_EN_CONSTRUCCION ? "Previsualizar" : "Nacionalizar";
+  return "Nacionalizar";
 }

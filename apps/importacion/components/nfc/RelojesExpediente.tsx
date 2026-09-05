@@ -11,6 +11,10 @@ import {
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { buildAlertaNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
 import { buildAlertaPresentacionSeniat } from "@/lib/importacion/alerta-presentacion-seniat";
+import {
+  hrefNacionalizar,
+  hrefPresentacionSeniat,
+} from "@/lib/importacion/planilla-en-construccion";
 import { resolveRegimenImportacion } from "@/lib/importacion/regimenes";
 import type { ImportacionData } from "@/lib/schemas/vehiculo-documentos";
 
@@ -46,7 +50,11 @@ export function RelojesExpediente({
   return (
     <div className={compact ? "grid gap-2 sm:grid-cols-2" : "grid gap-3 sm:grid-cols-2"}>
       {nac ? (
-        <AlertaDiasNacionalizacion importacion={importacion} compact={compact} />
+        <AlertaDiasNacionalizacion
+          importacion={importacion}
+          compact={compact}
+          href={hrefNacionalizar(vehiculoId)}
+        />
       ) : faltaLimiteEquipaje ? (
         <FechaPlazoCard
           vehiculoId={vehiculoId}
@@ -58,7 +66,11 @@ export function RelojesExpediente({
       ) : null}
 
       {seniat ? (
-        <AlertaBanner alerta={seniat} compact={compact} />
+        <AlertaBanner
+          alerta={seniat}
+          compact={compact}
+          href={hrefPresentacionSeniat(vehiculoId)}
+        />
       ) : faltaCitaSeniat ? (
         <FechaPlazoCard
           vehiculoId={vehiculoId}

@@ -20,6 +20,7 @@ import {
   PL_MATRICULACION_NUEVOS_TIPOS,
   PL_NACIONALIZACION_M2_TIPOS,
   PL_NACIONALIZACION_M3_TIPOS,
+  PL_PRESENTACION_SENIAT_ENTREGA_TIPOS,
   SEGURO_DOCUMENTO_TIPOS,
   type DocumentoTipo,
   type EstadoNacionalizacion,
@@ -75,6 +76,7 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
       ...PL_MATRICULACION_NUEVOS_TIPOS,
       ...PL_NACIONALIZACION_M2_TIPOS,
       ...PL_NACIONALIZACION_M3_TIPOS,
+      ...PL_PRESENTACION_SENIAT_ENTREGA_TIPOS,
     ])
   );
 

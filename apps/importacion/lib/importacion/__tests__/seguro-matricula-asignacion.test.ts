@@ -56,18 +56,12 @@ describe("vehiculoPatchFromMatricula", () => {
   });
 });
 
-describe("SENIAT y nacionalizar en construcción", () => {
-  it("abre la planilla en preview mientras el flag está activo", () => {
-    assert.equal(PLANILLA_PREVIEW_EN_CONSTRUCCION, true);
-    assert.equal(
-      hrefPresentacionSeniat("abc"),
-      "/smartimport/abc/planilla?preview=1"
-    );
-    assert.equal(seniatAccionLabel(), "Previsualizar");
-    assert.equal(
-      hrefNacionalizar("abc"),
-      "/smartimport/abc/planilla?preview=1"
-    );
-    assert.equal(nacionalizarAccionLabel(), "Previsualizar");
+describe("SENIAT y nacionalizar", () => {
+  it("abre las fases de documentos, no la planilla en preview", () => {
+    assert.equal(PLANILLA_PREVIEW_EN_CONSTRUCCION, false);
+    assert.equal(hrefPresentacionSeniat("abc"), "/smartimport/abc/seniat");
+    assert.equal(seniatAccionLabel(), "Gestionar");
+    assert.equal(hrefNacionalizar("abc"), "/smartimport/abc/nacionalizar");
+    assert.equal(nacionalizarAccionLabel(), "Nacionalizar");
   });
 });

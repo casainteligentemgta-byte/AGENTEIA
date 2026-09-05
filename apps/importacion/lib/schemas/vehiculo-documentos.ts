@@ -68,6 +68,8 @@ export const DOCUMENTO_TIPOS = [
   "constancia_nacionalizacion",
   "constancia_inspeccion",
   "revision_vehiculo",
+  "acta_presentacion_seniat",
+  "calcomania_seniat",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -143,6 +145,8 @@ export const vehiculosDocumentosSchema = z.object({
   constancia_nacionalizacion: vehiculoDocumentoRefSchema.optional(),
   constancia_inspeccion: vehiculoDocumentoRefSchema.optional(),
   revision_vehiculo: vehiculoDocumentoRefSchema.optional(),
+  acta_presentacion_seniat: vehiculoDocumentoRefSchema.optional(),
+  calcomania_seniat: vehiculoDocumentoRefSchema.optional(),
   resolucion_liberacion_seniat: vehiculoDocumentoRefSchema.optional(),
   constancia_residencia_permanencia: vehiculoDocumentoRefSchema.optional(),
   solicitud_levantamiento_intt: vehiculoDocumentoRefSchema.optional(),
@@ -226,6 +230,8 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
     "Constancia de nacionalización (autoriza retiro del puerto)",
   constancia_inspeccion: "Constancia de inspección (puerto)",
   revision_vehiculo: "Revisión del vehículo (PDF)",
+  acta_presentacion_seniat: "Acta de presentación SENIAT",
+  calcomania_seniat: "Calcomanía SENIAT",
   resolucion_liberacion_seniat: "Resolución de liberación SENIAT",
   constancia_residencia_permanencia: "Constancia de residencia / permanencia",
   solicitud_levantamiento_intt: "Solicitud de levantamiento INTT",
@@ -494,6 +500,8 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "constancia_nacionalizacion",
   "constancia_inspeccion",
   "revision_vehiculo",
+  "acta_presentacion_seniat",
+  "calcomania_seniat",
   "resolucion_liberacion_seniat",
   "constancia_residencia_permanencia",
   "solicitud_levantamiento_intt",
@@ -789,6 +797,12 @@ export const ESTADOS_SENIAT = [
   "rechazada",
   "no_aplica",
 ] as const;
+
+/** Acta o calcomanía que entrega SENIAT al presentar el vehículo. */
+export const PL_PRESENTACION_SENIAT_ENTREGA_TIPOS: DocumentoTipo[] = [
+  "acta_presentacion_seniat",
+  "calcomania_seniat",
+];
 
 export type EstadoNacionalizacion = (typeof ESTADOS_NACIONALIZACION)[number];
 export type EstadoSeniat = (typeof ESTADOS_SENIAT)[number];
