@@ -88,6 +88,7 @@ const FASES = [
     puntos: [
       "Tras presentar el archivo al INTT, registra la placa vehicular (número único por auto).",
       "Documento de circulación (comprobante de registro).",
+      "PDF de la placa y PDF del título de propiedad.",
       "Póliza de responsabilidad civil (RCV, obligatoria; se precarga si ya está en Seguro).",
       "Tarjeta de circulación.",
     ],

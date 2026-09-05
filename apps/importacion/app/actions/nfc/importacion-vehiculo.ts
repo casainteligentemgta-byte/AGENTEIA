@@ -2280,7 +2280,7 @@ export async function savePuertoLibreEntregaPlacaAction(
     return {
       success: false,
       error:
-        "Carga el documento de circulación, la póliza de responsabilidad civil y la tarjeta de circulación",
+        "Carga el documento de circulación, el PDF de la placa, el título, la póliza de responsabilidad civil y la tarjeta de circulación",
     };
   }
 

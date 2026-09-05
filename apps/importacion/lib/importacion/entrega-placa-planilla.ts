@@ -4,6 +4,8 @@ import { parseCodigoExpediente, placaRealVisible } from "@/lib/importacion/exped
 /** Docs que el INTT entrega tras presentar el archivo (fase 8). */
 export const ENTREGA_PLACA_TIPOS = [
   "documento_circulacion",
+  "placa_pdf",
+  "titulo",
   "rcv_seguro",
   "tarjeta_circulacion",
 ] as const;
@@ -19,7 +21,7 @@ export function docsEntregaPlacaListos(
   return ENTREGA_PLACA_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
 }
 
-/** Tres documentos + placa vehicular real (única, no el expediente). */
+/** Documentos de circulación + placa vehicular real (única, no el expediente). */
 export function esEntregaPlacaCompleta(
   docs: EntregaPlacaDocs | null | undefined,
   placa?: string | null,

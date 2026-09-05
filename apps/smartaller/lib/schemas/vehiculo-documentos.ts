@@ -74,6 +74,7 @@ export const DOCUMENTO_TIPOS = [
   "titulo_libre_circulacion",
   "documento_circulacion",
   "tarjeta_circulacion",
+  "placa_pdf",
   "foto_frontal",
   "foto_trasera",
   "foto_lateral_izq",
@@ -148,6 +149,7 @@ export const vehiculosDocumentosSchema = z.object({
   titulo_libre_circulacion: vehiculoDocumentoRefSchema.optional(),
   documento_circulacion: vehiculoDocumentoRefSchema.optional(),
   tarjeta_circulacion: vehiculoDocumentoRefSchema.optional(),
+  placa_pdf: vehiculoDocumentoRefSchema.optional(),
   foto_frontal: vehiculoDocumentoRefSchema.optional(),
   foto_trasera: vehiculoDocumentoRefSchema.optional(),
   foto_lateral_izq: vehiculoDocumentoRefSchema.optional(),
@@ -230,6 +232,7 @@ export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
   titulo_libre_circulacion: "Título de libre circulación nacional",
   documento_circulacion: "Documento de circulación (comprobante de registro)",
   tarjeta_circulacion: "Tarjeta de circulación",
+  placa_pdf: "PDF de la placa",
   foto_frontal: "Foto frontal",
   foto_trasera: "Foto trasera",
   foto_lateral_izq: "Foto lateral izquierdo",
@@ -497,6 +500,7 @@ export const IMPORT_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   "titulo_libre_circulacion",
   "documento_circulacion",
   "tarjeta_circulacion",
+  "placa_pdf",
   "titulo",
   "otro_importacion",
 ];
@@ -625,17 +629,21 @@ export const PL_MATRICULACION_LIQUIDACION_EXENCION_TIPOS: DocumentoTipo[] = [
 
 /**
  * Tras presentar el archivo al INTT (fase 8):
- * documento de circulación, póliza RCV y tarjeta de circulación.
+ * circulación, PDF de la placa, título, póliza RCV y tarjeta.
  * La placa vehicular (número único) se guarda en `vehiculos.placa`.
  */
 export const PL_ENTREGA_PLACA_TIPOS: DocumentoTipo[] = [
   "documento_circulacion",
+  "placa_pdf",
+  "titulo",
   "rcv_seguro",
   "tarjeta_circulacion",
 ];
 
 export const PL_ENTREGA_PLACA_ORIGEN: Partial<Record<DocumentoTipo, string>> = {
   documento_circulacion: "Comprobante de registro INTT",
+  placa_pdf: "PDF de la placa emitida por el INTT",
+  titulo: "PDF del título de propiedad",
   rcv_seguro: "Desde fase Seguro · requisito obligatorio",
   tarjeta_circulacion: "Emitida por el INTT",
 };
