@@ -43,8 +43,8 @@ const FASES = [
       "Fecha de ingreso al PL (distinta de la llegada del buque) y partida arancelaria.",
       "Acta de recepción (AR) y reconocimiento / constancia del estado de la carga.",
       "Memoria descriptiva (7 fotos) + verificación de impronta (serial debe coincidir).",
-      "Cuestionario de revisión del vehículo (todos los ítems).",
-      "Guarda la revisión en PDF en el expediente (o carga un PDF ya firmado).",
+      "Cuestionario de revisión del vehículo: inspección del personal de la aduanera.",
+      "El PDF de la inspección de los funcionarios del SENIAT se carga al inicio de Inspección.",
     ],
   },
   {

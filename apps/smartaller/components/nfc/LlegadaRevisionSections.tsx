@@ -85,8 +85,9 @@ export function LlegadaRevisionSections({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Memoria descriptiva del vehículo. La impronta es opcional; si la
-          cargas, el serial debe coincidir con el del expediente.
+          La hace el personal de la aduanera. Memoria descriptiva del vehículo.
+          La impronta es opcional; si la cargas, el serial debe coincidir con el
+          del expediente.
         </p>
         <div className="mt-5 grid gap-3">
           {MEMORIA_FOTOGRAFICA_TIPOS.map((tipo) => (
@@ -173,8 +174,9 @@ export function LlegadaRevisionSections({
           Cuestionario de revisión del vehículo
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Marca cada ítem (OK / Daño). Obligatorio completar los{" "}
-          {LLEGADA_CHECKLIST_ITEMS.length} puntos para continuar.
+          Inspección del personal de la aduanera. Marca cada ítem (OK / Daño).
+          Obligatorio completar los {LLEGADA_CHECKLIST_ITEMS.length} puntos para
+          continuar.
         </p>
         <div className="mt-4">
           <PlanillaChecklistProgress
