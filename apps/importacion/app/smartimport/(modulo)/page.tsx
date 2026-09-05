@@ -37,7 +37,6 @@ import {
   DASHBOARD_COLA_EMBARQUE_ID,
   DASHBOARD_COLA_INSPECCION_ID,
   DASHBOARD_COLA_LLEGADA_ID,
-  DASHBOARD_COLA_MATRICULA_ID,
   DASHBOARD_COLA_PAGO_IMPUESTO_ID,
   DASHBOARD_COLA_PLACA_ID,
   DASHBOARD_COLA_PROPIETARIO_ID,
@@ -50,7 +49,6 @@ import {
 } from "@/lib/importacion/planilla-en-construccion";
 import { listPropietariosAction } from "@/app/actions/nfc/propietarios";
 import { listSegurosAction } from "@/app/actions/nfc/seguros";
-import { listMatriculasAction } from "@/app/actions/nfc/matriculas";
 import { FichaColaResumen } from "@/components/nfc/FichaColaResumen";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { resolverFechaLimiteNacionalizacion } from "@/lib/importacion/alerta-nacionalizacion";
@@ -87,7 +85,6 @@ import {
   esNacionalizado,
   placaAccionLabel,
   esPorCompletarEtapa,
-  esRechazadoSeniat,
   faseColaPlanilla,
   registroAccionLabel,
   type PlanillaFasePendiente,
@@ -598,12 +595,8 @@ export default async function PuertoLibrePage() {
   const propietarios = propietariosListed.success
     ? propietariosListed.propietarios
     : [];
-  const [segurosListed, matriculasListed] = await Promise.all([
-    listSegurosAction(),
-    listMatriculasAction(),
-  ]);
+  const segurosListed = await listSegurosAction();
   const seguros = segurosListed.success ? segurosListed.fichas : [];
-  const matriculas = matriculasListed.success ? matriculasListed.fichas : [];
   const porRegistro = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 1))
   );
@@ -617,13 +610,6 @@ export default async function PuertoLibrePage() {
     vehiculos.filter((v) => v.proximoNacionalizar),
     (v) => v.fechaLimiteNacionalizacion,
     (v) => v.diasNacionalizacion
-  );
-  const rechazadosSeniat = [...vehiculos.filter(esRechazadoSeniat)].sort(
-    (a, b) => {
-      const fa = a.fechaRechazoSeniat ?? "";
-      const fb = b.fechaRechazoSeniat ?? "";
-      return fb.localeCompare(fa);
-    }
   );
   const nacionalizados = [...vehiculos.filter(esNacionalizado)].sort((a, b) =>
     (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at)
@@ -680,33 +666,9 @@ export default async function PuertoLibrePage() {
   const rowsPorSeguro: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 8))
   ).map((v) => rowPorCompletarFase(v, 8));
-  const rowsPorMatricula: DashboardBucketRow[] = sortPorExpediente(
-    vehiculos.filter((v) => esPorCompletarEtapa(v, 9))
-  ).map((v) => rowPorCompletarFase(v, 9));
   const rowsPorPlaca: DashboardBucketRow[] = sortPorExpediente(
     vehiculos.filter((v) => esPorCompletarEtapa(v, 10))
   ).map((v) => rowPorCompletarFase(v, 10));
-
-  const rowsRechazados: DashboardBucketRow[] = rechazadosSeniat.map((v) => {
-    const expediente = labelExpediente(v);
-    const ficha = fichaDe(v);
-    return {
-      id: v.id,
-      href: `/smartimport/${v.id}`,
-      cells: {
-        expediente,
-        rechazo: formatFechaDia(v.fechaRechazoSeniat?.slice(0, 10) ?? null),
-      },
-      ficha,
-      subcells: v.motivoRechazoSeniat
-        ? { expediente: v.motivoRechazoSeniat }
-        : undefined,
-      dateValue: v.fechaRechazoSeniat?.slice(0, 10) ?? null,
-      searchText: `${expediente} ${dashboardFichaSearchText(ficha)} ${v.motivoRechazoSeniat ?? ""} ${v.nombre_cliente ?? ""}`,
-      actionLabel: "Corregir",
-      actionTone: "red",
-    };
-  });
 
   const rowsPorNacionalizar: DashboardBucketRow[] = porNacionalizar.map((v) => {
     const expediente = labelExpediente(v);
@@ -947,16 +909,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-          headerActions={
-            puedeMutar ? (
-              <Link
-                href="/smartimport/propietarios/nueva"
-                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
-              >
-                Nueva ficha
-              </Link>
-            ) : null
-          }
           leadingContent={
             propietarios.length > 0 ? (
               <ul className="space-y-1.5">
@@ -999,16 +951,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-          headerActions={
-            puedeMutar ? (
-              <Link
-                href="/smartimport/seguros/nueva"
-                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
-              >
-                Nueva ficha
-              </Link>
-            ) : null
-          }
           leadingContent={
             <FichaColaResumen
               items={seguros.map((s) => ({
@@ -1018,43 +960,6 @@ export default async function PuertoLibrePage() {
               }))}
               hrefFor={(id) => `/smartimport/seguros/${id}`}
               emptyText="Crea una ficha de seguro y asígnale un expediente."
-            />
-          }
-        />
-
-        <PuertoLibreDashboardBucket
-          dense
-          sectionId={DASHBOARD_COLA_MATRICULA_ID}
-          title={porCompletarEtapaTitle(9)}
-          icon="file"
-          emptyMessage="No hay expedientes por completar matrícula. Crea una ficha y enlázala."
-          columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.4 },
-            { key: "modificado", header: "Modificado", pdfWidth: 1.2 },
-          ]}
-          rows={rowsPorMatricula}
-          dateFilterLabel="Modificado"
-          actionColumnKey="modificado"
-          defaultExpedienteSort="asc"
-          headerActions={
-            puedeMutar ? (
-              <Link
-                href="/smartimport/matriculas/nueva"
-                className="inline-flex items-center rounded-lg border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200 hover:border-cyan-500/60"
-              >
-                Nueva ficha
-              </Link>
-            ) : null
-          }
-          leadingContent={
-            <FichaColaResumen
-              items={matriculas.map((m) => ({
-                id: m.id,
-                titulo: m.placa || "Sin placa",
-                detalle: `${m.oficinaIntt || "Sin oficina"} · ${m.expedientesCount} expediente${m.expedientesCount === 1 ? "" : "s"}`,
-              }))}
-              hrefFor={(id) => `/smartimport/matriculas/${id}`}
-              emptyText="Crea una ficha de matrícula y asígnale un expediente."
             />
           }
         />
@@ -1073,21 +978,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-        />
-
-        <PuertoLibreDashboardBucket
-          dense
-          title="Rechazados SENIAT"
-          icon="alert"
-          emptyMessage="No hay expedientes con rechazo SENIAT pendiente de corrección."
-          columns={[
-            { key: "expediente", header: "Expediente", pdfWidth: 2.6 },
-            { key: "rechazo", header: "Rechazo", pdfWidth: 1 },
-          ]}
-          rows={rowsRechazados}
-          dateFilterLabel="Rechazo"
-          borderClassName="border-red-900/30"
-          actionColumnKey="rechazo"
         />
 
         <PuertoLibreDashboardBucket
