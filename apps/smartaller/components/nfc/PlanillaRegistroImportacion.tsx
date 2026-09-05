@@ -1910,19 +1910,6 @@ function Fase3Aduana({
           <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
 
-        <label className="mt-5 block space-y-1.5">
-          <span className="text-sm text-slate-400">
-            Nombre del agente de aduanas *
-          </span>
-          <input
-            id="agente-aduanal"
-            value={agenteAduanal}
-            onChange={(e) => setAgenteAduanal(e.target.value)}
-            placeholder="Nombre del agente / agencia"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60"
-          />
-        </label>
-
         <ul className="mt-5 space-y-3">
           {docTipos.map((tipo, index) => (
             <DesaduanamientoDocSlot
@@ -1949,6 +1936,7 @@ function Fase3Aduana({
           Nombre del agente de aduanas *
         </span>
         <input
+          id="agente-aduanal"
           value={agenteAduanal}
           onChange={(e) => setAgenteAduanal(e.target.value)}
           placeholder="Nombre del agente / agencia"
