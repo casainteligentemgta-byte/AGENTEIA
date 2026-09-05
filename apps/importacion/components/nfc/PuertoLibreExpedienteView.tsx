@@ -308,19 +308,19 @@ export function PuertoLibreExpedienteView({ ficha, canMutate = false }: Props) {
         canEdit={canMutate}
       />
 
+      <RevisionVehiculoPdfCard
+        vehiculoId={ficha.id}
+        docs={ficha.documentos}
+        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
+        canEdit={canMutate}
+      />
+
       <PostPagoInspeccionCard
         vehiculoId={canMutate ? ficha.id : undefined}
         pagado={imp.pagoArancelesEstado === "pagado"}
         docs={ficha.documentos}
         canEdit={canMutate}
         checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
-      />
-
-      <RevisionVehiculoPdfCard
-        vehiculoId={ficha.id}
-        docs={ficha.documentos}
-        checklistCompleto={isLlegadaChecklistCompleto(imp.checklistLlegada)}
-        canEdit={canMutate}
       />
 
       <PuertoLibreExpedienteDocsSection

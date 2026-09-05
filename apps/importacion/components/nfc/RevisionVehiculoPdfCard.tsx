@@ -14,7 +14,7 @@ type Props = {
   onUploaded?: (next: VehiculosDocumentos) => void;
 };
 
-/** Genera o carga el PDF de la revisión del vehículo en el expediente. */
+/** Carga o genera el PDF de la inspección que hacen los funcionarios del SENIAT. */
 export function RevisionVehiculoPdfCard({
   vehiculoId,
   docs,
@@ -42,13 +42,17 @@ export function RevisionVehiculoPdfCard({
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-100">
         <FileText className="h-5 w-5 text-cyan-400" />
         {DOCUMENTO_LABELS.revision_vehiculo}
+        <span className="rounded-md bg-cyan-950/70 px-2 py-0.5 text-xs font-normal text-cyan-200">
+          SENIAT
+        </span>
       </h2>
       <p className="mt-2 text-sm text-slate-400">
-        Guarda el cuestionario de revisión en PDF dentro del expediente, o
-        carga un PDF ya firmado.
+        Carga el PDF de la inspección que realizan los funcionarios del SENIAT.
+        La otra inspección (fotos y cuestionario) la hace el personal de la
+        aduanera.
       </p>
 
       {url ? (
@@ -84,7 +88,7 @@ export function RevisionVehiculoPdfCard({
             tipo="revision_vehiculo"
             existingUrl={url}
             acceptMode="pdf"
-            hint="PDF firmado · máx. 10 MB"
+            hint="PDF de inspección SENIAT · máx. 10 MB"
             actionLabel={url ? "Reemplazar PDF" : "Cargar PDF"}
             onUploaded={(next) => {
               setLocalDocs(next);

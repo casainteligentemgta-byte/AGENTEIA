@@ -87,8 +87,9 @@ export function PostPagoInspeccionCard({
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          La emite el puerto después del pago. Autoriza continuar a la
-          inspección fotográfica y al cuestionario de revisión.
+          La emite el puerto / personal de la aduanera después del pago. No es
+          la inspección de los funcionarios del SENIAT. Autoriza continuar a la
+          inspección fotográfica y al cuestionario.
         </p>
         <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

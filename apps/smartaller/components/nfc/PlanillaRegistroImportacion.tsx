@@ -2147,6 +2147,17 @@ function FaseInspeccion({
 
   return (
     <div className="space-y-6">
+      <RevisionVehiculoPdfCard
+        vehiculoId={vehiculoId}
+        docs={docs}
+        checklistCompleto={cuestionarioCompleto}
+        canEdit
+        onUploaded={(next) => {
+          setDocs(next);
+          onUploadedMessage("Revisión SENIAT guardada en PDF");
+        }}
+      />
+
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold leading-snug text-slate-100">
           <FileUp className="h-5 w-5 shrink-0 text-cyan-400" />
@@ -2239,17 +2250,6 @@ function FaseInspeccion({
         docs={docs}
         setDocs={setDocs}
         onUploadedMessage={onUploadedMessage}
-      />
-
-      <RevisionVehiculoPdfCard
-        vehiculoId={vehiculoId}
-        docs={docs}
-        checklistCompleto={cuestionarioCompleto}
-        canEdit
-        onUploaded={(next) => {
-          setDocs(next);
-          onUploadedMessage("Revisión guardada en PDF");
-        }}
       />
 
       <PlanillaFaseActions
