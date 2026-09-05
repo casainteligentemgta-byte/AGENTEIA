@@ -340,16 +340,15 @@ export {
 
 /**
  * Carpeta completa de desaduanamiento (fase 4 UI).
- * Primero el expediente a presentar; luego DAV y pase de salida.
- * Incluye el pase de salida (se carga en pantalla pero NO va al Expediente PDF).
+ * Primero el expediente a presentar; luego DAV.
+ * El pase de salida se carga en Pago impuesto (después de la liquidación).
  */
 export const PL_DESADUANAMIENTO_DOCUMENTO_TIPOS: DocumentoTipo[] = [
   ...PL_DESADUANAMIENTO_PRESENTAR_TIPOS,
   "dav",
-  "pase_salida_levante",
 ];
 
-/** Documento de salida: misma pantalla, fuera del Expediente PDF SENIAT. */
+/** Documento de salida: se carga en Pago impuesto; no va al Expediente PDF SENIAT. */
 export const PL_PASE_SALIDA_TIPO: DocumentoTipo = "pase_salida_levante";
 
 /** PDFs que emite SENIAT después de pagar aranceles. */
@@ -358,11 +357,29 @@ export const PL_PAGO_SENIAT_DOCUMENTO_TIPOS = [
   "constancia_nacionalizacion",
 ] as const satisfies readonly DocumentoTipo[];
 
+/**
+ * Docs a cargar en Pago impuesto (UI).
+ * Orden: liquidación → pase de salida → constancia de nacionalización.
+ * El pase no forma parte del Expediente PDF SENIAT.
+ */
+export const PL_PAGO_FASE_DOCUMENTO_TIPOS = [
+  "planilla_liquidacion_aduanera",
+  "pase_salida_levante",
+  "constancia_nacionalizacion",
+] as const satisfies readonly DocumentoTipo[];
+
 export function pagoSeniatPdfsListos(
   docs: VehiculosDocumentos | null | undefined
 ): boolean {
   if (!docs) return false;
   return PL_PAGO_SENIAT_DOCUMENTO_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
+}
+
+export function pagoFaseDocsListos(
+  docs: VehiculosDocumentos | null | undefined
+): boolean {
+  if (!docs) return false;
+  return PL_PAGO_FASE_DOCUMENTO_TIPOS.every((tipo) => Boolean(docs[tipo]?.url));
 }
 
 /** PDF que emite el puerto después del pago / constancia de nacionalización. */
@@ -386,7 +403,6 @@ export const PL_DESADUANAMIENTO_NUEVOS_TIPOS: DocumentoTipo[] = [
   "rif_importador",
   "nacionalizacion",
   "dav",
-  "pase_salida_levante",
 ];
 
 export const PL_DESADUANAMIENTO_ORIGEN: Partial<Record<DocumentoTipo, string>> = {

@@ -196,38 +196,47 @@ function ScanChip({
   );
 }
 
-/** Carga obligatoria de documentos del cliente. RIF y cédula también rellenan datos. */
+/** Carga obligatoria de documentos del cliente. Solo muestra los faltantes. */
 export function ImportadorDocScan({
   tipoCliente,
   existingDocumentos,
   onExtracted,
 }: Props) {
   const requeridos = importadorDocsRequeridos(tipoCliente);
+  const faltantes = requeridos.filter(
+    (tipoDoc) => !existingDocumentos?.[tipoDoc]?.url
+  );
+  const cargados = requeridos.length - faltantes.length;
 
   return (
     <section className="space-y-3">
       <div>
         <h2 className="text-sm font-semibold text-white">
-          Documentos del cliente *
+          Documentos faltantes del cliente *
         </h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Hay que cargar todos. El RIF y la cédula o pasaporte también rellenan
-          el formulario.
+          {faltantes.length === 0
+            ? "Todos cargados. El RIF y la cédula o pasaporte también rellenan el formulario."
+            : cargados > 0
+              ? `Solo los que faltan (${cargados}/${requeridos.length} ya están). El RIF y la cédula o pasaporte también rellenan el formulario.`
+              : "Hay que cargar todos. El RIF y la cédula o pasaporte también rellenan el formulario."}
         </p>
       </div>
-      <div className="grid gap-2.5 sm:grid-cols-2">
-        {requeridos.map((tipoDoc) => (
-          <ScanChip
-            key={tipoDoc}
-            tipoDoc={tipoDoc}
-            label={IMPORTADOR_DOC_LABELS[tipoDoc]}
-            hint={IMPORTADOR_DOC_HINTS[tipoDoc]}
-            tipoCliente={tipoCliente}
-            existingUrl={existingDocumentos?.[tipoDoc]?.url}
-            onExtracted={onExtracted}
-          />
-        ))}
-      </div>
+      {faltantes.length > 0 ? (
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {faltantes.map((tipoDoc) => (
+            <ScanChip
+              key={tipoDoc}
+              tipoDoc={tipoDoc}
+              label={IMPORTADOR_DOC_LABELS[tipoDoc]}
+              hint={IMPORTADOR_DOC_HINTS[tipoDoc]}
+              tipoCliente={tipoCliente}
+              existingUrl={existingDocumentos?.[tipoDoc]?.url}
+              onExtracted={onExtracted}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

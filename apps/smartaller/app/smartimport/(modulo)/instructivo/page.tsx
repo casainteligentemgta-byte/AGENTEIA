@@ -55,7 +55,7 @@ const FASES = [
       "Cédula y RIF del importador (si ya están cargados, puedes reemplazarlos).",
       "Lista de empaque, DUA y DAV.",
       "Genera el Expediente PDF SENIAT con esos documentos.",
-      "En la misma pantalla, fuera del PDF: carga el pase de salida.",
+      "El pase de salida se carga en Pago impuesto, después de la liquidación de tributos.",
     ],
   },
   {
