@@ -205,6 +205,32 @@ export function PuertoLibreNacionalizarWizard({ ficha }: Props) {
             </p>
           ) : null}
 
+          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+            <h3 className="text-sm font-semibold text-slate-100">
+              Documentos a presentar
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Recaudos de {VIA_NACIONALIZACION_LABELS[viaDraft]}.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {docsTiposPorVia(viaDraft).map((tipo) => (
+                <li
+                  key={tipo}
+                  className="flex items-center justify-between gap-2 text-sm text-slate-300"
+                >
+                  <span>{DOCUMENTO_LABELS[tipo]}</span>
+                  <span
+                    className={
+                      docs[tipo]?.url ? "text-emerald-300" : "text-amber-200"
+                    }
+                  >
+                    {docs[tipo]?.url ? "Listo" : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <button
             type="button"
             disabled={pending}

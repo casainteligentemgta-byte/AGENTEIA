@@ -3,10 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { getPuertoLibreFicha } from "@/app/actions/nfc/importacion-vehiculo";
 import { PuertoLibreNacionalizarWizard } from "@/components/nfc/PuertoLibreNacionalizarWizard";
 import { getRegimenConfig, labelRegimenImportacion } from "@/lib/importacion/regimenes";
-import {
-  PLANILLA_PREVIEW_EN_CONSTRUCCION,
-  hrefPlanillaPreview,
-} from "@/lib/importacion/planilla-en-construccion";
 import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +30,6 @@ export default async function PuertoLibreNacionalizarPage({ params }: Props) {
   }
 
   const { ficha } = result;
-  const fase = ficha.importacion.planillaFase ?? 0;
   const regimenCfg = getRegimenConfig(ficha.importacion.regimen);
 
   if (!regimenCfg.nacionalizacionPuertoLibre) {
@@ -51,28 +46,6 @@ export default async function PuertoLibreNacionalizarPage({ params }: Props) {
             className="inline-flex rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
           >
             Volver al expediente
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  if (fase < 11) {
-    if (PLANILLA_PREVIEW_EN_CONSTRUCCION) {
-      redirect(hrefPlanillaPreview(ficha.id));
-    }
-    return (
-      <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-3xl space-y-4">
-          <div className="rounded-2xl border border-amber-900/40 bg-amber-950/20 px-4 py-4 text-sm text-amber-100">
-            Primero completa la planilla hasta la matriculación y la placa. Luego
-            podrás nacionalizar.
-          </div>
-          <Link
-            href={`/smartimport/${ficha.id}/planilla`}
-            className="inline-flex rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-500"
-          >
-            Ir a la planilla
           </Link>
         </div>
       </main>
