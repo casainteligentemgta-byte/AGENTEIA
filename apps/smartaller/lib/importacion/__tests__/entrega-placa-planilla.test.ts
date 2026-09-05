@@ -14,14 +14,18 @@ const pdf = (path: string) => ({
 
 const docsCompletos = {
   documento_circulacion: pdf("circulacion.pdf"),
+  placa_pdf: pdf("placa.pdf"),
+  titulo: pdf("titulo.pdf"),
   rcv_seguro: pdf("rcv.pdf"),
   tarjeta_circulacion: pdf("tarjeta.pdf"),
 };
 
 describe("entrega de placa tras INTT", () => {
-  it("exige documento de circulación, RCV y tarjeta", () => {
+  it("exige circulación, PDF de placa, título, RCV y tarjeta", () => {
     assert.deepEqual([...ENTREGA_PLACA_TIPOS], [
       "documento_circulacion",
+      "placa_pdf",
+      "titulo",
       "rcv_seguro",
       "tarjeta_circulacion",
     ]);
@@ -30,6 +34,7 @@ describe("entrega de placa tras INTT", () => {
       docsEntregaPlacaListos({
         documento_circulacion: pdf("circulacion.pdf"),
         rcv_seguro: pdf("rcv.pdf"),
+        tarjeta_circulacion: pdf("tarjeta.pdf"),
       }),
       false
     );

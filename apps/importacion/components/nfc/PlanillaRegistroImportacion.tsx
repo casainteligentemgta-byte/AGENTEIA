@@ -2705,8 +2705,8 @@ function Fase8EntregaPlaca({
         </h2>
         <p className="mt-2 text-sm text-slate-400">
           Tras presentar el archivo al INTT, registra la placa única del
-          vehículo y carga los documentos de circulación. La póliza RCV se
-          precarga si ya está en Seguro.
+          vehículo y carga los documentos de circulación, el PDF de la placa y
+          el PDF del título. La póliza RCV se precarga si ya está en Seguro.
         </p>
 
         <label className="mt-5 block space-y-1.5">
@@ -2764,8 +2764,14 @@ function Fase8EntregaPlaca({
                   vehiculoId={vehiculoId}
                   tipo={tipo}
                   existingUrl={docs[tipo]?.url}
-                  acceptMode="both"
-                  hint="Foto o PDF · máx. 10 MB"
+                  acceptMode={
+                    tipo === "placa_pdf" || tipo === "titulo" ? "pdf" : "both"
+                  }
+                  hint={
+                    tipo === "placa_pdf" || tipo === "titulo"
+                      ? "PDF · máx. 10 MB"
+                      : "Foto o PDF · máx. 10 MB"
+                  }
                   actionLabel={loaded ? "Reemplazar" : "Cargar"}
                   onUploaded={(next) => {
                     setDocs(next);
