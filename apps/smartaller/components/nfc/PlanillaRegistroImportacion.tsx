@@ -79,7 +79,6 @@ import {
   PL_EMBARQUE_DOCUMENTO_TIPOS,
   embarqueDocumentosObligatorios,
   embarqueImportadorTipos,
-  PL_PASE_SALIDA_TIPO,
   PL_LLEGADA_DOCUMENTO_TIPOS,
   PL_ENTREGA_PLACA_ORIGEN,
   PL_ENTREGA_PLACA_TIPOS,
@@ -283,10 +282,11 @@ export function PlanillaRegistroImportacion({
     Boolean(initialImportacion.partidaArancelaria?.trim());
 
   const aduanaCompleta = aduanaCount === desaduanamientoTipos.length;
-  const pagoImpuestoCompleto = puedeCompletarPagoImpuesto(
-    initialImportacion,
-    Boolean(docs.planilla_liquidacion_aduanera?.url)
-  );
+  const pagoImpuestoCompleto =
+    puedeCompletarPagoImpuesto(
+      initialImportacion,
+      Boolean(docs.planilla_liquidacion_aduanera?.url)
+    ) && Boolean(docs.pase_salida_levante?.url);
   const inspeccionCompleta =
     llegadaDocsCount === PL_LLEGADA_DOCUMENTO_TIPOS.length &&
     fotosObligatoriasCount === MEMORIA_FOTOGRAFICA_TIPOS_OBLIGATORIOS.length &&
@@ -671,7 +671,6 @@ export function PlanillaRegistroImportacion({
           docTipos={desaduanamientoTipos}
           regimenLabel={regimenCfg.label}
           regimen={initialImportacion.regimen}
-          importadorNombre={initialImportacion.importadorNombre ?? ""}
           importadorDocumento={initialImportacion.importadorDocumento ?? ""}
           pending={pending}
           canComplete={aduanaCompleta}
@@ -1385,6 +1384,9 @@ function Fase2Embarque({
   const canContinue = canCompleteDocs && datosCompletos;
   const inputClass =
     "box-border w-full max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500/60";
+  const importadorDocsFaltantes = embarqueImportadorTipos(esJuridica).filter(
+    (tipo) => !docs[tipo]?.url
+  );
 
   return (
     <div className="space-y-6">
@@ -1440,37 +1442,37 @@ function Fase2Embarque({
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileUp className="h-5 w-5 text-cyan-400" />
-          Documentos del importador
+          Documentos faltantes del cliente
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
             {importadorDocsCount}/{importadorDocsTotal}
           </span>
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Si ya están en el cliente, aparecen aquí. Si faltan, cárgalos para
-          continuar a Llegada
-          {esJuridica ? " (incluye acta constitutiva)" : ""}.
+          {importadorDocsFaltantes.length === 0
+            ? "Ya están en el cliente o en este expediente. No hace falta volver a cargarlos."
+            : `Solo los que faltan. Cárgalos aquí para continuar a Llegada${
+                esJuridica ? " (incluye acta constitutiva)" : ""
+              }.`}
         </p>
-        <div className="mt-4 grid gap-3">
-          {embarqueImportadorTipos(esJuridica).map((tipo) => (
-            <ImportDocumentoUpload
-              key={tipo}
-              vehiculoId={vehiculoId}
-              tipo={tipo}
-              existingUrl={docs[tipo]?.url}
-              acceptMode="both"
-              hint={
-                docs[tipo]?.url
-                  ? "Ya estaba en el cliente o en este expediente"
-                  : "Foto o PDF · máx. 10 MB"
-              }
-              actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
-              onUploaded={(next) => {
-                setDocs(next);
-                onUploadedMessage("Documento del importador guardado");
-              }}
-            />
-          ))}
-        </div>
+        {importadorDocsFaltantes.length > 0 ? (
+          <div className="mt-4 grid gap-3">
+            {importadorDocsFaltantes.map((tipo) => (
+              <ImportDocumentoUpload
+                key={tipo}
+                vehiculoId={vehiculoId}
+                tipo={tipo}
+                existingUrl={docs[tipo]?.url}
+                acceptMode="both"
+                hint="Foto o PDF · máx. 10 MB"
+                actionLabel="Cargar"
+                onUploaded={(next) => {
+                  setDocs(next);
+                  onUploadedMessage("Documento del cliente guardado");
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
@@ -1852,7 +1854,6 @@ function Fase3Aduana({
   docTipos,
   regimenLabel,
   regimen,
-  importadorNombre,
   importadorDocumento,
   pending,
   canComplete,
@@ -1867,7 +1868,6 @@ function Fase3Aduana({
   docTipos: DocumentoTipo[];
   regimenLabel: string;
   regimen: string | null | undefined;
-  importadorNombre: string;
   importadorDocumento: string;
   pending: boolean;
   canComplete: boolean;
@@ -1877,10 +1877,7 @@ function Fase3Aduana({
 }) {
   const [agenteAduanal, setAgenteAduanal] = useState(agenteAduanalInicial);
   const agenteOk = agenteAduanal.trim().length >= 2;
-
-  const pdfTipos = docTipos.filter((t) => t !== PL_PASE_SALIDA_TIPO);
-  const paseLoaded = Boolean(docs[PL_PASE_SALIDA_TIPO]?.url);
-  const pdfLoaded = pdfTipos.filter((t) => Boolean(docs[t]?.url)).length;
+  const pdfLoaded = docTipos.filter((t) => Boolean(docs[t]?.url)).length;
 
   useEffect(() => {
     setAgenteAduanal((prev) => agenteAduanalInicial || prev);
@@ -1893,7 +1890,7 @@ function Fase3Aduana({
           <FileUp className="h-5 w-5 text-cyan-400" />
           Desaduanamiento — Expediente SENIAT
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-            {pdfLoaded}/{pdfTipos.length} en PDF
+            {pdfLoaded}/{docTipos.length} en PDF
           </span>
         </h2>
         <p className="mt-2 text-sm text-slate-400">
@@ -1905,26 +1902,13 @@ function Fase3Aduana({
           {docTipos.includes("licencia_importacion_automotriz")
             ? ". Incluye licencia de importación (este régimen la pide)"
             : ""}
-          .
+          . El pase de salida se carga después, en Pago impuesto (tras la
+          liquidación de tributos).
         </p>
 
         <div className="mt-4">
           <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
-
-        {(importadorNombre.trim() || importadorDocumento.trim()) && (
-          <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Importador (desde Registro)
-            </p>
-            {importadorNombre.trim() ? (
-              <p className="mt-1 text-slate-100">{importadorNombre}</p>
-            ) : null}
-            {importadorDocumento.trim() ? (
-              <p className="font-mono text-cyan-300">{importadorDocumento}</p>
-            ) : null}
-          </div>
-        )}
 
         <label className="mt-5 block space-y-1.5">
           <span className="text-sm text-slate-400">
@@ -1940,7 +1924,7 @@ function Fase3Aduana({
         </label>
 
         <ul className="mt-5 space-y-3">
-          {pdfTipos.map((tipo, index) => (
+          {docTipos.map((tipo, index) => (
             <DesaduanamientoDocSlot
               key={tipo}
               index={index + 1}
@@ -1958,40 +1942,6 @@ function Fase3Aduana({
         <div className="mt-6">
           <PuertoLibreDescargarDesaduanamientoPdf vehiculoId={vehiculoId} />
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          Pase de salida
-          <span
-            className={`rounded-md px-2 py-0.5 text-xs font-normal ${
-              paseLoaded
-                ? "bg-emerald-950/60 text-emerald-300"
-                : "bg-slate-800 text-slate-400"
-            }`}
-          >
-            {paseLoaded ? "Listo" : "Pendiente"}
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Cárgalo en esta misma pantalla. No forma parte del Expediente PDF
-          SENIAT; queda en el expediente digital del vehículo.
-        </p>
-        <ul className="mt-5 space-y-3">
-          <DesaduanamientoDocSlot
-            index={1}
-            tipo={PL_PASE_SALIDA_TIPO}
-            regimen={regimen}
-            docs={docs}
-            vehiculoId={vehiculoId}
-            setDocs={setDocs}
-            onUploadedMessage={onUploadedMessage}
-          />
-        </ul>
-        <p className="mt-3 text-xs text-slate-500">
-          Carpeta completa: {docsCount}/{docTipos.length} (incluye pase de
-          salida).
-        </p>
       </section>
 
       <label className="block space-y-1.5 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">

@@ -10,8 +10,11 @@ import { getTasaOficialHoyAction } from "@/app/actions/nfc/tasa-bcv";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import {
   DOCUMENTO_LABELS,
+  PL_PAGO_FASE_DOCUMENTO_TIPOS,
+  PL_PASE_SALIDA_TIPO,
   PL_PAGO_SENIAT_DOCUMENTO_TIPOS,
-  pagoSeniatPdfsListos,
+  pagoFaseDocsListos,
+  type DocumentoTipo,
   type VehiculosDocumentos,
 } from "@/lib/schemas/vehiculo-documentos";
 import {
@@ -241,25 +244,32 @@ export function PagoArancelesCard({
         <div className="mt-6 border-t border-emerald-900/40 pt-5">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
             <FileUp className="h-4 w-4 text-emerald-400" />
-            SENIAT emitió — cargar en PDF
+            Después del pago — cargar documentos
             <span
               className={`rounded-md px-2 py-0.5 text-[11px] font-normal ${
-                pagoSeniatPdfsListos(localDocs)
+                pagoFaseDocsListos(localDocs)
                   ? "bg-emerald-950/70 text-emerald-300"
                   : "bg-slate-800 text-slate-400"
               }`}
             >
-              {PL_PAGO_SENIAT_DOCUMENTO_TIPOS.filter((t) => localDocs[t]?.url).length}
-              /{PL_PAGO_SENIAT_DOCUMENTO_TIPOS.length}
+              {
+                PL_PAGO_FASE_DOCUMENTO_TIPOS.filter((t) => localDocs[t]?.url)
+                  .length
+              }
+              /{PL_PAGO_FASE_DOCUMENTO_TIPOS.length}
             </span>
           </h3>
           <p className="mt-2 text-sm text-slate-400">
-            Liquidación de tributos (comprobante de pago) y constancia de
-            nacionalización, que autoriza retirar el vehículo del puerto.
+            Primero la liquidación de tributos, luego el pase de salida y la
+            constancia de nacionalización (autoriza el retiro del puerto).
           </p>
           <ul className="mt-4 space-y-3">
-            {PL_PAGO_SENIAT_DOCUMENTO_TIPOS.map((tipo, index) => {
+            {PL_PAGO_FASE_DOCUMENTO_TIPOS.map((tipo, index) => {
               const loaded = Boolean(localDocs[tipo]?.url);
+              const esPase = tipo === PL_PASE_SALIDA_TIPO;
+              const esPdfSeniat = (
+                PL_PAGO_SENIAT_DOCUMENTO_TIPOS as readonly DocumentoTipo[]
+              ).includes(tipo);
               return (
                 <li
                   key={tipo}
@@ -276,13 +286,19 @@ export function PagoArancelesCard({
                           : "bg-amber-950/60 text-amber-200"
                       }`}
                     >
-                      {loaded ? "Listo" : "PDF pendiente"}
+                      {loaded
+                        ? "Listo"
+                        : esPase
+                          ? "Pendiente"
+                          : "PDF pendiente"}
                     </span>
                   </div>
                   <p className="mb-3 text-xs text-slate-500">
                     {tipo === "constancia_nacionalizacion"
                       ? "Autoriza retirar el vehículo del puerto. Solo PDF."
-                      : "Comprobante de pago de tributos. Solo PDF."}
+                      : esPase
+                        ? "Se carga aquí tras la liquidación. No forma parte del Expediente PDF SENIAT."
+                        : "Comprobante de pago de tributos. Solo PDF."}
                   </p>
                   {loaded && localDocs[tipo]?.url ? (
                     <a
@@ -291,7 +307,7 @@ export function PagoArancelesCard({
                       rel="noopener noreferrer"
                       className="mb-2 inline-flex text-xs text-cyan-400 hover:underline"
                     >
-                      Ver PDF
+                      {esPdfSeniat ? "Ver PDF" : "Ver archivo"}
                     </a>
                   ) : null}
                   {canEdit ? (
@@ -299,9 +315,17 @@ export function PagoArancelesCard({
                       vehiculoId={vehiculoId}
                       tipo={tipo}
                       existingUrl={localDocs[tipo]?.url}
-                      acceptMode="pdf"
-                      hint="PDF · máx. 10 MB"
-                      actionLabel={loaded ? "Reemplazar PDF" : "Cargar PDF"}
+                      acceptMode={esPase ? "both" : "pdf"}
+                      hint={esPase ? "Foto o PDF · máx. 10 MB" : "PDF · máx. 10 MB"}
+                      actionLabel={
+                        loaded
+                          ? esPase
+                            ? "Reemplazar"
+                            : "Reemplazar PDF"
+                          : esPase
+                            ? "Cargar"
+                            : "Cargar PDF"
+                      }
                       onUploaded={(next) => {
                         setLocalDocs(next);
                         setDocs?.(next);

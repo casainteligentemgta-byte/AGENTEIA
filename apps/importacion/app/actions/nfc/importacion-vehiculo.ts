@@ -1811,7 +1811,7 @@ export async function completePuertoLibreFase3Action(
     return {
       success: false,
       error:
-        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV, pase de salida y recaudos del régimen",
+        "Completa el expediente a presentar: factura, certificado, BL, lista, póliza, cédula/RIF y DUA (la prepara el agente). También DAV y recaudos del régimen",
     };
   }
 
@@ -1862,6 +1862,13 @@ export async function completePuertoLibrePagoImpuestoAction(
       success: false,
       error:
         "Guarda el precálculo (CIF) y registra el pago o carga el voucher / liquidación de tributos.",
+    };
+  }
+  if (!docs.pase_salida_levante?.url) {
+    return {
+      success: false,
+      error:
+        "Carga el pase de salida (después de la liquidación de tributos) para continuar a Inspección.",
     };
   }
 

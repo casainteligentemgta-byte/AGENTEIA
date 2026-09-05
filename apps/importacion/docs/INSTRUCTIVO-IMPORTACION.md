@@ -102,12 +102,11 @@ Y completa:
 | 3 | Lista de embarque / empaque |
 | 4 | DUA |
 | 5 | DAV |
-| 6 | Pase de salida y levante |
 
-Los recaudos SENCAMER, registro PL, constancia del agente, reconocimiento, liquidación de tributos y constancia de residencia quedan fuera de esta fase (siguen guardados si ya se cargaron).
+Los recaudos SENCAMER, registro PL, constancia del agente, reconocimiento, liquidación de tributos, pase de salida y constancia de residencia quedan fuera de esta fase (siguen guardados si ya se cargaron). El pase de salida se carga en **Pago impuesto**, después de la liquidación de tributos.
 
 3. Descarga el **Expediente PDF SENIAT** para imprimir / consignar.
-4. **Continuar a Propietario** cuando la carpeta esté completa.
+4. **Continuar a Pago impuesto** cuando la carpeta esté completa.
 
 ---
 

@@ -181,7 +181,7 @@ export const REGIMEN_SELECT_OPTIONS: { value: RegimenImportacion; label: string 
 /**
  * Carpeta de desaduanamiento = base + extras del régimen (sin duplicar).
  * `registro_puerto_libre` solo si el importador es persona jurídica.
- * Incluye el pase de salida (fuera del PDF).
+ * El pase de salida se carga en Pago impuesto (fuera del PDF SENIAT).
  */
 export function docsDesaduanamientoPorRegimen(
   regimen: string | null | undefined,
@@ -194,6 +194,7 @@ export function docsDesaduanamientoPorRegimen(
   const esJuridica = options?.esJuridica === true;
   for (const t of [...base, ...cfg.docsExtraDesaduanamiento]) {
     if (t === "registro_puerto_libre" && !esJuridica) continue;
+    if (t === "pase_salida_levante") continue;
     if (seen.has(t)) continue;
     seen.add(t);
     out.push(t);
@@ -201,15 +202,13 @@ export function docsDesaduanamientoPorRegimen(
   return out;
 }
 
-/** Docs del Expediente PDF SENIAT: carpeta completa sin el pase de salida. */
+/** Docs del Expediente PDF SENIAT (sin pase de salida). */
 export function docsDesaduanamientoPdfPorRegimen(
   regimen: string | null | undefined,
   base: DocumentoTipo[],
   options?: { esJuridica?: boolean }
 ): DocumentoTipo[] {
-  return docsDesaduanamientoPorRegimen(regimen, base, options).filter(
-    (t) => t !== "pase_salida_levante"
-  );
+  return docsDesaduanamientoPorRegimen(regimen, base, options);
 }
 
 export function origenDocDesaduanamiento(
