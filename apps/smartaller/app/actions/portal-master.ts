@@ -15,6 +15,16 @@ import {
   updateTallerEtiquetaSchema,
   upsertPortalAccesoSchema,
 } from "@/lib/validations/portal-acceso";
+import {
+  cerrarAccesoDemoSchema,
+  crearAccesoDemoSchema,
+} from "@/lib/validations/portal-demo";
+import {
+  demoExpiresAtFromNow,
+  generateDemoPassword,
+  isDemoExpired,
+} from "@/lib/portal/demo-access";
+import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 import type { TipoIndustria } from "@/lib/platform/types";
 
 export type MasterTallerRow = {
@@ -35,9 +45,23 @@ export type MasterPortalUserRow = {
   verTodo: boolean;
   tallerIds: string[];
   aisladoAt: string | null;
+  esDemo: boolean;
+  demoExpiresAt: string | null;
+  demoClosedAt: string | null;
 };
 
 type ActionResult = { ok: true } | { ok: false; error: string };
+
+export type CrearAccesoDemoResult =
+  | {
+      ok: true;
+      userId: string;
+      email: string;
+      password: string;
+      expiresAt: string;
+      loginPath: string;
+    }
+  | { ok: false; error: string };
 
 async function requireMaster() {
   const access = await resolvePortalAccess();
@@ -223,15 +247,36 @@ export async function listMasterPortalUsersAction(): Promise<
   if (!gate.ok) return { success: false, error: gate.error };
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const withDemo = await admin
     .from("portal_accesos")
-    .select("user_id, roles, ver_todo, taller_ids, org_nombre, aislado_at")
+    .select(
+      "user_id, roles, ver_todo, taller_ids, org_nombre, aislado_at, es_demo, demo_expires_at, demo_closed_at"
+    )
     .order("updated_at", { ascending: false });
+
+  let portalRows = withDemo.data as
+    | Array<Record<string, unknown>>
+    | null;
+  let error = withDemo.error;
+
+  if (error?.message?.toLowerCase().includes("es_demo")) {
+    const legacy = await admin
+      .from("portal_accesos")
+      .select("user_id, roles, ver_todo, taller_ids, org_nombre, aislado_at")
+      .order("updated_at", { ascending: false });
+    portalRows = (legacy.data ?? []).map((row) => ({
+      ...row,
+      es_demo: false,
+      demo_expires_at: null,
+      demo_closed_at: null,
+    }));
+    error = legacy.error;
+  }
 
   if (error) return { success: false, error: error.message };
 
   const rows: MasterPortalUserRow[] = [];
-  for (const row of data ?? []) {
+  for (const row of portalRows ?? []) {
     const userId = row.user_id as string;
     const { data: authData } = await admin.auth.admin.getUserById(userId);
     const roles = parseRoleList(row.roles);
@@ -243,6 +288,9 @@ export async function listMasterPortalUsersAction(): Promise<
       verTodo: Boolean(row.ver_todo),
       tallerIds: parseIdList(row.taller_ids),
       aisladoAt: (row.aislado_at as string | null) ?? null,
+      esDemo: Boolean(row.es_demo),
+      demoExpiresAt: (row.demo_expires_at as string | null) ?? null,
+      demoClosedAt: (row.demo_closed_at as string | null) ?? null,
     });
   }
 
@@ -635,4 +683,309 @@ export async function borrarPortalUsuarioDefinitivoAction(
   if (error) return { ok: false, error: error.message };
   revalidateMaster();
   return { ok: true };
+}
+
+/**
+ * Crea un usuario Auth + acceso portal demo con clave y caducidad.
+ * Devuelve la clave una sola vez para compartirla con quien revisa la app.
+ */
+export async function crearAccesoDemoAction(input: {
+  email: string;
+  duracionHoras: number;
+  roles: Array<"concesionario" | "taller" | "usuario" | "aduanera">;
+  orgNombre?: string | null;
+  password?: string | null;
+}): Promise<CrearAccesoDemoResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const parsed = crearAccesoDemoSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const password =
+    parsed.data.password?.trim() && parsed.data.password.trim().length >= 8
+      ? parsed.data.password.trim()
+      : generateDemoPassword(12);
+  const expiresAt = demoExpiresAtFromNow(parsed.data.duracionHoras);
+  const expiresIso = expiresAt.toISOString();
+  const orgNombre =
+    parsed.data.orgNombre?.trim() ||
+    `Demo ${parsed.data.duracionHoras}h`;
+  const roles = [...parsed.data.roles];
+  if (!roles.includes("usuario")) roles.push("usuario");
+
+  const admin = createAdminClient();
+  const existing = await findAuthUserIdByEmail(admin, email);
+  if (existing.ok) {
+    return {
+      ok: false,
+      error:
+        "Ese correo ya tiene cuenta. Usa otro email demo o aísla/cierra la cuenta existente.",
+    };
+  }
+
+  const { data: created, error: createError } =
+    await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: {
+        es_demo: true,
+        demo_expires_at: expiresIso,
+      },
+      user_metadata: {
+        es_demo: true,
+        demo_expires_at: expiresIso,
+        org_nombre: orgNombre,
+      },
+    });
+
+  if (createError || !created.user) {
+    return {
+      ok: false,
+      error: createError?.message ?? "No se pudo crear el usuario demo",
+    };
+  }
+
+  const userId = created.user.id;
+  const now = new Date().toISOString();
+
+  // Espacio propio aislado (taller/concesionario) para que revisen sin ver data ajena.
+  const codigo = crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  const tipoIndustria: TipoIndustria = "concesionario";
+  const { data: taller, error: tallerError } = await admin
+    .from("talleres")
+    .insert({
+      owner_user_id: userId,
+      nombre: orgNombre.slice(0, 80),
+      codigo_vinculo: codigo,
+      tipo_industria: tipoIndustria,
+    })
+    .select("id")
+    .single();
+
+  if (tallerError || !taller) {
+    await admin.auth.admin.deleteUser(userId);
+    return {
+      ok: false,
+      error: tallerError?.message ?? "No se pudo crear el espacio demo",
+    };
+  }
+
+  const portalPayload = {
+    user_id: userId,
+    roles,
+    ver_todo: false,
+    taller_ids: [taller.id as string],
+    org_nombre: orgNombre,
+    es_demo: true,
+    demo_expires_at: expiresIso,
+    demo_closed_at: null,
+    updated_at: now,
+  };
+
+  const { error: portalError } = await admin
+    .from("portal_accesos")
+    .upsert(portalPayload, { onConflict: "user_id" });
+
+  if (portalError?.message?.toLowerCase().includes("es_demo")) {
+    await admin.auth.admin.deleteUser(userId);
+    return {
+      ok: false,
+      error:
+        "Falta la migración de acceso demo (`20260907230000_portal_acceso_demo.sql`). Ejecútala en Supabase SQL Editor.",
+    };
+  }
+
+  if (portalError) {
+    await admin.auth.admin.deleteUser(userId);
+    return { ok: false, error: portalError.message };
+  }
+
+  revalidateMaster();
+  return {
+    ok: true,
+    userId,
+    email,
+    password,
+    expiresAt: expiresIso,
+    loginPath: `${IMPORTACION_BASE}/login`,
+  };
+}
+
+/**
+ * Cierra la demo: aísla acceso, invalida sesiones y bloquea el login.
+ */
+export async function cerrarAccesoDemoAction(
+  userId: string
+): Promise<ActionResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const parsed = cerrarAccesoDemoSchema.safeParse({ userId });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Usuario inválido",
+    };
+  }
+  if (parsed.data.userId === gate.access.userId) {
+    return { ok: false, error: "No puedes cerrar tu propia cuenta máster." };
+  }
+
+  const admin = createAdminClient();
+  const { data: existing, error: findError } = await admin
+    .from("portal_accesos")
+    .select("user_id, roles, es_demo, aislado_at")
+    .eq("user_id", parsed.data.userId)
+    .maybeSingle();
+
+  if (findError?.message?.toLowerCase().includes("es_demo")) {
+    return {
+      ok: false,
+      error:
+        "Falta la migración de acceso demo (`20260907230000_portal_acceso_demo.sql`).",
+    };
+  }
+  if (findError) return { ok: false, error: findError.message };
+  if (!existing) {
+    return { ok: false, error: "No hay acceso de portal para ese usuario." };
+  }
+
+  const roles = parseRoleList(existing.roles);
+  if (roles.includes("master")) {
+    return { ok: false, error: "No se puede cerrar una cuenta máster." };
+  }
+  if (!existing.es_demo) {
+    return {
+      ok: false,
+      error: "Ese usuario no es una cuenta demo. Usa Aislar si quieres desactivarlo.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const { error: portalError } = await admin
+    .from("portal_accesos")
+    .update({
+      aislado_at: existing.aislado_at ?? now,
+      aislado_por: gate.access.userId,
+      demo_closed_at: now,
+      demo_expires_at: now,
+      updated_at: now,
+    })
+    .eq("user_id", parsed.data.userId);
+
+  if (portalError) return { ok: false, error: portalError.message };
+
+  await admin
+    .from("talleres")
+    .update({
+      aislado_at: now,
+      aislado_por: gate.access.userId,
+      updated_at: now,
+    })
+    .eq("owner_user_id", parsed.data.userId)
+    .is("aislado_at", null);
+
+  // Invalida sesiones activas y bloquea nuevos logins.
+  await admin.auth.admin.signOut(parsed.data.userId).catch(() => undefined);
+  const newPassword = generateDemoPassword(16);
+  await admin.auth.admin
+    .updateUserById(parsed.data.userId, {
+      password: newPassword,
+      ban_duration: "876600h",
+      app_metadata: {
+        es_demo: true,
+        demo_expires_at: now,
+        demo_closed: true,
+      },
+    })
+    .catch(() => undefined);
+
+  revalidateMaster();
+  return { ok: true };
+}
+
+/** Extiende o acorta la caducidad de una demo activa. */
+export async function renovarAccesoDemoAction(input: {
+  userId: string;
+  duracionHoras: number;
+}): Promise<ActionResult> {
+  const gate = await requireMaster();
+  if (!gate.ok) return gate;
+
+  const schema = z.object({
+    userId: z.string().uuid(),
+    duracionHoras: crearAccesoDemoSchema.shape.duracionHoras,
+  });
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.errors[0]?.message ?? "Datos inválidos",
+    };
+  }
+
+  const admin = createAdminClient();
+  const expiresIso = demoExpiresAtFromNow(parsed.data.duracionHoras).toISOString();
+  const now = new Date().toISOString();
+
+  const { data: existing, error: findError } = await admin
+    .from("portal_accesos")
+    .select("user_id, es_demo, aislado_at")
+    .eq("user_id", parsed.data.userId)
+    .maybeSingle();
+
+  if (findError) return { ok: false, error: findError.message };
+  if (!existing?.es_demo) {
+    return { ok: false, error: "No es una cuenta demo." };
+  }
+  if (existing.aislado_at) {
+    return {
+      ok: false,
+      error: "La demo está cerrada/aislada. Crea una nueva si hace falta.",
+    };
+  }
+
+  const { error } = await admin
+    .from("portal_accesos")
+    .update({
+      demo_expires_at: expiresIso,
+      demo_closed_at: null,
+      updated_at: now,
+    })
+    .eq("user_id", parsed.data.userId);
+
+  if (error) return { ok: false, error: error.message };
+
+  await admin.auth.admin
+    .updateUserById(parsed.data.userId, {
+      ban_duration: "none",
+      app_metadata: {
+        es_demo: true,
+        demo_expires_at: expiresIso,
+        demo_closed: false,
+      },
+      user_metadata: {
+        es_demo: true,
+        demo_expires_at: expiresIso,
+      },
+    })
+    .catch(() => undefined);
+
+  revalidateMaster();
+  return { ok: true };
+}
+
+export function demoAccessIsExpiredForRow(row: {
+  esDemo: boolean;
+  demoExpiresAt: string | null;
+}): boolean {
+  return row.esDemo && isDemoExpired(row.demoExpiresAt);
 }

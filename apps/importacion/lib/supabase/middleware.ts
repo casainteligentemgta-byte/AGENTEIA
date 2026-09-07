@@ -5,10 +5,14 @@ import {
   IMPORTACION_BASE,
   isImportacionAppPath,
 } from "@/lib/importacion/paths";
+import {
+  isDemoExpired,
+  readDemoMetaFromAuthUser,
+} from "@/lib/portal/demo-access";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function isImportacionLogin(pathname: string): boolean {
-  return pathname === `${IMPORTACION_BASE}/login` || pathname === "/login";
+  return pathname === `${IMPORTACION_BASE}/login`;
 }
 
 function isImportacionDemo(pathname: string): boolean {
@@ -17,22 +21,36 @@ function isImportacionDemo(pathname: string): boolean {
 
 function isProtectedPath(pathname: string): boolean {
   if (isImportacionLogin(pathname) || isImportacionDemo(pathname)) return false;
-  return isImportacionAppPath(pathname);
+  return (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/app") ||
+    isImportacionAppPath(pathname) ||
+    pathname.startsWith("/portales")
+  );
 }
 
 function isAllowedRedirect(redirectTo: string): boolean {
-  return isImportacionAppPath(redirectTo);
+  return (
+    redirectTo.startsWith("/dashboard") ||
+    redirectTo.startsWith("/app") ||
+    isImportacionAppPath(redirectTo) ||
+    redirectTo.startsWith("/portales")
+  );
 }
 
 export async function updateSession(request: NextRequest) {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
-  const loginPath = `${IMPORTACION_BASE}/login`;
 
   if (!url || !key) {
-    if (isProtectedPath(request.nextUrl.pathname) || isImportacionLogin(request.nextUrl.pathname)) {
+    if (
+      isProtectedPath(request.nextUrl.pathname) ||
+      isImportacionLogin(request.nextUrl.pathname)
+    ) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = loginPath;
+      loginUrl.pathname = isImportacionLogin(request.nextUrl.pathname)
+        ? `${IMPORTACION_BASE}/login`
+        : "/login";
       loginUrl.searchParams.set("error", "config");
       return NextResponse.redirect(loginUrl);
     }
@@ -47,7 +65,9 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
@@ -62,20 +82,43 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Demo caducada: cerrar sesión y mandar al login con mensaje.
+  if (user && isProtectedPath(pathname)) {
+    const demoMeta = readDemoMetaFromAuthUser(user);
+    if (demoMeta.esDemo && isDemoExpired(demoMeta.expiresAt)) {
+      await supabase.auth.signOut();
+      const loginUrl = request.nextUrl.clone();
+      const importacionFlow = isImportacionAppPath(pathname);
+      loginUrl.pathname = importacionFlow
+        ? `${IMPORTACION_BASE}/login`
+        : "/login";
+      loginUrl.searchParams.set("error", "demo_expired");
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (!user && isProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = loginPath;
-    loginUrl.searchParams.set("redirectTo", canonicalizeImportacionPath(pathname));
+    const importacionFlow = isImportacionAppPath(pathname);
+    loginUrl.pathname = importacionFlow ? `${IMPORTACION_BASE}/login` : "/login";
+    loginUrl.searchParams.set(
+      "redirectTo",
+      importacionFlow ? canonicalizeImportacionPath(pathname) : pathname
+    );
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isImportacionLogin(pathname)) {
+  if (user && (pathname === "/login" || isImportacionLogin(pathname))) {
     const redirectTo = request.nextUrl.searchParams.get("redirectTo");
     const target = request.nextUrl.clone();
-    target.pathname =
-      redirectTo && isAllowedRedirect(redirectTo)
+    const allowedRedirect = redirectTo && isAllowedRedirect(redirectTo);
+    if (isImportacionLogin(pathname)) {
+      target.pathname = allowedRedirect
         ? canonicalizeImportacionPath(redirectTo)
         : IMPORTACION_BASE;
+    } else {
+      target.pathname = allowedRedirect ? redirectTo : "/portales";
+    }
     target.search = "";
     return NextResponse.redirect(target);
   }

@@ -9,6 +9,7 @@ import {
   listMasterPortalUsersAction,
 } from "@/app/actions/portal-master";
 import { MasterAislamientoPanel } from "@/components/portal/MasterAislamientoPanel";
+import { MasterDemoAccessPanel } from "@/components/portal/MasterDemoAccessPanel";
 import { MasterRolesPanel } from "@/components/portal/MasterRolesPanel";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { resolvePortalAccess, requirePortalRole } from "@/lib/portal/roles";
@@ -60,7 +61,7 @@ export default async function PortalMasterPage() {
       title="Administrador máster"
       subtitle={
         verTodo
-          ? "Dirige roles, etiquetas, aislamiento y borrado definitivo."
+          ? "Dirige demos temporales, roles, etiquetas, aislamiento y borrado definitivo."
           : "Visión acotada a talleres asignados (sin ver_todo)."
       }
     >
@@ -87,11 +88,18 @@ export default async function PortalMasterPage() {
       )}
 
       {verTodo ? (
-        <MasterRolesPanel
-          currentUserId={gate.access.userId}
-          usuarios={usuariosActivos}
-          talleres={talleresActivos}
-        />
+        <>
+          <MasterDemoAccessPanel
+            demos={[...usuariosActivos, ...usuariosAislados].filter(
+              (u) => u.esDemo
+            )}
+          />
+          <MasterRolesPanel
+            currentUserId={gate.access.userId}
+            usuarios={usuariosActivos}
+            talleres={talleresActivos}
+          />
+        </>
       ) : null}
 
       {verTodo ? (

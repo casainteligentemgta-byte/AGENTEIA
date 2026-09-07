@@ -5,6 +5,10 @@ import {
   IMPORTACION_BASE,
   isImportacionAppPath,
 } from "@/lib/importacion/paths";
+import {
+  isDemoExpired,
+  readDemoMetaFromAuthUser,
+} from "@/lib/portal/demo-access";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function isImportacionLogin(pathname: string): boolean {
@@ -39,7 +43,10 @@ export async function updateSession(request: NextRequest) {
   const key = getSupabaseAnonKey();
 
   if (!url || !key) {
-    if (isProtectedPath(request.nextUrl.pathname) || isImportacionLogin(request.nextUrl.pathname)) {
+    if (
+      isProtectedPath(request.nextUrl.pathname) ||
+      isImportacionLogin(request.nextUrl.pathname)
+    ) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = isImportacionLogin(request.nextUrl.pathname)
         ? `${IMPORTACION_BASE}/login`
@@ -58,7 +65,9 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
@@ -72,6 +81,21 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // Demo caducada: cerrar sesión y mandar al login con mensaje.
+  if (user && isProtectedPath(pathname)) {
+    const demoMeta = readDemoMetaFromAuthUser(user);
+    if (demoMeta.esDemo && isDemoExpired(demoMeta.expiresAt)) {
+      await supabase.auth.signOut();
+      const loginUrl = request.nextUrl.clone();
+      const importacionFlow = isImportacionAppPath(pathname);
+      loginUrl.pathname = importacionFlow
+        ? `${IMPORTACION_BASE}/login`
+        : "/login";
+      loginUrl.searchParams.set("error", "demo_expired");
+      return NextResponse.redirect(loginUrl);
+    }
+  }
 
   if (!user && isProtectedPath(pathname)) {
     const loginUrl = request.nextUrl.clone();

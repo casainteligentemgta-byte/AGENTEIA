@@ -38,7 +38,12 @@ function ImportacionLoginForm() {
             type: "error",
             text: "Falta configurar Supabase Auth en las variables de entorno.",
           }
-        : null
+        : errorParam === "demo_expired"
+          ? {
+              type: "error",
+              text: "La cuenta demo caducó o fue cerrada. Pide un nuevo acceso al administrador.",
+            }
+          : null
   );
 
   const effectiveRedirect =
