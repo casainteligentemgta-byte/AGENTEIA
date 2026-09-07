@@ -827,7 +827,6 @@ export default async function PuertoLibrePage() {
           dateFilterLabel="Modificado"
           actionColumnKey="modificado"
           defaultExpedienteSort="asc"
-          defaultOpen={rowsPorEmbarque.length > 0}
           searchPlaceholder="Filtrar BL, expediente, VIN, marca…"
         />
 
@@ -837,7 +836,6 @@ export default async function PuertoLibrePage() {
           title={porCompletarEtapaTitle(3)}
           icon="ship"
           emptyMessage="No hay cargas por completar llegada. Al cerrar el embarque pasan aquí."
-          defaultOpen={rowsPorRecibir.length > 0}
           columns={[
             { key: "expediente", header: "BL / expediente", pdfWidth: 2.4 },
             { key: "llegada", header: "Llegada", pdfWidth: 1.2 },
