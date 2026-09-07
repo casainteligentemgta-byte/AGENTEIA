@@ -4,6 +4,7 @@ import {
   DEMO_DURACION_HORAS,
   demoExpiresAtFromNow,
   generateDemoPassword,
+  getDemoCredentialsFromEnv,
   isDemoExpired,
   readDemoMetaFromAuthUser,
 } from "../demo-access";
@@ -40,5 +41,25 @@ describe("demo-access", () => {
     });
     assert.equal(meta.esDemo, true);
     assert.equal(meta.expiresAt, "2026-09-08T00:00:00.000Z");
+    assert.equal(meta.closed, false);
+  });
+
+  it("lee DEMO_EMAIL/DEMO_PASSWORD del entorno", () => {
+    const prevEmail = process.env.DEMO_EMAIL;
+    const prevPassword = process.env.DEMO_PASSWORD;
+    process.env.DEMO_EMAIL = "demo@ejemplo.com";
+    process.env.DEMO_PASSWORD = "ClaveFija123";
+    try {
+      const creds = getDemoCredentialsFromEnv();
+      assert.deepEqual(creds, {
+        email: "demo@ejemplo.com",
+        password: "ClaveFija123",
+      });
+    } finally {
+      if (prevEmail === undefined) delete process.env.DEMO_EMAIL;
+      else process.env.DEMO_EMAIL = prevEmail;
+      if (prevPassword === undefined) delete process.env.DEMO_PASSWORD;
+      else process.env.DEMO_PASSWORD = prevPassword;
+    }
   });
 });

@@ -82,10 +82,13 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Demo caducada: cerrar sesión y mandar al login con mensaje.
+  // Demo caducada o cerrada: cerrar sesión y mandar al login con mensaje.
   if (user && isProtectedPath(pathname)) {
     const demoMeta = readDemoMetaFromAuthUser(user);
-    if (demoMeta.esDemo && isDemoExpired(demoMeta.expiresAt)) {
+    if (
+      demoMeta.esDemo &&
+      (demoMeta.closed || isDemoExpired(demoMeta.expiresAt))
+    ) {
       await supabase.auth.signOut();
       const loginUrl = request.nextUrl.clone();
       const importacionFlow = isImportacionAppPath(pathname);

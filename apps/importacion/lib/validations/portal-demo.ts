@@ -31,8 +31,19 @@ export const crearAccesoDemoSchema = z.object({
     .nullable(),
 });
 
+export const activarDemoGenericoSchema = z.object({
+  duracionHoras: z.coerce
+    .number()
+    .refine(
+      (n): n is (typeof DEMO_DURACION_HORAS)[number] =>
+        (DEMO_DURACION_HORAS as readonly number[]).includes(n),
+      "Duración no permitida"
+    ),
+});
+
 export const cerrarAccesoDemoSchema = z.object({
   userId: z.string().uuid("Usuario inválido"),
 });
 
 export type CrearAccesoDemoInput = z.infer<typeof crearAccesoDemoSchema>;
+export type ActivarDemoGenericoInput = z.infer<typeof activarDemoGenericoSchema>;
