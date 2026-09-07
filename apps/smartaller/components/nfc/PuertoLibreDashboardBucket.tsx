@@ -94,7 +94,7 @@ type Props = {
   leadingContent?: ReactNode;
   /** Placeholder del buscador de la cola. */
   searchPlaceholder?: string;
-  /** Abre el acordeón denso en el primer render. */
+  /** Si es true, abre el acordeón denso en el primer render. Por defecto queda contraído. */
   defaultOpen?: boolean;
 };
 
@@ -199,10 +199,7 @@ export function PuertoLibreDashboardBucket({
   const hasFilters = Boolean(query.trim() || dateFrom || dateTo);
   const showTable = rows.length > 0;
   const showPanel = showTable || Boolean(leadingContent);
-  const [detailsOpen, setDetailsOpen] = useState(
-    defaultOpen ??
-      (Boolean(leadingContent) || rows.some((r) => r.urgent))
-  );
+  const [detailsOpen, setDetailsOpen] = useState(defaultOpen ?? false);
 
   function toggleExpedienteSort() {
     setExpedienteSort((prev) => (prev === "asc" ? "desc" : "asc"));
