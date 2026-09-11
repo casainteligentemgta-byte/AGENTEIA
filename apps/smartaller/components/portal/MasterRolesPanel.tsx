@@ -238,7 +238,19 @@ function UserAccessEditor({
     <article className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-medium text-zinc-100">{user.email ?? user.userId.slice(0, 8)}</h3>
+          <h3 className="font-medium text-zinc-100">
+            {user.email ?? user.userId.slice(0, 8)}
+            {user.esDemo ? (
+              <span className="ml-2 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                Demo
+              </span>
+            ) : null}
+          </h3>
+          {user.esDemo && user.demoExpiresAt ? (
+            <p className="text-xs text-zinc-500">
+              Caduca: {new Date(user.demoExpiresAt).toLocaleString("es-VE")}
+            </p>
+          ) : null}
           {isSelf ? (
             <p className="text-xs text-amber-300/80">Tu cuenta. No puedes quitarte máster ni ver_todo.</p>
           ) : null}

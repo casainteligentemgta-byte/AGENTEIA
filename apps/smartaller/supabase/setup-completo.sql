@@ -1178,6 +1178,12 @@ create policy "portal_accesos all service role"
 create index if not exists idx_portal_accesos_roles
   on public.portal_accesos using gin (roles);
 
+-- Acceso demo temporal (también en migrations/20260907230000_portal_acceso_demo.sql)
+alter table public.portal_accesos
+  add column if not exists es_demo boolean not null default false,
+  add column if not exists demo_expires_at timestamptz,
+  add column if not exists demo_closed_at timestamptz;
+
 -- Ejemplo (ejecutar a mano con el user_id real):
 -- insert into public.portal_accesos (user_id, roles, ver_todo, org_nombre)
 -- values ('00000000-0000-0000-0000-000000000000', array['master','aduanera'], true, 'Operador autorizado')

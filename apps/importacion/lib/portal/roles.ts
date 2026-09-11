@@ -79,33 +79,51 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
 
   const { data: row, error: portalError } = await admin
     .from("portal_accesos")
-    .select("roles, ver_todo, taller_ids, org_nombre, aislado_at")
+    .select(
+      "roles, ver_todo, taller_ids, org_nombre, aislado_at, es_demo, demo_expires_at, demo_closed_at"
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Soft-fail: columna aislado_at aún no migrada.
+  // Soft-fail: columnas nuevas aún no migradas.
   let portalRow: {
     roles?: unknown;
     ver_todo?: boolean;
     taller_ids?: unknown;
     org_nombre?: unknown;
     aislado_at?: string | null;
+    es_demo?: boolean;
+    demo_expires_at?: string | null;
+    demo_closed_at?: string | null;
   } | null = row as {
     roles?: unknown;
     ver_todo?: boolean;
     taller_ids?: unknown;
     org_nombre?: unknown;
     aislado_at?: string | null;
+    es_demo?: boolean;
+    demo_expires_at?: string | null;
+    demo_closed_at?: string | null;
   } | null;
   let portalErr = portalError;
-  if (portalError?.message?.toLowerCase().includes("aislado_at")) {
+  if (
+    portalError?.message?.toLowerCase().includes("aislado_at") ||
+    portalError?.message?.toLowerCase().includes("es_demo") ||
+    portalError?.message?.toLowerCase().includes("demo_expires")
+  ) {
     const legacy = await admin
       .from("portal_accesos")
       .select("roles, ver_todo, taller_ids, org_nombre")
       .eq("user_id", user.id)
       .maybeSingle();
     portalRow = legacy.data
-      ? { ...(legacy.data as object), aislado_at: null }
+      ? {
+          ...(legacy.data as object),
+          aislado_at: null,
+          es_demo: false,
+          demo_expires_at: null,
+          demo_closed_at: null,
+        }
       : null;
     portalErr = legacy.error;
   }
@@ -115,7 +133,15 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
     portalRow &&
     (portalRow as { aislado_at?: string | null }).aislado_at != null;
 
-  if (!portalErr && portalRow && !portalAislado) {
+  const demoCaducada =
+    !portalErr &&
+    portalRow &&
+    Boolean(portalRow.es_demo) &&
+    (Boolean(portalRow.demo_closed_at) ||
+      (typeof portalRow.demo_expires_at === "string" &&
+        Date.parse(portalRow.demo_expires_at) <= Date.now()));
+
+  if (!portalErr && portalRow && !portalAislado && !demoCaducada) {
     roles = parseRoles((portalRow as { roles?: unknown }).roles);
     verTodo = Boolean((portalRow as { ver_todo?: boolean }).ver_todo);
     const ids = (portalRow as { taller_ids?: unknown }).taller_ids;
@@ -128,8 +154,8 @@ export async function resolvePortalAccess(): Promise<PortalAccess | null> {
         : null;
   }
 
-  // Acceso aislado: sin roles de portal (ni inferencia de taller).
-  if (portalAislado) {
+  // Acceso aislado o demo caducada/cerrada: sin roles de portal.
+  if (portalAislado || demoCaducada) {
     return {
       userId: user.id,
       email: user.email ?? null,

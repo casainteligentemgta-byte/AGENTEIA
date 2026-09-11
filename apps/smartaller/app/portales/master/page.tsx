@@ -5,12 +5,16 @@ import {
   listPortalVehiculosAction,
 } from "@/app/actions/portal";
 import {
+  getDemoGenericoEstadoAction,
   listMasterTalleresAction,
   listMasterPortalUsersAction,
+  type DemoGenericoEstado,
 } from "@/app/actions/portal-master";
 import { MasterAislamientoPanel } from "@/components/portal/MasterAislamientoPanel";
+import { MasterDemoAccessPanel } from "@/components/portal/MasterDemoAccessPanel";
 import { MasterRolesPanel } from "@/components/portal/MasterRolesPanel";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 import { resolvePortalAccess, requirePortalRole } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
 
@@ -32,12 +36,13 @@ export default async function PortalMasterPage() {
     );
   }
 
-  const [talleresRes, vehiculosRes, masterTalleresRes, masterUsersRes] =
+  const [talleresRes, vehiculosRes, masterTalleresRes, masterUsersRes, demoRes] =
     await Promise.all([
       listPortalTalleresAction("master"),
       listPortalVehiculosAction("master"),
       listMasterTalleresAction(),
       listMasterPortalUsersAction(),
+      getDemoGenericoEstadoAction(),
     ]);
 
   const talleres = talleresRes.success ? talleresRes.talleres : [];
@@ -55,12 +60,25 @@ export default async function PortalMasterPage() {
     ? masterUsersRes.aislados
     : [];
 
+  const demoGenerico: DemoGenericoEstado = demoRes.ok
+    ? demoRes.estado
+    : {
+        configured: false,
+        email: null,
+        password: null,
+        loginPath: `${IMPORTACION_BASE}/login`,
+        userId: null,
+        activo: false,
+        expiresAt: null,
+        closedAt: null,
+      };
+
   return (
     <PortalShell
       title="Administrador máster"
       subtitle={
         verTodo
-          ? "Dirige roles, etiquetas, aislamiento y borrado definitivo."
+          ? "Dirige demos temporales, roles, etiquetas, aislamiento y borrado definitivo."
           : "Visión acotada a talleres asignados (sin ver_todo)."
       }
     >
@@ -87,11 +105,19 @@ export default async function PortalMasterPage() {
       )}
 
       {verTodo ? (
-        <MasterRolesPanel
-          currentUserId={gate.access.userId}
-          usuarios={usuariosActivos}
-          talleres={talleresActivos}
-        />
+        <>
+          <MasterDemoAccessPanel
+            demos={[...usuariosActivos, ...usuariosAislados].filter(
+              (u) => u.esDemo
+            )}
+            generico={demoGenerico}
+          />
+          <MasterRolesPanel
+            currentUserId={gate.access.userId}
+            usuarios={usuariosActivos}
+            talleres={talleresActivos}
+          />
+        </>
       ) : null}
 
       {verTodo ? (
