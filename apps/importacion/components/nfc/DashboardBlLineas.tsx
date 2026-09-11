@@ -23,6 +23,8 @@ type Props = {
   titleClassName: string;
   numeroBl?: string | null;
   fechaLlegadaBuque?: string | null;
+  /** Caja cian alrededor del BL. En tarjeta móvil va apagada. */
+  framed?: boolean;
 };
 
 export function DashboardBlLineas({
@@ -33,32 +35,36 @@ export function DashboardBlLineas({
   titleClassName,
   numeroBl,
   fechaLlegadaBuque,
+  framed = true,
 }: Props) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   const count = lineas.length;
   const label = blLineasToggleLabel(open, count);
+  const showFrame = framed && !open;
 
   return (
     <div
       className={
-        open
-          ? "space-y-2"
-            : "min-w-0 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-2.5"
+        showFrame
+          ? "min-w-0 space-y-2 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-2.5"
+          : "min-w-0 space-y-2"
       }
     >
-      <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href={href}
-          className={
-            open
-              ? `${titleClassName} flex min-w-0 items-center gap-2 whitespace-nowrap`
-              : `${titleClassName} flex min-w-0 items-center gap-2 whitespace-nowrap text-base font-semibold text-cyan-200 hover:text-cyan-100 sm:text-lg`
-          }
-        >
-          <span className="min-w-0 truncate">{blLabel}</span>
+      <div className="flex min-w-0 flex-col items-start gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Link
+            href={href}
+            className={
+              showFrame
+                ? `${titleClassName} min-w-0 break-words text-base font-semibold text-cyan-200 hover:text-cyan-100`
+                : `${titleClassName} min-w-0 break-words`
+            }
+          >
+            {blLabel}
+          </Link>
           <BuqueLlegadaBadge fechaLlegadaBuque={fechaLlegadaBuque} />
-        </Link>
+        </div>
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
