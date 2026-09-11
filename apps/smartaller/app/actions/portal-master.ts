@@ -1291,10 +1291,3 @@ export async function renovarAccesoDemoAction(input: {
   revalidateMaster();
   return { ok: true };
 }
-
-export function demoAccessIsExpiredForRow(row: {
-  esDemo: boolean;
-  demoExpiresAt: string | null;
-}): boolean {
-  return row.esDemo && isDemoExpired(row.demoExpiresAt);
-}
