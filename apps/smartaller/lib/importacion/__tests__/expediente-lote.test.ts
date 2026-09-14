@@ -145,16 +145,14 @@ describe("expediente lote vs unidad", () => {
       "bl_guia",
       "lista_empaque",
       "poliza_transporte",
+    ]);
+    assert.deepEqual([...DOCUMENTO_TIPOS_CARGA_BL_LLEGADA], [
       "acta_recepcion_mercancia",
       "constancia_edi_reconocimiento",
       "constancia_domicilio",
       "comprobante_inscripcion_tributaria",
       "acta_constitutiva",
     ]);
-    assert.deepEqual(
-      [...DOCUMENTO_TIPOS_CARGA_BL_LLEGADA],
-      [...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE]
-    );
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));

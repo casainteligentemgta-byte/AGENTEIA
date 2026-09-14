@@ -61,8 +61,8 @@ Carga **en el BL** (no en cada expediente):
 
 1. Nº de BL, fecha de llegada del buque, puerto, aduana y agente
 2. Factura de compra y certificado de origen
-
-BL, lista, póliza, acta de recepción y reconocimiento se cargan en **Llegada**.
+3. BL / Guía y lista de empaque
+4. Seguro / póliza de transporte (**opcional**)
 
 Y completa en la planilla de cada unidad, si aplica:
 
@@ -78,9 +78,6 @@ Y completa en la planilla de cada unidad, si aplica:
 
 1. **Fecha de ingreso al PL** (ingreso aduanero; no es la misma que la llegada del buque).
 2. En el BL (`/smartimport/lote?bl=…&etapa=llegada`) carga:
-   - BL / Guía
-   - Lista de embarque / empaque
-   - Póliza de transporte
    - **Acta de recepción de mercancía (AR)**
    - **Constancia EDI de la carga (Reconocimiento)**
    - Papeles del importador que falten (domicilio, inscripción tributaria, acta constitutiva)

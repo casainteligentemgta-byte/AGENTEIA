@@ -153,24 +153,35 @@ export const DOCUMENTO_TIPOS_CARGA_REGISTRO: readonly DocumentoTipo[] = [
 ];
 
 /**
- * Docs de toda la carga en Llegada (un PDF por BL).
- * Póliza = transporte de la carga, no el seguro del vehículo.
+ * Papeles de embarque en el BL. Póliza/seguro de transporte es opcional.
  * Partida, fotos y cuestionario siguen por expediente.
  */
-export const DOCUMENTO_TIPOS_CARGA_BL_LLEGADA: readonly DocumentoTipo[] = [
+export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE: readonly DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
   "poliza_transporte",
+];
+
+export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE_OPCIONALES: readonly DocumentoTipo[] =
+  ["poliza_transporte"];
+
+/** Factura, certificado, BL, lista y (opcional) seguro de transporte. */
+export const DOCUMENTO_TIPOS_PAPELES_EMBARQUE: readonly DocumentoTipo[] = [
+  ...DOCUMENTO_TIPOS_CARGA_REGISTRO,
+  ...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+];
+
+/**
+ * Docs de toda la carga en Llegada (un PDF por BL).
+ * BL, lista y seguro de transporte ya se cargaron en embarque.
+ */
+export const DOCUMENTO_TIPOS_CARGA_BL_LLEGADA: readonly DocumentoTipo[] = [
   "acta_recepcion_mercancia",
   "constancia_edi_reconocimiento",
   "constancia_domicilio",
   "comprobante_inscripcion_tributaria",
   "acta_constitutiva",
 ];
-
-/** @deprecated Usar DOCUMENTO_TIPOS_CARGA_BL_LLEGADA. */
-export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE =
-  DOCUMENTO_TIPOS_CARGA_BL_LLEGADA;
 
 export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
   "cedula_importador",
@@ -182,6 +193,7 @@ export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
 
 export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
   ...DOCUMENTO_TIPOS_CARGA_REGISTRO,
+  ...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   ...DOCUMENTO_TIPOS_CARGA_BL_LLEGADA,
   ...DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
 ];
@@ -310,9 +322,9 @@ function tieneDoc(
 }
 
 /**
- * Al guardar el lote: cierra embarque con nº BL + fecha del buque
- * (factura/certificado ya van en Registro). BL, lista y actas se cargan
- * en Llegada. No pisa registro ni etapas 4+.
+ * Al guardar el lote: cierra embarque con fecha del buque + BL + lista
+ * (seguro de transporte opcional). Llegada pide ingreso + AR + EDI.
+ * No pisa registro ni etapas 4+.
  */
 export function nextPlanillaFaseLote(params: {
   faseActual: number | null | undefined;
@@ -325,11 +337,12 @@ export function nextPlanillaFaseLote(params: {
     raw == null || !Number.isFinite(raw) || raw < 1 ? 1 : Math.floor(raw);
   if (fase !== 2 && fase !== 3) return fase;
 
-  const embarqueListo = Boolean(params.fechaLlegadaBuque?.trim());
+  const embarqueListo =
+    Boolean(params.fechaLlegadaBuque?.trim()) &&
+    tieneDoc(params.docs, "bl_guia") &&
+    tieneDoc(params.docs, "lista_empaque");
   const llegadaLoteLista =
     Boolean(params.fechaIngreso?.trim()) &&
-    tieneDoc(params.docs, "bl_guia") &&
-    tieneDoc(params.docs, "lista_empaque") &&
     tieneDoc(params.docs, "acta_recepcion_mercancia") &&
     tieneDoc(params.docs, "constancia_edi_reconocimiento");
 

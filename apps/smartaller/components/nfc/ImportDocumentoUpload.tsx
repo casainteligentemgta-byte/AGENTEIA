@@ -65,6 +65,8 @@ type Props = {
    * el OCR no debe cambiarlo ni dejar la UI en «Subiendo…».
    */
   skipOcr?: boolean;
+  /** Muestra chip «Opcional» junto al título. */
+  optional?: boolean;
 };
 
 const ACCEPT_BOTH =
@@ -90,6 +92,7 @@ export function ImportDocumentoUpload({
   initialImprontaVerify = null,
   onImprontaVerified,
   skipOcr = false,
+  optional = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -240,6 +243,17 @@ export function ImportDocumentoUpload({
               className={`flex flex-wrap items-center gap-2 text-sm font-medium ${light ? "text-zinc-800" : "text-slate-200"}`}
             >
               {DOCUMENTO_LABELS[tipo]}
+              {optional ? (
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                    light
+                      ? "bg-zinc-200 text-zinc-600"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  Opcional
+                </span>
+              ) : null}
               {done ? (
                 <span
                   className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${

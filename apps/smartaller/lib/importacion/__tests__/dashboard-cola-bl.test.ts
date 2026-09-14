@@ -211,7 +211,16 @@ describe("nextPlanillaFaseLote", () => {
     );
   });
 
-  it("cierra embarque con fecha del buque, sin exigir PDF de BL ni lista", () => {
+  it("cierra embarque con fecha del buque, BL y lista; el seguro es opcional", () => {
+    assert.equal(
+      nextPlanillaFaseLote({
+        faseActual: 2,
+        docs: embarqueDocs,
+        fechaLlegadaBuque: "2026-08-01",
+        fechaIngreso: null,
+      }),
+      3
+    );
     assert.equal(
       nextPlanillaFaseLote({
         faseActual: 2,
@@ -219,7 +228,7 @@ describe("nextPlanillaFaseLote", () => {
         fechaLlegadaBuque: "2026-08-01",
         fechaIngreso: null,
       }),
-      3
+      2
     );
     assert.equal(
       nextPlanillaFaseLote({
