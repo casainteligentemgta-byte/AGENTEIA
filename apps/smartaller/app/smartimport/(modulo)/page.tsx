@@ -259,8 +259,8 @@ function rowColaGrupoBl(
   const lineaHref =
     opts?.lineaHref ?? ((id: string) => `/smartimport/${id}`);
   const href =
-    (cola === 3 || yaEnLlegada) && sorted[0]
-      ? `/smartimport/${sorted[0].id}/planilla?fase=3`
+    cola === 3
+      ? cargaBlPath(blKey, undefined, "llegada")
       : cargaBlPath(blKey);
   return {
     id: `bl-${cola}-${blKey}`,

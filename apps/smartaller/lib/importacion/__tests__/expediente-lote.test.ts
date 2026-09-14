@@ -4,6 +4,7 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL,
   DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
   DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  DOCUMENTO_TIPOS_CARGA_BL_LLEGADA,
   DOCUMENTO_TIPOS_CARGA_REGISTRO,
   cargaBlPath,
   countDocumentosCargaBl,
@@ -150,6 +151,10 @@ describe("expediente lote vs unidad", () => {
       "comprobante_inscripcion_tributaria",
       "acta_constitutiva",
     ]);
+    assert.deepEqual(
+      [...DOCUMENTO_TIPOS_CARGA_BL_LLEGADA],
+      [...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE]
+    );
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("nacionalizacion"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("dav"));
     assert.ok(DOCUMENTO_TIPOS_CARGA_BL_DESADUANA.includes("pase_salida_levante"));
@@ -164,6 +169,14 @@ describe("expediente lote vs unidad", () => {
 
   it("ruta del cargador va por BL, o from si aún no hay número", () => {
     assert.equal(cargaBlPath(" cosu 123 "), "/smartimport/lote?bl=COSU123");
+    assert.equal(
+      cargaBlPath(" cosu 123 ", undefined, "llegada"),
+      "/smartimport/lote?bl=COSU123&etapa=llegada"
+    );
+    assert.equal(
+      cargaBlPath(" cosu 123 ", undefined, "embarque"),
+      "/smartimport/lote?bl=COSU123"
+    );
     assert.equal(
       cargaBlPath(null, "abc-uuid"),
       "/smartimport/lote?from=abc-uuid"

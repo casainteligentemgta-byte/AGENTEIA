@@ -211,11 +211,11 @@ describe("nextPlanillaFaseLote", () => {
     );
   });
 
-  it("cierra embarque con BL, lista y fecha del buque", () => {
+  it("cierra embarque con fecha del buque, sin exigir PDF de BL ni lista", () => {
     assert.equal(
       nextPlanillaFaseLote({
         faseActual: 2,
-        docs: embarqueDocs,
+        docs: {},
         fechaLlegadaBuque: "2026-08-01",
         fechaIngreso: null,
       }),

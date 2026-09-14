@@ -94,7 +94,7 @@ export function hrefDashboardColaLlegada(): string {
 }
 
 /**
- * Tras «Guardar datos en el BL»: el bloque hasta el botón es embarque.
+ * Tras «Guardar datos en el BL»: embarque termina en papeles de la carga.
  * Vuelve al dashboard anclado en esa cola.
  */
 export function hrefAfterGuardarDatosBl(): string {

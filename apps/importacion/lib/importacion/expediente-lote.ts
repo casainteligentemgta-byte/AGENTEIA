@@ -153,11 +153,11 @@ export const DOCUMENTO_TIPOS_CARGA_REGISTRO: readonly DocumentoTipo[] = [
 ];
 
 /**
- * Docs de toda la carga (un PDF por BL).
+ * Docs de toda la carga en Llegada (un PDF por BL).
  * Póliza = transporte de la carga, no el seguro del vehículo.
  * Partida, fotos y cuestionario siguen por expediente.
  */
-export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE: readonly DocumentoTipo[] = [
+export const DOCUMENTO_TIPOS_CARGA_BL_LLEGADA: readonly DocumentoTipo[] = [
   "bl_guia",
   "lista_empaque",
   "poliza_transporte",
@@ -167,6 +167,10 @@ export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE: readonly DocumentoTipo[] = [
   "comprobante_inscripcion_tributaria",
   "acta_constitutiva",
 ];
+
+/** @deprecated Usar DOCUMENTO_TIPOS_CARGA_BL_LLEGADA. */
+export const DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE =
+  DOCUMENTO_TIPOS_CARGA_BL_LLEGADA;
 
 export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
   "cedula_importador",
@@ -178,7 +182,7 @@ export const DOCUMENTO_TIPOS_CARGA_BL_DESADUANA: readonly DocumentoTipo[] = [
 
 export const DOCUMENTO_TIPOS_CARGA_BL: readonly DocumentoTipo[] = [
   ...DOCUMENTO_TIPOS_CARGA_REGISTRO,
-  ...DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  ...DOCUMENTO_TIPOS_CARGA_BL_LLEGADA,
   ...DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
 ];
 
@@ -195,10 +199,14 @@ export function numeroBlFromScan(
 
 export function cargaBlPath(
   numeroBl: string | null | undefined,
-  fromVehiculoId?: string | null
+  fromVehiculoId?: string | null,
+  etapa?: "embarque" | "llegada"
 ): string {
   const key = normalizeLoteBlKey(numeroBl);
-  if (key) return `/smartimport/lote?bl=${encodeURIComponent(key)}`;
+  if (key) {
+    const base = `/smartimport/lote?bl=${encodeURIComponent(key)}`;
+    return etapa === "llegada" ? `${base}&etapa=llegada` : base;
+  }
   const from = (fromVehiculoId ?? "").trim();
   if (from) return `/smartimport/lote?from=${encodeURIComponent(from)}`;
   return "/smartimport/lote";
@@ -302,9 +310,9 @@ function tieneDoc(
 }
 
 /**
- * Al guardar el lote: cierra embarque (BL + lista + fecha buque) y
- * llegada de carga (ingreso + AR + EDI). No pisa registro ni etapas 4+.
- * Fotos y cuestionario no entran: siguen en cada expediente.
+ * Al guardar el lote: cierra embarque con nº BL + fecha del buque
+ * (factura/certificado ya van en Registro). BL, lista y actas se cargan
+ * en Llegada. No pisa registro ni etapas 4+.
  */
 export function nextPlanillaFaseLote(params: {
   faseActual: number | null | undefined;
@@ -317,12 +325,11 @@ export function nextPlanillaFaseLote(params: {
     raw == null || !Number.isFinite(raw) || raw < 1 ? 1 : Math.floor(raw);
   if (fase !== 2 && fase !== 3) return fase;
 
-  const embarqueListo =
-    tieneDoc(params.docs, "bl_guia") &&
-    tieneDoc(params.docs, "lista_empaque") &&
-    Boolean(params.fechaLlegadaBuque?.trim());
+  const embarqueListo = Boolean(params.fechaLlegadaBuque?.trim());
   const llegadaLoteLista =
     Boolean(params.fechaIngreso?.trim()) &&
+    tieneDoc(params.docs, "bl_guia") &&
+    tieneDoc(params.docs, "lista_empaque") &&
     tieneDoc(params.docs, "acta_recepcion_mercancia") &&
     tieneDoc(params.docs, "constancia_edi_reconocimiento");
 
