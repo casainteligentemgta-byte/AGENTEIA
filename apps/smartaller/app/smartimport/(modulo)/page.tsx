@@ -22,6 +22,7 @@ import {
 } from "@/components/nfc/PuertoLibreDashboardBucket";
 import { PuertoLibreDashboardTodosList } from "@/components/nfc/PuertoLibreDashboardTodosList";
 import { LlmUsagePanel } from "@/components/nfc/LlmUsagePanel";
+import { SmartImportNovedades } from "@/components/nfc/SmartImportNovedades";
 import {
   canAccessAllImportacionData,
   isImportacionUsuarioOnly,
@@ -723,6 +724,7 @@ export default async function PuertoLibrePage() {
             Expediente de Importación Vehicular
           </h1>
         </div>
+        <SmartImportNovedades />
         {puedeMutar ? (
           <div className="space-y-2">
             <div className="grid w-full grid-cols-3 gap-1.5">

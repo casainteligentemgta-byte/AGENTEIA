@@ -16,9 +16,11 @@ import {
   hrefDashboardCola,
   hrefDashboardColaEmbarque,
   hrefDashboardColaLlegada,
+  isImportacionPublicAppPath,
   SMARTIMPORT_DEMO_EXPEDIENTE_PATH,
   SMARTIMPORT_DEMO_FASES_PATH,
   SMARTIMPORT_DEMO_PATH,
+  SMARTIMPORT_VALIDACION_PATH,
 } from "../paths";
 
 describe("hrefAfterFase2Embarque", () => {
@@ -90,5 +92,12 @@ describe("demo cliente", () => {
       "/smartimport/expediente-demo"
     );
     assert.equal(SMARTIMPORT_DEMO_FASES_PATH, "/smartimport/demo-fases");
+  });
+
+  it("validación con el cliente es pública y cuelga de /smartimport", () => {
+    assert.equal(SMARTIMPORT_VALIDACION_PATH, "/smartimport/validacion");
+    assert.equal(isImportacionPublicAppPath("/smartimport/demo"), true);
+    assert.equal(isImportacionPublicAppPath("/smartimport/validacion"), true);
+    assert.equal(isImportacionPublicAppPath("/smartimport"), false);
   });
 });

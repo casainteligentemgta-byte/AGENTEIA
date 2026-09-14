@@ -35,7 +35,7 @@ import {
   parseDemoCuestionario,
   type DemoCuestionario,
 } from "@/lib/importacion/demo-cliente";
-import { IMPORTACION_BASE } from "@/lib/importacion/paths";
+import { IMPORTACION_BASE, SMARTIMPORT_VALIDACION_PATH } from "@/lib/importacion/paths";
 import { REGIMEN_IMPORTACION_LABELS, REGIMENES_IMPORTACION } from "@/lib/importacion/regimenes";
 
 type DemoTab = "guion" | "probar" | "cuestionario" | "mapa";
@@ -191,6 +191,13 @@ export function SmartImportDemoCliente() {
             Tres escenas (extraer, cola, PDF SENIAT) y un cuestionario que
             cierra en un mapa de deseos para mandar al día siguiente.
           </p>
+          <Link
+            href={SMARTIMPORT_VALIDACION_PATH}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-cyan-400 hover:text-cyan-300 print:hidden"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Cuestionario de validación fase a fase →
+          </Link>
         </header>
 
         <div

@@ -4,6 +4,7 @@ import {
   canonicalizeImportacionPath,
   IMPORTACION_BASE,
   isImportacionAppPath,
+  isImportacionPublicAppPath,
 } from "@/lib/importacion/paths";
 import {
   isDemoExpired,
@@ -15,12 +16,10 @@ function isImportacionLogin(pathname: string): boolean {
   return pathname === `${IMPORTACION_BASE}/login`;
 }
 
-function isImportacionDemo(pathname: string): boolean {
-  return pathname === `${IMPORTACION_BASE}/demo`;
-}
-
 function isProtectedPath(pathname: string): boolean {
-  if (isImportacionLogin(pathname) || isImportacionDemo(pathname)) return false;
+  if (isImportacionLogin(pathname) || isImportacionPublicAppPath(pathname)) {
+    return false;
+  }
   return (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/app") ||
