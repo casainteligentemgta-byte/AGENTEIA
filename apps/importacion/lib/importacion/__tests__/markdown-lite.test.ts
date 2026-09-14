@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseMarkdownLite } from "../markdown-lite";
+import { groupMarkdownSections, parseMarkdownLite } from "../markdown-lite";
 
 describe("parseMarkdownLite", () => {
   it("parsea título, tabla y lista", () => {
@@ -23,5 +23,16 @@ describe("parseMarkdownLite", () => {
       assert.deepEqual(blocks[1].rows, [["VIN", "☐"]]);
     }
     assert.deepEqual(blocks[2], { type: "ul", items: ["Uno", "Dos"] });
+  });
+});
+
+describe("groupMarkdownSections", () => {
+  it("parte por h2 y genera slugs", () => {
+    const sections = groupMarkdownSections(
+      parseMarkdownLite("# T\n\nIntro\n\n## Fase 1 — Registro\n\nHola\n")
+    );
+    assert.equal(sections[0]?.slug, "intro");
+    assert.equal(sections[1]?.slug, "fase-1-registro");
+    assert.equal(sections[1]?.title, "Fase 1 — Registro");
   });
 });

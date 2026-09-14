@@ -114,3 +114,35 @@ export function parseMarkdownLite(md: string): MarkdownBlock[] {
 
   return blocks;
 }
+
+export type MarkdownSection = { slug: string; title: string | null; blocks: MarkdownBlock[] };
+
+export function slugifyHeading(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72);
+}
+
+export function groupMarkdownSections(blocks: MarkdownBlock[]): MarkdownSection[] {
+  const sections: MarkdownSection[] = [];
+  let current: MarkdownSection = { slug: "intro", title: null, blocks: [] };
+  for (const block of blocks) {
+    if (block.type === "h" && block.level === 2) {
+      if (current.title !== null || current.blocks.length) sections.push(current);
+      current = {
+        slug: slugifyHeading(block.text) || `seccion-${sections.length + 1}`,
+        title: block.text,
+        blocks: [],
+      };
+      continue;
+    }
+    current.blocks.push(block);
+  }
+  if (current.title !== null || current.blocks.length) sections.push(current);
+  return sections;
+}
+
