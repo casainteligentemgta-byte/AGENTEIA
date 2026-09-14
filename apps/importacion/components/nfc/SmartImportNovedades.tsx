@@ -5,9 +5,9 @@ import Link from "next/link";
 import { ClipboardList, FileStack, Sparkles, X } from "lucide-react";
 import { SMARTIMPORT_VALIDACION_PATH } from "@/lib/importacion/paths";
 
-const STORAGE_KEY = "smartimport-novedades-20260914";
+const STORAGE_KEY = "smartimport-novedades-20260914-deploy";
 
-export function SmartImportNovedades() {
+export function SmartImportNovedades({ deploySha }: { deploySha?: string }) {
   const [visible, setVisible] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -29,7 +29,14 @@ export function SmartImportNovedades() {
       <div className="flex items-start gap-2">
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-sm font-semibold text-cyan-100">Novedades</p>
+          <p className="text-sm font-semibold text-cyan-100">
+            Novedades
+            {deploySha ? (
+              <span className="ml-2 font-mono text-[10px] font-normal uppercase tracking-wide text-cyan-400/80">
+                {deploySha.slice(0, 7)}
+              </span>
+            ) : null}
+          </p>
           <ul className="space-y-2 text-sm leading-relaxed text-slate-300">
             <li>
               Los <strong className="font-medium text-slate-100">papeles de la carga</strong>{" "}

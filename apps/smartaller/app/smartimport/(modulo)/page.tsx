@@ -724,7 +724,9 @@ export default async function PuertoLibrePage() {
             Expediente de Importación Vehicular
           </h1>
         </div>
-        <SmartImportNovedades />
+        <SmartImportNovedades
+          deploySha={process.env.VERCEL_GIT_COMMIT_SHA}
+        />
         {puedeMutar ? (
           <div className="space-y-2">
             <div className="grid w-full grid-cols-3 gap-1.5">
