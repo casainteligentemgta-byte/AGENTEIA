@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileUp, Save, Ship, UserRound } from "lucide-react";
@@ -18,8 +18,9 @@ import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import {
   DOCUMENTO_TIPOS_CARGA_BL,
+  DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE_OPCIONALES,
   DOCUMENTO_TIPOS_CARGA_BL_LLEGADA,
-  DOCUMENTO_TIPOS_CARGA_REGISTRO,
+  DOCUMENTO_TIPOS_PAPELES_EMBARQUE,
   cargaBlPath,
 } from "@/lib/importacion/expediente-lote";
 import {
@@ -43,7 +44,8 @@ const DOC_HINT: Partial<Record<DocumentoTipo, string>> = {
   certificado_origen: "Certificado de origen de la carga · se copia a cada expediente",
   bl_guia: "Un PDF o foto · se anexa a todos los expedientes de este BL",
   lista_empaque: "Lista de empaque de toda la carga",
-  poliza_transporte: "Póliza de la carga (transporte), no el seguro del auto",
+  poliza_transporte:
+    "Opcional · seguro de transporte de la carga, no el del auto",
   acta_recepcion_mercancia: "Acta de recepción de la mercancía",
   constancia_edi_reconocimiento: "Reconocimiento / constancia EDI",
   cedula_importador: "Del cliente, o cárgala aquí",
@@ -68,6 +70,7 @@ function CargaBlDocSection({
   title,
   hint,
   tipos,
+  optionalTipos = [],
   docs,
   sourceVehiculoId,
   onUploaded,
@@ -75,6 +78,7 @@ function CargaBlDocSection({
   title: string;
   hint: string;
   tipos: readonly DocumentoTipo[];
+  optionalTipos?: readonly DocumentoTipo[];
   docs: VehiculosDocumentos;
   sourceVehiculoId: string;
   onUploaded: (
@@ -83,14 +87,15 @@ function CargaBlDocSection({
     loteCopiados: number
   ) => void;
 }) {
-  const count = tipos.filter((tipo) => docs[tipo]?.url).length;
+  const requiredTipos = tipos.filter((tipo) => !optionalTipos.includes(tipo));
+  const count = requiredTipos.filter((tipo) => docs[tipo]?.url).length;
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
         <FileUp className="h-5 w-5 text-cyan-400" />
         {title}
         <span className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-          {count}/{tipos.length}
+          {count}/{requiredTipos.length}
         </span>
       </h2>
       <p className="mt-1 text-xs text-slate-500">{hint}</p>
@@ -105,6 +110,7 @@ function CargaBlDocSection({
             hint={docs[tipo]?.url ? "" : DOC_HINT[tipo]}
             actionLabel={docs[tipo]?.url ? "Sustituir" : "Cargar"}
             skipOcr
+            optional={optionalTipos.includes(tipo)}
             onUploaded={(next, meta) => {
               onUploaded(next, tipo, meta?.loteCopiados ?? 0);
             }}
@@ -141,11 +147,11 @@ export function PuertoLibreCargaBlLoteView({
 
   const etapaTipos = esLlegada
     ? DOCUMENTO_TIPOS_CARGA_BL_LLEGADA
-    : DOCUMENTO_TIPOS_CARGA_REGISTRO;
-  const docsCount = useMemo(
-    () => etapaTipos.filter((tipo) => docs[tipo]?.url).length,
-    [docs, etapaTipos]
-  );
+    : DOCUMENTO_TIPOS_PAPELES_EMBARQUE.filter(
+        (tipo) =>
+          !DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE_OPCIONALES.includes(tipo)
+      );
+  const docsCount = etapaTipos.filter((tipo) => docs[tipo]?.url).length;
 
   const extraPuertos = parsePuertosDescarga(puerto).filter(
     (p) =>
@@ -346,7 +352,7 @@ export function PuertoLibreCargaBlLoteView({
       {esLlegada ? (
         <CargaBlDocSection
           title="Papeles de llegada"
-          hint="BL, lista, póliza de la carga, acta de recepción, reconocimiento y papeles del importador que falten."
+          hint="Acta de recepción, reconocimiento y papeles del importador que falten."
           tipos={DOCUMENTO_TIPOS_CARGA_BL_LLEGADA}
           docs={docs}
           sourceVehiculoId={lote.sourceVehiculoId}
@@ -355,8 +361,9 @@ export function PuertoLibreCargaBlLoteView({
       ) : (
         <CargaBlDocSection
           title="Papeles de la carga"
-          hint="Factura y certificado de origen son de toda la carga. Se copian a cada expediente al individualizar."
-          tipos={DOCUMENTO_TIPOS_CARGA_REGISTRO}
+          hint="Factura, certificado, BL y lista son de toda la carga. El seguro de transporte es opcional."
+          tipos={DOCUMENTO_TIPOS_PAPELES_EMBARQUE}
+          optionalTipos={DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE_OPCIONALES}
           docs={docs}
           sourceVehiculoId={lote.sourceVehiculoId}
           onUploaded={handleUploaded}
