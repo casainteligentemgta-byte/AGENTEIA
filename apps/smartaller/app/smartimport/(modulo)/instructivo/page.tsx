@@ -152,6 +152,14 @@ const TIPS = [
     href: "/smartimport/demo",
     cta: "Abrir demo",
   },
+  {
+    icon: ClipboardList,
+    titulo: "Validar el flujo con el cliente",
+    texto:
+      "Cuestionario fase a fase (datos, documentos y funciones extra) para imprimir o completar en reunión.",
+    href: "/smartimport/validacion",
+    cta: "Abrir validación",
+  },
 ] as const;
 
 export default function InstructivoImportacionPage() {

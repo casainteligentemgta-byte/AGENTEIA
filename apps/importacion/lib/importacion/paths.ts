@@ -2,6 +2,9 @@
 export const IMPORTACION_BASE = "/smartimport" as const;
 /** Guion de demo a cliente + cuestionario de afinado. */
 export const SMARTIMPORT_DEMO_PATH = `${IMPORTACION_BASE}/demo` as const;
+/** Cuestionario profesional de validación de fases (público, imprimible). */
+export const SMARTIMPORT_VALIDACION_PATH =
+  `${IMPORTACION_BASE}/validacion` as const;
 /** Carga precargada (requiere sesión): 3 expedientes + PDF de la nube. */
 export const SMARTIMPORT_DEMO_EXPEDIENTE_PATH =
   `${IMPORTACION_BASE}/expediente-demo` as const;
@@ -35,6 +38,14 @@ export function isImportacionAppPath(path: string): boolean {
   return (
     normalized === IMPORTACION_BASE ||
     normalized.startsWith(`${IMPORTACION_BASE}/`)
+  );
+}
+
+/** Rutas SmartImport que no exigen sesión (demo y validación con cliente). */
+export function isImportacionPublicAppPath(pathname: string): boolean {
+  return (
+    pathname === SMARTIMPORT_DEMO_PATH ||
+    pathname === SMARTIMPORT_VALIDACION_PATH
   );
 }
 
