@@ -24,7 +24,6 @@ import {
   DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
   DOCUMENTO_TIPOS_CARGA_REGISTRO,
   cargaBlPath,
-  normalizeLoteBlKey,
 } from "@/lib/importacion/expediente-lote";
 import {
   PUERTOS_DESCARGA_VENEZUELA,
@@ -32,7 +31,10 @@ import {
   primaryPuertoDescarga,
   resolvePuertoDescarga,
 } from "@/lib/importacion/puertos-venezuela";
-import { hrefDashboardColaLlegada } from "@/lib/importacion/paths";
+import {
+  hrefAfterGuardarDatosBl,
+  hrefDashboardColaLlegada,
+} from "@/lib/importacion/paths";
 import {
   DOCUMENTO_LABELS,
   type DocumentoTipo,
@@ -145,15 +147,6 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
       )
   );
 
-  function applySavedBl(savedBl: string) {
-    const nextKey = normalizeLoteBlKey(savedBl);
-    const prevKey = normalizeLoteBlKey(lote.numeroBl);
-    if (nextKey && nextKey !== prevKey) {
-      router.replace(cargaBlPath(savedBl));
-    }
-    router.refresh();
-  }
-
   function saveDatos() {
     setError(null);
     startTransition(async () => {
@@ -170,16 +163,7 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
         setError(result.error);
         return;
       }
-      const extra =
-        result.loteCopiados > 0
-          ? ` · ${result.loteCopiados + 1} expedientes`
-          : "";
-      const faseNote =
-        result.fasesAvanzadas > 0
-          ? ` · ${result.fasesAvanzadas} pasaron de etapa`
-          : "";
-      setMessage(`Datos de la carga guardados en el BL${extra}${faseNote}.`);
-      applySavedBl(result.numeroBl);
+      router.push(hrefAfterGuardarDatosBl());
     });
   }
 
@@ -259,12 +243,11 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Ship className="h-5 w-5 text-cyan-400" />
-          Datos de la carga
+          Datos de embarque
         </h2>
         <p className="mt-1 text-xs text-slate-500">
           Nº de BL, llegada del buque, ingreso al PL y agente. Se escriben en
-          todos los expedientes de esta carga. Con BL, lista y fecha del buque
-          cierran embarque; con ingreso, AR y EDI cierran la llegada.
+          todos los expedientes de esta carga.
         </p>
         {lote.importadorNombre ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-300">

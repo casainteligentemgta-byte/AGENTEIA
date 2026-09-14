@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DASHBOARD_COLA_DESADUANAMIENTO_ID,
+  DASHBOARD_COLA_EMBARQUE_ID,
   DASHBOARD_COLA_INSPECCION_ID,
   DASHBOARD_COLA_LLEGADA_ID,
   DASHBOARD_COLA_MATRICULA_ID,
@@ -11,7 +12,9 @@ import {
   DASHBOARD_COLA_REGISTRO_ID,
   DASHBOARD_COLA_SEGURO_ID,
   hrefAfterFase2Embarque,
+  hrefAfterGuardarDatosBl,
   hrefDashboardCola,
+  hrefDashboardColaEmbarque,
   hrefDashboardColaLlegada,
   SMARTIMPORT_DEMO_EXPEDIENTE_PATH,
   SMARTIMPORT_DEMO_FASES_PATH,
@@ -36,6 +39,17 @@ describe("hrefAfterFase2Embarque", () => {
       hrefAfterFase2Embarque("ficha", "abc-uuid"),
       "/smartimport/abc-uuid"
     );
+  });
+});
+
+describe("hrefAfterGuardarDatosBl", () => {
+  it("Guardar datos en el BL abre el dashboard en embarque", () => {
+    assert.equal(hrefAfterGuardarDatosBl(), hrefDashboardColaEmbarque());
+    assert.equal(
+      hrefDashboardColaEmbarque(),
+      `/smartimport#${DASHBOARD_COLA_EMBARQUE_ID}`
+    );
+    assert.equal(hrefDashboardCola(2), "/smartimport#cola-embarque");
   });
 });
 
