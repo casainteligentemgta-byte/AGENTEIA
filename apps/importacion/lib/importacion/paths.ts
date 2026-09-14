@@ -72,9 +72,22 @@ export const DASHBOARD_COLA_IDS = {
   10: DASHBOARD_COLA_PLACA_ID,
 } as const;
 
+/** Dashboard anclado en Por completar embarque. */
+export function hrefDashboardColaEmbarque(): string {
+  return `${IMPORTACION_BASE}#${DASHBOARD_COLA_EMBARQUE_ID}`;
+}
+
 /** Dashboard anclado en Por completar llegada. */
 export function hrefDashboardColaLlegada(): string {
   return `${IMPORTACION_BASE}#${DASHBOARD_COLA_LLEGADA_ID}`;
+}
+
+/**
+ * Tras «Guardar datos en el BL»: el bloque hasta el botón es embarque.
+ * Vuelve al dashboard anclado en esa cola.
+ */
+export function hrefAfterGuardarDatosBl(): string {
+  return hrefDashboardColaEmbarque();
 }
 
 export function hrefDashboardCola(
