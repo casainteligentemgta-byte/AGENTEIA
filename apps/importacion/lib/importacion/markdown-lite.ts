@@ -6,7 +6,7 @@ export type MarkdownBlock =
   | { type: "table"; headers: string[]; rows: string[][] }
   | { type: "quote"; text: string };
 
-const TABLE_SEP = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
+const TABLE_SEP = /^\s*\|?[\s:|-]+\|?\s*$/;
 
 function splitTableRow(line: string): string[] {
   let s = line.trim();
@@ -59,20 +59,20 @@ export function parseMarkdownLite(md: string): MarkdownBlock[] {
       continue;
     }
 
-    if (trimmed.startsWith("|") && i + 1 < lines.length && TABLE_SEP.test((lines[i + 1] ?? "").trim())) {
-      const headers = splitTableRow(trimmed);
-      i += 2;
-      const rows: string[][] = [];
+    if (trimmed.startsWith("|")) {
+      const collected: string[][] = [];
       while (i < lines.length && (lines[i] ?? "").trim().startsWith("|")) {
         const rowLine = (lines[i] ?? "").trim();
-        if (TABLE_SEP.test(rowLine)) {
-          i += 1;
-          continue;
-        }
-        rows.push(splitTableRow(rowLine));
         i += 1;
+        if (TABLE_SEP.test(rowLine)) continue;
+        collected.push(splitTableRow(rowLine));
       }
-      blocks.push({ type: "table", headers, rows });
+      if (collected.length >= 2) {
+        const [headers, ...rows] = collected;
+        blocks.push({ type: "table", headers: headers ?? [], rows });
+      } else if (collected[0]) {
+        blocks.push({ type: "p", text: collected[0].join(" ") });
+      }
       continue;
     }
 
@@ -109,7 +109,11 @@ export function parseMarkdownLite(md: string): MarkdownBlock[] {
       para.push(next);
       i += 1;
     }
-    if (para.length) blocks.push({ type: "p", text: para.join(" ") });
+    if (para.length) {
+      blocks.push({ type: "p", text: para.join(" ") });
+      continue;
+    }
+    i += 1;
   }
 
   return blocks;

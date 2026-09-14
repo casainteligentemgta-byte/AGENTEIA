@@ -24,6 +24,11 @@ describe("parseMarkdownLite", () => {
     }
     assert.deepEqual(blocks[2], { type: "ul", items: ["Uno", "Dos"] });
   });
+
+  it("no se cuelga con filas | y separador de dos guiones", () => {
+    const blocks = parseMarkdownLite("| A | B |\n|--|--|\n| 1 | 2 |\n");
+    assert.equal(blocks[0]?.type, "table");
+  });
 });
 
 describe("groupMarkdownSections", () => {
