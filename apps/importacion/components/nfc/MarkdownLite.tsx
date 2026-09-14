@@ -1,8 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  parseMarkdownLite,
-  type MarkdownBlock,
-} from "@/lib/importacion/markdown-lite";
+import type { MarkdownBlock, MarkdownSection } from "@/lib/importacion/markdown-lite";
 
 function inline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
@@ -30,9 +27,9 @@ function BlockView({ block }: { block: MarkdownBlock }) {
       const cls =
         block.level === 1
           ? "text-2xl font-semibold tracking-tight text-zinc-50 print:text-zinc-900"
-          : block.level === 2
-            ? "text-lg font-semibold text-zinc-100 print:text-zinc-800"
-            : "mt-5 text-base font-semibold text-zinc-200 print:text-zinc-700";
+          : block.level === 3
+            ? "mt-5 text-base font-semibold text-zinc-200 print:text-zinc-700"
+            : "text-lg font-semibold text-zinc-100 print:text-zinc-800";
       const Tag = block.level === 1 ? "h1" : block.level === 2 ? "h2" : "h3";
       return <Tag className={cls}>{inline(block.text)}</Tag>;
     }
@@ -96,55 +93,70 @@ function BlockView({ block }: { block: MarkdownBlock }) {
   }
 }
 
-type Section = { title: string | null; blocks: MarkdownBlock[] };
+export function MarkdownSectionView({
+  sections,
+  hrefFor,
+  activeSlug,
+}: {
+  sections: MarkdownSection[];
+  hrefFor: (slug: string) => string;
+  activeSlug: string;
+}) {
+  const intro = sections.find((s) => s.slug === "intro");
+  const titled = sections.filter((s) => s.slug !== "intro");
+  const active =
+    titled.find((s) => s.slug === activeSlug) ?? titled[0] ?? intro ?? sections[0];
 
-function groupSections(blocks: MarkdownBlock[]): Section[] {
-  const sections: Section[] = [];
-  let current: Section = { title: null, blocks: [] };
-  for (const block of blocks) {
-    if (block.type === "h" && block.level === 2) {
-      if (current.title !== null || current.blocks.length) sections.push(current);
-      current = { title: block.text, blocks: [] };
-      continue;
-    }
-    current.blocks.push(block);
-  }
-  if (current.title !== null || current.blocks.length) sections.push(current);
-  return sections;
-}
-
-export function MarkdownLite({ source }: { source: string }) {
-  const sections = groupSections(parseMarkdownLite(source));
   return (
-    <article className="space-y-3 print:space-y-6">
-      <style>{`@media print{details:not([open])>:not(summary){display:block!important}}`}</style>
-      {sections.map((section, i) => {
-        if (!section.title) {
-          return (
-            <div key={`intro-${i}`}>
-              {section.blocks.map((block, bi) => (
-                <BlockView key={bi} block={block} />
-              ))}
-            </div>
-          );
-        }
-        return (
-          <details
-            key={section.title}
-            open={i <= 1}
-            className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 print:border-0 print:bg-transparent print:p-0 [&_summary::-webkit-details-marker]:hidden"
-          >
-            <summary className="cursor-pointer list-none text-lg font-semibold text-zinc-100 print:cursor-default print:text-zinc-800">
-              {inline(section.title)}
-            </summary>
-            <div className="mt-3 print:mt-2">
-              {section.blocks.map((block, bi) => (
-                <BlockView key={bi} block={block} />
-              ))}
-            </div>
-          </details>
-        );
-      })}
+    <article className="space-y-4">
+      {intro ? (
+        <div>
+          {intro.blocks.map((block, bi) => (
+            <BlockView key={bi} block={block} />
+          ))}
+        </div>
+      ) : null}
+
+      <nav
+        aria-label="Secciones del cuestionario"
+        className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-3 print:hidden"
+      >
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Secciones
+        </p>
+        <ol className="grid gap-1 sm:grid-cols-2">
+          {titled.map((section) => {
+            const isActive = section.slug === active?.slug;
+            return (
+              <li key={section.slug}>
+                <a
+                  href={hrefFor(section.slug)}
+                  className={
+                    isActive
+                      ? "block rounded-lg bg-cyan-600 px-2.5 py-1.5 text-sm font-semibold text-white"
+                      : "block rounded-lg px-2.5 py-1.5 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+                  }
+                >
+                  {section.title}
+                </a>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      {active ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 print:border-0 print:bg-transparent print:p-0">
+          {active.title ? (
+            <h2 className="text-lg font-semibold text-zinc-100 print:text-zinc-800">
+              {inline(active.title)}
+            </h2>
+          ) : null}
+          {active.blocks.map((block, bi) => (
+            <BlockView key={bi} block={block} />
+          ))}
+        </section>
+      ) : null}
     </article>
   );
 }

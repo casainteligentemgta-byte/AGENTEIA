@@ -2,8 +2,12 @@ import Link from "next/link";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { CUESTIONARIO_VALIDACION_CLIENTE_MD } from "@/lib/importacion/cuestionario-validacion-cliente";
 import { CUESTIONARIO_VALIDACION_FLUJO_MD } from "@/lib/importacion/cuestionario-validacion-flujo";
+import {
+  groupMarkdownSections,
+  parseMarkdownLite,
+} from "@/lib/importacion/markdown-lite";
 import { IMPORTACION_BASE } from "@/lib/importacion/paths";
-import { MarkdownLite } from "@/components/nfc/MarkdownLite";
+import { MarkdownSectionView } from "@/components/nfc/MarkdownLite";
 import { PrintButton } from "@/components/nfc/PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -14,19 +18,28 @@ export const metadata = {
     "Cuestionario profesional para validar datos y documentos del flujo Puerto Libre con el cliente.",
 };
 
-type Search = { v?: string | string[] };
+type Search = { v?: string | string[]; s?: string | string[] };
+
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
 
 export default function SmartImportValidacionPage({
   searchParams,
 }: {
   searchParams: Search;
 }) {
-  const raw = Array.isArray(searchParams.v) ? searchParams.v[0] : searchParams.v;
-  const tab = raw === "flujo" ? "flujo" : "fases";
+  const tab = first(searchParams.v) === "flujo" ? "flujo" : "fases";
   const source =
     tab === "flujo"
       ? CUESTIONARIO_VALIDACION_FLUJO_MD
       : CUESTIONARIO_VALIDACION_CLIENTE_MD;
+  const sections = groupMarkdownSections(parseMarkdownLite(source));
+  const titled = sections.filter((s) => s.slug !== "intro");
+  const requested = first(searchParams.s);
+  const activeSlug =
+    titled.find((s) => s.slug === requested)?.slug ?? titled[0]?.slug ?? "intro";
+  const base = tab === "flujo" ? "/smartimport/validacion?v=flujo" : "/smartimport/validacion";
 
   return (
     <main className="smartimport-typography min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(8,145,178,0.12),_transparent_50%),linear-gradient(180deg,#070b12_0%,#0a1628_45%,#070b12_100%)] px-4 pb-16 pt-4 sm:px-6 print:bg-white print:px-0">
@@ -49,7 +62,7 @@ export default function SmartImportValidacionPage({
           </h1>
           <p className="text-sm leading-relaxed text-zinc-400 print:text-zinc-600">
             Revisa fase a fase si los datos y documentos son los de su
-            operación. Imprime o exporta a PDF desde el navegador.
+            operación. Una sección a la vez; imprime la que tengas abierta.
           </p>
         </header>
 
@@ -87,7 +100,15 @@ export default function SmartImportValidacionPage({
           <PrintButton />
         </div>
 
-        <MarkdownLite source={source} />
+        <MarkdownSectionView
+          sections={sections}
+          activeSlug={activeSlug}
+          hrefFor={(slug) =>
+            tab === "flujo"
+              ? `${base}&s=${encodeURIComponent(slug)}`
+              : `${base}?s=${encodeURIComponent(slug)}`
+          }
+        />
       </div>
     </main>
   );
