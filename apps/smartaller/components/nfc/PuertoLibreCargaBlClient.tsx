@@ -13,15 +13,12 @@ import {
   type CargaBlLote,
 } from "@/app/actions/nfc/importacion-lote";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
-import { PrecalculoArancelesCard } from "@/components/nfc/PrecalculoArancelesCard";
-import { PagoArancelesCard } from "@/components/nfc/PagoArancelesCard";
 import { formatUsd } from "@/lib/importacion/precalculo-aranceles";
 import { PlanillaFechaField } from "@/components/nfc/PlanillaFechaField";
 import { ADUANAS_VENEZUELA } from "@/lib/importacion/aduanas-venezuela";
 import {
   DOCUMENTO_TIPOS_CARGA_BL,
-  DOCUMENTO_TIPOS_CARGA_BL_DESADUANA,
-  DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE,
+  DOCUMENTO_TIPOS_CARGA_BL_LLEGADA,
   DOCUMENTO_TIPOS_CARGA_REGISTRO,
   cargaBlPath,
 } from "@/lib/importacion/expediente-lote";
@@ -118,8 +115,15 @@ function CargaBlDocSection({
   );
 }
 
-export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
+export function PuertoLibreCargaBlLoteView({
+  lote,
+  etapa = "embarque",
+}: {
+  lote: CargaBlLote;
+  etapa?: "embarque" | "llegada";
+}) {
   const router = useRouter();
+  const esLlegada = etapa === "llegada";
   const [docs, setDocs] = useState<VehiculosDocumentos>(
     lote.documentos as VehiculosDocumentos
   );
@@ -135,9 +139,12 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const etapaTipos = esLlegada
+    ? DOCUMENTO_TIPOS_CARGA_BL_LLEGADA
+    : DOCUMENTO_TIPOS_CARGA_REGISTRO;
   const docsCount = useMemo(
-    () => DOCUMENTO_TIPOS_CARGA_BL.filter((tipo) => docs[tipo]?.url).length,
-    [docs]
+    () => etapaTipos.filter((tipo) => docs[tipo]?.url).length,
+    [docs, etapaTipos]
   );
 
   const extraPuertos = parsePuertosDescarga(puerto).filter(
@@ -226,12 +233,15 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
             />
           </label>
           <p className="mt-1 text-sm text-slate-400">
+            {esLlegada ? "Llegada" : "Embarque"}
+            {" · "}
             {lote.unidades.length} expediente
             {lote.unidades.length === 1 ? "" : "s"}
             {lote.importadorNombre ? ` · ${lote.importadorNombre}` : ""}
             {" · "}
-            {docsCount}/{DOCUMENTO_TIPOS_CARGA_BL.length} papeles. Partida,
-            fotos y cuestionario siguen en cada expediente.
+            {docsCount}/{etapaTipos.length} papeles
+            {esLlegada ? " de llegada" : " de la carga"}. Partida, fotos y
+            cuestionario siguen en cada expediente.
           </p>
           <BuqueTrackingChip
             numeroBl={numeroBl}
@@ -243,11 +253,12 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Ship className="h-5 w-5 text-cyan-400" />
-          Datos de embarque
+          {esLlegada ? "Datos de llegada" : "Datos de embarque"}
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Nº de BL, llegada del buque, ingreso al PL y agente. Se escriben en
-          todos los expedientes de esta carga.
+          {esLlegada
+            ? "Fecha de ingreso al PL. Se escribe en todos los expedientes de esta carga."
+            : "Nº de BL, llegada del buque, puerto, aduana y agente. Se escriben en todos los expedientes de esta carga."}
         </p>
         {lote.importadorNombre ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-300">
@@ -256,129 +267,101 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
           </p>
         ) : null}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">Nº BL / Guía *</span>
-            <input
-              value={numeroBl}
-              onChange={(e) => setNumeroBl(e.target.value.toUpperCase())}
-              placeholder="Nº de BL"
-              required
-              className={`${INPUT_CLASS} font-mono uppercase`}
+          {esLlegada ? (
+            <PlanillaFechaField
+              label="Fecha de ingreso al PL"
+              name="fechaIngreso"
+              value={fechaIngreso}
+              onChange={setFechaIngreso}
             />
-          </label>
-          <PlanillaFechaField
-            label="Fecha de llegada del buque"
-            name="fechaLlegadaBuque"
-            value={fechaLlegadaBuque}
-            onChange={setFechaLlegadaBuque}
-          />
-          <PlanillaFechaField
-            label="Fecha de ingreso al PL"
-            name="fechaIngreso"
-            value={fechaIngreso}
-            onChange={setFechaIngreso}
-          />
-          <label className="block min-w-0 space-y-1.5">
-            <span className="text-sm text-slate-400">Puerto de descarga</span>
-            <select
-              value={primaryPuertoDescarga(puerto)}
-              onChange={(e) => setPuerto(e.target.value)}
-              className={INPUT_CLASS}
-            >
-              <option value="">Selecciona puerto</option>
-              {PUERTOS_DESCARGA_VENEZUELA.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-              {extraPuertos.map((p) => (
-                <option key={p} value={p}>
-                  {resolvePuertoDescarga(p)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block min-w-0 space-y-1.5">
-            <span className="text-sm text-slate-400">Aduana</span>
-            <select
-              value={aduana}
-              onChange={(e) => setAduana(e.target.value)}
-              className={INPUT_CLASS}
-            >
-              <option value="">Selecciona aduana</option>
-              {ADUANAS_VENEZUELA.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block min-w-0 space-y-1.5 sm:col-span-2">
-            <span className="text-sm text-slate-400">
-              Nombre del agente aduanal
-            </span>
-            <input
-              value={agenteAduanal}
-              onChange={(e) => setAgenteAduanal(e.target.value)}
-              placeholder="Como figura en la constancia"
-              className={INPUT_CLASS}
-            />
-          </label>
+          ) : (
+            <>
+              <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+                <span className="text-sm text-slate-400">Nº BL / Guía *</span>
+                <input
+                  value={numeroBl}
+                  onChange={(e) => setNumeroBl(e.target.value.toUpperCase())}
+                  placeholder="Nº de BL"
+                  required
+                  className={`${INPUT_CLASS} font-mono uppercase`}
+                />
+              </label>
+              <PlanillaFechaField
+                label="Fecha de llegada del buque"
+                name="fechaLlegadaBuque"
+                value={fechaLlegadaBuque}
+                onChange={setFechaLlegadaBuque}
+              />
+              <label className="block min-w-0 space-y-1.5">
+                <span className="text-sm text-slate-400">Puerto de descarga</span>
+                <select
+                  value={primaryPuertoDescarga(puerto)}
+                  onChange={(e) => setPuerto(e.target.value)}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">Selecciona puerto</option>
+                  {PUERTOS_DESCARGA_VENEZUELA.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                  {extraPuertos.map((p) => (
+                    <option key={p} value={p}>
+                      {resolvePuertoDescarga(p)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 space-y-1.5">
+                <span className="text-sm text-slate-400">Aduana</span>
+                <select
+                  value={aduana}
+                  onChange={(e) => setAduana(e.target.value)}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">Selecciona aduana</option>
+                  {ADUANAS_VENEZUELA.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 space-y-1.5 sm:col-span-2">
+                <span className="text-sm text-slate-400">
+                  Nombre del agente aduanal
+                </span>
+                <input
+                  value={agenteAduanal}
+                  onChange={(e) => setAgenteAduanal(e.target.value)}
+                  placeholder="Como figura en la constancia"
+                  className={INPUT_CLASS}
+                />
+              </label>
+            </>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={saveDatos}
-          disabled={pending || !numeroBl.trim()}
-          className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
-        >
-          {pending ? "Guardando…" : "Guardar datos en el BL"}
-        </button>
       </section>
 
-      <CargaBlDocSection
-        title="Papeles de la carga"
-        hint="Factura y certificado de origen son de toda la carga. Se copian a cada expediente al individualizar."
-        tipos={DOCUMENTO_TIPOS_CARGA_REGISTRO}
-        docs={docs}
-        sourceVehiculoId={lote.sourceVehiculoId}
-        onUploaded={handleUploaded}
-      />
-
-      <CargaBlDocSection
-        title="Embarque y llegada"
-        hint="BL, lista, póliza de la carga, acta de recepción, reconocimiento y papeles del importador que falten."
-        tipos={DOCUMENTO_TIPOS_CARGA_BL_EMBARQUE}
-        docs={docs}
-        sourceVehiculoId={lote.sourceVehiculoId}
-        onUploaded={handleUploaded}
-      />
-
-      <CargaBlDocSection
-        title="Desaduanamiento del lote"
-        hint="Cédula y RIF del importador, DUA y DAV. El pase de salida va tras la liquidación (Pago impuesto)."
-        tipos={DOCUMENTO_TIPOS_CARGA_BL_DESADUANA}
-        docs={docs}
-        sourceVehiculoId={lote.sourceVehiculoId}
-        onUploaded={handleUploaded}
-      />
-
-      <PrecalculoArancelesCard
-        valorCif={lote.unidades[0]?.valorCif}
-        arancelPct={lote.unidades[0]?.arancelPct}
-        impuestoLujoPct={lote.unidades[0]?.impuestoLujoPct}
-        tasaCambioBcv={lote.unidades[0]?.tasaCambioBcv ?? undefined}
-        unidades={lote.unidades}
-        canEdit={false}
-      />
-
-      <PagoArancelesCard
-        valorCif={lote.unidades[0]?.valorCif}
-        arancelPct={lote.unidades[0]?.arancelPct}
-        impuestoLujoPct={lote.unidades[0]?.impuestoLujoPct}
-        tasaCambioBcv={lote.unidades[0]?.tasaCambioBcv}
-        unidades={lote.unidades}
-        canEdit={false}
-      />
+      {esLlegada ? (
+        <CargaBlDocSection
+          title="Papeles de llegada"
+          hint="BL, lista, póliza de la carga, acta de recepción, reconocimiento y papeles del importador que falten."
+          tipos={DOCUMENTO_TIPOS_CARGA_BL_LLEGADA}
+          docs={docs}
+          sourceVehiculoId={lote.sourceVehiculoId}
+          onUploaded={handleUploaded}
+        />
+      ) : (
+        <CargaBlDocSection
+          title="Papeles de la carga"
+          hint="Factura y certificado de origen son de toda la carga. Se copian a cada expediente al individualizar."
+          tipos={DOCUMENTO_TIPOS_CARGA_REGISTRO}
+          docs={docs}
+          sourceVehiculoId={lote.sourceVehiculoId}
+          onUploaded={handleUploaded}
+        />
+      )}
 
       {error ? (
         <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
@@ -393,12 +376,16 @@ export function PuertoLibreCargaBlLoteView({ lote }: { lote: CargaBlLote }) {
 
       <button
         type="button"
-        onClick={saveDatosYArchivos}
+        onClick={esLlegada ? saveDatosYArchivos : saveDatos}
         disabled={pending || !numeroBl.trim()}
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
       >
         <Save className="h-4 w-4" />
-        {pending ? "Guardando…" : "Guardar datos y archivos"}
+        {pending
+          ? "Guardando…"
+          : esLlegada
+            ? "Guardar llegada en el BL"
+            : "Guardar datos en el BL"}
       </button>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 sm:p-6">

@@ -57,20 +57,18 @@ Luego, si los tienes: CIF, tasa BCV, Nº expediente SENIAT, DAV.
 
 ## Fase 2 — Embarque
 
-Carga estos documentos:
+Carga **en el BL** (no en cada expediente):
 
-1. BL / Guía
-2. Lista de embarque / empaque
-3. DAV
-4. Póliza de transporte
+1. Nº de BL, fecha de llegada del buque, puerto, aduana y agente
+2. Factura de compra y certificado de origen
 
-Y completa:
+BL, lista, póliza, acta de recepción y reconocimiento se cargan en **Llegada**.
+
+Y completa en la planilla de cada unidad, si aplica:
 
 1. **Régimen** (ej. Puerto Libre)
-2. **Nº certificado de origen**
-3. **Observaciones** (unidad / llave)
-4. **Fecha de llegada del buque**
-5. **Puerto**, **tránsito/USO24**, **aduana**, **nº BL**, **país de origen**
+2. **Observaciones** (unidad / llave)
+3. **Tránsito/USO24**, **país de origen**
 
 **Continuar a Llegada.**
 
@@ -79,10 +77,14 @@ Y completa:
 ## Fase 3 — Llegada
 
 1. **Fecha de ingreso al PL** (ingreso aduanero; no es la misma que la llegada del buque).
-2. Documentos:
+2. En el BL (`/smartimport/lote?bl=…&etapa=llegada`) carga:
+   - BL / Guía
+   - Lista de embarque / empaque
+   - Póliza de transporte
    - **Acta de recepción de mercancía (AR)**
    - **Constancia EDI de la carga (Reconocimiento)**
-3. **Memoria fotográfica** (frontal, trasera, laterales, motor, impronta, odómetro, etc.).
+   - Papeles del importador que falten (domicilio, inscripción tributaria, acta constitutiva)
+3. En cada expediente: **partida arancelaria** y **memoria fotográfica** (frontal, trasera, laterales, motor, impronta, odómetro, etc.).
 4. **Foto de impronta**: el sistema verifica el serial. Debe coincidir con el del expediente. Si OCR no lee y eres operador, puedes confirmar revisión manual; si **no coincide**, corrige serial o vuelve a fotografiar.
 5. **Checklist** (cristales, llantas, luces, llaves, GPS, alarma, etc.) y notas de daño si aplica.
 

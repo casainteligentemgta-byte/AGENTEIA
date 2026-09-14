@@ -16,7 +16,7 @@ import { getUser } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams?: { bl?: string; from?: string };
+  searchParams?: { bl?: string; from?: string; etapa?: string };
 };
 
 export default async function CargaBlLotePage({ searchParams }: Props) {
@@ -39,7 +39,10 @@ export default async function CargaBlLotePage({ searchParams }: Props) {
     }
     return (
       <LoteShell>
-        <PuertoLibreCargaBlLoteView lote={result.lote} />
+        <PuertoLibreCargaBlLoteView
+          lote={result.lote}
+          etapa={searchParams?.etapa === "llegada" ? "llegada" : "embarque"}
+        />
       </LoteShell>
     );
   }
