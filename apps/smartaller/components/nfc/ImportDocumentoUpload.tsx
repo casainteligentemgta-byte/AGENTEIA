@@ -19,6 +19,7 @@ import {
 } from "@/lib/schemas/vehiculo-documentos";
 import { isDocumentoLote } from "@/lib/importacion/expediente-lote";
 import { compressImportDocForCellular } from "@/lib/importacion/compress-import-doc";
+import { extractImageCaptureDate } from "@/lib/importacion/fecha-foto";
 import { messageFromUploadResult } from "@/lib/importacion/upload-action-result";
 import { normalizeImageFileForUpload } from "@/lib/normalize-image-file";
 
@@ -67,6 +68,11 @@ type Props = {
   skipOcr?: boolean;
   /** Muestra chip «Opcional» junto al título. */
   optional?: boolean;
+  /**
+   * Se llama al detectar la fecha de captura de una imagen (EXIF o lastModified),
+   * antes de anotar/subir. Útil p. ej. para foto_frontal en inspección.
+   */
+  onImageCaptureDate?: (iso: string | null) => void;
 };
 
 const ACCEPT_BOTH =
@@ -93,6 +99,7 @@ export function ImportDocumentoUpload({
   onImprontaVerified,
   skipOcr = false,
   optional = false,
+  onImageCaptureDate,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -101,6 +108,7 @@ export function ImportDocumentoUpload({
   const [url, setUrl] = useState<string | null>(existingUrl ?? null);
   const [annotateUrl, setAnnotateUrl] = useState<string | null>(null);
   const [annotateName, setAnnotateName] = useState("foto.jpg");
+  const captureDateRef = useRef<string | null>(null);
   const [impronta, setImpronta] = useState<ImprontaVerifyUi | null>(
     initialImprontaVerify
   );
@@ -182,6 +190,9 @@ export function ImportDocumentoUpload({
         formData.set("tipo", tipo);
         formData.set("file", prepared);
         if (skipOcr) formData.set("skipOcr", "1");
+        if (captureDateRef.current) {
+          formData.set("capturedAt", captureDateRef.current);
+        }
 
         const result = await uploadPuertoLibreDocumentoAction(formData);
         if (!result?.success) {
@@ -208,6 +219,17 @@ export function ImportDocumentoUpload({
     setAnnotateUrl(null);
   }
 
+  async function detectCaptureDate(file: File) {
+    if (!isImageFile(file) || file.type === "application/pdf") {
+      captureDateRef.current = null;
+      onImageCaptureDate?.(null);
+      return;
+    }
+    const iso = await extractImageCaptureDate(file);
+    captureDateRef.current = iso;
+    onImageCaptureDate?.(iso);
+  }
+
   function handleFile(file: File | null) {
     if (!file) return;
     setError(null);
@@ -217,15 +239,19 @@ export function ImportDocumentoUpload({
       return;
     }
 
-    if (annotateBeforeUpload && isImageFile(file) && file.type !== "application/pdf") {
-      if (annotateUrl) URL.revokeObjectURL(annotateUrl);
-      const objectUrl = URL.createObjectURL(file);
-      setAnnotateName(file.name || "foto.jpg");
-      setAnnotateUrl(objectUrl);
-      return;
-    }
+    void (async () => {
+      await detectCaptureDate(file);
 
-    uploadAndMaybeVerify(file);
+      if (annotateBeforeUpload && isImageFile(file) && file.type !== "application/pdf") {
+        if (annotateUrl) URL.revokeObjectURL(annotateUrl);
+        const objectUrl = URL.createObjectURL(file);
+        setAnnotateName(file.name || "foto.jpg");
+        setAnnotateUrl(objectUrl);
+        return;
+      }
+
+      uploadAndMaybeVerify(file);
+    })();
   }
 
   return (
