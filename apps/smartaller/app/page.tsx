@@ -33,17 +33,20 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <div
-      className={`${figtree.variable} ${bricolage.variable} min-h-screen overflow-x-hidden bg-landing-bg pb-[env(safe-area-inset-bottom,0px)] font-landing-body text-base leading-[1.55] text-landing-text antialiased [scroll-padding-top:80px]`}
+      className={`${figtree.variable} ${bricolage.variable} landing-focus-scope min-h-screen bg-landing-bg pb-[env(safe-area-inset-bottom,0px)] font-landing-body text-base leading-[1.55] text-landing-text antialiased [scroll-padding-top:80px]`}
     >
       <Header />
-      <main id="inicio">
-        <Hero />
-        <ProofMetrics />
-        <Steps />
-        <Benefits />
-        <Closing />
-      </main>
-      <Footer />
+      {/* overflow-x en un hijo: si va en el mismo contenedor que el header, rompe position:sticky */}
+      <div className="overflow-x-hidden">
+        <main id="inicio">
+          <Hero />
+          <ProofMetrics />
+          <Steps />
+          <Benefits />
+          <Closing />
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 }
