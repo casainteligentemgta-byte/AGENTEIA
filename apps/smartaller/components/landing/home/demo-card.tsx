@@ -12,7 +12,7 @@ export function DemoCard() {
         <span>08:14</span>
       </div>
 
-      <div className="flex flex-col items-end gap-1.5 self-end rounded-[14px_14px_4px_14px] bg-landing-bubble p-2.5">
+      <div className="mx-auto flex flex-col items-center gap-1.5 self-center rounded-[14px] bg-landing-bubble p-2.5">
         <div className="grid h-[58px] w-[150px] place-items-center rounded-lg border-[3px] border-landing-bg bg-landing-plate font-landing-display text-[26px] font-bold tracking-[2px] text-landing-bg shadow-[0_0_0_2px_#E9EDF0] lp:h-[76px] lp:w-[200px] lp:border-4 lp:text-[34px] lp:tracking-[3px]">
           ABC·123
         </div>
