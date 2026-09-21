@@ -61,6 +61,8 @@ export async function uploadVehiculoDocumento(
     file: File;
     /** Por defecto true: fotos → PDF. */
     convertImagesToPdf?: boolean;
+    /** Fecha de captura EXIF/dispositivo (ISO o YYYY-MM-DD). */
+    capturedAt?: string | null;
   }
 ): Promise<VehiculoDocumentoRef> {
   const validationError = validateVehiculoDocumentoFile(params.file);
@@ -133,10 +135,16 @@ export async function uploadVehiculoDocumento(
 
   const { data: urlData } = supabase.storage.from(VEHICULO_DOCS_BUCKET).getPublicUrl(path);
 
+  const captured =
+    typeof params.capturedAt === "string" && params.capturedAt.trim()
+      ? params.capturedAt.trim()
+      : undefined;
+
   return {
     url: urlData.publicUrl,
     path,
     scanned_at: new Date().toISOString(),
+    ...(captured ? { captured_at: captured } : {}),
     file_name: fileName,
   };
 }

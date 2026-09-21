@@ -13,6 +13,8 @@ export const vehiculoDocumentoRefSchema = z.object({
   url: z.string().url(),
   path: z.string().min(1),
   scanned_at: z.string().optional(),
+  /** Fecha de captura de la foto (EXIF / dispositivo), ISO o YYYY-MM-DD. */
+  captured_at: z.string().optional(),
   file_name: z.string().optional(),
 });
 

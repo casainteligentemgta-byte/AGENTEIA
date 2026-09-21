@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { Camera } from "lucide-react";
 import { ImportDocumentoUpload } from "@/components/nfc/ImportDocumentoUpload";
 import {
@@ -14,6 +14,7 @@ import {
   type LlegadaChecklistRespuesta,
   type LlegadaChecklistState,
 } from "@/lib/importacion/llegada-catalog";
+import { formatFechaFotoInspeccion } from "@/lib/importacion/fecha-foto";
 import {
   MEMORIA_FOTOGRAFICA_TIPOS,
   type VehiculosDocumentos,
@@ -74,6 +75,18 @@ export function LlegadaRevisionSections({
   setOtrosNotas,
   onUploadedMessage,
 }: Props) {
+  const [fechaFotoFrontal, setFechaFotoFrontal] = useState<string | null>(
+    docs.foto_frontal?.captured_at ?? null
+  );
+
+  useEffect(() => {
+    const persisted = docs.foto_frontal?.captured_at ?? null;
+    if (persisted) setFechaFotoFrontal(persisted);
+    else if (!docs.foto_frontal?.url) setFechaFotoFrontal(null);
+  }, [docs.foto_frontal?.captured_at, docs.foto_frontal?.url]);
+
+  const fechaFotoLabel = formatFechaFotoInspeccion(fechaFotoFrontal);
+
   return (
     <>
       <section className="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-6 sm:px-6 sm:py-7">
@@ -84,7 +97,12 @@ export function LlegadaRevisionSections({
             {fotosCount}/{MEMORIA_FOTOGRAFICA_TIPOS.length}
           </span>
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
+        {fechaFotoLabel ? (
+          <p className="mt-2 text-sm font-medium text-cyan-300">
+            {fechaFotoLabel}
+          </p>
+        ) : null}
+        <p className={`text-sm text-slate-400 ${fechaFotoLabel ? "mt-1" : "mt-2"}`}>
           La hace el personal de la aduanera. Memoria descriptiva del vehículo.
           La impronta es opcional; si la cargas, el serial debe coincidir con el
           del expediente.
@@ -124,8 +142,19 @@ export function LlegadaRevisionSections({
                 setImprontaLeido(result.leido);
                 if (result.estado === "coincide") setForzarImpronta(false);
               }}
+              onImageCaptureDate={
+                tipo === "foto_frontal"
+                  ? (iso) => {
+                      if (iso) setFechaFotoFrontal(iso);
+                    }
+                  : undefined
+              }
               onUploaded={(next) => {
                 setDocs(next);
+                if (tipo === "foto_frontal") {
+                  const captured = next.foto_frontal?.captured_at;
+                  if (captured) setFechaFotoFrontal(captured);
+                }
                 onUploadedMessage(
                   tipo === "foto_impronta"
                     ? "Foto de impronta guardada · verificación de serial"
