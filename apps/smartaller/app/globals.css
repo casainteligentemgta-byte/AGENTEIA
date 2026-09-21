@@ -5,9 +5,22 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
   body {
     @apply bg-zinc-950 text-zinc-100 antialiased;
+  }
+  /* Foco visible al estilo de la landing (accent) */
+  .landing-focus-scope a:focus-visible,
+  .landing-focus-scope button:focus-visible {
+    outline: 2px solid #2bc7a0;
+    outline-offset: 3px;
+    border-radius: 6px;
   }
 }
 
