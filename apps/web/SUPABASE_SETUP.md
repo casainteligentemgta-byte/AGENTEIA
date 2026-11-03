@@ -42,5 +42,8 @@ El CLI necesita que el proyecto local esté vinculado a un proyecto en Supabase.
    - `20250209200000_create_agent_memory.sql` (habilita pgvector si no está)
    - `20250209210000_agent_profile_rls.sql`
    - **`20250703160000_missions_rls_by_user.sql`** (D7 — RLS por usuario)
+   - **`20261103120000_agent_memory_per_user.sql`** — `user_id` en `agent_memory`, RLS, RPC actualizado, tabla `chat_usage`
 
-**Atajo:** pega todo `supabase/setup-completo.sql` en instalación limpia, o solo **`supabase/deploy-rls-d7.sql`** si ya tienes las tablas y falta el fix D7.
+**Atajo:** pega todo `supabase/setup-completo.sql` en instalación limpia.
+
+Si el proyecto **ya tiene** las tablas, ejecuta solo `supabase/migrations/20261103120000_agent_memory_per_user.sql` (las memorias seed existentes quedan como sistema: `user_id` null, todos leen, nadie escribe).

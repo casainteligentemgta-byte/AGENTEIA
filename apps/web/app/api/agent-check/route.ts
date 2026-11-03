@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     ok: webConfigured,
     detail: webConfigured
       ? `activa (${webProvider})`
-      : "opcional: SERPER_API_KEY en serper.dev (plan gratis)",
+      : "opcional: falta SERPER_API_KEY — el chat sigue; webSearch avisa y no rompe",
   });
 
   if (hasSupabaseUrl && hasSupabaseKey) {
@@ -77,7 +77,19 @@ export async function GET(req: NextRequest) {
         ok: !memoryError,
         detail: memoryError
           ? memoryError.message
-          : `${count ?? 0} memorias — ejecuta npm run seed:memory si es 0`,
+          : `${count ?? 0} memorias visibles (sistema + propias). Seed: npm run seed:memory`,
+      });
+
+      const { error: quotaError } = await supabase
+        .from("chat_usage")
+        .select("message_count")
+        .limit(1);
+      checks.push({
+        name: "Cuota chat (chat_usage)",
+        ok: !quotaError,
+        detail: quotaError
+          ? `falta migración 20261103120000 — ${quotaError.message}`
+          : "tabla lista (tope diario por usuario)",
       });
     } catch (e) {
       checks.push({
@@ -106,7 +118,8 @@ export async function GET(req: NextRequest) {
       (c) =>
         c.name !== "Búsqueda web (Serper/Tavily)" &&
         c.name !== "Prueba búsqueda web" &&
-        c.name !== "RLS misiones (D7)"
+        c.name !== "RLS misiones (D7)" &&
+        c.name !== "Cuota chat (chat_usage)"
     )
     .every((c) => c.ok);
 

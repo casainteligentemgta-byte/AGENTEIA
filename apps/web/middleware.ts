@@ -1,20 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAuthRequired } from "@/lib/auth/flags";
 
 /** Rutas que no pasan por comprobación de login (siempre accesibles). */
-const publicRoutes = ["/", "/login", "/auth/callback", "/test"];
+const publicRoutes = ["/login", "/auth/callback", "/test"];
 
-/** Rutas que exigen sesión cuando NEXT_PUBLIC_REQUIRE_AUTH=true. */
-const protectedRoutes = ["/agente"];
+/** Rutas con chat u otras superficies que exigen sesión cuando auth está activa. */
+const protectedRoutes = ["/", "/agente"];
 
 function matchesRoute(pathname: string, routes: string[]): boolean {
   return routes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
-}
-
-function requireAuth(): boolean {
-  return process.env.NEXT_PUBLIC_REQUIRE_AUTH === "true";
 }
 
 export async function middleware(request: NextRequest) {
@@ -53,7 +50,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (requireAuth() && matchesRoute(pathname, protectedRoutes) && !user) {
+  if (isAuthRequired() && matchesRoute(pathname, protectedRoutes) && !user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirectTo", pathname);

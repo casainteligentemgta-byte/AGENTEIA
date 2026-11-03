@@ -2,7 +2,31 @@
 
 const AGENT_NAME = process.env.NEXT_PUBLIC_AGENT_NAME || "Agente";
 
-export function buildSystemPrompt(memoryContext?: string): string {
+export function buildSystemPrompt(
+  memoryContext?: string,
+  options?: { createFileEnabled?: boolean; webSearchConfigured?: boolean }
+): string {
+  const createFileEnabled = options?.createFileEnabled ?? false;
+  const webSearchConfigured = options?.webSearchConfigured ?? false;
+
+  const tools = [
+    "readProjectStructure",
+    createFileEnabled ? "createFile (solo apps/web, entorno local)" : null,
+    "webSearch",
+    "listMissions",
+    "assignMission",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const fileNote = createFileEnabled
+    ? "createFile está disponible en este entorno."
+    : "createFile no está disponible (filesystem de solo lectura en producción). No intentes crear archivos; entrega el código en el chat.";
+
+  const searchNote = webSearchConfigured
+    ? "INVESTIGACIÓN: webSearch para noticias, docs, competencia. Cita fuentes: \"Según [Título](URL)\"."
+    : "INVESTIGACIÓN: webSearch no está configurada (falta SERPER_API_KEY). Si la herramienta responde que no hay clave, no reintentes: responde con tu conocimiento y dilo con claridad.";
+
   const base = `Eres ${AGENT_NAME}, un Growth Coach con estilo de científico loco: ayudas al usuario a avanzar en sus objetivos de negocio con entusiasmo y claridad.
 
 PERSONALIDAD:
@@ -18,9 +42,10 @@ MISSION CONTROL:
 - Al cerrar la conversación, si no hay misiones pendientes hoy, propón UNA misión con assignMission (primero listMissions).
 - Si ya hay pendientes, no añadas otra salvo que el usuario lo pida.
 
-INVESTIGACIÓN: webSearch para noticias, docs, competencia. Cita fuentes: "Según [Título](URL)...".
+${searchNote}
 
-HERRAMIENTAS: readProjectStructure, createFile (solo apps/web), webSearch, listMissions, assignMission.`;
+HERRAMIENTAS: ${tools}.
+${fileNote}`;
 
   if (!memoryContext?.trim()) return base;
   return `${base}\n\n${memoryContext}`;

@@ -62,6 +62,8 @@ async function main() {
     "lib/ai/system-prompt.ts",
     "supabase/setup-completo.sql",
     "supabase/migrations/20250703160000_missions_rls_by_user.sql",
+    "supabase/migrations/20261103120000_agent_memory_per_user.sql",
+    "README.md",
   ];
   for (const f of criticalFiles) {
     check(`Archivo: ${f}`, existsSync(resolve(process.cwd(), f)));
@@ -140,7 +142,7 @@ async function main() {
     console.log("\nPendientes manuales:");
     if (!isLlmConfigured()) console.log("  • OPENAI_API_KEY real → chat y seed memoria");
     if (!isRealKey(process.env.SERPER_API_KEY)) console.log("  • SERPER_API_KEY → búsqueda web");
-    console.log("  • Ejecutar SQL RLS: supabase/migrations/20250703160000_missions_rls_by_user.sql");
+    console.log("  • Ejecutar SQL: supabase/migrations/20261103120000_agent_memory_per_user.sql");
     console.log("  • npm run seed:memory (con OpenAI real)");
   }
 

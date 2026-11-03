@@ -51,7 +51,7 @@ export function AuthNav() {
   if (!user) {
     return (
       <Link
-        href="/login?redirectTo=/agente"
+        href="/login?redirectTo=/"
         className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
       >
         <LogIn className="h-3.5 w-3.5" />

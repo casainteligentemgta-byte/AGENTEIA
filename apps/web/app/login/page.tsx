@@ -9,7 +9,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") ?? "/agente";
+  const redirectTo = searchParams.get("redirectTo") ?? "/";
   const authError = searchParams.get("error");
 
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -93,7 +93,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-black px-4">
       <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/90 p-8 shadow-xl">
         <Link
-          href="/agente"
+          href="/"
           className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-500 transition hover:text-zinc-300"
         >
           <ArrowLeft className="h-4 w-4" />

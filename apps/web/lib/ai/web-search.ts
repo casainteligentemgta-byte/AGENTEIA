@@ -1,5 +1,9 @@
 /** Búsqueda web vía Serper (preferido) o Tavily. */
 
+/** Mensaje estable cuando no hay proveedor de búsqueda (el chat no debe romperse). */
+export const WEB_SEARCH_UNAVAILABLE_MESSAGE =
+  "La búsqueda web no está disponible: falta SERPER_API_KEY (o TAVILY_API_KEY) en el servidor. El chat sigue funcionando; responde con tu conocimiento y no reintentes esta herramienta. El propietario puede añadir la clave en Vercel → Environment Variables.";
+
 export type WebSearchResult = { title: string; url: string; snippet: string };
 
 export type WebSearchResponse = {
@@ -107,8 +111,7 @@ export async function doWebSearch(
 
   return {
     results: [],
-    error:
-      "Configura SERPER_API_KEY en .env.local (gratis en serper.dev) o TAVILY_API_KEY para activar búsqueda web.",
+    error: WEB_SEARCH_UNAVAILABLE_MESSAGE,
   };
 }
 
