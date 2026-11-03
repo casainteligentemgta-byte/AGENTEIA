@@ -1,6 +1,7 @@
 /**
- * Seed de memoria del agente (D12). Carga .env.local y guarda memorias iniciales
- * en agent_memory con embeddings OpenAI.
+ * Seed de memorias de sistema (user_id null). Carga .env.local y guarda
+ * embeddings en agent_memory. Requiere SUPABASE_SERVICE_ROLE_KEY (RLS no
+ * permite que un usuario inserte memorias globales).
  *
  * Uso:
  *   npm run seed:memory          — inserta solo las que no existen
@@ -24,12 +25,13 @@ const dryRun = args.includes("--dry-run");
 
 async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const openaiKey = getLlmApiKey();
 
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("Faltan NEXT_PUBLIC_SUPABASE_URL o claves de Supabase en .env.local");
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error(
+      "El seed de memorias de sistema (user_id null) requiere NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY. La anon key ya no puede escribir memorias globales (RLS)."
+    );
     process.exit(1);
   }
   if (!isLlmConfigured()) {
@@ -41,11 +43,14 @@ async function main() {
     apiKey: openaiKey,
     baseURL: getOpenAIBaseURL(),
   });
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   let existingContents = new Set<string>();
   if (!force) {
-    const { data, error } = await supabase.from("agent_memory").select("content");
+    const { data, error } = await supabase
+      .from("agent_memory")
+      .select("content")
+      .is("user_id", null);
     if (error) {
       console.error("No se pudo leer agent_memory:", error.message);
       console.error("¿Ejecutaste setup-completo.sql en Supabase?");
@@ -79,7 +84,7 @@ async function main() {
 
     const { data: row, error } = await supabase
       .from("agent_memory")
-      .insert({ content: trimmed, embedding })
+      .insert({ content: trimmed, embedding, user_id: null })
       .select("id")
       .single();
 

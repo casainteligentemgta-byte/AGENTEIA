@@ -20,11 +20,17 @@
 
 ## Variables de entorno (Production)
 
+Lista completa y semántica: [README.md](./README.md).
+
 - `NEXT_PUBLIC_AGENT_NAME`
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY` — **OpenRouter** (`sk-or-v1-...`)
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_REQUIRE_AUTH`
+- `NEXT_PUBLIC_REQUIRE_AUTH` — default `true` (login obligatorio)
+- `NEXT_PUBLIC_SITE_URL`
+- `SERPER_API_KEY` — opcional; sin ella el chat no se rompe
+- `CHAT_DAILY_MESSAGE_LIMIT` — default `50` mensajes/usuario/día
+- `ENABLE_CREATE_FILE` — no definir en production (filesystem read-only)
 
 ## Deploy manual (CLI)
 

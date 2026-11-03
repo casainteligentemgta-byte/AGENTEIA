@@ -27,16 +27,23 @@ async function getEmbedding(text: string): Promise<number[]> {
 }
 
 /**
- * Guarda un contenido en la memoria del agente: genera su embedding con OpenAI
- * y lo persiste en la tabla agent_memory de Supabase.
+ * Guarda un contenido en la memoria del usuario autenticado.
+ * Las memorias de sistema (user_id null) solo se crean con el seed + service role.
  */
 export async function saveMemory(content: string): Promise<{ id?: string; error?: Error }> {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: new Error("Inicia sesión para guardar memoria.") };
+  }
+
   const embedding = await getEmbedding(content);
 
   const { data, error } = await supabase
     .from("agent_memory")
-    .insert({ content, embedding })
+    .insert({ content, embedding, user_id: user.id })
     .select("id")
     .single();
 
@@ -45,8 +52,8 @@ export async function saveMemory(content: string): Promise<{ id?: string; error?
 }
 
 /**
- * Recupera memorias relevantes para un query: convierte el query en embedding
- * y llama a la función RPC match_agent_memories de Supabase.
+ * Recupera memorias relevantes: sistema (user_id null) + las del usuario actual.
+ * RLS + RPC match_agent_memories filtran por auth.uid().
  */
 export async function retrieveMemories(
   query: string,

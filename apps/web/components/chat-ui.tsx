@@ -2,8 +2,29 @@
 
 import { useChat } from "ai/react";
 import { useRef, useEffect } from "react";
+import Link from "next/link";
 import { Send, Loader2, User, Bot } from "lucide-react";
 import { getMessageText } from "@/lib/ai/chat-messages";
+
+function readErrorMessage(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: unknown };
+      if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error;
+    } catch {
+      // cuerpo no JSON
+    }
+  }
+  if (trimmed === "An error occurred.") {
+    return "Error en el chat. Revisa si iniciaste sesión, el tope diario de mensajes o OPENAI_API_KEY.";
+  }
+  return trimmed || "Error en el chat.";
+}
+
+function isAuthError(message: string): boolean {
+  return /inicia sesión|iniciar sesión|no autenticado|401/i.test(message);
+}
 
 type ChatUIProps = {
   api?: string;
@@ -21,7 +42,16 @@ export function ChatUI({
   const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api,
     onError: (err) => console.error("[ChatUI]", err),
+    fetch: async (inputUrl, init) => {
+      const res = await fetch(inputUrl, init);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(readErrorMessage(body));
+      }
+      return res;
+    },
   });
+  const errorMessage = error ? readErrorMessage(error.message) : "";
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,9 +66,15 @@ export function ChatUI({
       >
         {error && (
           <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
-            {error.message === "An error occurred."
-              ? "Error en el chat. Revisa OPENAI_API_KEY en Vercel, créditos OpenRouter, o recarga la página."
-              : error.message}
+            <p>{errorMessage}</p>
+            {isAuthError(errorMessage) && (
+              <Link
+                href="/login?redirectTo=/"
+                className="mt-2 inline-block text-red-100 underline underline-offset-2 hover:text-white"
+              >
+                Ir a iniciar sesión
+              </Link>
+            )}
           </div>
         )}
         {messages.length === 0 && !error && (
