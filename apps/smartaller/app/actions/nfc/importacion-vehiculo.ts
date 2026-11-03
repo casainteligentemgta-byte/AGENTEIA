@@ -2866,11 +2866,13 @@ export async function uploadPuertoLibreDocumentoAction(
 
   try {
     const admin = createAdminClient();
+    const capturedRaw = String(formData.get("capturedAt") ?? "").trim();
     const documento = await uploadVehiculoDocumento(admin, {
       tallerId: auth.taller.id,
       vehiculoId,
       tipo: tipoParsed.data,
       file,
+      capturedAt: capturedRaw || null,
     });
 
     const current = parseVehiculosDocumentos(row.documentos);
