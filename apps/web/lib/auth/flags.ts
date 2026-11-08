@@ -26,6 +26,14 @@ export function isCreateFileEnabled(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
+/**
+ * Panel personal Ojo de Dios. Apagado por defecto (también en development)
+ * para poder revertir sin tocar código: OJO_DE_DIOS_ENABLED=false o sin definir.
+ */
+export function isOjoDeDiosEnabled(): boolean {
+  return parseFlag(process.env.OJO_DE_DIOS_ENABLED) ?? false;
+}
+
 /** Tope diario de mensajes por usuario. 0 o negativo = ilimitado. Default 50. */
 export function getChatDailyMessageLimit(): number {
   const raw = process.env.CHAT_DAILY_MESSAGE_LIMIT?.trim();

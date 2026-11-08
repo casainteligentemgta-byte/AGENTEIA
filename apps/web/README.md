@@ -50,6 +50,11 @@ Proyecto Vercel: `web` · Root Directory: `apps/web` · URL: https://web-sand-te
 | `CHAT_DAILY_MESSAGE_LIMIT` | No | Tope diario por usuario (default `50`). `0` = ilimitado. |
 | `ENABLE_CREATE_FILE` | No | `createFile` está off en production (Vercel es read-only). `true` solo en local. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Seed | Solo servidor / script `seed:memory`. No exponer al cliente. |
+| `OJO_DE_DIOS_ENABLED` | No | Default **false** (rollback). `true` para `/agente/ojo-de-dios` y el acceso Personal en el panel. |
+| `OJO_DE_DIOS_OWNER_EMAIL` / `OJO_DE_DIOS_OWNER_USER_ID` | No | Solo esa cuenta ve Gmail/Garmin. Sin owner, esas tarjetas quedan «No conectado». |
+| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` | No | Gmail readonly. Sin ellas: «No conectado». Nunca `NEXT_PUBLIC_`. |
+| `GARMIN_ACCESS_TOKEN` | No | Garmin Wellness API. Sin token: «No conectado». No hay scraping de sesión. |
+| `X_BEARER_TOKEN` | No | Tendencias de X. Sin token se oculta la tarjeta. |
 
 ## Auth, cuota y memoria
 
