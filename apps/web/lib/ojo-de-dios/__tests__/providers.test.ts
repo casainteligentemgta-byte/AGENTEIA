@@ -136,6 +136,8 @@ describe("Ojo de Dios · proveedores", () => {
     );
     assert.equal(blocked.status, "unavailable");
     assert.equal(blocked.movies.length, 0);
+    assert.equal(blocked.venue, "Cines Unidos La Vela (Margarita)");
+    assert.equal(blocked.sourceName, "Cines Unidos La Vela");
 
     clearPublicCache();
     const empty = await fetchCinema(

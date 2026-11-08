@@ -120,13 +120,13 @@ export async function fetchCinema(fetchImpl?: FetchLike): Promise<CinemaSection>
     if (!res.ok) {
       return cinemaResult(
         "unavailable",
-        "La cartelera oficial no está disponible ahora. Ábrela en Cines Unidos."
+        "La cartelera oficial no está disponible ahora. Ábrela en Cines Unidos La Vela."
       );
     }
     if (/just a moment|cf-challenge|cloudflare/i.test(res.text)) {
       return cinemaResult(
         "unavailable",
-        "Cines Unidos protege la página (Cloudflare). No se inventan horarios; usa el enlace oficial."
+        "Cines Unidos La Vela protege la página (Cloudflare). No se inventan horarios; usa el enlace oficial."
       );
     }
     const movies = [...parseJsonLdMovies(res.text), ...parseVisibleShowtimes(res.text)];

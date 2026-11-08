@@ -50,12 +50,12 @@ export const RSS_FEEDS = [
 export const RSS_ALLOW_HOSTS = ["news.google.com"] as const;
 
 /**
- * Sede preferida: Cines Unidos en Sambil La Vela (Margarita).
+ * Sede preferida: Cines Unidos La Vela (Margarita).
  * La ruta /cines/3000 es la URL pública oficial de «Cine La Vela», no un ID inventado de API.
  */
 export const CINEMA_VENUE = {
-  chain: "Cines Unidos",
-  venue: "Sambil La Vela (Margarita)",
+  chain: "Cines Unidos La Vela",
+  venue: "Cines Unidos La Vela (Margarita)",
   officialUrl: "https://www.cinesunidos.com/cines/3000?city=margarita",
 } as const;
 
