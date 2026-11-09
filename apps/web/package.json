@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test lib/ojo-de-dios/__tests__/security.test.ts lib/ojo-de-dios/__tests__/providers.test.ts",
+    "test": "tsx --test lib/ojo-de-dios/__tests__/security.test.ts lib/ojo-de-dios/__tests__/providers.test.ts lib/ojo-de-dios/__tests__/nav.test.ts",
     "seed:memory": "tsx scripts/seed-memory.ts",
     "seed:memory:local": "node scripts/with-local-tls.mjs npx tsx scripts/seed-memory.ts",
     "test:serper": "tsx scripts/test-web-search.ts",

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { getMissions } from "@/app/actions/missions";
 import { OjoDeDiosDashboard } from "@/components/ojo-de-dios/dashboard";
 import { authorizeOjoDeDios, getOjoDeDiosSessionUser } from "@/lib/ojo-de-dios/auth";
 import { getOjoDeDiosSnapshot } from "@/lib/ojo-de-dios/service";
@@ -21,6 +22,16 @@ export default async function OjoDeDiosPage() {
   }
 
   const user = await getOjoDeDiosSessionUser();
-  const snapshot = await getOjoDeDiosSnapshot(user);
-  return <OjoDeDiosDashboard initial={snapshot} />;
+  const [snapshot, missionsResult] = await Promise.all([
+    getOjoDeDiosSnapshot(user),
+    getMissions(),
+  ]);
+
+  return (
+    <OjoDeDiosDashboard
+      initial={snapshot}
+      initialMissions={missionsResult.missions}
+      missionsError={missionsResult.error ? "No se pudo cargar la agenda." : null}
+    />
+  );
 }
