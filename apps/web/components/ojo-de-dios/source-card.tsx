@@ -6,15 +6,15 @@ const STATUS_LABEL: Record<ProviderStatus, string> = {
   needsAuth: "No conectado",
   error: "Error",
   unavailable: "No disponible",
-  hidden: "Oculto",
+  hidden: "No conectado",
 };
 
 const STATUS_CLASS: Record<ProviderStatus, string> = {
-  ok: "border-emerald-800/60 bg-emerald-950/40 text-emerald-300",
-  needsAuth: "border-zinc-700 bg-zinc-800/80 text-zinc-400",
-  error: "border-amber-900/60 bg-amber-950/40 text-amber-200",
-  unavailable: "border-zinc-700 bg-zinc-900 text-zinc-400",
-  hidden: "border-zinc-800 bg-zinc-900 text-zinc-500",
+  ok: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
+  needsAuth: "border-white/10 bg-white/5 text-white/55",
+  error: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+  unavailable: "border-white/10 bg-white/5 text-white/55",
+  hidden: "border-white/10 bg-white/5 text-white/55",
 };
 
 function formatStamp(value: string | null): string | null {
@@ -29,34 +29,43 @@ function formatStamp(value: string | null): string | null {
 
 export function SourceCard({
   meta,
+  id,
+  className = "",
   children,
 }: {
   meta: ProviderMeta;
+  id?: string;
+  className?: string;
   children: ReactNode;
 }) {
   const stamp = formatStamp(meta.fetchedAt);
+  const displayStatus = meta.status === "hidden" ? "needsAuth" : meta.status;
+
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 shadow-xl">
-      <header className="mb-3 flex items-start justify-between gap-3">
+    <section
+      id={id}
+      className={`ojo-card flex h-full min-h-[12rem] flex-col rounded-3xl border border-cyan-400/15 bg-white/[0.04] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md md:p-6 ${className}`}
+    >
+      <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-zinc-100">{meta.label}</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">{meta.sourceName}</p>
+          <h2 className="text-base font-semibold tracking-tight text-white">{meta.label}</h2>
+          <p className="mt-0.5 text-sm text-white/55">{meta.sourceName}</p>
         </div>
         <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_CLASS[meta.status]}`}
+          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_CLASS[displayStatus]}`}
         >
-          {STATUS_LABEL[meta.status]}
+          {STATUS_LABEL[displayStatus]}
         </span>
       </header>
       <div className="min-h-0 flex-1">{children}</div>
-      <footer className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/80 pt-3 text-[11px] text-zinc-500">
+      <footer className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 text-[11px] text-white/45">
         <span>{stamp ? `Consultado ${stamp}` : "Sin fecha de consulta"}</span>
         {meta.sourceUrl ? (
           <a
             href={meta.sourceUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-blue-400 hover:text-blue-300"
+            className="text-cyan-300 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
           >
             Fuente
           </a>

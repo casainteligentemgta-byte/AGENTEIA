@@ -1,3 +1,39 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .ojo-shell {
+    scroll-behavior: smooth;
+  }
+
+  .ojo-card {
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .ojo-card:hover {
+    transform: translateY(-4px);
+    border-color: rgb(34 211 238 / 0.28);
+  }
+
+  .ojo-shell [id] {
+    scroll-margin-top: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ojo-shell {
+    scroll-behavior: auto;
+  }
+
+  .ojo-card,
+  .ojo-card:hover {
+    transition: none;
+    transform: none;
+  }
+
+  .ojo-shell .animate-pulse,
+  .ojo-shell .animate-spin {
+    animation: none;
+  }
+}
