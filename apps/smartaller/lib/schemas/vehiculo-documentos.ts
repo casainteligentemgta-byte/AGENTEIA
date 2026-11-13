@@ -8,9 +8,11 @@ import {
   PLANILLA_ETAPAS_REV_ACTUAL,
   PLANILLA_FASE_COMPLETA,
 } from "@/lib/importacion/planilla-etapas";
+import { VEHICULOS_DOCUMENTOS_BUCKET } from "@/lib/storage/buckets";
+import { isPublicSupabaseStorageUrl, toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 
 export const vehiculoDocumentoRefSchema = z.object({
-  url: z.string().url(),
+  url: z.string().min(1),
   path: z.string().min(1),
   scanned_at: z.string().optional(),
   file_name: z.string().optional(),
@@ -172,7 +174,17 @@ export type VehiculosDocumentos = z.infer<typeof vehiculosDocumentosSchema>;
 
 export function parseVehiculosDocumentos(raw: unknown): VehiculosDocumentos {
   const parsed = vehiculosDocumentosSchema.safeParse(raw ?? {});
-  return parsed.success ? parsed.data : {};
+  if (!parsed.success) return {};
+  const out: VehiculosDocumentos = {};
+  for (const [key, ref] of Object.entries(parsed.data)) {
+    if (!ref) continue;
+    const url =
+      isPublicSupabaseStorageUrl(ref.url) || ref.url.includes("/storage/v1/object/")
+        ? toAuthorizedFileUrl(VEHICULOS_DOCUMENTOS_BUCKET, ref.path)
+        : ref.url;
+    out[key as keyof VehiculosDocumentos] = { ...ref, url };
+  }
+  return out;
 }
 
 export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {

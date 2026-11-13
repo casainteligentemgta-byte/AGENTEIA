@@ -157,7 +157,7 @@ En **Authentication → URL Configuration**:
 |----------|-----|
 | `OPENAI_CHAT_MODEL` | Default: `gpt-4o-mini` |
 | `CALLMEBOT_API_KEY` | WhatsApp pruebas |
-| `PRESIDENCIA_PIN` | PIN kiosk recepción |
+| `PRESIDENCIA_PIN` | PIN kiosk recepción (obligatorio en producción) |
 | `RESEND_API_KEY` + `RESEND_FROM` | Email recordatorios |
 | `STRAVA_WEBHOOK_SECRET` | Solo si usas webhook SmartBike manual |
 

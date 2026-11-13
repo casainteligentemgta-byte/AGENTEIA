@@ -1,37 +1,19 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2, Search } from "lucide-react";
 import { buscarHistorialCliente } from "@/app/actions/cliente";
-import type { VehiculoConHistorial } from "@/lib/types";
+import type { ClienteHistorialPublico } from "@/lib/data/cliente-lookup";
 import { HistorialVehiculo } from "@/components/cliente/historial";
 
 export function ClienteBuscarForm() {
   const searchParams = useSearchParams();
   const placaInicial = searchParams.get("placa") ?? "";
-  const autoBuscado = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [vehiculo, setVehiculo] = useState<VehiculoConHistorial | null>(null);
+  const [vehiculo, setVehiculo] = useState<ClienteHistorialPublico | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!placaInicial || autoBuscado.current) return;
-    autoBuscado.current = true;
-
-    const formData = new FormData();
-    formData.set("placa", placaInicial);
-
-    startTransition(async () => {
-      const result = await buscarHistorialCliente(formData);
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      setVehiculo(result.data);
-    });
-  }, [placaInicial]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,6 +46,7 @@ export function ClienteBuscarForm() {
               defaultValue={placaInicial}
               placeholder="ABC123"
               required
+              autoComplete="off"
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 font-mono uppercase text-zinc-100 outline-none focus:border-blue-500"
             />
           </div>
@@ -79,10 +62,12 @@ export function ClienteBuscarForm() {
               maxLength={4}
               placeholder="1234"
               pattern="\d{4}"
+              required
+              autoComplete="off"
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-zinc-100 outline-none focus:border-blue-500"
             />
             <p className="mt-1 text-xs text-zinc-500">
-              Opcional si la placa es única en el taller.
+              Obligatorio para verificar que el vehículo es tuyo.
             </p>
           </div>
         </div>

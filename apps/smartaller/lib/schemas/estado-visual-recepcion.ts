@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { RECEPCION_ESTADO_VISUAL_BUCKET } from "@/lib/storage/buckets";
+import { rewriteStorageUrlForClient } from "@/lib/storage/signed-url";
 
 /** Vistas del estado visual + tablero encendido */
 export const ESTADO_VISUAL_VISTAS = [
@@ -141,22 +143,21 @@ export function estadoVisualConFrontalPrefill(frontal: {
   };
 }
 
-/** Reconstruye URL pública de Storage si falta `url` pero hay `path`. */
+/** Reescribe URLs públicas de Storage a la ruta autorizada `/api/storage/file`. */
 export function ensureEstadoVisualFotoUrls(
   estado: EstadoVisualRecepcion | null,
-  supabaseUrl: string | null | undefined
+  _supabaseUrl?: string | null
 ): EstadoVisualRecepcion | null {
   if (!estado) return null;
-  const base = supabaseUrl?.replace(/\/$/, "");
-  if (!base) return estado;
 
   return {
     fotos: estado.fotos.map((foto) => {
-      if (foto.url || !foto.path) return foto;
-      return {
-        ...foto,
-        url: `${base}/storage/v1/object/public/recepcion-estado-visual/${foto.path}`,
-      };
+      const url = rewriteStorageUrlForClient(
+        foto.url,
+        foto.path,
+        RECEPCION_ESTADO_VISUAL_BUCKET
+      );
+      return url ? { ...foto, url } : foto;
     }),
   };
 }

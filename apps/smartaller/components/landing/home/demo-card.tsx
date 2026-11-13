@@ -5,7 +5,7 @@ export function DemoCard() {
     <div
       className="flex flex-col gap-3 rounded-[20px] border border-landing-demo-border bg-landing-surface p-4 lp:gap-4 lp:rounded-3xl lp:p-6"
       role="img"
-      aria-label="Ejemplo: se envía la foto de la placa ABC-123 por Telegram, SmartTaller reconoce un Toyota Hilux 2019, crea la orden 0482 y envía un WhatsApp al cliente."
+      aria-label="Ejemplo: se envía la foto de la placa ABC-123 por Telegram, SmartTaller reconoce un Toyota Hilux 2019 y crea la orden 0482."
     >
       <div className="flex justify-between text-xs text-landing-text-3">
         <span>Telegram · SmartTaller Bot</span>
@@ -52,10 +52,11 @@ export function DemoCard() {
         </span>
         <div>
           <small className="block text-xs text-landing-text-3">
-            WhatsApp enviado al cliente
+            WhatsApp al cliente · Próximamente
           </small>
           <p className="text-sm leading-[1.45] text-landing-wa-text">
-            Hola Carlos, tu Hilux ya está en el taller. Te avisamos apenas esté lista.
+            Así se verá el aviso cuando activemos WhatsApp: «Hola Carlos, tu Hilux ya
+            está en el taller.»
           </p>
         </div>
       </div>

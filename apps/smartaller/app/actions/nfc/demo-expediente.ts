@@ -33,6 +33,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 
 type ActionErr = { success: false; error: string };
 
@@ -309,9 +310,6 @@ export async function listDemoPlantillaPdfsAction(): Promise<
     if (!item.name || item.id == null) continue;
     if (!isSafeDemoPlantillaFilename(item.name)) continue;
     const path = demoPlantillaPath(item.name);
-    const { data: urlData } = admin.storage
-      .from(VEHICULO_DOCS_BUCKET)
-      .getPublicUrl(path);
     const sizeRaw =
       item.metadata && typeof item.metadata === "object"
         ? (item.metadata as { size?: unknown }).size
@@ -321,7 +319,7 @@ export async function listDemoPlantillaPdfsAction(): Promise<
       path,
       tipo: mapPlantillaFilenameToTipo(item.name),
       size: typeof sizeRaw === "number" ? sizeRaw : null,
-      publicUrl: urlData.publicUrl,
+      publicUrl: toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, path),
     });
   }
 
@@ -401,12 +399,8 @@ export async function adjuntarPdfDemoAction(
     };
   }
 
-  const { data: urlData } = admin.storage
-    .from(VEHICULO_DOCS_BUCKET)
-    .getPublicUrl(destPath);
-
   const documento = {
-    url: urlData.publicUrl,
+    url: toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, destPath),
     path: destPath,
     scanned_at: new Date().toISOString(),
     file_name: parsed.data.filename,

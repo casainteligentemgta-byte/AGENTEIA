@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -67,7 +68,10 @@ function mapRow(row: DocRow): BibliotecaLegalDocumento {
     normaId: row.norma_id,
     fileName: row.file_name,
     filePath: row.file_path,
-    fileUrl: row.file_url,
+    fileUrl:
+      row.file_path
+        ? toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, row.file_path)
+        : row.file_url,
     fileSize: row.file_size,
     createdAt: row.created_at,
   };
@@ -183,9 +187,7 @@ export async function uploadBibliotecaLegalPdfAction(
     return { success: false, error: uploadError.message };
   }
 
-  const { data: urlData } = admin.storage
-    .from(VEHICULO_DOCS_BUCKET)
-    .getPublicUrl(filePath);
+  const fileUrl = toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, filePath);
 
   const { data, error } = await admin
     .from("biblioteca_legal_documentos")
@@ -201,7 +203,7 @@ export async function uploadBibliotecaLegalPdfAction(
       norma_id: parsed.data.normaId || null,
       file_name: fileName,
       file_path: filePath,
-      file_url: urlData.publicUrl,
+      file_url: fileUrl,
       file_size: file.size,
     })
     .select(

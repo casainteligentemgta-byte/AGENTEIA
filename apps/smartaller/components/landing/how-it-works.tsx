@@ -23,7 +23,7 @@ const steps = [
     step: "04",
     icon: Bell,
     title: "El taller que piensa por el cliente",
-    desc: "El sistema calcula el próximo mantenimiento (a los 6 meses o por kilometraje) y envía un recordatorio automatizado al cliente por WhatsApp cuando se acerque la fecha.",
+    desc: "El sistema calcula el próximo mantenimiento (a los 6 meses o por kilometraje). El recordatorio automático por WhatsApp está marcado como próximamente.",
   },
 ];
 
@@ -54,8 +54,8 @@ export function HowItWorks() {
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-zinc-400 sm:text-base">
             Porque transformamos el papeleo lento en un proceso automatizado de segundos. Conectamos
-            la practicidad de Telegram, la precisión de la IA y el alcance de WhatsApp para que tu
-            taller rinda más y tus clientes siempre vuelvan.
+            la practicidad de Telegram y la precisión de la IA para que tu taller rinda más.
+            WhatsApp para avisar al cliente: próximamente.
           </p>
         </div>
       </div>

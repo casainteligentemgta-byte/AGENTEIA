@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { presidenciaAutorizada } from "@/app/actions/presidencia";
+import {
+  presidenciaAutorizada,
+  presidenciaPinMissingInProduction,
+} from "@/app/actions/presidencia";
+import { PRESIDENCIA_PIN_MISSING_MSG } from "@/lib/presidencia/pin";
 import { PresidenciaAutoRefresh } from "@/components/presidencia/auto-refresh";
 import { PresidenciaDashboard } from "@/components/presidencia/dashboard";
 import { PresidenciaLogin } from "@/components/presidencia/login";
@@ -23,6 +27,19 @@ export default async function PresidenciaPage({ params }: Props) {
 
   if (!(await tallerExiste(tallerId))) {
     notFound();
+  }
+
+  if (await presidenciaPinMissingInProduction()) {
+    return (
+      <main className="flex min-h-screen items-center bg-zinc-950 px-4 py-12">
+        <div className="glass mx-auto max-w-md rounded-2xl p-8 text-center">
+          <h1 className="text-xl font-bold text-zinc-100">Acceso no disponible</h1>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+            {PRESIDENCIA_PIN_MISSING_MSG}
+          </p>
+        </div>
+      </main>
+    );
   }
 
   const autorizada = await presidenciaAutorizada(tallerId);

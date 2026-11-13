@@ -18,8 +18,8 @@ export function Hero() {
             <span className="text-landing-accent">El resto lo hace SmartTaller.</span>
           </h1>
           <p className="max-w-[520px] text-justify text-[clamp(17px,1.6vw,20px)] text-landing-text-2">
-            La IA reconoce el vehículo, abre la orden y le avisa al cliente por WhatsApp. Tú
-            te dedicas a reparar.
+            La IA reconoce el vehículo y abre la orden. Tú te dedicas a reparar. Las
+            notificaciones por WhatsApp llegan próximamente.
           </p>
           <div className="flex flex-col gap-2.5 pt-1 lp:flex-row">
             <Link

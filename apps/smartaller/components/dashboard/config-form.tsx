@@ -213,7 +213,8 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
           </button>
         </div>
         <p className="mt-3 text-xs text-zinc-600">
-          Opcional: define <code className="text-zinc-400">PRESIDENCIA_PIN</code> en Vercel para proteger el acceso.
+          En producción es obligatorio: define <code className="text-zinc-400">PRESIDENCIA_PIN</code> en
+          Vercel. Sin esa variable el kiosk permanece cerrado.
         </p>
       </section>
     </div>

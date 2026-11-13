@@ -3,16 +3,18 @@ import {
   formatDate,
   formatDateTime,
   formatKilometraje,
-  getDescripcion,
 } from "@/lib/format";
-import type { VehiculoConHistorial } from "@/lib/types";
+import type { ClienteHistorialPublico } from "@/lib/data/cliente-lookup";
 
 type Props = {
-  vehiculo: VehiculoConHistorial;
+  vehiculo: ClienteHistorialPublico;
 };
 
 export function HistorialVehiculo({ vehiculo }: Props) {
   const proximoRecordatorio = vehiculo.recordatorios[0];
+  const vehiculoLabel = [vehiculo.marca, vehiculo.modelo, vehiculo.color]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="space-y-6">
@@ -24,6 +26,7 @@ export function HistorialVehiculo({ vehiculo }: Props) {
         {vehiculo.nombre_cliente && (
           <p className="mt-2 text-zinc-300">{vehiculo.nombre_cliente}</p>
         )}
+        {vehiculoLabel ? <p className="mt-1 text-sm text-zinc-400">{vehiculoLabel}</p> : null}
         <p className="mt-1 text-sm text-zinc-400">
           Kilometraje registrado: {formatKilometraje(vehiculo.kilometraje_ultimo)}
         </p>
@@ -55,7 +58,7 @@ export function HistorialVehiculo({ vehiculo }: Props) {
               <li key={m.id} className="glass rounded-2xl p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-medium text-zinc-100">{getDescripcion(m)}</p>
+                    <p className="font-medium text-zinc-100">{m.descripcion || "Servicio"}</p>
                     <p className="mt-1 text-sm text-zinc-500">{formatDateTime(m.created_at)}</p>
                   </div>
                   <p className="text-lg font-semibold text-zinc-100">{formatCurrency(m.costo)}</p>

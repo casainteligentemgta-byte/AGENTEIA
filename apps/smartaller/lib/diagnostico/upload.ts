@@ -4,6 +4,8 @@ import {
   MAX_DIAGNOSTICO_IMAGE_BYTES,
   MAX_DIAGNOSTICO_VIDEO_BYTES,
 } from "@/lib/schemas/diagnostico-media";
+import { DIAGNOSTICOS_BUCKET } from "@/lib/storage/buckets";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 import {
   extensionFromImageMime,
   isGenericMimeType,
@@ -11,7 +13,7 @@ import {
   validateImageMimeResolved,
 } from "@/lib/mime-image";
 
-const BUCKET = "diagnosticos";
+const BUCKET = DIAGNOSTICOS_BUCKET;
 
 const VIDEO_MIME = new Set(["video/mp4", "video/quicktime", "video/webm"]);
 
@@ -101,10 +103,8 @@ export async function uploadDiagnosticoFiles(
       continue;
     }
 
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
     items.push({
-      url: urlData.publicUrl,
+      url: toAuthorizedFileUrl(BUCKET, path),
       path,
       type: mediaType,
       created_at: new Date().toISOString(),

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DocumentoTipo, VehiculoDocumentoRef } from "@/lib/schemas/vehiculo-documentos";
+import { VEHICULOS_DOCUMENTOS_BUCKET } from "@/lib/storage/buckets";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 import {
   isGenericMimeType,
   resolveImageMimeType,
@@ -7,7 +9,7 @@ import {
 } from "@/lib/mime-image";
 import { imageBufferToPdf, pdfFileNameFromOriginal } from "@/lib/vehiculos/image-to-pdf";
 
-export const VEHICULO_DOCS_BUCKET = "vehiculos-documentos";
+export const VEHICULO_DOCS_BUCKET = VEHICULOS_DOCUMENTOS_BUCKET;
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -131,10 +133,8 @@ export async function uploadVehiculoDocumento(
     throw new Error(error.message);
   }
 
-  const { data: urlData } = supabase.storage.from(VEHICULO_DOCS_BUCKET).getPublicUrl(path);
-
   return {
-    url: urlData.publicUrl,
+    url: toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, path),
     path,
     scanned_at: new Date().toISOString(),
     file_name: fileName,

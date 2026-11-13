@@ -1,14 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMyTaller } from "@/lib/taller";
 import { getAppBaseUrl } from "@/lib/app-url";
-import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import { VEHICULOS_DOCUMENTOS_BUCKET } from "@/lib/storage/buckets";
+import { canAccessPrivateStoragePath } from "@/lib/storage/authorize";
+import { createSignedStorageUrl } from "@/lib/storage/signed-url";
 import { nfcTokenSchema } from "@/lib/validations/nfc";
 
 export const dynamic = "force-dynamic";
-
-const SIGNED_URL_TTL_SECONDS = 60;
 
 const stickerQuerySchema = z.object({
   token: nfcTokenSchema.optional(),
@@ -37,35 +38,21 @@ async function downloadSignedDocument(filePath: string) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  if (!filePath.trim()) {
-    return NextResponse.json({ error: "Ruta no especificada." }, { status: 400 });
-  }
-
-  // Evita path traversal / buckets ajenos
-  if (filePath.includes("..") || filePath.startsWith("/")) {
-    return NextResponse.json({ error: "Ruta no válida." }, { status: 400 });
-  }
-
-  const taller = await getMyTaller();
-  if (!taller) {
-    return NextResponse.json({ error: "No se encontró tu taller" }, { status: 403 });
-  }
-
-  // Los docs se guardan como `{tallerId}/...`
-  if (!filePath.startsWith(`${taller.id}/`)) {
+  const allowed = await canAccessPrivateStoragePath(VEHICULOS_DOCUMENTOS_BUCKET, filePath);
+  if (!allowed) {
     return NextResponse.json({ error: "Acceso denegado al archivo." }, { status: 403 });
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase.storage
-    .from(VEHICULO_DOCS_BUCKET)
-    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
-
-  if (error || !data?.signedUrl) {
+  const signed = await createSignedStorageUrl(
+    createAdminClient(),
+    VEHICULOS_DOCUMENTOS_BUCKET,
+    filePath
+  );
+  if (!signed) {
     return NextResponse.json({ error: "Acceso denegado al archivo." }, { status: 403 });
   }
 
-  return NextResponse.redirect(data.signedUrl);
+  return NextResponse.redirect(signed);
 }
 
 async function downloadNfcPayload(request: NextRequest) {

@@ -30,7 +30,7 @@ const STEPS: Step[] = [
   {
     who: "04 · SmartTaller",
     title: "El cliente vuelve solo",
-    body: "A los 6 meses o por kilometraje, le llega un recordatorio por WhatsApp para su próximo mantenimiento.",
+    body: "A los 6 meses o por kilometraje, el sistema programa el próximo mantenimiento. El recordatorio por WhatsApp llega próximamente.",
     icon: <BellIcon />,
   },
 ];

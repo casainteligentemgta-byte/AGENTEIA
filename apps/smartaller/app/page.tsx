@@ -6,7 +6,6 @@ import {
   Footer,
   Header,
   Hero,
-  ProofMetrics,
   Steps,
 } from "@/components/landing/home";
 
@@ -27,7 +26,7 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "SmartTaller · Una foto a la placa. El resto lo hace SmartTaller.",
   description:
-    "La IA reconoce el vehículo, abre la orden y le avisa al cliente por WhatsApp. Gestión de talleres para autos, motos, bicis y maquinaria.",
+    "La IA reconoce el vehículo y abre la orden. Gestión de talleres para autos, motos, bicis y maquinaria.",
 };
 
 export default function HomePage() {
@@ -40,7 +39,6 @@ export default function HomePage() {
       <div className="overflow-x-hidden">
         <main id="inicio">
           <Hero />
-          <ProofMetrics />
           <Steps />
           <Benefits />
           <Closing />
