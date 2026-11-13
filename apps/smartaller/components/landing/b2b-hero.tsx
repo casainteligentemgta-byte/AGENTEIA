@@ -44,16 +44,16 @@ export function B2bHero() {
             <div className="glass rounded-3xl p-6 sm:p-8">
               <div className="mb-6 flex items-center justify-between">
                 <span className="text-sm font-medium text-zinc-400">Panel del taller</span>
-                <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                  En vivo
+                <span className="rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-xs font-semibold text-zinc-300">
+                  Vista de ejemplo
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Vehículos", value: "128", sub: "en flota" },
-                  { label: "OS este mes", value: "47", sub: "+12% vs anterior" },
-                  { label: "Recordatorios", value: "23", sub: "próximos 30 días" },
-                  { label: "Ingresos", value: "$4.2M", sub: "estimado mes" },
+                  { label: "Vehículos", value: "—", sub: "tu flota real" },
+                  { label: "OS este mes", value: "—", sub: "órdenes del taller" },
+                  { label: "Recordatorios", value: "—", sub: "próximos 30 días" },
+                  { label: "Ingresos", value: "—", sub: "desde el dashboard" },
                 ].map((stat) => (
                   <div
                     key={stat.label}

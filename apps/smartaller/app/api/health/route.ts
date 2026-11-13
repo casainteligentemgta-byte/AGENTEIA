@@ -1,16 +1,25 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  envFlagStatus,
+  isDetailedHealthAuthorized,
+  publicHealthPayload,
+  telegramIntegrationStatus,
+  telegramWebhookSecretStatus,
+  type HealthChecks,
+} from "@/lib/api/health";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const checks: Record<string, "ok" | "error" | "skipped"> = {
+async function runChecks(): Promise<{ healthy: boolean; checks: HealthChecks }> {
+  const checks: HealthChecks = {
     supabase: "skipped",
-    openai: process.env.OPENAI_API_KEY?.trim() ? "ok" : "skipped",
-    gemini: process.env.GEMINI_API_KEY?.trim() ? "ok" : "skipped",
-    telegram: process.env.TELEGRAM_BOT_TOKEN?.trim() ? "ok" : "skipped",
-    cron: process.env.CRON_SECRET?.trim() ? "ok" : "skipped",
-    stripe: process.env.STRIPE_SECRET_KEY?.trim() ? "ok" : "skipped",
+    openai: envFlagStatus(process.env.OPENAI_API_KEY),
+    gemini: envFlagStatus(process.env.GEMINI_API_KEY),
+    telegram: telegramIntegrationStatus(),
+    telegram_webhook_secret: telegramWebhookSecretStatus(),
+    cron: envFlagStatus(process.env.CRON_SECRET),
+    stripe: envFlagStatus(process.env.STRIPE_SECRET_KEY),
   };
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -24,6 +33,16 @@ export async function GET() {
   }
 
   const healthy = Object.values(checks).every((v) => v !== "error");
+  return { healthy, checks };
+}
+
+export async function GET(req: Request) {
+  const { healthy, checks } = await runChecks();
+  const status = healthy ? 200 : 503;
+
+  if (!isDetailedHealthAuthorized(req)) {
+    return NextResponse.json(publicHealthPayload(healthy), { status });
+  }
 
   return NextResponse.json(
     {
@@ -34,6 +53,6 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       checks,
     },
-    { status: healthy ? 200 : 503 }
+    { status }
   );
 }

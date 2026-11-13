@@ -9,6 +9,7 @@ import {
   validateImageMimeResolved,
 } from "@/lib/mime-image";
 import { VEHICULO_DOCS_BUCKET } from "@/lib/vehiculos/upload-documento";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 
 export type { ImportadorDocTipo } from "@/lib/importadores/documentos";
 
@@ -126,12 +127,8 @@ export async function uploadImportadorDocumento(
 
   if (error) throw new Error(error.message);
 
-  const { data: urlData } = supabase.storage
-    .from(VEHICULO_DOCS_BUCKET)
-    .getPublicUrl(path);
-
   return {
-    url: urlData.publicUrl,
+    url: toAuthorizedFileUrl(VEHICULO_DOCS_BUCKET, path),
     path,
     scanned_at: new Date().toISOString(),
     file_name: fileName,

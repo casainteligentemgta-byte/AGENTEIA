@@ -8,23 +8,7 @@ const btnBase =
 export function Closing() {
   return (
     <section className="px-0 py-3 pb-11 lp:py-4 lp:pb-[88px]">
-      <div className="mx-auto grid w-full max-w-landing gap-4 px-5 lp:grid-cols-2 lp:gap-6 lp:px-12">
-        {/* TODO: reemplazar con un testimonio real, o eliminar este bloque */}
-        <figure className="flex flex-col gap-3.5 rounded-[18px] border border-dashed border-landing-dashed bg-landing-surface p-6 lp:rounded-[22px] lp:p-10">
-          <span
-            className="font-landing-display text-[48px] leading-[0.6] text-landing-accent"
-            aria-hidden="true"
-          >
-            “
-          </span>
-          <blockquote className="text-lg font-medium leading-normal lp:text-[22px] lp:leading-normal">
-            [Testimonio real de un cliente: qué cambió en su taller, con un dato concreto.]
-          </blockquote>
-          <figcaption className="text-sm text-landing-text-2">
-            [Nombre] · [Taller], [Ciudad]
-          </figcaption>
-        </figure>
-
+      <div className="mx-auto grid w-full max-w-landing gap-4 px-5 lp:px-12">
         <div
           className="flex flex-col gap-4 rounded-[22px] border border-landing-cta-border bg-landing-cta-bg px-[22px] py-8 lp:p-10"
           id="registro"

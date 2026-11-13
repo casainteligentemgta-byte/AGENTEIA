@@ -5,7 +5,7 @@ const faqs = [
   },
   {
     q: "¿Mis clientes tienen que pagar?",
-    a: "Pueden usar la app gratis si están vinculados a tu taller. La suscripción Pro es opcional para dueños independientes.",
+    a: "Pueden usar la app gratis si están vinculados a tu taller. El plan Pro de pago para dueños independientes (Stripe) está marcado como próximamente.",
   },
   {
     q: "¿Funciona para bicicleterías?",

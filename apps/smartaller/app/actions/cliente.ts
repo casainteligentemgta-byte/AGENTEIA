@@ -1,10 +1,14 @@
 "use server";
 
-import { buscarVehiculoCliente, clienteBusquedaSchema } from "@/lib/data/cliente";
-import type { VehiculoConHistorial } from "@/lib/types";
+import {
+  buscarVehiculoCliente,
+  CLIENTE_ERROR_GENERICO,
+  clienteBusquedaSchema,
+  type ClienteHistorialPublico,
+} from "@/lib/data/cliente";
 
 export type ClienteBusquedaResult =
-  | { success: true; data: VehiculoConHistorial }
+  | { success: true; data: ClienteHistorialPublico }
   | { success: false; error: string };
 
 export async function buscarHistorialCliente(
@@ -12,13 +16,12 @@ export async function buscarHistorialCliente(
 ): Promise<ClienteBusquedaResult> {
   const raw = {
     placa: String(formData.get("placa") ?? ""),
-    telefonoUltimos4: String(formData.get("telefonoUltimos4") ?? "").trim() || undefined,
+    telefonoUltimos4: String(formData.get("telefonoUltimos4") ?? ""),
   };
 
   const parsed = clienteBusquedaSchema.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.errors[0]?.message ?? "Datos inválidos";
-    return { success: false, error: msg };
+    return { success: false, error: CLIENTE_ERROR_GENERICO };
   }
 
   return buscarVehiculoCliente(parsed.data);

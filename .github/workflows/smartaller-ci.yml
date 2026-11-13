@@ -38,6 +38,15 @@ jobs:
       - name: QA (archivos y SQL)
         run: npm run qa
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
       - name: Build
         run: npm run build
         env:

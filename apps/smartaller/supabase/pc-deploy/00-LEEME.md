@@ -2,7 +2,7 @@
 
 Carpeta de scripts listos para pegar en **Supabase → SQL Editor → Run**.
 
-Actualizado: 7 jul 2026 (a partir del `setup-completo.sql` completo).
+Actualizado: 13 nov 2026 (buckets privados + advisors de seguridad).
 
 ---
 
@@ -16,6 +16,8 @@ Actualizado: 7 jul 2026 (a partir del `setup-completo.sql` completo).
 | **Verificar que todo quedó bien** | `02` → `05` en orden |
 | **Multi-taller** | `07-verificar-multi-taller.sql` |
 | **Demo SmartBike** (opcional) | `06-seed-smartbike-opcional.sql` |
+| **Buckets privados** (después de desplegar el código) | `08-buckets-privados.sql` |
+| **Advisors de seguridad/índices** | `09-security-advisors.sql` |
 
 ---
 
@@ -29,6 +31,8 @@ Actualizado: 7 jul 2026 (a partir del `setup-completo.sql` completo).
 5. `05-verificar-indice-telegram.sql`
 6. `07-verificar-multi-taller.sql`
 7. (opcional) `06-seed-smartbike-opcional.sql`
+8. **Después de desplegar código de signed URLs:** `08-buckets-privados.sql`
+9. `09-security-advisors.sql` (se puede ejecutar en cualquier momento; no depende del deploy)
 
 ### Solo actualizar base existente (tenías hasta jul 4)
 1. `01-parche-migraciones-jul5-a-jul10.sql`

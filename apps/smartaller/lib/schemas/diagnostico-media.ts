@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { DIAGNOSTICOS_BUCKET } from "@/lib/storage/buckets";
+import { isPublicSupabaseStorageUrl, toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 
 export const DIAGNOSTICO_MEDIA_TYPES = ["image", "video"] as const;
 export type DiagnosticoMediaType = (typeof DIAGNOSTICO_MEDIA_TYPES)[number];
 
 export const DiagnosticoMediaItemSchema = z.object({
-  url: z.string().url(),
+  url: z.string().min(1),
   path: z.string().min(1),
   type: z.enum(DIAGNOSTICO_MEDIA_TYPES),
   caption: z.string().max(200).optional(),
@@ -43,7 +45,14 @@ export function parseMediaFromDetalle(raw: unknown): DiagnosticoMediaItem[] {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
   const media = (raw as { media?: unknown }).media;
   const parsed = DiagnosticoMediaListSchema.safeParse(media);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) return [];
+  return parsed.data.map((item) => {
+    const url =
+      isPublicSupabaseStorageUrl(item.url) || item.url.includes("/storage/v1/object/")
+        ? toAuthorizedFileUrl(DIAGNOSTICOS_BUCKET, item.path)
+        : item.url;
+    return { ...item, url };
+  });
 }
 
 export function mergeMediaIntoDetalle(

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EstadoVisualVista } from "@/lib/schemas/estado-visual-recepcion";
+import { RECEPCION_ESTADO_VISUAL_BUCKET } from "@/lib/storage/buckets";
+import { toAuthorizedFileUrl } from "@/lib/storage/signed-url";
 import {
   extensionFromImageMime,
   isGenericMimeType,
@@ -7,7 +9,7 @@ import {
   validateImageMimeResolved,
 } from "@/lib/mime-image";
 
-export const RECEPCION_ESTADO_VISUAL_BUCKET = "recepcion-estado-visual";
+export { RECEPCION_ESTADO_VISUAL_BUCKET };
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -107,12 +109,8 @@ export async function uploadEstadoVisualFotoBuffer(
     throw new Error(error.message);
   }
 
-  const { data: urlData } = supabase.storage
-    .from(RECEPCION_ESTADO_VISUAL_BUCKET)
-    .getPublicUrl(path);
-
   return {
-    url: urlData.publicUrl,
+    url: toAuthorizedFileUrl(RECEPCION_ESTADO_VISUAL_BUCKET, path),
     path,
     captured_at: new Date().toISOString(),
   };

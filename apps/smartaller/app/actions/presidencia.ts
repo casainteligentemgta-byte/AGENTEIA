@@ -2,6 +2,12 @@
 
 import { cookies } from "next/headers";
 import { z } from "zod";
+import {
+  getPresidenciaPin,
+  PRESIDENCIA_PIN_MISSING_MSG,
+  presidenciaAllowsOpenAccess,
+  presidenciaPinConfigured,
+} from "@/lib/presidencia/pin";
 
 const PIN_MAX_AGE = 60 * 60 * 24 * 7;
 
@@ -18,9 +24,11 @@ export async function verificarPinPresidencia(
   pin: string,
   tallerId: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const expected = process.env.PRESIDENCIA_PIN;
-  if (!expected) {
-    return { ok: true };
+  if (!presidenciaPinConfigured()) {
+    if (presidenciaAllowsOpenAccess()) {
+      return { ok: true };
+    }
+    return { ok: false, error: PRESIDENCIA_PIN_MISSING_MSG };
   }
 
   const parsed = pinSchema.safeParse({ pin, tallerId });
@@ -28,7 +36,7 @@ export async function verificarPinPresidencia(
     return { ok: false, error: "PIN inválido" };
   }
 
-  if (parsed.data.pin !== expected) {
+  if (parsed.data.pin !== getPresidenciaPin()) {
     return { ok: false, error: "PIN incorrecto" };
   }
 
@@ -44,7 +52,11 @@ export async function verificarPinPresidencia(
 }
 
 export async function presidenciaAutorizada(tallerId: string): Promise<boolean> {
-  const expected = process.env.PRESIDENCIA_PIN;
-  if (!expected) return true;
+  if (presidenciaAllowsOpenAccess()) return true;
+  if (!presidenciaPinConfigured()) return false;
   return cookies().get(pinCookieName(tallerId))?.value === "1";
+}
+
+export async function presidenciaPinMissingInProduction(): Promise<boolean> {
+  return !presidenciaPinConfigured() && !presidenciaAllowsOpenAccess();
 }

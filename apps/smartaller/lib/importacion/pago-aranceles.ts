@@ -124,7 +124,7 @@ export function debeActualizarTasaOficial(
 export function aplicarTasaOficialAlPago<T extends ImportacionPagoFields>(
   imp: T,
   lookup: TasaBcvLookup
-): T {
+): T & ImportacionPagoFields {
   if (parseEstadoPagoAranceles(imp.pagoArancelesEstado) === "pagado") {
     return imp;
   }
@@ -145,7 +145,7 @@ export function aplicarTasaOficialAlPago<T extends ImportacionPagoFields>(
 export function marcarPagoAranceles<T extends ImportacionPagoFields>(
   imp: T,
   pagadoAt: string
-): T {
+): T & ImportacionPagoFields {
   const snap = snapshotPagoAranceles(imp);
   if (snap.totalUsd == null) return imp;
   return {

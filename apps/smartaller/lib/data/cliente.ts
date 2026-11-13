@@ -1,106 +1,109 @@
-import { z } from "zod";
+import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizePlaca } from "@/lib/format";
-import type { Mantenimiento, Recordatorio, Vehiculo, VehiculoConHistorial } from "@/lib/types";
+import { checkRateLimit, clientIpFromHeaders } from "@/lib/security/rate-limit";
+import {
+  CLIENTE_ERROR_GENERICO,
+  CLIENTE_ERROR_RATE_LIMIT,
+  CLIENTE_RATE_MAX,
+  CLIENTE_RATE_WINDOW_MS,
+  type ClienteBusquedaInput,
+  type ClienteHistorialPublico,
+  type VehiculoLookupRow,
+  proyectarHistorialCliente,
+  telefonoUltimos4Igual,
+} from "@/lib/data/cliente-lookup";
 
-export const clienteBusquedaSchema = z.object({
-  placa: z
-    .string()
-    .min(4, "Ingresa la placa del vehículo")
-    .max(10)
-    .transform(normalizePlaca),
-  telefonoUltimos4: z
-    .string()
-    .optional()
-    .transform((v) => {
-      const trimmed = v?.trim() ?? "";
-      return trimmed.length ? trimmed : undefined;
-    })
-    .pipe(
-      z
-        .string()
-        .regex(/^\d{4}$/, "Ingresa los últimos 4 dígitos del teléfono")
-        .optional()
-    ),
-});
+export {
+  CLIENTE_ERROR_GENERICO,
+  CLIENTE_ERROR_RATE_LIMIT,
+  clienteBusquedaSchema,
+  proyectarHistorialCliente,
+  telefonoUltimos4Igual,
+  type ClienteBusquedaInput,
+  type ClienteHistorialPublico,
+} from "@/lib/data/cliente-lookup";
 
-export type ClienteBusquedaInput = z.infer<typeof clienteBusquedaSchema>;
-
-function telefonoCoincide(telefono: string | null, ultimos4: string): boolean {
-  if (!telefono) return false;
-  const digits = telefono.replace(/\D/g, "");
-  return digits.endsWith(ultimos4);
+export function checkClienteLookupRateLimit(ip: string, placa: string) {
+  return checkRateLimit(`cliente:${ip}:${placa}`, {
+    windowMs: CLIENTE_RATE_WINDOW_MS,
+    max: CLIENTE_RATE_MAX,
+  });
 }
 
 export async function buscarVehiculoCliente(
   input: ClienteBusquedaInput
-): Promise<{ success: true; data: VehiculoConHistorial } | { success: false; error: string }> {
+): Promise<{ success: true; data: ClienteHistorialPublico } | { success: false; error: string }> {
+  const ip = clientIpFromHeaders(headers());
+  const limited = checkClienteLookupRateLimit(ip, input.placa);
+  if (!limited.ok) {
+    return { success: false, error: CLIENTE_ERROR_RATE_LIMIT };
+  }
+
   const supabase = createAdminClient();
   const { placa, telefonoUltimos4 } = input;
 
   const { data: vehiculos, error: vehError } = await supabase
     .from("vehiculos")
-    .select("*")
-    .ilike("placa", placa);
+    .select(
+      "id, placa, nombre_cliente, telefono_cliente, kilometraje_ultimo, marca, modelo, color"
+    )
+    .eq("placa", placa);
 
   if (vehError) {
-    return { success: false, error: "Error al buscar el vehículo. Intenta de nuevo." };
+    return { success: false, error: CLIENTE_ERROR_GENERICO };
   }
 
-  if (!vehiculos?.length) {
-    return {
-      success: false,
-      error: "No encontramos un vehículo con esa placa. Verifica e intenta de nuevo.",
-    };
+  const candidatos = (vehiculos ?? []) as VehiculoLookupRow[];
+
+  // Trabajo constante aunque no haya filas (no enumerar existencia).
+  const dummy = telefonoUltimos4Igual("0000000000", telefonoUltimos4);
+  void dummy;
+
+  const coincidencias = candidatos.filter((v) =>
+    telefonoUltimos4Igual(v.telefono_cliente, telefonoUltimos4)
+  );
+
+  if (coincidencias.length !== 1) {
+    return { success: false, error: CLIENTE_ERROR_GENERICO };
   }
 
-  let candidatos = vehiculos as Vehiculo[];
-
-  if (telefonoUltimos4) {
-    const filtrados = candidatos.filter((v) =>
-      telefonoCoincide(v.telefono_cliente, telefonoUltimos4)
-    );
-    if (!filtrados.length) {
-      return {
-        success: false,
-        error: "La placa no coincide con el teléfono ingresado.",
-      };
-    }
-    candidatos = filtrados;
-  } else if (candidatos.length > 1) {
-    return {
-      success: false,
-      error:
-        "Hay varios registros con esa placa. Ingresa los últimos 4 dígitos de tu teléfono para verificar.",
-    };
-  }
-
-  const vehiculo = candidatos[0];
+  const vehiculo = coincidencias[0];
 
   const [mantRes, recRes] = await Promise.all([
     supabase
       .from("mantenimientos")
-      .select("*")
+      .select("id, created_at, descripcion, costo, kilometraje")
       .eq("vehiculo_id", vehiculo.id)
       .order("created_at", { ascending: false }),
     supabase
       .from("recordatorios")
-      .select("*")
+      .select("id, fecha_programada, kilometraje_objetivo")
       .eq("vehiculo_id", vehiculo.id)
       .in("estado", ["pendiente", "enviado"])
       .order("fecha_programada", { ascending: true }),
   ]);
 
   if (mantRes.error || recRes.error) {
-    return { success: false, error: "Error al cargar el historial." };
+    return { success: false, error: CLIENTE_ERROR_GENERICO };
   }
 
   return {
     success: true,
-    data: {
-      ...vehiculo,
-      mantenimientos: (mantRes.data ?? []) as Mantenimiento[],
-      recordatorios: (recRes.data ?? []) as Recordatorio[],
-    },
+    data: proyectarHistorialCliente(
+      vehiculo,
+      (mantRes.data ?? []) as Array<{
+        id: string;
+        created_at: string;
+        descripcion?: string | null;
+        descripcion_servicio?: string | null;
+        costo: number | null;
+        kilometraje: number | null;
+      }>,
+      (recRes.data ?? []) as Array<{
+        id: string;
+        fecha_programada: string;
+        kilometraje_objetivo: number | null;
+      }>
+    ),
   };
 }

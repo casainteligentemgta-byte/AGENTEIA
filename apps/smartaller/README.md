@@ -31,7 +31,7 @@ Gestión de mantenimientos para talleres vía Telegram + app multivehículo para
 
 1. Entra a **Dashboard → Configuración**
 2. Copia la URL `/presidencia/{tallerId}` y ábrela en una tablet o TV
-3. Opcional: define `PRESIDENCIA_PIN` en Vercel para proteger el acceso
+3. En producción define `PRESIDENCIA_PIN` en Vercel; sin esa variable el kiosk queda cerrado.
 
 ## Tipos de vehículo
 
@@ -235,7 +235,7 @@ CRON_SECRET
 STRIPE_SECRET_KEY          # sk_test_... o sk_live_...
 STRIPE_WEBHOOK_SECRET      # whsec_... del webhook
 STRIPE_PRICE_ID            # price_... del producto SmartTaller Pro
-PRESIDENCIA_PIN          # opcional
+PRESIDENCIA_PIN          # obligatorio en producción
 RESEND_API_KEY           # opcional — email recordatorios
 RESEND_FROM              # opcional
 # Twilio (pendiente)
