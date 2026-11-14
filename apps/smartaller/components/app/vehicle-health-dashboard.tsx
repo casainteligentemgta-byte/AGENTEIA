@@ -1,9 +1,3 @@
-import {
-  Battery,
-  CircleDot,
-  Droplets,
-  Wrench,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import {
@@ -11,15 +5,8 @@ import {
   type CategoriaSaludResumen,
   type VehicleHealthSummary,
 } from "@/lib/vehicles/vehicle-health";
-import type { CategoriaVehiculoId } from "@/lib/schemas/categoria-vehiculo";
+import { CategoriaTile } from "@/components/icons/categorias";
 import { cn } from "@/lib/utils";
-
-const ICONOS: Record<CategoriaVehiculoId, React.ComponentType<{ className?: string }>> = {
-  bateria: Battery,
-  neumaticos: CircleDot,
-  aceite: Droplets,
-  general: Wrench,
-};
 
 const ESTILO_ESTADO: Record<
   EstadoCategoriaValue,
@@ -51,7 +38,6 @@ function formatFechaCorta(iso: string): string {
 }
 
 function CategoriaCard({ categoria }: { categoria: CategoriaSaludResumen }) {
-  const Icon = ICONOS[categoria.id];
   const estado = categoria.estado;
   const estilo = estado != null ? ESTILO_ESTADO[estado] : null;
 
@@ -63,9 +49,7 @@ function CategoriaCard({ categoria }: { categoria: CategoriaSaludResumen }) {
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-600">
-          <Icon className="h-5 w-5" />
-        </div>
+        <CategoriaTile id={categoria.id} className="h-10 w-10" iconClassName="h-5 w-5" />
         {estado != null && estilo ? (
           <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", estilo.dot)} />
         ) : (

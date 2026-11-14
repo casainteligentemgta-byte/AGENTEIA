@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { Car, ListTodo, DollarSign, ArrowRight, Wrench } from "lucide-react";
+import { ListTodo, DollarSign, ArrowRight } from "lucide-react";
+import { getCategoriaVisual } from "@/components/icons/categorias";
+
+const VISUAL_AUTO = getCategoriaVisual("auto");
+const VISUAL_GENERAL = getCategoriaVisual("general");
 import { StatCard } from "@/components/dashboard/stat-card";
 import { IngresosChart } from "@/components/dashboard/ingresos-chart";
 import { TopRanking } from "@/components/dashboard/top-ranking";
@@ -47,12 +51,14 @@ export default async function DashboardPage() {
         <StatCard
           label="Vehículos registrados"
           value={String(stats.totalVehiculos)}
-          icon={Car}
+          icon={VISUAL_AUTO.Icon}
+          colorClasses={VISUAL_AUTO.colorClasses}
         />
         <StatCard
           label="En mantenimiento"
           value={String(stats.vehiculosEnMantenimiento)}
-          icon={Wrench}
+          icon={VISUAL_GENERAL.Icon}
+          colorClasses={VISUAL_GENERAL.colorClasses}
           trend="Vehículos con servicio activo hoy"
         />
         <StatCard

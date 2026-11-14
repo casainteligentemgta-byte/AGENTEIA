@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { CalendarClock, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 import type { EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import { getEtiquetaTipo, getEtiquetaVehiculo } from "@/lib/vehicles/format";
 import { formatEstadoSalud, type VehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
-import { VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
+import { CategoriaTile } from "@/components/icons/categorias";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -45,9 +45,11 @@ export function VehicleCard({
       className="app-card-white group relative block p-4 transition hover:shadow-lg"
     >
       <div className="flex gap-4">
-        <div className="flex h-[5.5rem] w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-100 to-zinc-200 text-zinc-400">
-          <VehicleTypeIcon tipo={vehiculo.tipo_vehiculo} className="h-12 w-12" />
-        </div>
+        <CategoriaTile
+          id={vehiculo.tipo_vehiculo}
+          className="h-[5.5rem] w-[5.5rem]"
+          iconClassName="h-12 w-12"
+        />
         <div className="min-w-0 flex-1 py-0.5">
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1 truncate text-base font-bold text-zinc-900">{titulo}</p>
@@ -95,8 +97,8 @@ export function VehicleCard({
           )}
         </div>
         <div className="flex flex-col items-end justify-between py-0.5">
-          <span className="relative flex h-10 w-10 items-center justify-center text-zinc-800">
-            <CalendarClock className="h-6 w-6" strokeWidth={1.75} />
+          <span className="relative">
+            <CategoriaTile id="calendario" className="h-10 w-10" iconClassName="h-5 w-5" />
             {notificaciones > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
                 {notificaciones}

@@ -1,35 +1,27 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Battery,
-  CircleDot,
-  Droplets,
-  Filter,
-  ScanLine,
-  Settings2,
-  SprayCan,
-  Wrench,
-} from "lucide-react";
+import { getCategoriaVisual, type CategoriaIcon } from "@/components/icons/categorias";
 import type { ServicioCentroId } from "@/lib/service-centers/types";
 
 export type ServicioCentroConfig = {
   id: ServicioCentroId;
   label: string;
-  icon: LucideIcon;
+  icon: CategoriaIcon;
+  colorClasses: string;
 };
 
+function servicio(id: ServicioCentroId, label: string): ServicioCentroConfig {
+  const visual = getCategoriaVisual(id);
+  return { id, label, icon: visual.Icon, colorClasses: visual.colorClasses };
+}
+
 export const SERVICIOS_CENTRO_CONFIG: Record<ServicioCentroId, ServicioCentroConfig> = {
-  aceite: { id: "aceite", label: "Aceite", icon: Droplets },
-  filtros: { id: "filtros", label: "Filtros", icon: Filter },
-  escaner: { id: "escaner", label: "Escáner automotriz", icon: ScanLine },
-  balanceo: { id: "balanceo", label: "Balanceo", icon: Settings2 },
-  neumaticos: { id: "neumaticos", label: "Neumáticos", icon: CircleDot },
-  bateria: { id: "bateria", label: "Batería", icon: Battery },
-  alineacion: { id: "alineacion", label: "Alineación", icon: Wrench },
-  limpieza_inyectores: {
-    id: "limpieza_inyectores",
-    label: "Limpieza de inyectores",
-    icon: SprayCan,
-  },
+  aceite: servicio("aceite", "Aceite"),
+  filtros: servicio("filtros", "Filtros"),
+  escaner: servicio("escaner", "Escáner automotriz"),
+  balanceo: servicio("balanceo", "Balanceo"),
+  neumaticos: servicio("neumaticos", "Neumáticos"),
+  bateria: servicio("bateria", "Batería"),
+  alineacion: servicio("alineacion", "Alineación"),
+  limpieza_inyectores: servicio("limpieza_inyectores", "Limpieza de inyectores"),
 };
 
 export function getServicioConfig(id: string): ServicioCentroConfig | null {

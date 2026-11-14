@@ -5,7 +5,8 @@ import { Loader2, Save } from "lucide-react";
 import { updateVehiculoTallerAction } from "@/app/actions/vehiculos";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo, normalizeTipoVehiculo } from "@/lib/vehicles/templates";
-import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
+import { VehicleTypePicker } from "@/components/app/vehicle-type-picker";
+import { CategoriaTile } from "@/components/icons/categorias";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
@@ -212,9 +213,7 @@ export function VehiculoEditForm({
 
       <div className="glass rounded-2xl p-6">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/15">
-            <VehicleTypeIcon tipo={tipo} className="h-7 w-7 text-blue-400" />
-          </div>
+          <CategoriaTile id={tipo} className="h-12 w-12" iconClassName="h-7 w-7" />
           <div>
             <h2 className="text-lg font-semibold text-zinc-100">Datos del vehículo</h2>
             <p className="text-sm text-zinc-500">Edita la ficha técnica y el odómetro</p>

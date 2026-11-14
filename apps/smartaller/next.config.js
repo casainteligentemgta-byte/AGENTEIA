@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@phosphor-icons/react"],
   experimental: {
     serverComponentsExternalPackages: ["@napi-rs/canvas", "unpdf", "tesseract.js"],
     serverActions: {

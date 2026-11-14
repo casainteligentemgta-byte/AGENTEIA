@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { AlertaRecordatorio } from "@/lib/data/alertas";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { CategoriaTile } from "@/components/icons/categorias";
 
 type AlertasBannerProps = {
   alertas: AlertaRecordatorio[];
@@ -60,7 +61,11 @@ export function AlertasBanner({ alertas }: AlertasBannerProps) {
                   <span className="font-normal text-zinc-400">· {alerta.placa}</span>
                 </p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-400">
-                  <CalendarClock className="h-3 w-3 shrink-0" />
+                  <CategoriaTile
+                    id="calendario"
+                    className="h-5 w-5"
+                    iconClassName="h-3 w-3"
+                  />
                   {formatDate(alerta.fecha_programada)}
                   {alerta.kilometraje_objetivo != null && (
                     <span>· {alerta.kilometraje_objetivo.toLocaleString("es-CO")} km</span>

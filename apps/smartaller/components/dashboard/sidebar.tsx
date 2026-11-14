@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Car,
   ClipboardList,
   Bell,
   Home,
@@ -13,20 +12,20 @@ import {
   Menu,
   X,
   Package,
-  Bike,
   ShieldCheck,
   LayoutGrid,
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { BrandLogo } from "@/components/app/brand-logo";
+import { getCategoriaVisual } from "@/components/icons/categorias";
 
 const links = [
   { href: "/portales", label: "Portales", icon: LayoutGrid },
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
-  { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
+  { href: "/dashboard/vehiculos", label: "Vehículos", icon: getCategoriaVisual("auto").Icon },
   { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
-  { href: "/dashboard/smartbike", label: "SmartBike", icon: Bike },
+  { href: "/dashboard/smartbike", label: "SmartBike", icon: getCategoriaVisual("bicicleta").Icon },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
   { href: "/smartimport", label: "SmartImport", icon: ShieldCheck },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },

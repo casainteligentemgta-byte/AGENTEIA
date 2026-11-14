@@ -1,33 +1,7 @@
 import type { ModuloMantenimiento } from "@/lib/vehicles/types";
 import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
 import { PALABRAS_MODULO } from "@/lib/vehicles/module-keywords";
-import {
-  Battery,
-  CircleDot,
-  Droplets,
-  Filter,
-  Link2,
-  RotateCw,
-  Settings2,
-  Shield,
-  Wrench,
-  Zap,
-} from "lucide-react";
-
-const ICONOS: Record<string, React.ComponentType<{ className?: string }>> = {
-  aceite: Droplets,
-  neumaticos: CircleDot,
-  balanceo: Settings2,
-  rotacion: RotateCw,
-  alineacion: Wrench,
-  bateria: Battery,
-  fluidos: Droplets,
-  cadena: Link2,
-  frenos: Shield,
-  hidraulico: Zap,
-  filtros: Filter,
-  orugas: Settings2,
-};
+import { CategoriaTile } from "@/components/icons/categorias";
 
 const KM_PROXIMO_DEFAULT = 5000;
 
@@ -72,7 +46,6 @@ export function MaintenanceModuleCard({
   kmActual = null,
   proximoRecordatorio = null,
 }: MaintenanceModuleCardProps) {
-  const Icon = ICONOS[modulo.id] ?? Wrench;
   const pendiente =
     modulo.disponibleDesdeVisita != null && visitasRegistradas < modulo.disponibleDesdeVisita;
   const ultimo = buscarUltimoServicioModulo(modulo.id, historial);
@@ -86,9 +59,7 @@ export function MaintenanceModuleCard({
   return (
     <div className="app-card-white relative p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-700">
-          <Icon className="h-7 w-7" />
-        </div>
+        <CategoriaTile id={modulo.id} />
         <div className="min-w-0 flex-1">
           <p className="font-bold text-zinc-900">{modulo.label}</p>
 

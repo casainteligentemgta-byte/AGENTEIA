@@ -17,6 +17,7 @@
     "@ai-sdk/openai": "^4.0.7",
     "@ai-sdk/react": "^4.0.16",
     "@napi-rs/canvas": "^1.0.5",
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@vercel/functions": "^2.0.0",

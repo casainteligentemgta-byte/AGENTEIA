@@ -1,27 +1,9 @@
 "use client";
 
-import {
-  Bike,
-  Bus,
-  Car,
-  Cog,
-  Truck,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { listarTiposVehiculo } from "@/lib/vehicles/templates";
+import { CategoriaTile, getCategoriaVisual } from "@/components/icons/categorias";
 import { cn } from "@/lib/utils";
-
-const ICONOS: Record<TipoVehiculo, LucideIcon> = {
-  auto: Car,
-  moto: Bike,
-  bicicleta: Bike,
-  patinete: Zap,
-  tractor: Cog,
-  maquinaria_pesada: Truck,
-  jumbo: Bus,
-};
 
 type VehicleTypePickerProps = {
   value: TipoVehiculo;
@@ -34,7 +16,6 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {tipos.map((config) => {
-        const Icon = ICONOS[config.tipo] ?? Car;
         const selected = value === config.tipo;
         return (
           <button
@@ -48,7 +29,7 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
                 : "border-zinc-700 bg-zinc-900/50 text-zinc-400 hover:border-zinc-600"
             )}
           >
-            <Icon className="h-7 w-7" />
+            <CategoriaTile id={config.tipo} className="h-12 w-12" iconClassName="h-6 w-6" />
             <span className="text-xs font-medium leading-tight">{config.label}</span>
           </button>
         );
@@ -58,6 +39,6 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
 }
 
 export function VehicleTypeIcon({ tipo, className }: { tipo: TipoVehiculo; className?: string }) {
-  const Icon = ICONOS[tipo] ?? Car;
+  const { Icon } = getCategoriaVisual(tipo);
   return <Icon className={className} />;
 }
