@@ -173,8 +173,12 @@ create policy "mantenimientos select by owner vehiculo"
 
 -- =============================================================================
 -- 3/3 — 20250704170000_rls_cleanup.sql
+-- + 20261114230000_drop_allow_read_mantenimientos_authenticated.sql
+-- Los nombres reales son "Allow read <tabla> for authenticated".
+-- El DROP histórico usaba "Allow authenticated read ..." y no borraba SELECT USING (true).
 -- =============================================================================
 
+drop policy if exists "Allow read mantenimientos for authenticated" on public.mantenimientos;
 drop policy if exists "Allow authenticated read mantenimientos" on public.mantenimientos;
 drop policy if exists "Allow authenticated read vehiculos" on public.vehiculos;
 drop policy if exists "Allow authenticated read recordatorios" on public.recordatorios;
