@@ -1,5 +1,5 @@
-import { CircleDot } from "lucide-react";
 import type { ConfigTipoVehiculo } from "@/lib/vehicles/types";
+import { CategoriaTile } from "@/components/icons/categorias";
 
 type WheelsGridProps = {
   config: ConfigTipoVehiculo;
@@ -21,7 +21,7 @@ export function WheelsGrid({ config }: WheelsGridProps) {
             key={i}
             className="flex flex-col items-center justify-center rounded-xl border border-zinc-100 bg-zinc-50 py-5"
           >
-            <CircleDot className="h-9 w-9 text-zinc-300" strokeWidth={1.25} />
+            <CategoriaTile id="neumaticos" className="h-14 w-14" iconClassName="h-9 w-9" />
             <p className="mt-2 text-[11px] font-medium text-zinc-400">
               {total === 2 ? (i === 0 ? "Delantera" : "Trasera") : `Rueda ${i + 1}`}
             </p>
@@ -29,7 +29,7 @@ export function WheelsGrid({ config }: WheelsGridProps) {
         ))}
         {config.incluyeRepuesto && (
           <div className="col-span-full flex items-center gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3">
-            <CircleDot className="h-5 w-5 text-zinc-300" />
+            <CategoriaTile id="neumaticos" className="h-8 w-8" iconClassName="h-5 w-5" />
             <p className="text-sm text-zinc-500">Repuesto — datos tras 1ª visita</p>
           </div>
         )}

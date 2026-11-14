@@ -6,7 +6,8 @@ import { Car, Loader2 } from "lucide-react";
 import { createVehicle } from "@/app/actions/vehicles";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
+import { VehicleTypePicker } from "@/components/app/vehicle-type-picker";
+import { CategoriaTile } from "@/components/icons/categorias";
 
 export function AddVehicleForm() {
   const router = useRouter();
@@ -68,9 +69,7 @@ export function AddVehicleForm() {
 
       <div className="app-card-white p-5 text-zinc-900">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
-            <VehicleTypeIcon tipo={tipo} className="h-7 w-7 text-zinc-700" />
-          </div>
+          <CategoriaTile id={tipo} className="h-12 w-12" iconClassName="h-7 w-7" />
           <h2 className="text-lg font-bold">Nuevo vehículo</h2>
         </div>
 

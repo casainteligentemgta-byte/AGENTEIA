@@ -2,7 +2,8 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { Loader2, Send, Sparkles, User } from "lucide-react";
+import { Loader2, Send, User } from "lucide-react";
+import { CategoriaTile, getCategoriaVisual } from "@/components/icons/categorias";
 import { useMemo, useRef, useEffect, useState } from "react";
 import { getMessageText } from "@/lib/ai/chat-messages";
 import { SUGERENCIAS_CHAT } from "@/lib/ai/smartaller-constants";
@@ -33,6 +34,7 @@ export function SmartallerChat({
   const { messages, sendMessage, status, error } = useChat({ transport });
 
   const isLoading = status === "submitted" || status === "streaming";
+  const { Icon: ChatIcon } = getCategoriaVisual("chat");
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -52,9 +54,7 @@ export function SmartallerChat({
     <div className="flex h-[calc(100dvh-4.5rem)] flex-col">
       <div className="border-b border-zinc-200/80 bg-white/80 px-4 py-3 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/25">
-            <Sparkles className="h-5 w-5" />
-          </div>
+          <CategoriaTile id="chat" className="h-10 w-10" iconClassName="h-5 w-5" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-zinc-900">Chat Smartaller</p>
             <p className="truncate text-xs text-zinc-500">
@@ -77,9 +77,7 @@ export function SmartallerChat({
         {messages.length === 0 && !error && (
           <div className="space-y-4 py-6">
             <div className="mx-auto max-w-xs text-center">
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
-                <Sparkles className="h-7 w-7" />
-              </div>
+              <CategoriaTile id="chat" className="mx-auto mb-3 h-14 w-14" iconClassName="h-7 w-7" />
               <p className="text-base font-semibold text-zinc-900">Hola, soy Smartaller</p>
               <p className="mt-1 text-sm text-zinc-500">
                 Conozco tu {tituloVehiculo}. Pregúntame sobre mantenimiento, historial o
@@ -117,13 +115,13 @@ export function SmartallerChat({
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                   isUser
                     ? "bg-blue-600 text-white"
-                    : "border border-zinc-200 bg-white text-blue-600"
+                    : "border border-zinc-200 bg-white text-emerald-600"
                 }`}
               >
                 {isUser ? (
                   <User className="h-4 w-4" />
                 ) : (
-                  <Sparkles className="h-4 w-4" />
+                  <ChatIcon className="h-4 w-4" />
                 )}
               </div>
               <div
@@ -152,8 +150,8 @@ export function SmartallerChat({
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-blue-600">
-              <Sparkles className="h-4 w-4" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-emerald-600">
+              <ChatIcon className="h-4 w-4" />
             </div>
             <div className="rounded-2xl rounded-bl-md border border-zinc-200/80 bg-white px-4 py-2.5 shadow-sm">
               <span className="inline-flex items-center gap-2 text-sm text-zinc-400">

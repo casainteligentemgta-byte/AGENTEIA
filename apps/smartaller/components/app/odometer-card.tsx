@@ -1,6 +1,7 @@
-import { Gauge, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 import { formatOdometro, getValorOdometro } from "@/lib/vehicles/format";
+import { getCategoriaVisual } from "@/components/icons/categorias";
 
 type OdometerCardProps = {
   vehiculo: VehiculoUsuario;
@@ -11,13 +12,14 @@ type OdometerCardProps = {
 export function OdometerCard({ vehiculo, ultimaVisita, ultimoCentro }: OdometerCardProps) {
   const valor = getValorOdometro(vehiculo);
   const lectura = formatOdometro(valor, vehiculo.unidad_odometro);
+  const { Icon: OdometroIcon } = getCategoriaVisual("odometro");
 
   return (
     <div className="overflow-hidden rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/25">
       <div className="flex items-center gap-4 p-5">
-        <div className="relative flex h-[4.5rem] w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-2xl border border-white/20 bg-white/10">
-          <Gauge className="h-7 w-7" strokeWidth={1.5} />
-          <span className="mt-0.5 text-[9px] font-bold tracking-widest text-white/80">ODO</span>
+        <div className="relative flex h-[4.5rem] w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-full bg-indigo-100/80 text-indigo-600">
+          <OdometroIcon className="h-7 w-7" />
+          <span className="mt-0.5 text-[9px] font-bold tracking-widest text-indigo-500">ODO</span>
         </div>
         <div>
           <p className="text-4xl font-bold leading-none tracking-tight">{lectura}</p>

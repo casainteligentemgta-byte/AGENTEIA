@@ -1,5 +1,6 @@
 import { getServicioConfig } from "@/lib/service-centers/constants";
 import type { ServicioCentroId } from "@/lib/service-centers/types";
+import { cn } from "@/lib/utils";
 
 type ServiceTagsProps = {
   servicios: ServicioCentroId[];
@@ -25,7 +26,14 @@ export function ServiceTags({ servicios, compact = false }: ServiceTagsProps) {
             title={config.label}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-700"
           >
-            <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+            <span
+              className={cn(
+                "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                config.colorClasses
+              )}
+            >
+              <Icon className="h-3 w-3" />
+            </span>
             <span className="max-w-[7rem] truncate">{config.label}</span>
           </span>
         );
