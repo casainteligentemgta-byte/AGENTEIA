@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getBrand } from "@/lib/brand";
 
 let client: Resend | null = null;
 
@@ -11,9 +12,12 @@ export function getResendClient(): Resend | null {
 
 /** Remitente verificado en Resend (ej. alertas@notificaciones.smarttaller.xyz). */
 export function getResendFrom(): string {
+  const brand = getBrand();
   return (
     process.env.RESEND_FROM?.trim() ||
-    "SmartTaller Alertas <alertas@notificaciones.smarttaller.xyz>"
+    (brand.id === "smarttaller"
+      ? "SmartTaller Alertas <alertas@notificaciones.smarttaller.xyz>"
+      : brand.copy.emailFromFallback)
   );
 }
 

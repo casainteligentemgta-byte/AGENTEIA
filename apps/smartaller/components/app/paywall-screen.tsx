@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Crown, Loader2, Sparkles } from "lucide-react";
 import { activarSuscripcionPremiumAction } from "@/app/actions/subscription";
+import { getBrand } from "@/lib/brand";
 
 type PaywallScreenProps = {
   onActivated?: () => void;
@@ -37,10 +38,9 @@ export function PaywallScreen({ onActivated, stripeEnabled = false }: PaywallScr
           <Crown className="h-8 w-8" />
         </div>
 
-        <h1 className="text-2xl font-bold text-white">SmartTaller Pro</h1>
+        <h1 className="text-2xl font-bold text-white">{getBrand().copy.proName}</h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-          Lleva el control de tus vehículos de forma independiente: historial, recordatorios y
-          Chat Smartaller, sin depender de un taller vinculado.
+          {getBrand().copy.paywallBody}
         </p>
 
         <ul className="mt-6 space-y-2 text-left text-sm text-zinc-300">

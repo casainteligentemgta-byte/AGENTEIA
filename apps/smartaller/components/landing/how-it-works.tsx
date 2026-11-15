@@ -1,4 +1,5 @@
 import { Bell, Camera, Cloud, Zap } from "lucide-react";
+import { getBrand } from "@/lib/brand";
 
 const steps = [
   {
@@ -11,7 +12,7 @@ const steps = [
     step: "02",
     icon: Zap,
     title: "Reconocimiento al instante",
-    desc: "SmartTaller entra en acción: la IA lee la placa en segundos, identifica el vehículo y extrae los datos clave. Adiós al registro manual y a los errores de dedo.",
+    desc: getBrand().copy.landing.howItWorksDesc,
   },
   {
     step: "03",
@@ -50,7 +51,7 @@ export function HowItWorks() {
 
         <div className="glass mx-auto mt-12 max-w-3xl rounded-2xl border-blue-500/20 p-8 text-center">
           <h3 className="text-lg font-semibold text-zinc-100">
-            ¿Por qué cambia el juego con SmartTaller?
+            {getBrand().copy.landing.howItWorksWhy}
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-zinc-400 sm:text-base">
             Porque transformamos el papeleo lento en un proceso automatizado de segundos. Conectamos

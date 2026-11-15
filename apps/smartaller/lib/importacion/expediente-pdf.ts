@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { getBrand } from "@/lib/brand";
 import { placaRealVisible } from "@/lib/importacion/expediente";
 import { formatPartidaFuente } from "@/lib/arancel/partida-utils";
 import {
@@ -463,7 +464,7 @@ export async function buildExpedientePdf(ficha: ExpedientePdfSource): Promise<Ui
     font,
     bold,
     "Expediente Puerto Libre",
-    `${codigo} · SmartTaller`
+    `${codigo} · ${getBrand().copy.name}`
   );
 
   y = drawSectionTitle(page, bold, "Vehículo", y);
@@ -691,7 +692,7 @@ export async function buildDesaduanamientoPdf(
     font,
     bold,
     "Expediente PDF SENIAT",
-    `${codigo} · SmartTaller`
+    `${codigo} · ${getBrand().copy.name}`
   );
 
   y = drawSectionTitle(page, bold, "Expediente", y);
@@ -836,7 +837,7 @@ export async function buildMatriculacionPdf(
     font,
     bold,
     "Archivo INTT — presentacion",
-    `${codigo} · SmartTaller`
+    `${codigo} · ${getBrand().copy.name}`
   );
 
   y = drawSectionTitle(page, bold, "Expediente", y);

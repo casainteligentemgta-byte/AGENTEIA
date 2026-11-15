@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TIPOS_VEHICULO } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { refineVehicleBrand } from "@/lib/validations/vehicle-brand";
 
 export const createVehicleSchema = z
   .object({
@@ -41,6 +42,7 @@ export const createVehicleSchema = z
         path: ["odometro"],
       });
     }
+    refineVehicleBrand(data, ctx);
   });
 
 export type CreateVehicleInput = z.input<typeof createVehicleSchema>;

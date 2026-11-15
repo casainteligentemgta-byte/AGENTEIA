@@ -4,6 +4,7 @@ import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { anioActualMax } from "@/lib/vehicles/propietario";
 
 import { ordenRecepcionAltaSchema } from "@/lib/schemas/orden-recepcion";
+import { refineVehicleBrand } from "@/lib/validations/vehicle-brand";
 
 export const updateVehiculoContactoSchema = z.object({
   vehiculoId: z.string().uuid("ID de vehículo inválido"),
@@ -117,11 +118,19 @@ function refineOdometroHoras<T extends { tipo_vehiculo: (typeof TIPOS_VEHICULO)[
   }
 }
 
+function refineVehiculoTallerBrand<T extends { marca?: string; modelo?: string }>(
+  data: T,
+  ctx: z.RefinementCtx
+) {
+  refineVehicleBrand(data, ctx);
+}
+
 export const createVehiculoTallerSchema = vehiculoTallerFieldsSchema
   .extend({
     ordenRecepcion: ordenRecepcionAltaSchema.optional(),
   })
-  .superRefine(refineOdometroHoras);
+  .superRefine(refineOdometroHoras)
+  .superRefine(refineVehiculoTallerBrand);
 
 export type CreateVehiculoTallerInput = z.input<typeof createVehiculoTallerSchema>;
 
@@ -129,7 +138,8 @@ export const updateVehiculoTallerSchema = vehiculoTallerFieldsSchema
   .extend({
     vehiculoId: z.string().uuid("ID de vehículo inválido"),
   })
-  .superRefine(refineOdometroHoras);
+  .superRefine(refineOdometroHoras)
+  .superRefine(refineVehiculoTallerBrand);
 
 export type UpdateVehiculoTallerInput = z.input<typeof updateVehiculoTallerSchema>;
 

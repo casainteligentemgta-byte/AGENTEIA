@@ -19,6 +19,7 @@ import {
   perfilSuscripcionVigente,
   usuarioTieneVehiculoTaller,
 } from "@/lib/data/perfil";
+import { getBrand } from "@/lib/brand";
 import {
   CATEGORIAS_VEHICULO,
   CategoriaVehiculoSchema,
@@ -220,7 +221,7 @@ export async function createMantenimientoB2C(
   ]);
 
   if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
-    return { success: false, error: "Necesitas SmartTaller Pro para registrar mantenimientos." };
+    return { success: false, error: getBrand().copy.needProMantenimientos };
   }
 
   const data = parsed.data;
@@ -333,7 +334,7 @@ export async function actualizarCategoriaVehiculo(
     if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
       return {
         success: false,
-        error: "Necesitas SmartTaller Pro para actualizar categorías.",
+        error: getBrand().copy.needProCategorias,
       };
     }
   }
@@ -442,7 +443,7 @@ export async function actualizarCategoriaVehiculoPorVehiculo(
   if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
     return {
       success: false,
-      error: "Necesitas SmartTaller Pro para actualizar el estado.",
+      error: getBrand().copy.needProEstado,
     };
   }
 

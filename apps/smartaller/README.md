@@ -2,6 +2,8 @@
 
 Gestión de mantenimientos para talleres vía Telegram + app multivehículo para dueños.
 
+Instancia exclusiva JAC (mismo código, otro proyecto Vercel/Supabase/bot): ver [`README-JAC.md`](./README-JAC.md).
+
 ## Dos experiencias
 
 | Ruta | Usuario | Descripción |

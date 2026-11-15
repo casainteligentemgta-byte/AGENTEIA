@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getBrand } from "@/lib/brand";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import {
   Benefits,
@@ -23,10 +24,11 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
+const brand = getBrand();
+
 export const metadata: Metadata = {
-  title: "SmartTaller · Una foto a la placa. El resto lo hace SmartTaller.",
-  description:
-    "La IA reconoce el vehículo y abre la orden. Gestión de talleres para autos, motos, bicis y maquinaria.",
+  title: brand.copy.landing.homeTitle,
+  description: brand.copy.landing.homeDescription,
 };
 
 export default function HomePage() {

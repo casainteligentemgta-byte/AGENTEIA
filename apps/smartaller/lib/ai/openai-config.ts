@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 
 /**
  * Proveedores LLM:
@@ -127,7 +128,7 @@ export function getOpenRouterHeaders(): Record<string, string> | undefined {
   const siteUrl = getAppBaseUrl();
   return {
     "HTTP-Referer": siteUrl,
-    "X-Title": "SmartTaller",
+    "X-Title": getBrand().copy.name,
   };
 }
 

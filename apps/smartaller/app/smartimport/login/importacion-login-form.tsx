@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
+import { getBrand } from "@/lib/brand";
 import { createClient } from "@/lib/supabase/client";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
 import { notifySmartImportRegistrationAction } from "@/app/actions/notify-registration";
@@ -190,7 +191,7 @@ function ImportacionLoginFormInner() {
 
       <p className="mt-6 text-center text-xs text-zinc-600">
         <Link href="/login" className="text-zinc-400 hover:text-zinc-200">
-          Login general SmartTaller
+          Login general {getBrand().copy.name}
         </Link>
       </p>
     </div>

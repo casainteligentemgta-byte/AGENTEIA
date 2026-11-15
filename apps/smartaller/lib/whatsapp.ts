@@ -1,3 +1,5 @@
+import { getBrand } from "@/lib/brand";
+
 /**
  * Envío de WhatsApp.
  *
@@ -35,7 +37,7 @@ export function buildReclamoWhatsApp(params: {
     `Hola ${params.nombre},`,
     `Tu vehículo ${params.placa} ya tiene inspección en ${params.tallerNombre}.`,
     "",
-    "Reclama el historial en SmartTaller:",
+    getBrand().copy.whatsappReclamoLine,
     loginUrl,
     "",
     `Código de este vehículo: ${params.codigo}`,

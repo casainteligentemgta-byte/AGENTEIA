@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNfcStickerPublic } from "@/app/actions/nfc/verify-nfc";
 import { PublicStickerView } from "@/components/nfc/PublicStickerView";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function PublicNfcStickerPage({ params }: Props) {
           <p className="text-lg font-medium">Sticker no disponible</p>
           <p className="mt-2 text-sm text-slate-400">{result.error}</p>
           <Link href="/" className="mt-6 inline-block text-sm text-blue-400 hover:text-blue-300">
-            Ir a SmartTaller
+            Ir a {getBrand().copy.name}
           </Link>
         </div>
       </main>

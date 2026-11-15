@@ -27,6 +27,7 @@ import {
 } from "@/lib/vehicles/claim-code";
 import { clearVehiculoClaimCode } from "@/lib/vehicles/claim-code-db";
 import { isMissingSchemaError } from "@/lib/db/schema-errors";
+import { applyVehicleBrandFields, getBrand } from "@/lib/brand";
 
 export type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -84,6 +85,7 @@ export async function createVehicle(
   }
 
   const data = parsed.data;
+  const branded = applyVehicleBrandFields(data);
   const config = getConfigTipoVehiculo(data.tipo_vehiculo);
   const placaNorm = normalizarPlaca(data.placa);
 
@@ -166,8 +168,8 @@ export async function createVehicle(
     user_id: user.id,
     tipo_vehiculo: data.tipo_vehiculo,
     nick: data.nick || null,
-    marca: data.marca || null,
-    modelo: data.modelo || null,
+    marca: branded.marca,
+    modelo: branded.modelo,
     color: data.color || null,
     placa: placaNorm,
     unidad_odometro: config.unidadOdometro,
@@ -206,7 +208,7 @@ export async function createVehicle(
   if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
     return {
       success: false,
-      error: "Necesitas SmartTaller Pro ($2.99/mes) para registrar vehículos de forma independiente.",
+      error: getBrand().copy.needProVehicles,
     };
   }
 

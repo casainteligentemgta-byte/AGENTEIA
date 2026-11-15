@@ -1,6 +1,8 @@
 "use server";
 
 import { notifyAdminTelegram } from "@/lib/telegram";
+import { getAppBaseUrl } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,8 +22,8 @@ export async function notifySmartImportRegistrationAction(input: {
   const text = [
     "🆕 Nuevo registro SmartImport",
     `📧 ${email}`,
-    "🌐 https://smarttaller.xyz/smartimport",
-    "🤖 @smartTaller_bot",
+    `🌐 ${getAppBaseUrl()}/smartimport`,
+    `🤖 ${getBrand().copy.telegram.botLabel}`,
     `🕒 ${when}`,
   ].join("\n");
 

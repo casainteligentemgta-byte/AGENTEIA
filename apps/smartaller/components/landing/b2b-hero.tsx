@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Camera } from "lucide-react";
+import { getBrand } from "@/lib/brand";
 
 export function B2bHero() {
   return (
@@ -16,9 +17,7 @@ export function B2bHero() {
               <span className="gradient-text">trabajas</span>
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-zinc-400">
-              El mecánico escanea el vehículo al llegar. SmartTaller registra la orden,
-              actualiza la flota, avisa al cliente y deja todo visible en tu dashboard — auto, moto,
-              bici o maquinaria.
+              {getBrand().copy.landing.b2bHero}
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
               <Link

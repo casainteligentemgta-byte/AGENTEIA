@@ -8,6 +8,8 @@ import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
+import { MarcaModeloFields } from "@/components/brand/marca-modelo-fields";
+import { applyVehicleBrandFields, getBrand, resolveCatalogModelo } from "@/lib/brand";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
 
 type FormFields = {
@@ -52,7 +54,11 @@ export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormPr
   const [pending, startTransition] = useTransition();
   const [tipo, setTipo] = useState<TipoVehiculo>("auto");
   const [error, setError] = useState<string | null>(null);
-  const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
+  const brand = getBrand();
+  const [fields, setFields] = useState<FormFields>({
+    ...EMPTY_FIELDS,
+    marca: brand.vehicleCatalog.lockedMarca ?? "",
+  });
   const [documentos, setDocumentos] = useState<VehiculosDocumentos>({});
 
   const config = getConfigTipoVehiculo(tipo);
@@ -64,11 +70,20 @@ export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormPr
   }
 
   function applyScannedFields(scanned: Record<string, string>) {
+    const catalog = getBrand().vehicleCatalog;
+    const branded = applyVehicleBrandFields({
+      marca: scanned.marca,
+      modelo: scanned.modelo,
+    });
+    const modelo =
+      catalog.locked
+        ? resolveCatalogModelo(branded.modelo, catalog.models) ?? ""
+        : branded.modelo ?? scanned.modelo ?? "";
     setFields((prev) => ({
       ...prev,
       placa: scanned.placa ?? prev.placa,
-      marca: scanned.marca ?? prev.marca,
-      modelo: scanned.modelo ?? prev.modelo,
+      marca: branded.marca ?? scanned.marca ?? prev.marca,
+      modelo: modelo || prev.modelo,
       color: scanned.color ?? prev.color,
       serialMotor: scanned.serialMotor ?? prev.serialMotor,
       serialCarroceria: scanned.serialCarroceria ?? prev.serialCarroceria,
@@ -177,31 +192,13 @@ export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormPr
             />
           </div>
 
-          <div>
-            <label htmlFor="marca" className="block text-sm font-medium text-zinc-300">
-              Marca
-            </label>
-            <input
-              id="marca"
-              value={fields.marca}
-              onChange={(e) => updateField("marca", e.target.value)}
-              placeholder="Ej. Toyota"
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="modelo" className="block text-sm font-medium text-zinc-300">
-              Modelo
-            </label>
-            <input
-              id="modelo"
-              value={fields.modelo}
-              onChange={(e) => updateField("modelo", e.target.value)}
-              placeholder="Ej. Corolla Cross"
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
+          <MarcaModeloFields
+            marca={fields.marca}
+            modelo={fields.modelo}
+            onMarcaChange={(value) => updateField("marca", value)}
+            onModeloChange={(value) => updateField("modelo", value)}
+            variant="dark"
+          />
 
           <div>
             <label htmlFor="anio" className="block text-sm font-medium text-zinc-300">

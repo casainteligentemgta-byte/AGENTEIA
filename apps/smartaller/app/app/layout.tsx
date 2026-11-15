@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { getBrand } from "@/lib/brand";
+
+const brand = getBrand();
 
 export const metadata: Metadata = {
-  title: "SmartTaller — Tu vehículo",
+  title: brand.copy.appTitle,
   description: "Gestiona el mantenimiento de todos tus vehículos desde un solo lugar.",
 };
 

@@ -1,4 +1,5 @@
 import { BarChart3, ClipboardList, TrendingUp, Users } from "lucide-react";
+import { getBrand } from "@/lib/brand";
 
 const highlights = [
   {
@@ -24,10 +25,10 @@ const highlights = [
 ];
 
 const paragraphs = [
-  "En SmartTaller creemos que la gestión de un taller mecánico y el control de las reparaciones no debería ser complicado. Por eso desarrollamos una plataforma pensada para simplificar la administración de tu negocio y la comunicación con tus clientes, combinando tecnología en la nube, control de procesos y facilidad de uso.",
+  getBrand().copy.landing.aboutP1,
   "Nuestra plataforma centraliza toda la operación en un solo lugar: desde la recepción del vehículo, datos técnicos e inventario de repuestos, hasta el historial detallado de órdenes de servicio, reparaciones y facturación. El personal técnico y administrativo se encarga de registrar cada avance en el sistema, asegurando exactitud, orden y un seguimiento profesional de cada vehículo en el taller.",
   "Lo que nos distingue es la forma en que te mostramos el estado de tu negocio y de cada reparación: a través de gráficos claros, paneles visuales de estatus y una interfaz amigable que te ayuda a supervisar la productividad, los ingresos y las tareas pendientes sin complicaciones.",
-  "Con SmartTaller, acompañamos el crecimiento de tu negocio paso a paso, dándote herramientas eficientes para optimizar tus tiempos, tomar mejores decisiones y garantizar que el servicio a tus clientes sea más rápido, transparente y profesional.",
+  getBrand().copy.landing.aboutP4,
 ];
 
 export function PlatformAbout() {

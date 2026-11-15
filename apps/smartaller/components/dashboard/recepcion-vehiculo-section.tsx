@@ -13,6 +13,7 @@ import {
   type RecepcionVehiculo,
 } from "@/lib/schemas/recepcion-vehiculo";
 import { ClipboardCheck } from "lucide-react";
+import { getBrand } from "@/lib/brand";
 
 export type RecepcionVehiculoFormValue = Partial<RecepcionVehiculo>;
 
@@ -87,7 +88,7 @@ export function RecepcionVehiculoSection({ value, onChange, odometroLabel = "Kil
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
         <p className="text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          SmartTaller · Orden de recepción
+          {getBrand().copy.name} · Orden de recepción
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>

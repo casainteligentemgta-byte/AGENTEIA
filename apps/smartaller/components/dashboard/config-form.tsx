@@ -8,6 +8,7 @@ import {
   regenerarCodigoAction,
 } from "@/app/actions/taller";
 import type { Taller } from "@/lib/taller";
+import { getBrand } from "@/lib/brand";
 import { INDUSTRIA_LABELS, TIPOS_INDUSTRIA, type TipoIndustria } from "@/lib/platform/types";
 
 type ConfigFormProps = {
@@ -149,7 +150,7 @@ export function ConfigForm({ taller, kioskUrl }: ConfigFormProps) {
         {!vinculado && (
           <div className="mt-4 space-y-4">
             <ol className="list-decimal space-y-2 pl-5 text-sm text-zinc-400">
-              <li>Abre tu bot de SmartTaller en Telegram</li>
+              <li>Abre tu bot de {getBrand().copy.name} en Telegram</li>
               <li>Copia y envía exactamente este mensaje (no hace falta escribirlo a mano):</li>
             </ol>
             <div className="flex items-center gap-2 rounded-xl bg-zinc-900 p-4">

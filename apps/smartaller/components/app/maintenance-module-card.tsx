@@ -2,6 +2,7 @@ import type { ModuloMantenimiento } from "@/lib/vehicles/types";
 import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
 import { PALABRAS_MODULO } from "@/lib/vehicles/module-keywords";
 import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
+import { getModuleInterval } from "@/lib/brand";
 import {
   Battery,
   CircleDot,
@@ -30,7 +31,6 @@ const ICONOS: Record<string, React.ComponentType<{ className?: string }>> = {
   orugas: Settings2,
 };
 
-const KM_PROXIMO_DEFAULT = 5000;
 
 function buscarUltimoServicioModulo(
   moduloId: string,
@@ -53,10 +53,15 @@ function formatFechaCorta(iso: string): string {
   }).format(new Date(iso));
 }
 
-function calcularProgreso(ultimoKm: number | null, actualKm: number | null): number {
+function calcularProgreso(
+  ultimoKm: number | null,
+  actualKm: number | null,
+  moduleId: string
+): number {
   if (ultimoKm == null || actualKm == null) return 0;
   const diff = actualKm - ultimoKm;
-  return Math.min(100, Math.max(0, Math.round((diff / KM_PROXIMO_DEFAULT) * 100)));
+  const intervalKm = getModuleInterval(moduleId).km || 1;
+  return Math.min(100, Math.max(0, Math.round((diff / intervalKm) * 100)));
 }
 
 type MaintenanceModuleCardProps = {
@@ -81,14 +86,14 @@ export function MaintenanceModuleCard({
 
   const proxKm =
     proximoRecordatorio?.kilometraje_objetivo ??
-    (ultimo?.kilometraje != null ? ultimo.kilometraje + KM_PROXIMO_DEFAULT : null);
+    (ultimo?.kilometraje != null ? ultimo.kilometraje + getModuleInterval(modulo.id).km : null);
   const proxFecha = proximoRecordatorio?.fecha_programada ?? null;
-  const progreso = calcularProgreso(ultimo?.kilometraje ?? null, kmActual);
+  const progreso = calcularProgreso(ultimo?.kilometraje ?? null, kmActual, modulo.id);
 
   return (
     <div className="app-card-white relative p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-700">
+        <div className="categoria-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-700">
           <Icon className="h-7 w-7" />
         </div>
         <div className="min-w-0 flex-1">

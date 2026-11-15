@@ -6,6 +6,7 @@ import { Loader2, Send, Sparkles, User } from "lucide-react";
 import { useMemo, useRef, useEffect, useState } from "react";
 import { getMessageText } from "@/lib/ai/chat-messages";
 import { SUGERENCIAS_CHAT } from "@/lib/ai/smartaller-constants";
+import { getBrand } from "@/lib/brand";
 
 type SmartallerChatProps = {
   vehiculoId: string;
@@ -56,7 +57,7 @@ export function SmartallerChat({
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-zinc-900">Chat Smartaller</p>
+            <p className="truncate text-sm font-semibold text-zinc-900">{getBrand().copy.chatName}</p>
             <p className="truncate text-xs text-zinc-500">
               {tituloVehiculo} · {placa}
             </p>

@@ -18,6 +18,7 @@ import {
   sendTelegramMessage,
   type TelegramUpdate,
 } from "@/lib/telegram";
+import { getBrand } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,9 +33,7 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
     if (result.ok) {
       await sendTelegramMessage(
         message.chat.id,
-        `✅ Taller "${result.nombre}" vinculado correctamente.\n\n` +
-          "• Recepción: /recepcion — envía foto frontal del vehículo\n" +
-          "• Inspección rápida: /inspeccion PLACA"
+        getBrand().copy.telegram.vinculado(result.nombre ?? "taller")
       );
     } else {
       await sendTelegramMessage(message.chat.id, `❌ ${result.error}`);
@@ -50,9 +49,7 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
   if (parseInspeccionCommand(message)) {
     await sendTelegramMessage(
       message.chat.id,
-      "Escribe la placa del vehículo:\n/inspeccion ABC123\n\n" +
-        "O envía foto de la placa con pie de foto: inspeccion\n\n" +
-        "Para foto frontal del vehículo usa: /recepcion"
+      getBrand().copy.telegram.inspeccionHint
     );
     return;
   }
@@ -66,12 +63,7 @@ async function handleTextMessage(update: TelegramUpdate): Promise<void> {
   if (!getImageFileId(message)) {
     await sendTelegramMessage(
       message.chat.id,
-      "Comandos disponibles:\n\n" +
-        "📷 /recepcion — foto frontal del vehículo (lee placa y abre inspección)\n" +
-        "🔍 /inspeccion PLACA — abre planilla por placa escrita\n" +
-        "📷 Foto de placa + pie de foto: inspeccion\n\n" +
-        "🔗 Vincular taller: /vincular TU_CODIGO\n" +
-        "(Código en Dashboard → Configuración)"
+      getBrand().copy.telegram.help
     );
   }
 }

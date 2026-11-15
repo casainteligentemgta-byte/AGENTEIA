@@ -26,6 +26,7 @@ import { crearOrdenRecepcionSchema, tieneDatosOrdenRecepcion } from "@/lib/schem
 import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
 import { datosClienteOrdenRecepcion } from "@/lib/ordenes-recepcion/cliente-orden";
 import type { OrdenRecepcionAltaInput } from "@/lib/schemas/orden-recepcion";
+import { applyVehicleBrandFields } from "@/lib/brand";
 
 async function registrarOrdenRecepcion(
   supabase: ReturnType<typeof createAdminClient>,
@@ -133,6 +134,7 @@ export async function createVehiculoTallerAction(
   if (!taller) return { ok: false, error: "No se encontró tu taller" };
 
   const data = parsed.data;
+  const branded = applyVehicleBrandFields(data);
   const config = getConfigTipoVehiculo(data.tipo_vehiculo);
   const placaNorm = normalizarPlaca(data.placa);
   const supabase = createAdminClient();
@@ -179,8 +181,8 @@ export async function createVehiculoTallerAction(
     taller_id: taller.id,
     tipo_vehiculo: data.tipo_vehiculo,
     placa: placaNorm,
-    marca: data.marca?.trim() || null,
-    modelo: data.modelo?.trim() || null,
+    marca: branded.marca,
+    modelo: branded.modelo,
     color: data.color?.trim() || null,
     anio: data.anio,
     ...propietarioContactoColumns(data.nombreCliente, data.telefonoCliente),
@@ -244,8 +246,8 @@ export async function createVehiculoTallerAction(
       user.id,
       {
         placa: placaNorm,
-        marca: data.marca,
-        modelo: data.modelo,
+        marca: branded.marca ?? undefined,
+        modelo: branded.modelo ?? undefined,
         color: data.color,
         serialCarroceria: data.serialCarroceria,
         nombreCliente: data.nombreCliente,
@@ -268,8 +270,8 @@ export async function createVehiculoTallerAction(
           id: vinculado.id,
           user_id: vehiculoRow.user_id,
           placa: placaNorm,
-          marca: data.marca,
-          modelo: data.modelo,
+          marca: branded.marca,
+          modelo: branded.modelo,
           color: data.color,
         });
       }
@@ -318,8 +320,8 @@ export async function createVehiculoTallerAction(
       id: created.id,
       user_id: bikeUserId,
       placa: placaNorm,
-      marca: data.marca,
-      modelo: data.modelo,
+      marca: branded.marca,
+      modelo: branded.modelo,
       color: data.color,
     });
   }
@@ -332,8 +334,8 @@ export async function createVehiculoTallerAction(
     user.id,
     {
       placa: placaNorm,
-      marca: data.marca,
-      modelo: data.modelo,
+      marca: branded.marca ?? undefined,
+      modelo: branded.modelo ?? undefined,
       color: data.color,
       serialCarroceria: data.serialCarroceria,
       nombreCliente: data.nombreCliente,
@@ -414,6 +416,7 @@ export async function updateVehiculoTallerAction(
   if (!taller) return { ok: false, error: "No se encontró tu taller" };
 
   const data = parsed.data;
+  const branded = applyVehicleBrandFields(data);
   const config = getConfigTipoVehiculo(data.tipo_vehiculo);
   const placaNorm = normalizarPlaca(data.placa);
   const supabase = createAdminClient();
@@ -471,8 +474,8 @@ export async function updateVehiculoTallerAction(
   const payload = {
     tipo_vehiculo: data.tipo_vehiculo,
     placa: placaNorm,
-    marca: data.marca?.trim() || null,
-    modelo: data.modelo?.trim() || null,
+    marca: branded.marca,
+    modelo: branded.modelo,
     color: data.color?.trim() || null,
     anio: data.anio,
     ...propietarioContactoColumns(data.nombreCliente, data.telefonoCliente),
@@ -515,8 +518,8 @@ export async function updateVehiculoTallerAction(
       id: data.vehiculoId,
       user_id: vehiculo.user_id,
       placa: placaNorm,
-      marca: data.marca,
-      modelo: data.modelo,
+      marca: branded.marca,
+      modelo: branded.modelo,
       color: data.color,
     });
   }

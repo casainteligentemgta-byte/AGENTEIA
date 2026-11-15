@@ -1,3 +1,5 @@
+import { getBrand } from "@/lib/brand";
+
 export function Hero() {
   return (
     <section className="relative overflow-hidden pt-32 pb-10 sm:pt-40 sm:pb-12">
@@ -11,9 +13,7 @@ export function Hero() {
             <span className="gradient-text">inteligente</span>.
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-zinc-400 sm:text-xl">
-            Desde que el vehículo ingresa y es escaneado, SmartTaller automatiza todo: registra la
-            orden, actualiza el inventario de la flota y notifica al cliente en tiempo real. Controla
-            autos, motos, bicis o maquinaria desde un solo dashboard centralizado.
+            {getBrand().copy.landing.homeHero}
           </p>
         </div>
       </div>

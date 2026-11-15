@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { TelegramBanner } from "@/components/dashboard/telegram-banner";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
+import { getBrand } from "@/lib/brand";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   let userEmail: string | null = null;
@@ -27,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 hidden h-14 items-center border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur md:flex">
             <p className="ml-14 truncate text-sm font-semibold text-zinc-100">
-              {tallerNombre ?? "SmartTaller"}
+              {tallerNombre ?? getBrand().copy.fallbackTallerNombre}
             </p>
           </header>
           {!telegramLinked && (

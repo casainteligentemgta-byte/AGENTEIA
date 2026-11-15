@@ -15,6 +15,7 @@ import {
   type PortalRole,
 } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -128,7 +129,7 @@ export default async function PortalesHubPage() {
               <div className="inline-flex items-center gap-2 text-cyan-400">
                 <LayoutGrid className="h-4 w-4 md:h-5 md:w-5" />
                 <span className="text-[11px] font-medium uppercase tracking-[0.14em] md:text-xs">
-                  SmartTaller
+                  {getBrand().copy.name}
                 </span>
               </div>
               {access.orgNombre ? (

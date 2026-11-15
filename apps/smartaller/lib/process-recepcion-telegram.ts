@@ -6,6 +6,7 @@ import { uploadEstadoVisualFotoBuffer } from "@/lib/ordenes-recepcion/upload-est
 import { crearTelegramRecepcionSesion } from "@/lib/telegram-recepcion-sesion";
 import { getTallerByTelegramChat } from "@/lib/taller";
 import { downloadTelegramFile, sendTelegramMessage } from "@/lib/telegram";
+import { getBrand } from "@/lib/brand";
 import {
   clearTelegramPendingAction,
   setTelegramPendingAction,
@@ -24,13 +25,7 @@ export async function solicitarFotoFrontalRecepcion(chatId: number): Promise<voi
 
   await setTelegramPendingAction(chatId, "recepcion_foto_frontal");
 
-  await sendTelegramMessage(
-    chatId,
-    "📷 Recepción de vehículo\n\n" +
-      "Envía la foto frontal del vehículo (parachoques o portaplacas visible).\n\n" +
-      "La IA leerá la placa y te enviará el enlace para completar la hoja de inspección en la app (fotos restantes + checklist).\n\n" +
-      "Tienes 15 minutos para enviar la foto."
-  );
+  await sendTelegramMessage(chatId, getBrand().copy.telegram.recepcionPrompt);
 }
 
 export async function processRecepcionTelegramPhoto(

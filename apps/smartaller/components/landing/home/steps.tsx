@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getBrand } from "@/lib/brand";
 import { BellIcon, CameraIcon, CloudIcon, ScanIcon } from "./icons";
 
 type Step = {
@@ -8,34 +9,37 @@ type Step = {
   icon: ReactNode;
 };
 
-const STEPS: Step[] = [
-  {
-    who: "01 · Tú",
-    title: "Foto y listo",
-    body: "Llega el vehículo, el mecánico le toma una foto a la placa desde Telegram. Nada más.",
-    icon: <CameraIcon />,
-  },
-  {
-    who: "02 · SmartTaller",
-    title: "Reconocimiento al instante",
-    body: "La IA lee la placa, identifica el vehículo y precarga la recepción. Adiós a los errores de dedo.",
-    icon: <ScanIcon />,
-  },
-  {
-    who: "03 · SmartTaller",
-    title: "Todo queda en la nube",
-    body: "Historial, mantenimientos y costos, seguros y a la vista de tu equipo en tiempo real.",
-    icon: <CloudIcon />,
-  },
-  {
-    who: "04 · SmartTaller",
-    title: "El cliente vuelve solo",
-    body: "A los 6 meses o por kilometraje, el sistema programa el próximo mantenimiento. El recordatorio por WhatsApp llega próximamente.",
-    icon: <BellIcon />,
-  },
-];
+function buildSteps(brandName: string): Step[] {
+  return [
+    {
+      who: "01 · Tú",
+      title: "Foto y listo",
+      body: "Llega el vehículo, el mecánico le toma una foto a la placa desde Telegram. Nada más.",
+      icon: <CameraIcon />,
+    },
+    {
+      who: `02 · ${brandName}`,
+      title: "Reconocimiento al instante",
+      body: "La IA lee la placa, identifica el vehículo y precarga la recepción. Adiós a los errores de dedo.",
+      icon: <ScanIcon />,
+    },
+    {
+      who: `03 · ${brandName}`,
+      title: "Todo queda en la nube",
+      body: "Historial, mantenimientos y costos, seguros y a la vista de tu equipo en tiempo real.",
+      icon: <CloudIcon />,
+    },
+    {
+      who: `04 · ${brandName}`,
+      title: "El cliente vuelve solo",
+      body: "A los 6 meses o por kilometraje, el sistema programa el próximo mantenimiento. El recordatorio por WhatsApp llega próximamente.",
+      icon: <BellIcon />,
+    },
+  ];
+}
 
 export function Steps() {
+  const STEPS = buildSteps(getBrand().copy.landing.stepsWho);
   return (
     <section className="border-t border-landing-line py-11 lp:py-[88px]" id="como">
       <div className="mx-auto w-full max-w-landing px-5 lp:px-12">

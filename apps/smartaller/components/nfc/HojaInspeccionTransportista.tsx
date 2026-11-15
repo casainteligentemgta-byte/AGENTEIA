@@ -11,6 +11,7 @@ import {
   type TransportistaSeccion,
 } from "@/lib/importacion/inspeccion/catalog";
 import { getAppHost } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 import type { ChecklistRespuesta } from "@/lib/schemas/inspeccion-transportista";
 import {
   opcionesParaSeccion,
@@ -209,7 +210,7 @@ export function HojaInspeccionTransportista({
       <article className="mx-auto max-w-4xl overflow-x-hidden bg-white p-4 text-zinc-900 shadow-xl print:max-w-none print:overflow-visible print:p-0 print:shadow-none sm:p-8 md:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-            SmartTaller · Puerto Libre
+            {getBrand().copy.name} · Puerto Libre
           </p>
           <h1 className="mt-1 text-xl font-bold uppercase tracking-wide">
             Planilla recepción en puerto
@@ -362,7 +363,9 @@ export function HojaInspeccionTransportista({
 
         <section className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold text-zinc-700">Receptor (SmartTaller / cliente)</p>
+            <p className="text-xs font-semibold text-zinc-700">
+              Receptor ({getBrand().copy.name} / cliente)
+            </p>
             <input
               name="receptorNombre"
               placeholder="Nombre"

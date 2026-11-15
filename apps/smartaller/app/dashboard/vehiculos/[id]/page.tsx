@@ -10,6 +10,7 @@ import { VehiculoEditForm } from "@/components/dashboard/vehiculo-edit-form";
 import { VehiculoDeleteSection } from "@/components/dashboard/vehiculo-delete-section";
 import { VehiculoClaimShareCard } from "@/components/dashboard/vehiculo-claim-share";
 import { ensureTallerForUser } from "@/lib/taller";
+import { getBrand } from "@/lib/brand";
 import { getUser } from "@/lib/supabase/server";
 import { etiquetaHistorialMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import { getRepuestosPorMantenimientoIds, getRepuestosTaller } from "@/lib/data/repuestos";
@@ -84,7 +85,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
 
   if (!vehiculo) notFound();
 
-  let tallerNombre = "SmartTaller";
+  let tallerNombre = getBrand().copy.fallbackTallerNombre;
   try {
     const user = await getUser();
     if (user) {
