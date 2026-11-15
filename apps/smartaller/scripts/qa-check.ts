@@ -134,7 +134,7 @@ async function main() {
 
   if (baseUrl) {
     console.log(`\n--- Smoke HTTP (${baseUrl}) ---\n`);
-    for (const path of ["/api/health", "/", "/para-talleres", "/login", "/cliente"]) {
+    for (const path of ["/api/health", "/", "/para-talleres", "/login", "/forgot-password", "/reset-password", "/cliente"]) {
       const probe = await probeHttp(path);
       check(`GET ${path}`, probe.ok, probe.detail);
     }

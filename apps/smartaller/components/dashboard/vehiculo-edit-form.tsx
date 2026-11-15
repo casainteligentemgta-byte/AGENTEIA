@@ -22,6 +22,7 @@ type FormFields = {
   emailPropietario: string;
   fechaNacimientoPropietario: string;
   odometro: string;
+  anio: string;
 };
 
 type VehiculoEditFormProps = {
@@ -42,6 +43,7 @@ type VehiculoEditFormProps = {
   kilometrajeUltimo: number | null;
   horasMotorUltimo: number | null;
   documentos: VehiculosDocumentos;
+  anio: number | null;
 };
 
 function odometroInicial(
@@ -71,6 +73,7 @@ export function VehiculoEditForm({
   kilometrajeUltimo,
   horasMotorUltimo,
   documentos: documentosIniciales,
+  anio,
 }: VehiculoEditFormProps) {
   const [tipo, setTipo] = useState<TipoVehiculo>(() => normalizeTipoVehiculo(tipoVehiculo));
   const [message, setMessage] = useState<string | null>(null);
@@ -90,6 +93,7 @@ export function VehiculoEditForm({
     emailPropietario: emailPropietario ?? "",
     fechaNacimientoPropietario: fechaNacimientoPropietario ?? "",
     odometro: odometroInicial(unidadOdometro, kilometrajeUltimo, horasMotorUltimo),
+    anio: anio != null ? String(anio) : "",
   });
 
   const config = getConfigTipoVehiculo(tipo);
@@ -137,6 +141,7 @@ export function VehiculoEditForm({
         nombreCliente: fields.nombreCliente,
         telefonoCliente: fields.telefonoCliente,
         odometro: fields.odometro,
+        anio: fields.anio,
         documentos: Object.keys(documentos).length > 0 ? documentos : {},
       });
 
@@ -255,6 +260,20 @@ export function VehiculoEditForm({
               id="modelo-edit"
               value={fields.modelo}
               onChange={(e) => updateField("modelo", e.target.value)}
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="anio-edit" className="block text-sm font-medium text-zinc-300">
+              Año (opcional)
+            </label>
+            <input
+              id="anio-edit"
+              inputMode="numeric"
+              value={fields.anio}
+              onChange={(e) => updateField("anio", e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="Ej. 2022"
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
             />
           </div>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TIPOS_VEHICULO } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { anioActualMax } from "@/lib/vehicles/propietario";
 
 import { ordenRecepcionAltaSchema } from "@/lib/schemas/orden-recepcion";
 
@@ -87,6 +88,18 @@ const vehiculoTallerFieldsSchema = z.object({
       if (!v || v.trim() === "") return null;
       const n = Number(v.replace(/\./g, "").replace(",", "."));
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+    }),
+  anio: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v || v.trim() === "") return null;
+      const n = Number(v.trim());
+      return Number.isInteger(n) ? n : Number.NaN;
+    })
+    .refine((v) => v == null || (v >= 1950 && v <= anioActualMax()), {
+      message: "Año inválido",
     }),
 });
 

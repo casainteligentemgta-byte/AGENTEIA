@@ -41,6 +41,8 @@ export const config = {
     "/portales",
     "/portales/:path*",
     "/login",
+    "/forgot-password",
+    "/reset-password",
     "/auth/:path*",
   ],
 };

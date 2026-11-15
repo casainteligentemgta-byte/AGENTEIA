@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { normalizarPlaca } from "@/lib/vehicles/link";
 import { getRepuestosPorMantenimientoIds } from "@/lib/data/repuestos";
 import type { MantenimientoRepuestoLinea } from "@/lib/repuestos/types";
+import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
 
 export type MantenimientoHistorial = {
   id: string;
@@ -13,6 +14,7 @@ export type MantenimientoHistorial = {
   taller_id: string | null;
   taller_nombre: string | null;
   detalle_revision: Record<string, unknown> | null;
+  esRecepcion: boolean;
   repuestos: MantenimientoRepuestoLinea[];
 };
 
@@ -26,6 +28,8 @@ export type RecordatorioUsuario = {
 export type ResumenTallerVehiculo = {
   vinculado: boolean;
   totalVisitas: number;
+  /** Visitas de mantenimiento real (sin actas de recepción / inspección). */
+  totalServicios: number;
   ultimaVisita: string | null;
   ultimaVisitaKm: number | null;
   ultimoCentro: string | null;
@@ -62,6 +66,7 @@ export async function getResumenTallerVehiculo(
     return {
       vinculado: false,
       totalVisitas: 0,
+      totalServicios: 0,
       ultimaVisita: null,
       ultimaVisitaKm: null,
       ultimoCentro: null,
@@ -87,7 +92,8 @@ export async function getResumenTallerVehiculo(
     }
   }
 
-  const historialBase: Omit<MantenimientoHistorial, "repuestos">[] = (mantenimientos ?? []).map(
+  const historialBase: Omit<MantenimientoHistorial, "repuestos" | "esRecepcion">[] =
+    (mantenimientos ?? []).map(
     (m) => ({
       id: m.id,
       created_at: m.created_at,
@@ -110,9 +116,11 @@ export async function getResumenTallerVehiculo(
 
   const historial: MantenimientoHistorial[] = historialBase.map((m) => ({
     ...m,
+    esRecepcion: isRecepcionMantenimiento(m),
     repuestos: repuestosMap.get(m.id) ?? [],
   }));
 
+  const servicios = historial.filter((m) => !m.esRecepcion);
   const ultimo = historial[0] ?? null;
 
   const { data: recordatorios } = await supabase
@@ -134,6 +142,7 @@ export async function getResumenTallerVehiculo(
   return {
     vinculado: historial.length > 0,
     totalVisitas: historial.length,
+    totalServicios: servicios.length,
     ultimaVisita: ultimo ? formatFechaCorta(ultimo.created_at) : null,
     ultimaVisitaKm: ultimo?.kilometraje ?? null,
     ultimoCentro: ultimo?.taller_nombre ?? null,

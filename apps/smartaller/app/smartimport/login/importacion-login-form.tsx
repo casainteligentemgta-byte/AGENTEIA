@@ -13,6 +13,7 @@ import {
   IMPORTACION_BASE,
   isImportacionAppPath,
 } from "@/lib/importacion/paths";
+import { authEmailCallbackUrl } from "@/lib/app-url";
 
 function ImportacionLoginFormInner() {
   const searchParams = useSearchParams();
@@ -66,7 +67,13 @@ function ImportacionLoginFormInner() {
         await recordPortalLoginAction(effectiveRedirect);
         window.location.href = effectiveRedirect;
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: authEmailCallbackUrl(effectiveRedirect),
+          },
+        });
         if (error) throw error;
         void notifySmartImportRegistrationAction({ email }).catch(() => {
           /* soft-fail: no bloquear UI */

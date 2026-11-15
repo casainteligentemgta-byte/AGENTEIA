@@ -19,6 +19,9 @@ import {
   deleteVehiculoTallerSchema,
 } from "@/lib/validations/vehiculo";
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
+import { propietarioContactoColumns } from "@/lib/vehicles/propietario";
+import { ensureVehiculoClaimCode, assignNewClaimCode } from "@/lib/vehicles/claim-code-db";
+import { isMissingSchemaError } from "@/lib/db/schema-errors";
 import { crearOrdenRecepcionSchema, tieneDatosOrdenRecepcion } from "@/lib/schemas/orden-recepcion";
 import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
 import { datosClienteOrdenRecepcion } from "@/lib/ordenes-recepcion/cliente-orden";
@@ -179,8 +182,8 @@ export async function createVehiculoTallerAction(
     marca: data.marca?.trim() || null,
     modelo: data.modelo?.trim() || null,
     color: data.color?.trim() || null,
-    nombre_cliente: data.nombreCliente.trim(),
-    telefono_cliente: data.telefonoCliente.trim(),
+    anio: data.anio,
+    ...propietarioContactoColumns(data.nombreCliente, data.telefonoCliente),
     serial_motor: serialMotor,
     serial_carroceria: serialCarroceria,
     cedula_propietario: data.cedulaPropietario?.trim() || null,
@@ -204,18 +207,36 @@ export async function createVehiculoTallerAction(
     .maybeSingle();
 
   if (existingUsuario) {
-    const { data: vinculado, error } = await supabase
-      .from("vehiculos")
-      .update(payload)
-      .eq("id", existingUsuario.id)
-      .select("id")
-      .single();
+    let vinculado: { id: string } | null = null;
+    let linkError: { message: string } | null = null;
+    {
+      const updated = await supabase
+        .from("vehiculos")
+        .update(payload)
+        .eq("id", existingUsuario.id)
+        .select("id")
+        .single();
+      vinculado = updated.data;
+      linkError = updated.error;
+      if (linkError && isMissingSchemaError(linkError.message)) {
+        const { anio: _anio, dueno_nombre: _dn, dueno_telefono: _dt, ...legacy } = payload;
+        const retry = await supabase
+          .from("vehiculos")
+          .update(legacy)
+          .eq("id", existingUsuario.id)
+          .select("id")
+          .single();
+        vinculado = retry.data;
+        linkError = retry.error;
+      }
+    }
 
-    if (error || !vinculado) {
-      return { ok: false, error: error?.message ?? "No se pudo vincular el vehículo" };
+    if (linkError || !vinculado) {
+      return { ok: false, error: linkError?.message ?? "No se pudo vincular el vehículo" };
     }
 
     await fusionarVehiculosPorPlaca(supabase, placaNorm, vinculado.id);
+    await ensureVehiculoClaimCode(supabase, vinculado.id);
 
     await afterVehiculoRegistrado(
       supabase,
@@ -258,11 +279,27 @@ export async function createVehiculoTallerAction(
     return { ok: true, vehiculoId: vinculado.id };
   }
 
-  const { data: created, error } = await supabase
-    .from("vehiculos")
-    .insert(payload)
-    .select("id, user_id")
-    .single();
+  let created: { id: string; user_id: string | null } | null = null;
+  let error: { message: string; code?: string } | null = null;
+  {
+    const inserted = await supabase
+      .from("vehiculos")
+      .insert(payload)
+      .select("id, user_id")
+      .single();
+    created = inserted.data as { id: string; user_id: string | null } | null;
+    error = inserted.error;
+    if (error && isMissingSchemaError(error.message)) {
+      const { anio: _anio, dueno_nombre: _dn, dueno_telefono: _dt, ...legacy } = payload;
+      const retry = await supabase
+        .from("vehiculos")
+        .insert(legacy)
+        .select("id, user_id")
+        .single();
+      created = retry.data as { id: string; user_id: string | null } | null;
+      error = retry.error;
+    }
+  }
 
   if (error || !created) {
     if (error?.code === "23505" && error.message.includes("serial_carroceria")) {
@@ -286,6 +323,8 @@ export async function createVehiculoTallerAction(
       color: data.color,
     });
   }
+
+  await ensureVehiculoClaimCode(supabase, created.id);
 
   await afterVehiculoRegistrado(
     supabase,
@@ -339,8 +378,7 @@ export async function updateVehiculoContactoAction(input: {
   const { error } = await supabase
     .from("vehiculos")
     .update({
-      nombre_cliente: parsed.data.nombreCliente,
-      telefono_cliente: parsed.data.telefonoCliente,
+      ...propietarioContactoColumns(parsed.data.nombreCliente, parsed.data.telefonoCliente),
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.vehiculoId);
@@ -436,8 +474,8 @@ export async function updateVehiculoTallerAction(
     marca: data.marca?.trim() || null,
     modelo: data.modelo?.trim() || null,
     color: data.color?.trim() || null,
-    nombre_cliente: data.nombreCliente.trim(),
-    telefono_cliente: data.telefonoCliente.trim(),
+    anio: data.anio,
+    ...propietarioContactoColumns(data.nombreCliente, data.telefonoCliente),
     serial_motor: serialMotor,
     serial_carroceria: serialCarroceria,
     cedula_propietario: data.cedulaPropietario?.trim() || null,
@@ -450,10 +488,16 @@ export async function updateVehiculoTallerAction(
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("vehiculos")
     .update(payload)
     .eq("id", data.vehiculoId);
+
+  if (error && isMissingSchemaError(error.message)) {
+    const { anio: _anio, dueno_nombre: _dn, dueno_telefono: _dt, ...legacy } = payload;
+    const retry = await supabase.from("vehiculos").update(legacy).eq("id", data.vehiculoId);
+    error = retry.error;
+  }
 
   if (error) {
     if (error.code === "23505" && error.message.includes("serial_carroceria")) {
@@ -523,4 +567,52 @@ export async function deleteVehiculoTallerAction(
 
   revalidatePath("/dashboard/vehiculos");
   return { ok: true };
+}
+
+export async function regenerateCodigoReclamoAction(
+  vehiculoId: string
+): Promise<{ ok: true; codigo: string } | { ok: false; error: string }> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+
+  const parsed = deleteVehiculoTallerSchema.safeParse({ vehiculoId });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
+  }
+
+  const { taller } = await ensureTallerForUser(user.id);
+  if (!taller) return { ok: false, error: "No se encontró tu taller" };
+
+  const supabase = createAdminClient();
+  const { data: vehiculo, error } = await supabase
+    .from("vehiculos")
+    .select("id, taller_id, user_id")
+    .eq("id", parsed.data.vehiculoId)
+    .maybeSingle();
+
+  if (error && isMissingSchemaError(error.message)) {
+    return {
+      ok: false,
+      error: "Aplica la migración de código de reclamo para generar códigos por vehículo.",
+    };
+  }
+
+  if (!vehiculo || vehiculo.taller_id !== taller.id) {
+    return { ok: false, error: "Vehículo no encontrado" };
+  }
+
+  if (vehiculo.user_id) {
+    return {
+      ok: false,
+      error: "Este vehículo ya está reclamado por el dueño. El código anterior quedó anulado.",
+    };
+  }
+
+  const codigo = await assignNewClaimCode(supabase, vehiculo.id);
+  if (!codigo) {
+    return { ok: false, error: "No se pudo generar un código nuevo. Inténtalo de nuevo." };
+  }
+
+  revalidatePath(`/dashboard/vehiculos/${vehiculo.id}`);
+  return { ok: true, codigo };
 }

@@ -11,9 +11,23 @@ import {
   readDemoMetaFromAuthUser,
 } from "@/lib/portal/demo-access";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  hasPasswordRecoveryCookie,
+  isAllowedAuthRedirect,
+  isPasswordRecoveryPath,
+  passwordRecoveryCookieOptions,
+  recoveryRedirectPath,
+} from "@/lib/auth/password-recovery";
 
 function isImportacionLogin(pathname: string): boolean {
   return pathname === `${IMPORTACION_BASE}/login`;
+}
+
+function importacionFlowPath(pathname: string): string {
+  return isImportacionAppPath(pathname)
+    ? canonicalizeImportacionPath(pathname)
+    : pathname;
 }
 
 function isProtectedPath(pathname: string): boolean {
@@ -29,12 +43,7 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 function isAllowedRedirect(redirectTo: string): boolean {
-  return (
-    redirectTo.startsWith("/dashboard") ||
-    redirectTo.startsWith("/app") ||
-    isImportacionAppPath(redirectTo) ||
-    redirectTo.startsWith("/portales")
-  );
+  return isAllowedAuthRedirect(redirectTo);
 }
 
 export async function updateSession(request: NextRequest) {
@@ -81,6 +90,32 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  const recoveryPath = recoveryRedirectPath({
+    pathname,
+    hasRecoveryCookie: hasPasswordRecoveryCookie(request.cookies),
+  });
+  if (recoveryPath && !isPasswordRecoveryPath(pathname)) {
+    const resetUrl = request.nextUrl.clone();
+    resetUrl.pathname = recoveryPath;
+    resetUrl.search = "";
+    if (isProtectedPath(pathname)) {
+      resetUrl.searchParams.set(
+        "redirectTo",
+        importacionFlowPath(pathname)
+      );
+    } else {
+      const existing = request.nextUrl.searchParams.get("redirectTo");
+      if (existing && isAllowedRedirect(existing)) {
+        resetUrl.searchParams.set("redirectTo", existing);
+      }
+    }
+    const redirectResponse = NextResponse.redirect(resetUrl);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+    return redirectResponse;
+  }
+
   // Demo caducada o cerrada: cerrar sesión y mandar al login con mensaje.
   if (user && isProtectedPath(pathname)) {
     const demoMeta = readDemoMetaFromAuthUser(user);
@@ -95,7 +130,12 @@ export async function updateSession(request: NextRequest) {
         ? `${IMPORTACION_BASE}/login`
         : "/login";
       loginUrl.searchParams.set("error", "demo_expired");
-      return NextResponse.redirect(loginUrl);
+      const demoResponse = NextResponse.redirect(loginUrl);
+      demoResponse.cookies.set(PASSWORD_RECOVERY_COOKIE, "", {
+        ...passwordRecoveryCookieOptions(),
+        maxAge: 0,
+      });
+      return demoResponse;
     }
   }
 

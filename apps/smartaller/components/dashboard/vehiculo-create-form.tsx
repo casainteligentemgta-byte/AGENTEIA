@@ -23,6 +23,7 @@ type FormFields = {
   emailPropietario: string;
   fechaNacimientoPropietario: string;
   odometro: string;
+  anio: string;
 };
 
 const EMPTY_FIELDS: FormFields = {
@@ -38,6 +39,7 @@ const EMPTY_FIELDS: FormFields = {
   emailPropietario: "",
   fechaNacimientoPropietario: "",
   odometro: "",
+  anio: "",
 };
 
 type VehiculoCreateFormProps = {
@@ -96,6 +98,7 @@ export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormPr
         nombreCliente: fields.nombreCliente,
         telefonoCliente: fields.telefonoCliente,
         odometro: fields.odometro,
+        anio: fields.anio,
         documentos: Object.keys(documentos).length > 0 ? documentos : undefined,
       });
 
@@ -196,6 +199,20 @@ export function VehiculoCreateForm({ redirectAfterCreate }: VehiculoCreateFormPr
               value={fields.modelo}
               onChange={(e) => updateField("modelo", e.target.value)}
               placeholder="Ej. Corolla Cross"
+              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="anio" className="block text-sm font-medium text-zinc-300">
+              Año (opcional)
+            </label>
+            <input
+              id="anio"
+              inputMode="numeric"
+              value={fields.anio}
+              onChange={(e) => updateField("anio", e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="Ej. 2022"
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
             />
           </div>

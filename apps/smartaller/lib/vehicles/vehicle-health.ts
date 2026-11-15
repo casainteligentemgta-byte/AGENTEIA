@@ -11,6 +11,7 @@ import {
 } from "@/lib/schemas/categoria-vehiculo";
 export type { CategoriaVehiculoId, EstadoCategoriaValue } from "@/lib/schemas/categoria-vehiculo";
 import { palabrasParaCategoria } from "@/lib/vehicles/module-keywords";
+import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import type { ConfigTipoVehiculo, TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 
@@ -93,6 +94,7 @@ function buscarUltimoMantenimientoCategoria(
 ): MantenimientoHistorial | null {
   const palabras = palabrasParaCategoria(categoria);
   for (const m of historial) {
+    if (isRecepcionMantenimiento(m)) continue;
     const texto = (m.descripcion ?? "").toLowerCase();
     if (palabras.some((p) => texto.includes(p))) return m;
   }
@@ -104,6 +106,7 @@ function buscarCategoriaEnHistorial(
   historial: MantenimientoHistorial[]
 ): { estado: EstadoCategoriaValue; fechaRevision: string | null; notas: string | null } | null {
   for (const m of historial) {
+    if (isRecepcionMantenimiento(m)) continue;
     const detalle = parseDetalleRevision(m.detalle_revision);
     const cat = detalle.categorias?.[categoria];
     if (cat?.estado) {
@@ -122,6 +125,7 @@ function estadoLegacyBateria(historial: MantenimientoHistorial[]): {
   notas: string | null;
 } | null {
   for (const m of historial) {
+    if (isRecepcionMantenimiento(m)) continue;
     const detalle = parseDetalleRevision(m.detalle_revision);
     if (typeof detalle.voltaje_bateria === "number") {
       return {

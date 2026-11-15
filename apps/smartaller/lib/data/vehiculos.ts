@@ -8,6 +8,7 @@ export type VehiculoDetalle = Vehiculo & {
 };
 
 const VEHICULO_SELECT_VARIANTS: string[] = [
+  "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, ultima_orden_recepcion_id, marca, modelo, color, anio, codigo_reclamo, user_id, created_at, updated_at",
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, documentos, recepcion_inicial, ultima_orden_recepcion_id, marca, modelo, color, user_id, created_at, updated_at",
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, serial_motor, serial_carroceria, cedula_propietario, email_propietario, fecha_nacimiento_propietario, marca, modelo, color, user_id, created_at, updated_at",
   "id, placa, nombre_cliente, telefono_cliente, tipo_vehiculo, unidad_odometro, kilometraje_ultimo, horas_motor_ultimo, marca, modelo, color, created_at, updated_at",
@@ -103,6 +104,8 @@ function normalizeVehiculoRow(row: Record<string, unknown>): Vehiculo {
     marca: (row.marca as string | null) ?? null,
     modelo: (row.modelo as string | null) ?? null,
     color: (row.color as string | null) ?? null,
+    anio: typeof row.anio === "number" ? row.anio : null,
+    codigo_reclamo: typeof row.codigo_reclamo === "string" ? row.codigo_reclamo : null,
     user_id: (row.user_id as string | null) ?? null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? row.created_at ?? ""),

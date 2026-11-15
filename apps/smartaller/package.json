@@ -10,7 +10,7 @@
     "qa": "tsx scripts/qa-check.ts",
     "audit:importacion-auth": "tsx scripts/audit-importacion-auth.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/ai/__tests__/parse-llm-json.test.ts lib/portal/__tests__/demo-access.test.ts lib/importacion/planilla-etapas.test.ts lib/importacion/__tests__/*.test.ts lib/importadores/__tests__/*.test.ts lib/data/__tests__/*.test.ts lib/presidencia/__tests__/*.test.ts lib/api/__tests__/*.test.ts lib/storage/__tests__/*.test.ts",
+    "test": "tsx --test lib/ai/__tests__/parse-llm-json.test.ts lib/portal/__tests__/demo-access.test.ts lib/auth/__tests__/password-recovery.test.ts lib/__tests__/app-url.test.ts lib/vehicles/__tests__/claim-code.test.ts lib/vehicles/__tests__/recepcion-historial.test.ts lib/importacion/planilla-etapas.test.ts lib/importacion/__tests__/*.test.ts lib/importadores/__tests__/*.test.ts lib/data/__tests__/*.test.ts lib/presidencia/__tests__/*.test.ts lib/api/__tests__/*.test.ts lib/storage/__tests__/*.test.ts",
     "test:ocr": "tsx --test lib/importacion/__tests__/*.test.ts lib/importadores/__tests__/*.test.ts"
   },
   "dependencies": {

@@ -98,7 +98,7 @@ export async function persistOrdenRecepcion(
   }
 
   const descripcion =
-    orden.motivoVisita?.trim() || "Acta de recepción — ingreso al taller";
+    orden.motivoVisita?.trim() || "Recepción / inspección";
 
   const detalleRevision: Record<string, unknown> = {
     tipo: "orden_recepcion",

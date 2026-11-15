@@ -32,6 +32,8 @@ export type Vehiculo = {
   marca: string | null;
   modelo: string | null;
   color: string | null;
+  anio?: number | null;
+  codigo_reclamo?: string | null;
   user_id?: string | null;
   created_at: string;
   updated_at: string;
