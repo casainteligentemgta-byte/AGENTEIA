@@ -9,12 +9,14 @@ import { createClient } from "@/lib/supabase/client";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
 import { clearPasswordRecoveryCookieAction } from "@/app/actions/password-recovery";
 import {
+  CANCEL_PASSWORD_RECOVERY_LABEL,
   MIN_PASSWORD_LENGTH,
   RESET_LINK_EXPIRED_MESSAGE,
   RESET_LINK_INVALID_MESSAGE,
   defaultRedirectForAccountType,
   forgotPasswordHref,
   isAllowedAuthRedirect,
+  mapAuthErrorMessage,
   resetPasswordSchema,
 } from "@/lib/auth/password-recovery";
 
@@ -159,10 +161,7 @@ function ResetPasswordForm() {
     } catch (err) {
       setMessage({
         type: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "No se pudo actualizar la contraseña.",
+        text: mapAuthErrorMessage(err, "No se pudo actualizar la contraseña."),
       });
       setLoading(false);
     }
@@ -276,13 +275,15 @@ function ResetPasswordForm() {
         )}
       </div>
 
-      <Link
-        href="/login"
-        className="mt-6 inline-flex items-center gap-2 text-sm text-zinc-500 transition hover:text-zinc-300"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Volver al inicio de sesión
-      </Link>
+      <form action="/auth/signout" method="post">
+        <button
+          type="submit"
+          className="mt-6 inline-flex items-center gap-2 text-sm text-zinc-500 transition hover:text-zinc-300"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {CANCEL_PASSWORD_RECOVERY_LABEL}
+        </button>
+      </form>
     </div>
   );
 }

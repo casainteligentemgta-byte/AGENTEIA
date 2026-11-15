@@ -13,7 +13,8 @@ import {
   defaultRedirectForAccountType,
   forgotPasswordSchema,
   isAllowedAuthRedirect,
-  isResetEmailRateLimit,
+  isAuthRateLimit,
+  mapAuthErrorMessage,
   type AccountType,
 } from "@/lib/auth/password-recovery";
 import { authEmailCallbackUrl } from "@/lib/app-url";
@@ -77,10 +78,10 @@ function ForgotPasswordForm() {
       const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
         redirectTo: authEmailCallbackUrl(nextPath),
       });
-      if (error && isResetEmailRateLimit(error.message)) {
+      if (error && isAuthRateLimit(error)) {
         setMessage({
           type: "error",
-          text: "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
+          text: mapAuthErrorMessage(error),
         });
         setCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
       } else {
