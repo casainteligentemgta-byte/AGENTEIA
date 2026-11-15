@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { buildSmartallerSystemPrompt } from "@/lib/ai/smartaller-prompt";
+import { getBrand } from "@/lib/brand";
 import {
   getChatModelId,
   getLlmApiKey,
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
       stream: toUIMessageStream({ stream: result.stream }),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Error en Chat Smartaller";
+    const message = err instanceof Error ? err.message : `Error en ${getBrand().copy.chatName}`;
     console.error("POST /api/chat:", message);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

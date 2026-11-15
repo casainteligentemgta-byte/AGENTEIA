@@ -18,6 +18,7 @@ import {
   usuarioTieneVehiculoTaller,
 } from "@/lib/data/perfil";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
+import { getBrand } from "@/lib/brand";
 import { getEtiquetaVehiculo, getSubtituloVehiculo, getValorOdometro } from "@/lib/vehicles/format";
 import { buildVehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
@@ -126,7 +127,7 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
         {!resumen.vinculado && !puedeRegistrarMantenimiento && (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center">
             <p className="text-sm text-zinc-500">
-              Activa SmartTaller Pro para registrar mantenimientos y usar Chat Smartaller.
+              {getBrand().copy.needProChat}
             </p>
           </div>
         )}

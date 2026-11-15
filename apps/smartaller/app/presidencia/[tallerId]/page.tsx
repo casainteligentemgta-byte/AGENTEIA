@@ -15,6 +15,7 @@ import {
   getTallerNombreById,
   tallerExiste,
 } from "@/lib/data/presidencia";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ export default async function PresidenciaPage({ params }: Props) {
       <PresidenciaAutoRefresh />
       <nav className="mx-auto mb-6 flex max-w-7xl items-center justify-between text-sm">
         <Link href="/" className="text-zinc-500 hover:text-zinc-300">
-          ← SmartTaller
+          ← {getBrand().copy.name}
         </Link>
         <Link href="/cliente" className="text-zinc-500 hover:text-zinc-300">
           Portal cliente

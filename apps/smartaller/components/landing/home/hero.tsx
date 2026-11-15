@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getBrand } from "@/lib/brand";
 import { ArrowRightIcon } from "./icons";
 import { DemoCard } from "./demo-card";
 import { SIGNUP_HREF } from "./auth-links";
@@ -9,13 +10,14 @@ const btnBase =
 const btnLg = "min-h-[54px] px-[26px] text-[17px] w-full lp:w-auto";
 
 export function Hero() {
+  const brand = getBrand();
   return (
     <section className="px-0 pt-6 pb-7 lp:pt-[88px] lp:pb-[72px]">
       <div className="mx-auto grid w-full max-w-landing gap-8 px-5 lp:grid-cols-2 lp:items-center lp:gap-[72px] lp:px-12">
         <div className="flex flex-col gap-5 lp:gap-[26px]">
           <h1 className="text-justify font-landing-display text-[clamp(40px,6vw,68px)] font-bold leading-[1.02] tracking-[-0.03em]">
             Una foto a la placa.{" "}
-            <span className="text-landing-accent">El resto lo hace SmartTaller.</span>
+            <span className="text-landing-accent">{brand.copy.landing.heroAccent}</span>
           </h1>
           <p className="max-w-[520px] text-justify text-[clamp(17px,1.6vw,20px)] text-landing-text-2">
             La IA reconoce el vehículo y abre la orden. Tú te dedicas a reparar. Las

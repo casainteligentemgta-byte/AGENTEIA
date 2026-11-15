@@ -14,10 +14,7 @@ import { palabrasParaCategoria } from "@/lib/vehicles/module-keywords";
 import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import type { ConfigTipoVehiculo, TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-
-const KM_ATENCION = 5000;
-const KM_CRITICO = 7500;
-const DIAS_ATENCION = 30;
+import { getHealthThresholds } from "@/lib/brand";
 
 export type FuenteEstadoSalud =
   | "categorias"
@@ -68,16 +65,18 @@ function estadoDesdeFecha(fechaIso: string): EstadoCategoriaValue {
   const fecha = new Date(fechaIso);
   fecha.setHours(0, 0, 0, 0);
   const diffDias = Math.ceil((fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+  const { diasAtencion } = getHealthThresholds();
 
   if (diffDias < 0) return "critico";
-  if (diffDias <= DIAS_ATENCION) return "atencion";
+  if (diffDias <= diasAtencion) return "atencion";
   return "bien";
 }
 
 function estadoDesdeKm(ultimoKm: number, actualKm: number): EstadoCategoriaValue | null {
   const diff = actualKm - ultimoKm;
-  if (diff >= KM_CRITICO) return "critico";
-  if (diff >= KM_ATENCION) return "atencion";
+  const { kmAtencion, kmCritico } = getHealthThresholds();
+  if (diff >= kmCritico) return "critico";
+  if (diff >= kmAtencion) return "atencion";
   if (diff >= 0) return "bien";
   return null;
 }

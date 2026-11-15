@@ -19,22 +19,31 @@ import {
 } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { BrandLogo } from "@/components/app/brand-logo";
+import { getBrand } from "@/lib/brand";
 
-const links = [
-  { href: "/portales", label: "Portales", icon: LayoutGrid },
-  { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
-  { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
-  { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
-  { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
-  { href: "/dashboard/smartbike", label: "SmartBike", icon: Bike },
-  { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
-  { href: "/smartimport", label: "SmartImport", icon: ShieldCheck },
-  { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
-];
+function sidebarLinks() {
+  const brand = getBrand();
+  const links = [
+    { href: "/portales", label: brand.copy.portalesNavLabel, icon: LayoutGrid },
+    { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
+    { href: "/dashboard/mantenimientos", label: "Mantenimientos", icon: ClipboardList },
+    { href: "/dashboard/vehiculos", label: "Vehículos", icon: Car },
+    { href: "/dashboard/repuestos", label: "Repuestos", icon: Package },
+    { href: "/dashboard/smartbike", label: "SmartBike", icon: Bike },
+    { href: "/dashboard/recordatorios", label: "Recordatorios", icon: Bell },
+    { href: "/smartimport", label: "SmartImport", icon: ShieldCheck },
+    { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
+  ];
+  if (brand.id === "jac") {
+    return links.filter((link) => link.href !== "/smartimport");
+  }
+  return links;
+}
 
 type SidebarProps = {
   userEmail?: string | null;
   tallerNombre?: string | null;
+  defaultOpen?: boolean;
 };
 
 function NavLinks({
@@ -46,7 +55,7 @@ function NavLinks({
 }) {
   return (
     <>
-      {links.map(({ href, label, icon: Icon }) => {
+      {sidebarLinks().map(({ href, label, icon: Icon }) => {
         const active =
           pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
         const isPuertoLibre = href === "/smartimport";
@@ -126,9 +135,9 @@ function SidebarPanel({
   );
 }
 
-export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
+export function Sidebar({ userEmail, tallerNombre, defaultOpen = false }: SidebarProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   const close = () => setOpen(false);
 
@@ -138,7 +147,9 @@ export function Sidebar({ userEmail, tallerNombre }: SidebarProps) {
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 md:hidden">
         <div className="flex min-w-0 items-center gap-2">
           <BrandLogo size="sm" theme="dark" markOnly showDot={false} />
-          <span className="truncate font-semibold text-sm">{tallerNombre ?? "SmartTaller"}</span>
+          <span className="truncate font-semibold text-sm">
+            {tallerNombre ?? getBrand().copy.fallbackTallerNombre}
+          </span>
         </div>
         <button
           type="button"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { getBrand } from "@/lib/brand";
 
 export function PortalShell({
   title,
@@ -22,7 +23,7 @@ export function PortalShell({
             className="mb-3 inline-flex items-center gap-2 rounded-full px-1 py-1 text-sm text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
           >
             <ArrowLeft className="h-4 w-4" />
-            Portales
+            {getBrand().copy.portalesNavLabel}
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
             {title}

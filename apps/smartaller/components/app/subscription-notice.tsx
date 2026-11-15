@@ -1,3 +1,5 @@
+import { getBrand } from "@/lib/brand";
+
 type SubscriptionNoticeProps = {
   subscribed?: string;
 };
@@ -6,7 +8,7 @@ export function SubscriptionNotice({ subscribed }: SubscriptionNoticeProps) {
   if (subscribed === "1") {
     return (
       <div className="mx-4 mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
-        ¡Suscripción activada! Ya puedes registrar vehículos y usar SmartTaller Pro.
+        {getBrand().copy.subscriptionActivated}
       </div>
     );
   }

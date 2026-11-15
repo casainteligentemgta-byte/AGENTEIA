@@ -3,6 +3,7 @@ import { AppHeader } from "@/components/app/app-header";
 import { SmartallerChat } from "@/components/app/chat/smartaller-chat";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
 import { getEtiquetaVehiculo } from "@/lib/vehicles/format";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function VehiculoChatPage({ params }: PageProps) {
         variant="light"
         showBack
         backHref={`/app/vehiculos/${vehiculo.id}`}
-        title="Chat Smartaller"
+        title={getBrand().copy.chatName}
         subtitle={titulo}
       />
       <SmartallerChat

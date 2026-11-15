@@ -1,4 +1,5 @@
 import { getAppBaseUrl, getClientePortalUrl, normalizePlaca } from "@/lib/format";
+import { getBrand } from "@/lib/brand";
 
 export type RecordatorioEmailParams = {
   to: string;
@@ -20,8 +21,8 @@ function buildRecordatorioEmailHtml(params: RecordatorioEmailParams): string {
       <p>Hola ${params.nombre},</p>
       <p>Tu vehículo <strong>${params.placa}</strong> tiene un servicio programado para el <strong>${params.fechaProgramada}</strong>.</p>
       ${kmLine}
-      <p><a href="${portalUrl}" style="color:#2563eb">Ver historial en SmartTaller</a></p>
-      <p style="font-size:12px;color:#71717a">SmartTaller — ${getAppBaseUrl()}</p>
+      <p><a href="${portalUrl}" style="color:#2563eb">${getBrand().copy.recordatorioLinkLabel}</a></p>
+      <p style="font-size:12px;color:#71717a">${getBrand().copy.emailFooter} — ${getAppBaseUrl()}</p>
     </div>
   `.trim();
 }
@@ -31,7 +32,7 @@ export async function enviarEmailRecordatorio(
   params: RecordatorioEmailParams
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM ?? "SmartTaller <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM ?? getBrand().copy.emailFromFallback;
 
   if (!apiKey) {
     return { ok: false, skipped: true };

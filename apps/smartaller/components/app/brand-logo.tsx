@@ -1,7 +1,8 @@
 "use client";
 
 import { useId } from "react";
-import { BRAND } from "@/lib/brand";
+import Image from "next/image";
+import { getBrand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
@@ -15,18 +16,26 @@ type BrandLogoProps = {
 };
 
 const sizes = {
-  sm: { icon: "h-8 w-8", text: "text-lg" },
-  md: { icon: "h-10 w-10", text: "text-xl" },
-  lg: { icon: "h-16 w-16", text: "text-3xl" },
+  sm: { icon: "h-8 w-8", text: "text-lg", wordmark: "h-6" },
+  md: { icon: "h-10 w-10", text: "text-xl", wordmark: "h-8" },
+  lg: { icon: "h-16 w-16", text: "text-3xl", wordmark: "h-12" },
 };
 
-function LogoMark({ gradId, className }: { gradId: string; className?: string }) {
+function LogoMark({
+  gradId,
+  className,
+  colors,
+}: {
+  gradId: string;
+  className?: string;
+  colors: ReturnType<typeof getBrand>["theme"]["colors"];
+}) {
   return (
     <svg viewBox="0 0 48 48" className={cn("h-full w-full", className)} aria-hidden>
       <defs>
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={BRAND.colors.primaryLight} />
-          <stop offset="100%" stopColor={BRAND.colors.primary} />
+          <stop offset="0%" stopColor={colors.primaryLight} />
+          <stop offset="100%" stopColor={colors.primary} />
         </linearGradient>
       </defs>
       <rect x="2" y="2" width="44" height="44" rx="12" fill={`url(#${gradId})`} />
@@ -39,7 +48,7 @@ function LogoMark({ gradId, className }: { gradId: string; className?: string })
         opacity="0.9"
       />
       <path d="M18 26v-4h3l5-5 3 3-5 5h-3v1h8v3H18v-3z" fill="#fff" />
-      <circle cx="33" cy="15" r="2.5" fill={BRAND.colors.accent} />
+      <circle cx="33" cy="15" r="2.5" fill={colors.accent} />
     </svg>
   );
 }
@@ -55,21 +64,46 @@ export function BrandLogo({
   const gradId = useId();
   const s = sizes[size];
   const isDark = theme === "dark";
-  const suffix = product === "smartimport" ? "Import" : "Taller";
+  const brand = getBrand();
+  const colors = brand.theme.colors;
+  const suffix = product === "smartimport" ? "Import" : brand.copy.wordmark?.suffix ?? "Taller";
+
+  if (brand.id === "jac") {
+    const src = isDark ? brand.assets.logoOnDark : brand.assets.logoOnLight;
+    return (
+      <div className={cn("flex items-center gap-2.5", className)}>
+        <Image
+          src={src}
+          alt={brand.copy.name}
+          width={986}
+          height={253}
+          className={cn("w-auto object-contain object-left", s.wordmark, markOnly && "max-w-[7rem]")}
+          unoptimized
+        />
+        {!markOnly && product === "smartimport" && (
+          <span className={cn("font-bold tracking-tight", s.text, isDark ? "text-white" : "text-zinc-900")}>
+            Import
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <div className={cn("relative shrink-0", s.icon)}>
-        <LogoMark gradId={gradId} />
+        <LogoMark gradId={gradId} colors={colors} />
       </div>
       {!markOnly && (
         <div className={cn("flex items-baseline font-bold tracking-tight", s.text)}>
-          <span className={isDark ? "text-white" : "text-zinc-900"}>Smart</span>
-          <span style={{ color: BRAND.colors.primary }}>{suffix}</span>
+          <span className={isDark ? "text-white" : "text-zinc-900"}>
+            {brand.copy.wordmark?.prefix ?? "Smart"}
+          </span>
+          <span style={{ color: colors.primary }}>{suffix}</span>
           {showDot && (
             <span
               className="mb-2 ml-0.5 h-2 w-2 rounded-full"
-              style={{ backgroundColor: BRAND.colors.accent }}
+              style={{ backgroundColor: colors.accent }}
               aria-hidden
             />
           )}

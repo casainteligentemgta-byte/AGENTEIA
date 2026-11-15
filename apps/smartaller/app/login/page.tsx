@@ -13,10 +13,12 @@ import {
   isGoogleAuthEnabled,
 } from "@/lib/auth/password-recovery";
 import { authEmailCallbackUrl } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 
 type AccountType = "taller" | "dueno";
 
 function LoginForm() {
+  const brand = getBrand();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirectTo");
   const errorParam = searchParams.get("error");
@@ -113,8 +115,8 @@ function LoginForm() {
         <BrandLogo size="md" theme="dark" showDot={false} />
         <p className="mt-3 text-sm text-zinc-500">
           {isAppFlow
-            ? "Accede a tu app de vehículos"
-            : "Accede a los portales (taller, aduana, master…)"}
+            ? brand.copy.loginDuenoSubtitle
+            : brand.copy.loginTallerSubtitle}
         </p>
       </div>
 
@@ -230,8 +232,8 @@ function LoginForm() {
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "login"
               ? isAppFlow
-                ? "Entrar a la app"
-                : "Entrar a portales"
+                ? brand.copy.loginDuenoCta
+                : brand.copy.loginTallerCta
               : "Crear cuenta"}
           </button>
         </form>

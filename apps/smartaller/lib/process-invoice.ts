@@ -7,9 +7,7 @@ import { getClientePortalUrl } from "@/lib/format";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
 import { buildConfirmacionWhatsApp, enviarWhatsApp } from "@/lib/whatsapp";
 import { sendTelegramMessage } from "@/lib/telegram";
-
-const MESES_PROXIMO_SERVICIO = 6;
-const KM_PROXIMO_SERVICIO = 5000;
+import { applyVehicleBrandFields, getNextServiceInterval } from "@/lib/brand";
 
 export type ProcessInvoiceInput = {
   extraido: FacturaExtraida;
@@ -115,6 +113,7 @@ async function findOrCreateVehiculo(
     };
   }
 
+  const branded = applyVehicleBrandFields({});
   const { data: created, error } = await supabase
     .from("vehiculos")
     .insert({
@@ -124,6 +123,7 @@ async function findOrCreateVehiculo(
       nombre_cliente: params.nombreCliente,
       telefono_cliente: params.telefonoCliente,
       kilometraje_ultimo: params.kilometraje,
+      ...(branded.marca ? { marca: branded.marca } : {}),
     })
     .select("id, nombre_cliente, telefono_cliente")
     .single();
@@ -209,9 +209,10 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
   }
 
   const hoy = new Date();
-  const fechaProximo = addMonths(hoy, MESES_PROXIMO_SERVICIO);
+  const interval = getNextServiceInterval();
+  const fechaProximo = addMonths(hoy, interval.months);
   const kilometrajeObjetivo =
-    extraido.kilometraje != null ? extraido.kilometraje + KM_PROXIMO_SERVICIO : null;
+    extraido.kilometraje != null ? extraido.kilometraje + interval.km : null;
 
   const { data: recordatorio, error: recError } = await supabase
     .from("recordatorios")

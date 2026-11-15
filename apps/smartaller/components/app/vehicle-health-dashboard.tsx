@@ -63,7 +63,7 @@ function CategoriaCard({ categoria }: { categoria: CategoriaSaludResumen }) {
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-600">
+        <div className="categoria-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-600">
           <Icon className="h-5 w-5" />
         </div>
         {estado != null && estilo ? (

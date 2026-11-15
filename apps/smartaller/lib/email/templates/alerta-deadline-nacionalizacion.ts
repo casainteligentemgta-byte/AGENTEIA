@@ -1,4 +1,5 @@
 import { getAppBaseUrl } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 
 export type AlertaDeadlineParams = {
   destinatarioNombre?: string | null;
@@ -46,7 +47,7 @@ export function buildAlertaDeadlineNacionalizacionEmail(
           Abrir expediente
         </a>
       </p>
-      <p style="font-size:12px;color:#71717a;margin:0">SmartTaller · Puerto Libre</p>
+      <p style="font-size:12px;color:#71717a;margin:0">${getBrand().copy.emailFooter} · Puerto Libre</p>
     </div>
   `.trim();
 

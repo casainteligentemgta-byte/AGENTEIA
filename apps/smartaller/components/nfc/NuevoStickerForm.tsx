@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type HTMLAttributes } from "react";
 import { createNfcStickerAction } from "@/app/actions/nfc/nfc-management";
 import { PinFieldWithReveal } from "@/components/nfc/PinFieldWithReveal";
+import { getBrand } from "@/lib/brand";
 
 export type NfcVehiculoOption = {
   id: string;
@@ -80,7 +81,7 @@ export function NuevoStickerForm({ vehiculos }: Props) {
   return (
     <form action={onSubmit} className="space-y-5">
       <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-sm text-zinc-400">Vehículo de SmartTaller</span>
+        <span className="text-sm text-zinc-400">Vehículo de {getBrand().copy.name}</span>
         <select
           value={vehiculoId}
           onChange={(e) => onSelectVehiculo(e.target.value)}

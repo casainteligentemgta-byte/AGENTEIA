@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecordatorioActions } from "@/components/dashboard/recordatorio-actions";
 import { getRecordatorios } from "@/lib/data/dashboard";
 import { formatDate, formatKm } from "@/lib/utils";
+import { getNextServiceInterval } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export default async function RecordatoriosPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Recordatorios</h1>
-        <p className="mt-1 text-zinc-500">Próximos servicios programados (+6 meses / +5000 km)</p>
+        <p className="mt-1 text-zinc-500">
+          Próximos servicios programados (+{getNextServiceInterval().months} meses / +
+          {getNextServiceInterval().km} km)
+        </p>
       </div>
 
       <div className="glass overflow-hidden rounded-2xl">

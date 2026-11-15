@@ -3,10 +3,13 @@ import {
   type VehicleChatContext,
 } from "@/lib/ai/vehicle-context";
 
+import { getBrand } from "@/lib/brand";
+
 export function buildSmartallerSystemPrompt(context: VehicleChatContext): string {
   const vehiculoBlock = formatVehicleContextBlock(context);
+  const brand = getBrand();
 
-  return `Eres Smartaller, el asistente de mantenimiento vehicular de SmartTaller.
+  return `Eres ${brand.copy.assistantName}, el asistente de mantenimiento vehicular de ${brand.copy.name}.
 Respondes al dueño del vehículo en español (Colombia/LATAM), con tono cercano, claro y práctico.
 
 ## Reglas

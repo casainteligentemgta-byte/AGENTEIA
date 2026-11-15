@@ -1,14 +1,16 @@
+import { getBrand } from "@/lib/brand";
 import { CheckIcon, ChatIcon } from "./icons";
 
 export function DemoCard() {
+  const brand = getBrand();
   return (
     <div
       className="flex flex-col gap-3 rounded-[20px] border border-landing-demo-border bg-landing-surface p-4 lp:gap-4 lp:rounded-3xl lp:p-6"
       role="img"
-      aria-label="Ejemplo: se envía la foto de la placa ABC-123 por Telegram, SmartTaller reconoce un Toyota Hilux 2019 y crea la orden 0482."
+      aria-label={brand.copy.landing.demoAria}
     >
       <div className="flex justify-between text-xs text-landing-text-3">
-        <span>Telegram · SmartTaller Bot</span>
+        <span>{brand.copy.landing.demoBot}</span>
         <span>08:14</span>
       </div>
 
@@ -27,7 +29,7 @@ export function DemoCard() {
         <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-[13px] lp:grid-cols-4 lp:text-sm">
           <div className="flex flex-col gap-0.5">
             <dt className="text-landing-text-3">Vehículo</dt>
-            <dd className="m-0 font-medium">Toyota Hilux 2019</dd>
+            <dd className="m-0 font-medium">{brand.copy.landing.demoVehicle}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
             <dt className="text-landing-text-3">Orden</dt>
@@ -55,8 +57,7 @@ export function DemoCard() {
             WhatsApp al cliente · Próximamente
           </small>
           <p className="text-sm leading-[1.45] text-landing-wa-text">
-            Así se verá el aviso cuando activemos WhatsApp: «Hola Carlos, tu Hilux ya
-            está en el taller.»
+            {brand.copy.landing.demoWhatsApp}
           </p>
         </div>
       </div>

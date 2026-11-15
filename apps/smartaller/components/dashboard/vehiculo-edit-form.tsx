@@ -8,6 +8,8 @@ import { getConfigTipoVehiculo, normalizeTipoVehiculo } from "@/lib/vehicles/tem
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
 import { DocumentoScanInput } from "@/components/dashboard/documento-scan-input";
 import type { VehiculosDocumentos } from "@/lib/schemas/vehiculo-documentos";
+import { MarcaModeloFields } from "@/components/brand/marca-modelo-fields";
+import { applyVehicleBrandFields, getBrand, resolveCatalogModelo } from "@/lib/brand";
 
 type FormFields = {
   placa: string;
@@ -82,8 +84,10 @@ export function VehiculoEditForm({
   const [documentos, setDocumentos] = useState<VehiculosDocumentos>(documentosIniciales);
   const [fields, setFields] = useState<FormFields>({
     placa,
-    marca: marca ?? "",
-    modelo: modelo ?? "",
+    marca: applyVehicleBrandFields({ marca, modelo }).marca ?? marca ?? "",
+    modelo:
+      resolveCatalogModelo(modelo, getBrand().vehicleCatalog.models) ??
+      (getBrand().vehicleCatalog.locked ? "" : modelo ?? ""),
     color: color ?? "",
     serialMotor: serialMotor ?? "",
     serialCarroceria: serialCarroceria ?? "",
@@ -105,11 +109,19 @@ export function VehiculoEditForm({
   }
 
   function applyScannedFields(scanned: Record<string, string>) {
+    const catalog = getBrand().vehicleCatalog;
+    const branded = applyVehicleBrandFields({
+      marca: scanned.marca,
+      modelo: scanned.modelo,
+    });
+    const modeloResuelto = catalog.locked
+      ? resolveCatalogModelo(branded.modelo, catalog.models) ?? ""
+      : branded.modelo ?? scanned.modelo ?? "";
     setFields((prev) => ({
       ...prev,
       placa: scanned.placa ?? prev.placa,
-      marca: scanned.marca ?? prev.marca,
-      modelo: scanned.modelo ?? prev.modelo,
+      marca: branded.marca ?? scanned.marca ?? prev.marca,
+      modelo: modeloResuelto || prev.modelo,
       color: scanned.color ?? prev.color,
       serialMotor: scanned.serialMotor ?? prev.serialMotor,
       serialCarroceria: scanned.serialCarroceria ?? prev.serialCarroceria,
@@ -240,29 +252,15 @@ export function VehiculoEditForm({
             />
           </div>
 
-          <div>
-            <label htmlFor="marca-edit" className="block text-sm font-medium text-zinc-300">
-              Marca
-            </label>
-            <input
-              id="marca-edit"
-              value={fields.marca}
-              onChange={(e) => updateField("marca", e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="modelo-edit" className="block text-sm font-medium text-zinc-300">
-              Modelo
-            </label>
-            <input
-              id="modelo-edit"
-              value={fields.modelo}
-              onChange={(e) => updateField("modelo", e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
+          <MarcaModeloFields
+            marca={fields.marca}
+            modelo={fields.modelo}
+            onMarcaChange={(value) => updateField("marca", value)}
+            onModeloChange={(value) => updateField("modelo", value)}
+            marcaId="marca-edit"
+            modeloId="modelo-edit"
+            variant="dark"
+          />
 
           <div>
             <label htmlFor="anio-edit" className="block text-sm font-medium text-zinc-300">

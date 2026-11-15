@@ -8,6 +8,7 @@ import { VEHICULOS_DOCUMENTOS_BUCKET } from "@/lib/storage/buckets";
 import { canAccessPrivateStoragePath } from "@/lib/storage/authorize";
 import { createSignedStorageUrl } from "@/lib/storage/signed-url";
 import { nfcTokenSchema } from "@/lib/validations/nfc";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -120,7 +121,7 @@ async function downloadNfcPayload(request: NextRequest) {
 
   if (parsed.data.format === "txt" || parsed.data.format === "ndef") {
     const body = [
-      `SmartTaller NFC Puerto Libre`,
+      `${getBrand().copy.name} NFC Puerto Libre`,
       `URL=${publicUrl}`,
       `TOKEN=${data.token}`,
       data.placa ? `PLACA=${data.placa}` : null,

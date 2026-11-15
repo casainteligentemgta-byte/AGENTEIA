@@ -7,12 +7,17 @@ import { createVehicle } from "@/app/actions/vehicles";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { VehicleTypePicker, VehicleTypeIcon } from "@/components/app/vehicle-type-picker";
+import { MarcaModeloFields } from "@/components/brand/marca-modelo-fields";
+import { getBrand } from "@/lib/brand";
 
 export function AddVehicleForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tipo, setTipo] = useState<TipoVehiculo>("auto");
   const [error, setError] = useState<string | null>(null);
+  const brand = getBrand();
+  const [marca, setMarca] = useState(brand.vehicleCatalog.lockedMarca ?? "");
+  const [modelo, setModelo] = useState("");
 
   const config = getConfigTipoVehiculo(tipo);
   const odometroLabel = config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje";
@@ -26,8 +31,8 @@ export function AddVehicleForm() {
       const result = await createVehicle({
         tipo_vehiculo: tipo,
         nick: String(form.get("nick") ?? ""),
-        marca: String(form.get("marca") ?? ""),
-        modelo: String(form.get("modelo") ?? ""),
+        marca,
+        modelo,
         color: String(form.get("color") ?? ""),
         placa: String(form.get("placa") ?? ""),
         odometro: String(form.get("odometro") ?? ""),
@@ -46,8 +51,6 @@ export function AddVehicleForm() {
 
   const fields = [
     { id: "nick", label: "Nick del vehículo", required: false, placeholder: `Ej. Mi ${config.labelCorto}` },
-    { id: "marca", label: "Marca", required: false, placeholder: "Ej. BAIC" },
-    { id: "modelo", label: "Modelo", required: false, placeholder: "Ej. BJ40" },
     { id: "color", label: "Color", required: false, placeholder: "Ej. Blanco" },
     { id: "placa", label: "Placa / identificador", required: true, placeholder: "Ej. AA90N90" },
     {
@@ -75,7 +78,30 @@ export function AddVehicleForm() {
         </div>
 
         <div className="space-y-4">
-          {fields.map((field) => (
+          {fields.slice(0, 1).map((field) => (
+            <div key={field.id}>
+              <label htmlFor={field.id} className="mb-1.5 block text-sm font-medium text-zinc-600">
+                {field.label}
+              </label>
+              <input
+                id={field.id}
+                name={field.id}
+                required={field.required}
+                placeholder={field.placeholder}
+                className="app-input"
+              />
+            </div>
+          ))}
+          <MarcaModeloFields
+            marca={marca}
+            modelo={modelo}
+            onMarcaChange={setMarca}
+            onModeloChange={setModelo}
+            marcaPlaceholder="Ej. BAIC"
+            modeloPlaceholder="Ej. BJ40"
+            variant="light"
+          />
+          {fields.slice(1).map((field) => (
             <div key={field.id}>
               <label htmlFor={field.id} className="mb-1.5 block text-sm font-medium text-zinc-600">
                 {field.label}

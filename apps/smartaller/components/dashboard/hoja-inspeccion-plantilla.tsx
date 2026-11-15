@@ -13,6 +13,7 @@ import {
 } from "@/lib/schemas/estado-visual-recepcion";
 import { checklistPorSeccion } from "@/lib/recepcion/catalog";
 import { getAppHost } from "@/lib/app-url";
+import { getBrand } from "@/lib/brand";
 
 function LineField({ label, wide }: { label: string; wide?: boolean }) {
   return (
@@ -52,7 +53,9 @@ export function HojaInspeccionPlantilla() {
 
       <article className="mx-auto max-w-4xl bg-white p-6 text-zinc-900 shadow-xl print:max-w-none print:p-0 print:shadow-none sm:p-10">
         <header className="border-b-2 border-zinc-800 pb-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">SmartTaller</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            {getBrand().copy.name}
+          </p>
           <h1 className="mt-1 text-xl font-bold uppercase tracking-wide">
             Hoja de inspección — Orden de recepción
           </h1>
@@ -205,13 +208,13 @@ export function HojaInspeccionPlantilla() {
             <div>
               <p className="text-xs font-medium text-zinc-600">Firma del asesor de servicios</p>
               <div className="mt-8 border-b border-zinc-500" />
-              <p className="mt-1 text-[10px] text-zinc-500">Taller SmartTaller</p>
+              <p className="mt-1 text-[10px] text-zinc-500">Taller {getBrand().copy.name}</p>
             </div>
           </div>
         </section>
 
         <footer className="mt-8 text-center text-[9px] text-zinc-400">
-          Documento generado por SmartTaller · {getAppHost()}
+          Documento generado por {getBrand().copy.name} · {getAppHost()}
         </footer>
       </article>
 

@@ -1,4 +1,6 @@
-/** Dominio de producción de SmartTaller. */
+import { getBrand } from "@/lib/brand";
+
+/** Dominio de producción de SmartTaller (marca por defecto). */
 export const PRODUCTION_APP_HOST = "smarttaller.xyz";
 export const PRODUCTION_APP_URL = `https://${PRODUCTION_APP_HOST}`;
 
@@ -6,6 +8,16 @@ function normalizePublicUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/$/, "");
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed.replace(/^https?:\/\//i, "")}`;
+}
+
+function brandProductionFallback(): string {
+  const host = getBrand().productionHost;
+  if (host) return `https://${host}`;
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercel) return normalizePublicUrl(vercel);
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) return normalizePublicUrl(vercelUrl);
+  return PRODUCTION_APP_URL;
 }
 
 function isLocalhostUrl(url: string): boolean {
@@ -47,7 +59,7 @@ export function getAppBaseUrl(): string {
     return normalizePublicUrl(productionHost);
   }
 
-  if (deployed) return PRODUCTION_APP_URL;
+  if (deployed) return brandProductionFallback();
 
   return "http://localhost:3003";
 }
@@ -73,6 +85,6 @@ export function getAppHost(): string {
   try {
     return new URL(getAppBaseUrl()).host;
   } catch {
-    return PRODUCTION_APP_HOST;
+    return getBrand().productionHost ?? PRODUCTION_APP_HOST;
   }
 }
