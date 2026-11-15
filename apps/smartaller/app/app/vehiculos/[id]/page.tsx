@@ -104,8 +104,8 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
           <MaintenanceModuleCard
             key={modulo.id}
             modulo={modulo}
-            visitasRegistradas={resumen.totalVisitas}
-            historial={resumen.mantenimientos}
+            visitasRegistradas={resumen.totalServicios}
+            historial={resumen.mantenimientos.filter((m) => !m.esRecepcion)}
             kmActual={kmActual}
             proximoRecordatorio={resumen.proximoRecordatorio}
           />

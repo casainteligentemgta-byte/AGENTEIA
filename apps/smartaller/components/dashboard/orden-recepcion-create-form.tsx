@@ -74,7 +74,7 @@ export function OrdenRecepcionCreateForm({
         return;
       }
 
-      router.push(`/dashboard/vehiculos/${vehiculoId}`);
+      router.push(`/dashboard/vehiculos/${vehiculoId}?inspeccion=ok`);
       router.refresh();
     });
   }

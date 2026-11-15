@@ -31,7 +31,9 @@ function isDeployedRuntime(): boolean {
  */
 export function getAppBaseUrl(): string {
   const deployed = isDeployedRuntime();
-  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const fromEnv =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim();
 
   if (fromEnv) {
     const normalized = normalizePublicUrl(fromEnv);
@@ -48,6 +50,22 @@ export function getAppBaseUrl(): string {
   if (deployed) return PRODUCTION_APP_URL;
 
   return "http://localhost:3003";
+}
+
+/**
+ * Origen para enlaces de email de Auth (signup / recovery).
+ * No depende del Site URL de Supabase: usa NEXT_PUBLIC_SITE_URL o NEXT_PUBLIC_APP_URL.
+ * En producción nunca emite localhost.
+ */
+export function getAuthEmailOrigin(): string {
+  return getAppBaseUrl();
+}
+
+export function authEmailCallbackUrl(next: string): string {
+  const origin = getAuthEmailOrigin();
+  const path =
+    next.startsWith("/") && !next.startsWith("//") ? next : "/portales";
+  return `${origin}/auth/callback?next=${encodeURIComponent(path)}`;
 }
 
 /** Host para mostrar en PDFs, emails y footers. */

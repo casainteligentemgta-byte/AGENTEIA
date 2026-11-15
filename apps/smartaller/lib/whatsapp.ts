@@ -6,12 +6,41 @@
  * Docs Twilio: https://www.twilio.com/docs/whatsapp
  */
 
-function normalizeTelefono(telefono: string): string {
+export function normalizeTelefono(telefono: string): string {
   const digits = telefono.replace(/\D/g, "");
   if (!digits) {
     throw new Error("Teléfono inválido");
   }
   return digits.startsWith("57") || digits.length > 10 ? digits : `57${digits}`;
+}
+
+export function waMeHref(telefono: string, text: string): string | null {
+  try {
+    const phone = normalizeTelefono(telefono);
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  } catch {
+    return null;
+  }
+}
+
+export function buildReclamoWhatsApp(params: {
+  nombre: string;
+  placa: string;
+  tallerNombre: string;
+  codigo: string;
+  appUrl: string;
+}): string {
+  const loginUrl = `${params.appUrl.replace(/\/$/, "")}/login?redirectTo=/app`;
+  return [
+    `Hola ${params.nombre},`,
+    `Tu vehículo ${params.placa} ya tiene inspección en ${params.tallerNombre}.`,
+    "",
+    "Reclama el historial en SmartTaller:",
+    loginUrl,
+    "",
+    `Código de este vehículo: ${params.codigo}`,
+    "(Es solo para este auto; no lo compartas.)",
+  ].join("\n");
 }
 
 /** Envía WhatsApp al cliente. Hoy usa CallMeBot; migrar a Twilio. */

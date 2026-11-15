@@ -9,6 +9,7 @@ import {
 } from "@/lib/vehicles/format";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { buildVehicleHealthSummary, formatEstadoSalud } from "@/lib/vehicles/vehicle-health";
+import { etiquetaHistorialMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 
 export type VehicleChatContext = {
@@ -49,7 +50,7 @@ function formatHistorialResumido(resumen: ResumenTallerVehiculo): string {
       month: "2-digit",
       year: "2-digit",
     }).format(new Date(m.created_at));
-    const servicio = m.descripcion || "Servicio";
+    const servicio = etiquetaHistorialMantenimiento(m);
     const centro = m.taller_nombre ? ` · ${m.taller_nombre}` : "";
     const km = m.kilometraje != null ? ` · ${m.kilometraje.toLocaleString("es-CO")} km` : "";
     return `${i + 1}. ${fecha} — ${servicio}${centro}${km}`;

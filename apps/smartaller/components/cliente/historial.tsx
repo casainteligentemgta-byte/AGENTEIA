@@ -5,6 +5,7 @@ import {
   formatKilometraje,
 } from "@/lib/format";
 import type { ClienteHistorialPublico } from "@/lib/data/cliente-lookup";
+import { etiquetaHistorialMantenimiento } from "@/lib/vehicles/recepcion-historial";
 
 type Props = {
   vehiculo: ClienteHistorialPublico;
@@ -58,7 +59,9 @@ export function HistorialVehiculo({ vehiculo }: Props) {
               <li key={m.id} className="glass rounded-2xl p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-medium text-zinc-100">{m.descripcion || "Servicio"}</p>
+                    <p className="font-medium text-zinc-100">
+                      {etiquetaHistorialMantenimiento(m)}
+                    </p>
                     <p className="mt-1 text-sm text-zinc-500">{formatDateTime(m.created_at)}</p>
                   </div>
                   <p className="text-lg font-semibold text-zinc-100">{formatCurrency(m.costo)}</p>

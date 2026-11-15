@@ -7,6 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, ArrowLeft, Wrench, Car } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
 import { recordPortalLoginAction } from "@/app/actions/portal-login";
+import {
+  forgotPasswordHref,
+  googleAuthErrorMessage,
+  isGoogleAuthEnabled,
+} from "@/lib/auth/password-recovery";
+import { authEmailCallbackUrl } from "@/lib/app-url";
 
 type AccountType = "taller" | "dueno";
 
@@ -56,7 +62,13 @@ function LoginForm() {
         await recordPortalLoginAction(effectiveRedirect);
         window.location.href = effectiveRedirect;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: authEmailCallbackUrl(effectiveRedirect),
+          },
+        });
         if (error) throw error;
         setMessage({
           type: "success",
@@ -87,7 +99,9 @@ function LoginForm() {
     } catch (err) {
       setMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Error con Google",
+        text: googleAuthErrorMessage(
+          err instanceof Error ? err.message : "Error con Google"
+        ),
       });
       setLoading(false);
     }
@@ -197,6 +211,16 @@ function LoginForm() {
               className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-blue-500"
               placeholder="••••••••"
             />
+            {mode === "login" && (
+              <div className="mt-2 text-right">
+                <Link
+                  href={forgotPasswordHref(effectiveRedirect)}
+                  className="text-sm text-zinc-400 transition hover:text-zinc-200"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+            )}
           </div>
           <button
             type="submit"
@@ -212,20 +236,24 @@ function LoginForm() {
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-800" />
-          <span className="text-xs text-zinc-600">o continúa con</span>
-          <div className="h-px flex-1 bg-zinc-800" />
-        </div>
+        {isGoogleAuthEnabled() && (
+          <>
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-zinc-800" />
+              <span className="text-xs text-zinc-600">o continúa con</span>
+              <div className="h-px flex-1 bg-zinc-800" />
+            </div>
 
-        <button
-          type="button"
-          onClick={() => handleOAuth("google")}
-          disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800 disabled:opacity-50"
-        >
-          Continuar con Google
-        </button>
+            <button
+              type="button"
+              onClick={() => handleOAuth("google")}
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800 disabled:opacity-50"
+            >
+              Continuar con Google
+            </button>
+          </>
+        )}
       </div>
 
       <Link

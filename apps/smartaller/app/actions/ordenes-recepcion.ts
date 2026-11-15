@@ -11,6 +11,7 @@ import {
   tieneDatosOrdenRecepcion,
 } from "@/lib/schemas/orden-recepcion";
 import { persistOrdenRecepcion } from "@/lib/ordenes-recepcion/persist";
+import { ensureVehiculoClaimCode } from "@/lib/vehicles/claim-code-db";
 import { datosClienteOrdenRecepcion } from "@/lib/ordenes-recepcion/cliente-orden";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import type { TipoVehiculo } from "@/lib/vehicles/types";
@@ -95,6 +96,8 @@ export async function createOrdenRecepcionAction(
       userId: user.id,
       orden: payload,
     });
+
+    await ensureVehiculoClaimCode(supabase, vehiculoId);
 
     if (payload.kilometraje != null) {
       const config = getConfigTipoVehiculo(vehiculo.tipo_vehiculo as TipoVehiculo);

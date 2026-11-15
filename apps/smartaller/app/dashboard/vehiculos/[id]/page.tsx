@@ -8,6 +8,10 @@ import { DiagnosticoMediaUpload } from "@/components/dashboard/diagnostico-media
 import { MantenimientoRepuestosEditor } from "@/components/dashboard/mantenimiento-repuestos-editor";
 import { VehiculoEditForm } from "@/components/dashboard/vehiculo-edit-form";
 import { VehiculoDeleteSection } from "@/components/dashboard/vehiculo-delete-section";
+import { VehiculoClaimShareCard } from "@/components/dashboard/vehiculo-claim-share";
+import { ensureTallerForUser } from "@/lib/taller";
+import { getUser } from "@/lib/supabase/server";
+import { etiquetaHistorialMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import { getRepuestosPorMantenimientoIds, getRepuestosTaller } from "@/lib/data/repuestos";
 import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { getVehiculoDetalle, type VehiculoDetalle } from "@/lib/data/vehiculos";
@@ -34,7 +38,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: { id: string };
-  searchParams: { registrado?: string };
+  searchParams: { registrado?: string; inspeccion?: string };
 };
 
 function estadoVariant(estado: string): "default" | "success" | "warning" | "danger" {
@@ -79,6 +83,17 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
   }
 
   if (!vehiculo) notFound();
+
+  let tallerNombre = "SmartTaller";
+  try {
+    const user = await getUser();
+    if (user) {
+      const { taller } = await ensureTallerForUser(user.id);
+      if (taller?.nombre) tallerNombre = taller.nombre;
+    }
+  } catch {
+    /* sin taller */
+  }
 
   try {
     const results = await Promise.allSettled([
@@ -131,6 +146,13 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
         </div>
       )}
 
+      {searchParams.inspeccion === "ok" && (
+        <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          Inspección de recepción guardada. Compártele al dueño el enlace de la app y el código de
+          este vehículo (abajo) para que reclame el historial.
+        </div>
+      )}
+
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-3xl font-bold tracking-wide text-blue-400">{vehiculo.placa}</p>
@@ -159,6 +181,16 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
       </div>
 
       <div className="space-y-8">
+        <VehiculoClaimShareCard
+          vehiculoId={vehiculo.id}
+          placa={vehiculo.placa}
+          nombreCliente={vehiculo.nombre_cliente}
+          telefonoCliente={vehiculo.telefono_cliente}
+          tallerNombre={tallerNombre}
+          codigoInicial={vehiculo.codigo_reclamo ?? null}
+          reclamado={Boolean(vehiculo.user_id)}
+        />
+
         <section>
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">Editar vehículo</h2>
           <VehiculoEditForm
@@ -170,6 +202,7 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
             color={vehiculo.color}
             serialMotor={vehiculo.serial_motor}
             serialCarroceria={vehiculo.serial_carroceria}
+            anio={vehiculo.anio ?? null}
             nombreCliente={vehiculo.nombre_cliente}
             telefonoCliente={vehiculo.telefono_cliente}
             cedulaPropietario={vehiculo.cedula_propietario}
@@ -224,7 +257,12 @@ export default async function VehiculoDetallePage({ params, searchParams }: Prop
                   <li key={m.id} className="glass rounded-2xl p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="font-medium text-zinc-100">{getDescripcion(m)}</p>
+                        <p className="font-medium text-zinc-100">
+                          {etiquetaHistorialMantenimiento({
+                            descripcion: getDescripcion(m),
+                            detalle_revision: m.detalle_revision ?? null,
+                          })}
+                        </p>
                         <p className="mt-1 text-sm text-zinc-500">{formatDateTime(m.created_at)}</p>
                       </div>
                       <p className="text-lg font-semibold text-zinc-100">{formatCurrency(m.costo)}</p>

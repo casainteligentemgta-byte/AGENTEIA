@@ -15,6 +15,18 @@ import {
   type CreateVehicleInput,
 } from "@/lib/validations/vehicle";
 import { ensureBikeForVehiculo } from "@/lib/smartbike/link-vehiculo";
+import { headers } from "next/headers";
+import { clientIpFromHeaders } from "@/lib/security/rate-limit";
+import {
+  CLAIM_ERROR_GENERIC,
+  CLAIM_ERROR_MISSING_CODE,
+  CLAIM_ERROR_RATE_LIMIT,
+  CLAIM_ERROR_REQUIRED,
+  checkClaimRateLimit,
+  claimCodesEqual,
+} from "@/lib/vehicles/claim-code";
+import { clearVehiculoClaimCode } from "@/lib/vehicles/claim-code-db";
+import { isMissingSchemaError } from "@/lib/db/schema-errors";
 
 export type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -104,27 +116,48 @@ export async function createVehicle(
     .maybeSingle();
 
   if (vehiculoTaller) {
-    const codigoVinculo = data.codigo_vinculo;
-    if (!codigoVinculo) {
+    const ip = clientIpFromHeaders(headers());
+    const limited = checkClaimRateLimit(ip, user.id, placaNorm);
+    if (!limited.ok) {
+      return { success: false, error: CLAIM_ERROR_RATE_LIMIT };
+    }
+
+    const codigoReclamo = data.codigo_reclamo;
+    if (!codigoReclamo) {
       return {
         success: false,
-        error:
-          "Esta placa está registrada en un taller. Ingresa el código de vinculación que te dio tu asesor.",
-        fieldErrors: { codigo_vinculo: ["Código requerido para vincular con taller"] },
+        error: CLAIM_ERROR_REQUIRED,
+        fieldErrors: { codigo_reclamo: ["Código requerido"] },
       };
     }
 
-    const { data: taller } = await admin
-      .from("talleres")
-      .select("codigo_vinculo")
-      .eq("id", vehiculoTaller.taller_id)
+    const { data: row, error: codeError } = await admin
+      .from("vehiculos")
+      .select("id, codigo_reclamo")
+      .eq("id", vehiculoTaller.id)
       .maybeSingle();
 
-    if (!taller || taller.codigo_vinculo !== codigoVinculo) {
+    if (codeError && isMissingSchemaError(codeError.message)) {
       return {
         success: false,
-        error: "Código de vinculación incorrecto. Pídelo en recepción de tu taller.",
-        fieldErrors: { codigo_vinculo: ["Código inválido"] },
+        error: CLAIM_ERROR_MISSING_CODE,
+        fieldErrors: { codigo_reclamo: ["Código no disponible"] },
+      };
+    }
+
+    if (!row?.codigo_reclamo) {
+      return {
+        success: false,
+        error: CLAIM_ERROR_MISSING_CODE,
+        fieldErrors: { codigo_reclamo: ["Código no disponible"] },
+      };
+    }
+
+    if (!claimCodesEqual(row.codigo_reclamo, codigoReclamo)) {
+      return {
+        success: false,
+        error: CLAIM_ERROR_GENERIC,
+        fieldErrors: { codigo_reclamo: ["Código inválido"] },
       };
     }
   }
@@ -154,6 +187,7 @@ export async function createVehicle(
       return { success: false, error: error.message };
     }
 
+    await clearVehiculoClaimCode(admin, vinculado.id);
     await fusionarVehiculosPorPlaca(admin, placaNorm, vinculado.id);
     await provisionSmartBikeIfNeeded(supabase, vinculado.id, user.id, data);
 

@@ -1,6 +1,7 @@
 import type { ModuloMantenimiento } from "@/lib/vehicles/types";
 import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
 import { PALABRAS_MODULO } from "@/lib/vehicles/module-keywords";
+import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import {
   Battery,
   CircleDot,
@@ -37,6 +38,7 @@ function buscarUltimoServicioModulo(
 ): MantenimientoHistorial | null {
   const palabras = PALABRAS_MODULO[moduloId] ?? [moduloId];
   for (const m of historial) {
+    if (m.esRecepcion || isRecepcionMantenimiento(m)) continue;
     const texto = (m.descripcion ?? "").toLowerCase();
     if (palabras.some((p) => texto.includes(p))) return m;
   }

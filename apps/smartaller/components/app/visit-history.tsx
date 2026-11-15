@@ -3,7 +3,8 @@ import { parseMediaFromDetalle } from "@/lib/schemas/diagnostico-media";
 import { formatDate } from "@/lib/utils";
 import { DiagnosticoGaleria, DiagnosticoMediaBadge } from "@/components/app/diagnostico-galeria";
 import { RepuestosLista } from "@/components/app/repuestos-lista";
-import { CalendarClock, Wrench } from "lucide-react";
+import { etiquetaHistorialMantenimiento } from "@/lib/vehicles/recepcion-historial";
+import { CalendarClock, ClipboardCheck, Wrench } from "lucide-react";
 
 type VisitHistoryProps = {
   mantenimientos: MantenimientoHistorial[];
@@ -40,15 +41,16 @@ export function VisitHistory({ mantenimientos, proximoRecordatorio }: VisitHisto
       <ul className="divide-y divide-zinc-100">
         {mantenimientos.slice(0, 8).map((m) => {
           const media = parseMediaFromDetalle(m.detalle_revision);
+          const Icon = m.esRecepcion ? ClipboardCheck : Wrench;
 
           return (
             <li key={m.id} className="px-4 py-4">
               <div className="flex gap-3">
-                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-zinc-800">
-                      {m.descripcion ?? "Servicio registrado"}
+                      {etiquetaHistorialMantenimiento(m)}
                     </p>
                     <DiagnosticoMediaBadge count={media.length} />
                   </div>
