@@ -11,6 +11,7 @@ import {
   forgotPasswordHref,
   googleAuthErrorMessage,
   isGoogleAuthEnabled,
+  mapAuthErrorMessage,
 } from "@/lib/auth/password-recovery";
 import { authEmailCallbackUrl } from "@/lib/app-url";
 
@@ -79,7 +80,7 @@ function LoginForm() {
     } catch (err) {
       setMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Error al autenticar",
+        text: mapAuthErrorMessage(err, "Error al autenticar"),
       });
     }
     setLoading(false);

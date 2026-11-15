@@ -1,15 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  AUTH_RATE_LIMIT_MESSAGE,
+  CANCEL_PASSWORD_RECOVERY_LABEL,
+  EMAIL_NOT_CONFIRMED_MESSAGE,
+  INVALID_CREDENTIALS_MESSAGE,
+  SAME_PASSWORD_MESSAGE,
+  USER_ALREADY_REGISTERED_MESSAGE,
+  WEAK_PASSWORD_MESSAGE,
   buildResetPasswordPath,
   defaultRedirectForAccountType,
   forgotPasswordHref,
   forgotPasswordSchema,
   googleAuthErrorMessage,
+  isAuthRateLimit,
   isGoogleAuthEnabled,
   isAllowedAuthRedirect,
   isResetEmailRateLimit,
   isResetPasswordNext,
+  mapAuthErrorMessage,
   pathnameOf,
   recoveryRedirectPath,
   resetPasswordSchema,
@@ -67,7 +76,35 @@ describe("password-recovery helpers", () => {
     );
     assert.equal(
       recoveryRedirectPath({
+        pathname: "/dashboard",
+        hasRecoveryCookie: true,
+      }),
+      "/reset-password"
+    );
+    assert.equal(
+      recoveryRedirectPath({
+        pathname: "/app/vehiculos/1",
+        hasRecoveryCookie: true,
+      }),
+      "/reset-password"
+    );
+    assert.equal(
+      recoveryRedirectPath({
+        pathname: "/smartimport",
+        hasRecoveryCookie: true,
+      }),
+      "/reset-password"
+    );
+    assert.equal(
+      recoveryRedirectPath({
         pathname: "/reset-password",
+        hasRecoveryCookie: true,
+      }),
+      null
+    );
+    assert.equal(
+      recoveryRedirectPath({
+        pathname: "/forgot-password",
         hasRecoveryCookie: true,
       }),
       null
@@ -80,7 +117,22 @@ describe("password-recovery helpers", () => {
       null
     );
     assert.equal(
+      recoveryRedirectPath({ pathname: "/auth/signout", hasRecoveryCookie: true }),
+      null
+    );
+  });
+
+  it("tras cancelar recovery (sin cookie) deja entrar a /login", () => {
+    assert.equal(
+      recoveryRedirectPath({ pathname: "/login", hasRecoveryCookie: false }),
+      null
+    );
+    assert.equal(
       recoveryRedirectPath({ pathname: "/app", hasRecoveryCookie: false }),
+      null
+    );
+    assert.equal(
+      recoveryRedirectPath({ pathname: "/portales", hasRecoveryCookie: false }),
       null
     );
   });
@@ -125,6 +177,75 @@ describe("password-recovery helpers", () => {
     );
     assert.equal(isResetEmailRateLimit("over_email_send_rate_limit"), true);
     assert.equal(isResetEmailRateLimit("Too many requests"), true);
+    assert.equal(
+      isAuthRateLimit({ code: "over_email_send_rate_limit", message: "rate" }),
+      true
+    );
+    assert.equal(isAuthRateLimit({ message: "ok" }), false);
+  });
+
+  it("traduce errores habituales de Supabase Auth al español", () => {
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "same_password",
+        message: "New password should be different from the old password",
+      }),
+      SAME_PASSWORD_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage(
+        "New password should be different from the old password"
+      ),
+      SAME_PASSWORD_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "invalid_credentials",
+        message: "Invalid login credentials",
+      }),
+      INVALID_CREDENTIALS_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage("Invalid login credentials"),
+      INVALID_CREDENTIALS_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "weak_password",
+        message: "Password should be at least 8 characters",
+      }),
+      WEAK_PASSWORD_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "over_request_rate_limit",
+        message: "Too many requests",
+      }),
+      AUTH_RATE_LIMIT_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "email_not_confirmed",
+        message: "Email not confirmed",
+      }),
+      EMAIL_NOT_CONFIRMED_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({
+        code: "user_already_registered",
+        message: "User already registered",
+      }),
+      USER_ALREADY_REGISTERED_MESSAGE
+    );
+    assert.equal(
+      mapAuthErrorMessage({ message: "" }, "Error al autenticar"),
+      "Error al autenticar"
+    );
+    assert.equal(
+      mapAuthErrorMessage({ message: "Falta configurar Supabase Auth" }),
+      "Falta configurar Supabase Auth"
+    );
+    assert.match(CANCEL_PASSWORD_RECOVERY_LABEL, /Cancelar/);
   });
 
   it("Google queda oculto salvo NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", () => {

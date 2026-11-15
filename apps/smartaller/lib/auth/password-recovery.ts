@@ -17,6 +17,27 @@ export const RESET_LINK_INVALID_MESSAGE =
 export const RESET_LINK_EXPIRED_MESSAGE =
   "Este enlace caducó. Solicita uno nuevo para restablecer tu contraseña.";
 
+export const SAME_PASSWORD_MESSAGE =
+  "La nueva contraseña debe ser distinta a la anterior.";
+
+export const INVALID_CREDENTIALS_MESSAGE =
+  "Correo o contraseña incorrectos.";
+
+export const WEAK_PASSWORD_MESSAGE =
+  "La contraseña es demasiado débil. Elige una más segura.";
+
+export const AUTH_RATE_LIMIT_MESSAGE =
+  "Demasiados intentos. Espera un minuto e inténtalo de nuevo.";
+
+export const EMAIL_NOT_CONFIRMED_MESSAGE =
+  "Confirma tu correo antes de iniciar sesión.";
+
+export const USER_ALREADY_REGISTERED_MESSAGE =
+  "Ya existe una cuenta con este correo. Inicia sesión o recupera la contraseña.";
+
+export const CANCEL_PASSWORD_RECOVERY_LABEL =
+  "Cancelar y volver al inicio de sesión";
+
 export type AccountType = "taller" | "dueno";
 
 export const forgotPasswordSchema = z.object({
@@ -138,6 +159,79 @@ export function isResetEmailRateLimit(message: string): boolean {
   return /rate limit|too many|over_email_send_rate_limit|only request this after/i.test(
     message
   );
+}
+
+function authErrorParts(error: unknown): { code: string; message: string } {
+  if (typeof error === "string") {
+    return { code: "", message: error };
+  }
+  if (error && typeof error === "object") {
+    const rec = error as { code?: unknown; message?: unknown };
+    return {
+      code: typeof rec.code === "string" ? rec.code.toLowerCase() : "",
+      message: typeof rec.message === "string" ? rec.message : "",
+    };
+  }
+  return { code: "", message: "" };
+}
+
+export function isAuthRateLimit(error: unknown): boolean {
+  const { code, message } = authErrorParts(error);
+  return (
+    code === "over_email_send_rate_limit" ||
+    code === "over_request_rate_limit" ||
+    code === "over_sms_send_rate_limit" ||
+    isResetEmailRateLimit(message)
+  );
+}
+
+/**
+ * Traduce errores habituales de Supabase Auth (login, signup, reset).
+ * Si no hay mapeo, deja el mensaje original o el fallback.
+ */
+export function mapAuthErrorMessage(
+  error: unknown,
+  fallback = "No se pudo completar la operación."
+): string {
+  const { code, message } = authErrorParts(error);
+  const text = message.toLowerCase();
+
+  if (
+    code === "same_password" ||
+    /new password should be different from the old password/.test(text)
+  ) {
+    return SAME_PASSWORD_MESSAGE;
+  }
+  if (
+    code === "invalid_credentials" ||
+    /invalid login credentials|invalid credentials/.test(text)
+  ) {
+    return INVALID_CREDENTIALS_MESSAGE;
+  }
+  if (
+    code === "weak_password" ||
+    /password should be at least|password is known to be weak|weak password/.test(
+      text
+    )
+  ) {
+    return WEAK_PASSWORD_MESSAGE;
+  }
+  if (isAuthRateLimit(error)) {
+    return AUTH_RATE_LIMIT_MESSAGE;
+  }
+  if (code === "email_not_confirmed" || /email not confirmed/.test(text)) {
+    return EMAIL_NOT_CONFIRMED_MESSAGE;
+  }
+  if (
+    code === "user_already_registered" ||
+    code === "user_already_exists" ||
+    /user already registered|already been registered/.test(text)
+  ) {
+    return USER_ALREADY_REGISTERED_MESSAGE;
+  }
+
+  const trimmed = message.trim();
+  return trimmed || fallback;
 }
 
 export function recoveryRedirectPath(args: {
