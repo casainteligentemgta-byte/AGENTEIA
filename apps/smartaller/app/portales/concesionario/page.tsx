@@ -4,6 +4,7 @@ import { listPortalVehiculosAction } from "@/app/actions/portal";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { resolvePortalAccess, requirePortalRole } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function PortalConcesionarioPage() {
     return (
       <PortalShell title="Concesionarios" subtitle={gate.error}>
         <Link href="/portales" className="text-sm text-cyan-400 hover:underline">
-          Volver a portales
+          {getBrand().copy.portalesBackLabel}
         </Link>
       </PortalShell>
     );

@@ -115,6 +115,13 @@ export type BrandCopy = {
   needProCategorias: string;
   needProEstado: string;
   needProChat: string;
+  loginTallerSubtitle: string;
+  loginDuenoSubtitle: string;
+  loginTallerCta: string;
+  loginDuenoCta: string;
+  portalesNavLabel: string;
+  portalesBackLabel: string;
+  portalesHomeLink: string;
   landing: BrandLandingCopy;
   telegram: BrandTelegramCopy;
 };

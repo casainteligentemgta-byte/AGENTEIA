@@ -43,6 +43,14 @@ describe("smarttaller copy", () => {
     assert.equal(brand.copy.proName, "SmartTaller Pro");
     assert.equal(brand.copy.chatName, "Chat Smartaller");
     assert.equal(brand.copy.whatsappReclamoLine, "Reclama el historial en SmartTaller:");
+    assert.equal(
+      brand.copy.loginTallerSubtitle,
+      "Accede a los portales (taller, aduana, master…)"
+    );
+    assert.equal(brand.copy.loginTallerCta, "Entrar a portales");
+    assert.equal(brand.copy.portalesNavLabel, "Portales");
+    assert.equal(brand.copy.portalesBackLabel, "Volver a portales");
+    assert.equal(brand.copy.portalesHomeLink, "Ir a portales");
     assert.equal(brand.theme.colors.primary, "#0d9488");
     assert.equal(brand.theme.colors.accent, "#f97316");
     assert.equal(brand.productionHost, "smarttaller.xyz");
@@ -56,6 +64,12 @@ describe("jac catalog", () => {
     process.env.NEXT_PUBLIC_BRAND = "jac";
     const brand = getBrand();
     assert.equal(brand.copy.name, "JAC Taller");
+    assert.equal(brand.copy.loginTallerSubtitle, "Mantenimiento de tu JAC");
+    assert.equal(brand.copy.loginDuenoSubtitle, "Mantenimiento de tu JAC");
+    assert.equal(brand.copy.loginTallerCta, "Entrar al taller");
+    assert.equal(brand.copy.portalesNavLabel, "Inicio");
+    assert.equal(brand.copy.portalesBackLabel, "Volver al inicio");
+    assert.equal(brand.copy.portalesHomeLink, "Ir al inicio");
     assert.equal(brand.productionHost, null);
     assert.equal(brand.vehicleCatalog.locked, true);
     assert.equal(brand.vehicleCatalog.lockedMarca, "JAC");

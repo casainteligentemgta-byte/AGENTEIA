@@ -90,7 +90,13 @@ export default async function PortalesHubPage() {
   const access = await resolvePortalAccess();
   if (!access) redirect("/login?next=/portales");
 
-  const items = HUB_BUTTONS.map((btn) => {
+  const brand = getBrand();
+  const hubButtons =
+    brand.id === "jac"
+      ? HUB_BUTTONS.filter((btn) => btn.key !== "master" && btn.key !== "aduanera")
+      : HUB_BUTTONS;
+
+  const items = hubButtons.map((btn) => {
     const enabled =
       btn.roles.some((r) => hasPortalRole(access, r)) ||
       (access.roles.includes("master") &&

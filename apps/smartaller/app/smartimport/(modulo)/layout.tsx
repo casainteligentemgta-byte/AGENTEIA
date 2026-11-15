@@ -5,6 +5,7 @@ import { canAccessImportacion } from "@/lib/importacion/access";
 import { IMPORTACION_BASE } from "@/lib/importacion/paths";
 import { resolvePortalAccess } from "@/lib/portal/roles";
 import { getUser } from "@/lib/supabase/server";
+import { getBrand } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function ImportacionLayout({
             href="/portales"
             className="mt-4 inline-block text-sm text-cyan-400 hover:underline"
           >
-            Ir a portales
+            {getBrand().copy.portalesHomeLink}
           </Link>
         </div>
       </main>

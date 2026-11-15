@@ -56,6 +56,13 @@ export const SMARTTALLER_BRAND: BrandConfig = {
     needProCategorias: "Necesitas SmartTaller Pro para actualizar categorías.",
     needProEstado: "Necesitas SmartTaller Pro para actualizar el estado.",
     needProChat: "Activa SmartTaller Pro para registrar mantenimientos y usar Chat Smartaller.",
+    loginTallerSubtitle: "Accede a los portales (taller, aduana, master…)",
+    loginDuenoSubtitle: "Accede a tu app de vehículos",
+    loginTallerCta: "Entrar a portales",
+    loginDuenoCta: "Entrar a la app",
+    portalesNavLabel: "Portales",
+    portalesBackLabel: "Volver a portales",
+    portalesHomeLink: "Ir a portales",
     landing: {
       homeTitle: "SmartTaller · Una foto a la placa. El resto lo hace SmartTaller.",
       homeDescription:

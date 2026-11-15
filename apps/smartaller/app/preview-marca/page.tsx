@@ -84,7 +84,7 @@ export default function PreviewMarcaPage() {
       <section id="login" className="flex min-h-screen items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <BrandLogo size="md" theme="dark" />
-          <p className="mt-3 text-sm text-zinc-500">Accede a tu app de vehículos</p>
+          <p className="mt-3 text-sm text-zinc-500">{brand.copy.loginTallerSubtitle}</p>
           <div className="glass mt-6 rounded-2xl p-6 sm:p-8">
             <p className="mb-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
               Vista previa · {brand.copy.name}
@@ -106,7 +106,7 @@ export default function PreviewMarcaPage() {
               type="button"
               className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white"
             >
-              Entrar a la app
+              {brand.copy.loginTallerCta}
             </button>
           </div>
         </div>

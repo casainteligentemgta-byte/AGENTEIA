@@ -57,6 +57,13 @@ export function buildJacBrand(): BrandConfig {
       needProCategorias: `Necesitas ${JAC_NAME} Pro para actualizar categorías.`,
       needProEstado: `Necesitas ${JAC_NAME} Pro para actualizar el estado.`,
       needProChat: `Activa ${JAC_NAME} Pro para registrar mantenimientos y usar Chat JAC.`,
+      loginTallerSubtitle: "Mantenimiento de tu JAC",
+      loginDuenoSubtitle: "Mantenimiento de tu JAC",
+      loginTallerCta: "Entrar al taller",
+      loginDuenoCta: "Entrar a la app",
+      portalesNavLabel: "Inicio",
+      portalesBackLabel: "Volver al inicio",
+      portalesHomeLink: "Ir al inicio",
       landing: {
         homeTitle: `${JAC_NAME} · Una foto a la placa. El resto lo hace ${JAC_NAME}.`,
         homeDescription:
