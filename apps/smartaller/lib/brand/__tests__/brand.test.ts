@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { DEFAULT_BRAND_ID, getBrand, getBrandId, parseBrandId } from "@/lib/brand";
 import { JAC_MODELS_PROVISIONAL } from "@/lib/brand/jac-models";
+import { getJacCarPhoto, JAC_LOGIN_HERO_PHOTO } from "@/lib/brand/jac-photos";
 import {
   applyVehicleBrandFields,
   isAllowedModelo,
@@ -64,9 +65,45 @@ describe("jac catalog", () => {
     process.env.NEXT_PUBLIC_BRAND = "jac";
     const brand = getBrand();
     assert.equal(brand.copy.name, "JAC Taller");
-    assert.equal(brand.copy.loginTallerSubtitle, "Mantenimiento de tu JAC");
-    assert.equal(brand.copy.loginDuenoSubtitle, "Mantenimiento de tu JAC");
-    assert.equal(brand.copy.loginTallerCta, "Entrar al taller");
+    assert.equal(brand.copy.loginScreen.title, "Bienvenido a JAC Taller");
+    assert.equal(
+      brand.copy.loginScreen.subtitle,
+      "El cuidado de su JAC, con el respaldo de la marca."
+    );
+    assert.equal(brand.copy.loginScreen.ownerTab, "Propietario");
+    assert.equal(brand.copy.loginScreen.submit, "Iniciar sesión");
+    assert.equal(brand.copy.loginScreen.forgot, "¿Olvidó su contraseña?");
+    assert.equal(brand.copy.loginScreen.signup, "Crear cuenta");
+    assert.equal(brand.copy.categories.neumaticos, "Neumáticos");
+    assert.equal(brand.copy.status.bien, "En orden");
+    assert.equal(brand.copy.status.atencion, "Próximo");
+    assert.equal(brand.copy.status.critico, "Requiere atención");
+    assert.equal(brand.copy.owner.hello("Luis", 9), "Buenos días, Luis");
+    assert.equal(brand.copy.owner.hello("Luis", 15), "Buenas tardes, Luis");
+    assert.equal(brand.copy.owner.hello("Luis", 21), "Buenas noches, Luis");
+    assert.equal(
+      brand.copy.owner.statusTitle("Tepuy Pro", false),
+      "Su Tepuy Pro se encuentra al día"
+    );
+    assert.equal(
+      brand.copy.owner.statusTitle("Tepuy Pro", true),
+      "Su Tepuy Pro requiere atención"
+    );
+    assert.equal(brand.copy.owner.servicesTitle, "Plan de mantenimiento");
+    assert.equal(brand.copy.owner.moveCita, "Reprogramar");
+    assert.equal(brand.copy.owner.tabTaller, "Talleres");
+    assert.equal(brand.copy.workshop.today, "Agenda del día");
+    assert.equal(brand.copy.workshop.kpiBahia, "En servicio");
+    assert.equal(brand.copy.workshop.chipEsperando, "En espera");
+    assert.equal(brand.copy.vehicleForm.title, "Añadir un JAC");
+    assert.doesNotMatch(JSON.stringify(brand.copy.loginScreen), /carro|cauchos|Ojo aquí/i);
+    assert.equal(brand.theme.mode, "photo");
+    assert.ok(JAC_MODELS_PROVISIONAL.includes("Tepuy Pro"));
+    assert.ok(JAC_MODELS_PROVISIONAL.includes("La Venezolana Pro"));
+    assert.ok(getJacCarPhoto("Tepuy Pro").endsWith("tepuy-pro.webp"));
+    assert.ok(getJacCarPhoto("Hunter").endsWith("venezolana-pro.webp"));
+    assert.ok(getJacCarPhoto("modelo-raro").endsWith("fallback.webp"));
+    assert.ok(JAC_LOGIN_HERO_PHOTO.endsWith("tepuy-pro.webp"));
     assert.equal(brand.copy.portalesNavLabel, "Inicio");
     assert.equal(brand.copy.portalesBackLabel, "Volver al inicio");
     assert.equal(brand.copy.portalesHomeLink, "Ir al inicio");

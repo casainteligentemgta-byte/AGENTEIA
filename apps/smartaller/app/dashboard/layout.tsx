@@ -21,17 +21,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
     /* sin config Supabase */
   }
 
+  const jac = getBrand().id === "jac";
+
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className={jac ? "min-h-screen bg-[#f3f4f8]" : "min-h-screen bg-zinc-950"}>
       <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col md:flex-row">
         <Sidebar userEmail={userEmail} tallerNombre={tallerNombre} />
         <main className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 hidden h-14 items-center border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur md:flex">
-            <p className="ml-14 truncate text-sm font-semibold text-zinc-100">
+          <header
+            className={
+              jac
+                ? "sticky top-0 z-30 hidden h-14 items-center border-b border-[#eceef3] bg-white/90 px-4 backdrop-blur md:flex"
+                : "sticky top-0 z-30 hidden h-14 items-center border-b border-zinc-800 bg-zinc-950/95 px-4 backdrop-blur md:flex"
+            }
+          >
+            <p
+              className={
+                jac
+                  ? "truncate text-sm font-semibold text-[#1c1c22] md:ml-0"
+                  : "ml-14 truncate text-sm font-semibold text-zinc-100"
+              }
+            >
               {tallerNombre ?? getBrand().copy.fallbackTallerNombre}
             </p>
           </header>
-          {!telegramLinked && (
+          {!jac && !telegramLinked && (
             <div className="px-4 pt-4 sm:px-8 sm:pt-6">
               <TelegramBanner linked={telegramLinked} />
             </div>

@@ -7,6 +7,10 @@ import { VehicleCard } from "@/components/app/vehicle-card";
 import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboard";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { JacLogin } from "@/components/jac/jac-login";
+import { JacOwnerHome } from "@/components/jac/jac-owner-home";
+import { JacTabbar } from "@/components/jac/jac-tabbar";
+import { JacWorkshopBoard } from "@/components/jac/jac-workshop-board";
 import { getBrand } from "@/lib/brand";
 import type { VehiculoUsuario } from "@/lib/vehicles/types";
 import type { VehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
@@ -20,10 +24,10 @@ function previewEnabled(): boolean {
 
 const DEMO_VEHICULO: VehiculoUsuario = {
   id: "preview-jac-1",
-  placa: "JAC123",
-  nick: "T8 de Luis",
+  placa: "AA90N90",
+  nick: "Tepuy",
   marca: "JAC",
-  modelo: "T8 Pro",
+  modelo: "Tepuy Pro",
   color: "Blanco",
   tipo_vehiculo: "auto",
   tipo_activo: "carro",
@@ -36,7 +40,7 @@ const DEMO_VEHICULO: VehiculoUsuario = {
   created_at: "2026-08-01T12:00:00.000Z",
 };
 
-const DEMO_SALUD: VehicleHealthSummary = {
+const DEMO_SALUD = {
   peorEstado: "atencion",
   recordatoriosUrgentes: 1,
   categorias: [
@@ -53,7 +57,7 @@ const DEMO_SALUD: VehicleHealthSummary = {
       label: "Neumáticos",
       estado: "atencion",
       fechaRevision: "2026-08-02",
-      notas: "Rotar en 1.000 km",
+      notas: null,
       fuente: "categorias",
     },
     {
@@ -61,7 +65,31 @@ const DEMO_SALUD: VehicleHealthSummary = {
       label: "Batería",
       estado: "bien",
       fechaRevision: "2026-07-20",
-      notas: "12.6 V",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
+      id: "frenos",
+      label: "Frenos",
+      estado: "bien",
+      fechaRevision: "2026-09-01",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
+      id: "alineacion",
+      label: "Alineación",
+      estado: "atencion",
+      fechaRevision: "2026-08-15",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
+      id: "fluidos",
+      label: "Fluidos",
+      estado: "bien",
+      fechaRevision: "2026-09-12",
+      notas: null,
       fuente: "categorias",
     },
     {
@@ -73,12 +101,118 @@ const DEMO_SALUD: VehicleHealthSummary = {
       fuente: "recordatorio",
     },
   ],
-};
+} as VehicleHealthSummary;
 
-export default function PreviewMarcaPage() {
-  if (!previewEnabled()) notFound();
+const CITA_HOY = "2026-11-23T10:00:00.000-04:00";
+
+function JacPreview() {
+  return (
+    <div className="bg-[#f3f4f8] text-[#1c1c22]">
+      <section id="login" className="min-h-screen overflow-hidden">
+        <JacLogin />
+      </section>
+
+      <section id="dueno" className="relative mx-auto min-h-screen max-w-lg overflow-hidden">
+        <JacOwnerHome
+          nombre="Luis"
+          vehicles={[
+            {
+              vehiculo: DEMO_VEHICULO,
+              salud: DEMO_SALUD,
+              titulo: "Tepuy Pro",
+              ultimaVisitaKm: 8680,
+            },
+          ]}
+          alertas={[
+            {
+              id: "a1",
+              vehiculoId: DEMO_VEHICULO.id,
+              vehiculoLabel: "Neumáticos · Tepuy Pro",
+              placa: DEMO_VEHICULO.placa,
+              fecha_programada: CITA_HOY,
+              kilometraje_objetivo: 800,
+              estado: "pendiente",
+              prioridad: "atencion",
+              diasRestantes: 0,
+            },
+          ]}
+          proximaCita={{
+            id: "cita-1",
+            fecha_programada: CITA_HOY,
+            kilometraje_objetivo: 13680,
+            estado: "pendiente",
+          }}
+        />
+        <JacTabbar embedded />
+      </section>
+
+      <section id="alta" className="mx-auto min-h-screen max-w-lg px-4 py-8">
+        <div className="mb-6 flex justify-center">
+          <BrandLogo theme="light" />
+        </div>
+        <AddVehicleForm />
+      </section>
+
+      <section id="dashboard" className="min-h-screen bg-[#f3f4f8]">
+        <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col md:flex-row">
+          <Sidebar
+            userEmail="taller@jac.ve"
+            tallerNombre="Concesionario JAC Caracas"
+          />
+          <main className="min-w-0 flex-1">
+            <JacWorkshopBoard
+              tallerNombre="Concesionario JAC Caracas"
+              bahia={2}
+              citas={3}
+              porConfirmar={1}
+              rows={[
+                {
+                  id: "1",
+                  modelo: "Tepuy Pro",
+                  dueno: "Luis",
+                  placa: "AA90N90",
+                  servicio: "Neumáticos",
+                  hora: "10:00 a. m.",
+                  chip: "bahia",
+                },
+                {
+                  id: "2",
+                  modelo: "Arena Sport",
+                  dueno: "Carla",
+                  placa: "ABC12D",
+                  servicio: "Aceite",
+                  hora: "11:30 a. m.",
+                  chip: "esperando",
+                },
+                {
+                  id: "3",
+                  modelo: "GX7",
+                  dueno: "Pedro",
+                  placa: "JAC456",
+                  servicio: "Frenos",
+                  hora: "2:00 p. m.",
+                  chip: "confirmada",
+                },
+                {
+                  id: "4",
+                  modelo: "Nevado Pro",
+                  dueno: "Ana",
+                  placa: "XYZ99",
+                  servicio: "Alineación",
+                  hora: "4:00 p. m.",
+                  chip: "porConfirmar",
+                },
+              ]}
+            />
+          </main>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SmartTallerPreview() {
   const brand = getBrand();
-
   return (
     <div className="space-y-10 bg-zinc-950 pb-16">
       <section id="login" className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -92,7 +226,7 @@ export default function PreviewMarcaPage() {
             <label className="mb-1.5 block text-sm text-zinc-400">Correo electrónico</label>
             <input
               readOnly
-              value="luis@jactaller.ve"
+              value="taller@smarttaller.xyz"
               className="mb-4 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm"
             />
             <label className="mb-1.5 block text-sm text-zinc-400">Contraseña</label>
@@ -114,11 +248,7 @@ export default function PreviewMarcaPage() {
 
       <section id="dashboard" className="min-h-screen bg-zinc-950">
         <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col md:flex-row">
-          <Sidebar
-            defaultOpen
-            userEmail="taller@jac.ve"
-            tallerNombre="Concesionario JAC Caracas"
-          />
+          <Sidebar defaultOpen userEmail="taller@smarttaller.xyz" tallerNombre="SmartTaller" />
           <main className="min-w-0 flex-1 p-4 sm:p-8">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
             <p className="mt-1 text-zinc-500">Resumen de tu taller en tiempo real</p>
@@ -146,9 +276,13 @@ export default function PreviewMarcaPage() {
         <div className="mx-auto min-h-screen max-w-lg">
           <AppHeader centered />
           <main className="px-4 pb-10 pt-2">
-            <VehicleHealthDashboard salud={DEMO_SALUD} tituloVehiculo="T8 de Luis" />
+            <VehicleHealthDashboard salud={DEMO_SALUD} tituloVehiculo="Hilux de Luis" />
             <div className="mt-4">
-              <VehicleCard vehiculo={DEMO_VEHICULO} salud={DEMO_SALUD} alertasUrgentes={1} />
+              <VehicleCard
+                vehiculo={{ ...DEMO_VEHICULO, marca: "Toyota", modelo: "Hilux", nick: "Hilux de Luis" }}
+                salud={DEMO_SALUD}
+                alertasUrgentes={1}
+              />
             </div>
           </main>
         </div>
@@ -164,4 +298,11 @@ export default function PreviewMarcaPage() {
       </section>
     </div>
   );
+}
+
+export default function PreviewMarcaPage() {
+  if (!previewEnabled()) notFound();
+  const brand = getBrand();
+  if (brand.id === "jac") return <JacPreview />;
+  return <SmartTallerPreview />;
 }

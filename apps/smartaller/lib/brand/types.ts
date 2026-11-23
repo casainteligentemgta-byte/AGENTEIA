@@ -1,7 +1,7 @@
 export const BRAND_IDS = ["smarttaller", "jac"] as const;
 export type BrandId = (typeof BRAND_IDS)[number];
 
-export type BrandThemeMode = "color" | "mono";
+export type BrandThemeMode = "color" | "mono" | "photo";
 
 export type BrandColors = {
   primary: string;
@@ -87,6 +87,91 @@ export type BrandLandingCopy = {
   homeHero: string;
 };
 
+export type BrandStatusCopy = {
+  bien: string;
+  atencion: string;
+  critico: string;
+  sinDatos: string;
+};
+
+export type BrandCategoryCopy = {
+  aceite: string;
+  neumaticos: string;
+  frenos: string;
+  bateria: string;
+  alineacion: string;
+  fluidos: string;
+  general: string;
+};
+
+export type BrandLoginScreenCopy = {
+  title: string;
+  subtitle: string;
+  ownerTab: string;
+  workshopTab: string;
+  emailLabel: string;
+  passwordLabel: string;
+  submit: string;
+  forgot: string;
+  signup: string;
+  signin: string;
+  signupSuccess: string;
+  authError: string;
+  google: string;
+  backHome: string;
+};
+
+export type BrandOwnerCopy = {
+  hello: (nombre: string, hour?: number) => string;
+  statusTitle: (modelo: string, requiereAtencion?: boolean) => string;
+  servicesTitle: string;
+  nextService: (kmLabel: string, fecha: string) => string;
+  alertCauchos: string;
+  alertNeumaticos?: (km: number) => string;
+  citaTitle: string;
+  citaDetail: (hora: string, servicio?: string) => string;
+  moveCita: string;
+  emptyVehicles: string;
+  emptyHint: string;
+  addVehicle: string;
+  tabInicio: string;
+  tabCitas: string;
+  tabTaller: string;
+  tabCuenta: string;
+  accountSignOut: string;
+};
+
+export type BrandWorkshopCopy = {
+  today: string;
+  kpiBahia: string;
+  kpiCitas: string;
+  kpiConfirmar: string;
+  chipBahia: string;
+  chipEsperando: string;
+  chipConfirmada: string;
+  chipPorConfirmar: string;
+  tableTitle: string;
+  ownerPlate: (dueno: string, placa: string) => string;
+};
+
+export type BrandVehicleFormCopy = {
+  typeLabel: string;
+  title: string;
+  nick: string;
+  nickPlaceholder: string;
+  color: string;
+  colorPlaceholder: string;
+  plate: string;
+  platePlaceholder: string;
+  odometerKm: string;
+  claimCode: string;
+  claimHint: string;
+  cancel: string;
+  confirm: string;
+  modelPlaceholder: string;
+  modelHint: string;
+};
+
 export type BrandCopy = {
   name: string;
   /** Partes del wordmark textual (Smart + Taller). JAC no lo usa: va el PNG. */
@@ -122,6 +207,14 @@ export type BrandCopy = {
   portalesNavLabel: string;
   portalesBackLabel: string;
   portalesHomeLink: string;
+  status: BrandStatusCopy;
+  categories: BrandCategoryCopy;
+  loginScreen: BrandLoginScreenCopy;
+  owner: BrandOwnerCopy;
+  workshop: BrandWorkshopCopy;
+  vehicleForm: BrandVehicleFormCopy;
+  modeloRequired: string;
+  modeloInvalid: string;
   landing: BrandLandingCopy;
   telegram: BrandTelegramCopy;
 };

@@ -69,7 +69,7 @@ export function validateVehicleBrand(
   if (requireModelo && !applied.modelo) {
     return {
       ok: false,
-      error: `Elige un modelo ${catalog.lockedMarca} de la lista`,
+      error: getBrand().copy.modeloRequired,
       path: "modelo",
     };
   }
@@ -77,7 +77,7 @@ export function validateVehicleBrand(
   if (applied.modelo && !isAllowedModelo(applied.modelo, catalog.models)) {
     return {
       ok: false,
-      error: `Modelo no válido para ${catalog.lockedMarca}. Elige uno de la lista.`,
+      error: getBrand().copy.modeloInvalid,
       path: "modelo",
     };
   }

@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/password-recovery";
 import { authEmailCallbackUrl } from "@/lib/app-url";
 import { getBrand } from "@/lib/brand";
+import { JacLogin } from "@/components/jac/jac-login";
 
 type AccountType = "taller" | "dueno";
 
@@ -270,6 +271,10 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  if (getBrand().id === "jac") {
+    return <JacLogin />;
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <Suspense fallback={<div className="text-zinc-500">Cargando...</div>}>

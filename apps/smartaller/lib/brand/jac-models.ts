@@ -1,34 +1,39 @@
 /**
  * Modelos JAC vendidos en Venezuela — LISTA PROVISIONAL.
  *
- * Fuente: catálogo público de JAC Motors / concesionarios en Venezuela
- * (SUVs JS, sedán J7, pickups T/Hunter y línea comercial N/Sunray).
- * Luis debe confirmar y recortar/ampliar esta lista antes del lanzamiento.
+ * Incluye nombres comerciales venezolanos (jacvenezuela.com) junto a códigos
+ * de catálogo anteriores. Luis debe confirmar y recortar/ampliar esta lista.
  *
- * Override en runtime: `NEXT_PUBLIC_JAC_MODELS=JS4,T8 Pro,Hunter`
- * (lista separada por comas).
+ * Override: `NEXT_PUBLIC_JAC_MODELS=Tepuy Pro,GX7,Aventura`
  */
 export const JAC_MODELS_PROVISIONAL = [
-  // Pasajeros / SUV
+  // Nombres comerciales Venezuela (provisional — confirmar con Luis)
+  "Tepuy Pro",
+  "La Venezolana Pro",
+  "Arena Sport",
+  "Arena Pro",
+  "Nevado",
+  "Nevado Pro",
+  "Savanna",
+  "Aventura",
+  "Aventura Pro",
+  "GX7",
+  // Códigos / líneas previas (siguen en catálogo hasta confirmación)
   "J7",
   "JS2",
   "JS3",
   "JS4",
   "JS8",
-  // Pickups
   "T6",
   "T8",
   "T8 Pro",
   "Hunter",
-  // Comercial / van
   "Sunray",
   "Refine",
   "X200",
-  // Camiones livianos
   "N350",
   "N56",
   "N75",
-  // Eléctricos (presencia limitada)
   "iEVS4",
   "E-JS4",
 ] as const;

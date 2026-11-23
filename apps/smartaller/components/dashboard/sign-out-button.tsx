@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut } from "lucide-react";
+import { getBrand } from "@/lib/brand";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export function SignOutButton() {
       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-500 transition hover:bg-zinc-900 hover:text-red-400"
     >
       <LogOut className="h-4 w-4" />
-      Cerrar sesión
+      {getBrand().copy.owner.accountSignOut}
     </button>
   );
 }

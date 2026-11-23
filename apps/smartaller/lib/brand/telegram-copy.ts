@@ -34,12 +34,25 @@ export function smarttallerTelegramCopy(): BrandTelegramCopy {
 
 export function jacTelegramCopy(): BrandTelegramCopy {
   return {
-    help: `JAC Taller\n\n${HELP}`,
-    inspeccionHint: INSPECCION_HINT,
-    recepcionPrompt: RECEPCION_PROMPT,
+    help:
+      "JAC Taller\n\n" +
+      "📷 /recepcion — fotografía frontal del vehículo (lee la placa y abre la inspección)\n" +
+      "🔍 /inspeccion PLACA — abre la planilla con la placa indicada\n" +
+      "📷 Fotografía de la placa + pie: inspeccion\n\n" +
+      "🔗 Vincular taller: /vincular TU_CODIGO\n" +
+      "(El código se encuentra en Configuración)",
+    inspeccionHint:
+      "Indique la placa del vehículo:\n/inspeccion ABC123\n\n" +
+      "O envíe la fotografía de la placa con pie: inspeccion\n\n" +
+      "Para la fotografía frontal utilice: /recepcion",
+    recepcionPrompt:
+      "📷 Recepción del JAC\n\n" +
+      "Envíe la fotografía frontal del vehículo (parachoques o portaplacas visible).\n\n" +
+      "Leeremos la placa y le enviaremos el enlace para completar la hoja en la aplicación.\n\n" +
+      "Dispone de 15 minutos.",
     vinculado: (tallerNombre) =>
-      `✅ Taller "${tallerNombre}" vinculado a JAC Taller.\n\n` +
-      "• Recepción: /recepcion — envía foto frontal del vehículo\n" +
+      `✅ El taller "${tallerNombre}" quedó vinculado a JAC Taller.\n\n` +
+      "• Recepción: /recepcion — fotografía frontal del vehículo\n" +
       "• Inspección rápida: /inspeccion PLACA",
     botLabel: "JAC Taller Bot",
   };

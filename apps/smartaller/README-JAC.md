@@ -67,7 +67,8 @@ PRESIDENCIA_PIN=
 # Opcional
 RESEND_API_KEY=
 RESEND_FROM=JAC Taller Alertas <alertas@tu-dominio>
-NEXT_PUBLIC_JAC_MODELS=JS4,T8 Pro,Hunter
+# Lista provisional. Confirmar con Luis.
+NEXT_PUBLIC_JAC_MODELS=Tepuy Pro,La Venezolana Pro,Arena Sport,GX7
 ```
 
 El dominio aún no está decidido: usa el `*.vercel.app` del proyecto hasta registrar el definitivo, y actualiza Site URL / Redirect URLs de Supabase al cambiarlo.
@@ -109,11 +110,11 @@ Además del Site URL / Redirect URLs del paso 2:
 ## 7. Qué cambia con `jac`
 
 - Nombre, logos (PNG negro/blanco), favicon, metadata y PWA.
-- Tema monocromo (negro/blanco). Los semáforos de categoría (bien/atención/crítico) se conservan para contraste.
+- Tema “app moderna con fotos”: Plus Jakarta Sans, fondo `#f3f4f8`, fotos oficiales de modelos, copy de tú en español venezolano (cauchos, carro).
 - Alta de vehículo (dueño, taller y Telegram): marca fija **JAC**; modelo de lista configurable.
 - Intervalos de mantenimiento: misma estructura por marca/modelo; valores actuales (5000 km / 6 meses) hasta que JAC entregue los de fábrica (`TODO` en `lib/brand/jac.ts`).
 
-Lista provisional de modelos (confirmar con Luis): ver `lib/brand/jac-models.ts`.
+Lista provisional de modelos Venezuela (nombres comerciales + códigos previos; confirmar con Luis): ver `lib/brand/jac-models.ts`.
 
 ## 8. Qué falta para desplegar
 

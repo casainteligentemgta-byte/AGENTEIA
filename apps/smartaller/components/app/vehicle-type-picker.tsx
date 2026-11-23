@@ -32,7 +32,7 @@ export function VehicleTypePicker({ value, onChange }: VehicleTypePickerProps) {
   const tipos = listarTiposVehiculo();
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="vehicle-type-picker grid grid-cols-2 gap-2 sm:grid-cols-3">
       {tipos.map((config) => {
         const Icon = ICONOS[config.tipo] ?? Car;
         const selected = value === config.tipo;
