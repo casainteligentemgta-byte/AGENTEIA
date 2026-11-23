@@ -1,6 +1,10 @@
 -- Limpieza RLS legacy y recordatorios por vehiculo_id del usuario
 
--- Eliminar políticas permisivas legacy (multi_taller las reemplaza)
+-- Estos DROP usan nombres que NO coinciden con las políticas reales
+-- ("Allow read <tabla> for authenticated", creadas en 20250702100000/20250703100000).
+-- Por eso no eliminaban la política SELECT USING (true) de mantenimientos.
+-- La corrección está en 20261114230000_drop_allow_read_mantenimientos_authenticated.sql.
+-- No se reescribe este DROP histórico para no alterar migraciones ya aplicadas.
 drop policy if exists "Allow authenticated read mantenimientos" on public.mantenimientos;
 drop policy if exists "Allow authenticated read vehiculos" on public.vehiculos;
 drop policy if exists "Allow authenticated read recordatorios" on public.recordatorios;
