@@ -74,7 +74,7 @@ export function JacServiceCard({
       <div className="jac-progress mt-3">
         <div
           className="h-full rounded-full"
-          style={{ width: `${Math.min(100, Math.max(8, progress))}%`, backgroundColor: barColor }}
+          style={{ width: `${Math.min(100, Math.max(0, progress))}%`, backgroundColor: barColor }}
         />
       </div>
     </article>

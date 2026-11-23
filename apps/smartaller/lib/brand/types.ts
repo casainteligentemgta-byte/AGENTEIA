@@ -122,13 +122,14 @@ export type BrandLoginScreenCopy = {
 };
 
 export type BrandOwnerCopy = {
-  hello: (nombre: string) => string;
-  statusTitle: (modelo: string) => string;
+  hello: (nombre: string, hour?: number) => string;
+  statusTitle: (modelo: string, requiereAtencion?: boolean) => string;
   servicesTitle: string;
   nextService: (kmLabel: string, fecha: string) => string;
   alertCauchos: string;
+  alertNeumaticos?: (km: number) => string;
   citaTitle: string;
-  citaDetail: (hora: string, servicio: string) => string;
+  citaDetail: (hora: string, servicio?: string) => string;
   moveCita: string;
   emptyVehicles: string;
   emptyHint: string;

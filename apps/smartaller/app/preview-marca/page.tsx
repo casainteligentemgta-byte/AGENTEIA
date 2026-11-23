@@ -25,7 +25,7 @@ function previewEnabled(): boolean {
 const DEMO_VEHICULO: VehiculoUsuario = {
   id: "preview-jac-1",
   placa: "AA90N90",
-  nick: "El de Luis",
+  nick: "Tepuy",
   marca: "JAC",
   modelo: "Tepuy Pro",
   color: "Blanco",
@@ -40,7 +40,7 @@ const DEMO_VEHICULO: VehiculoUsuario = {
   created_at: "2026-08-01T12:00:00.000Z",
 };
 
-const DEMO_SALUD: VehicleHealthSummary = {
+const DEMO_SALUD = {
   peorEstado: "atencion",
   recordatoriosUrgentes: 1,
   categorias: [
@@ -54,7 +54,7 @@ const DEMO_SALUD: VehicleHealthSummary = {
     },
     {
       id: "neumaticos",
-      label: "Cauchos",
+      label: "Neumáticos",
       estado: "atencion",
       fechaRevision: "2026-08-02",
       notas: null,
@@ -69,21 +69,41 @@ const DEMO_SALUD: VehicleHealthSummary = {
       fuente: "categorias",
     },
     {
+      id: "frenos",
+      label: "Frenos",
+      estado: "bien",
+      fechaRevision: "2026-09-01",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
+      id: "alineacion",
+      label: "Alineación",
+      estado: "atencion",
+      fechaRevision: "2026-08-15",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
+      id: "fluidos",
+      label: "Fluidos",
+      estado: "bien",
+      fechaRevision: "2026-09-12",
+      notas: null,
+      fuente: "categorias",
+    },
+    {
       id: "general",
-      label: "Revisión",
+      label: "Revisión general",
       estado: "atencion",
       fechaRevision: "2026-12-01",
       notas: null,
       fuente: "recordatorio",
     },
   ],
-};
+} as VehicleHealthSummary;
 
-const CITA_HOY = (() => {
-  const d = new Date();
-  d.setHours(10, 0, 0, 0);
-  return d.toISOString();
-})();
+const CITA_HOY = "2026-11-23T10:00:00.000-04:00";
 
 function JacPreview() {
   return (
@@ -100,13 +120,14 @@ function JacPreview() {
               vehiculo: DEMO_VEHICULO,
               salud: DEMO_SALUD,
               titulo: "Tepuy Pro",
+              ultimaVisitaKm: 8680,
             },
           ]}
           alertas={[
             {
               id: "a1",
               vehiculoId: DEMO_VEHICULO.id,
-              vehiculoLabel: "Cauchos · Tepuy Pro",
+              vehiculoLabel: "Neumáticos · Tepuy Pro",
               placa: DEMO_VEHICULO.placa,
               fecha_programada: CITA_HOY,
               kilometraje_objetivo: 800,
@@ -118,7 +139,7 @@ function JacPreview() {
           proximaCita={{
             id: "cita-1",
             fecha_programada: CITA_HOY,
-            kilometraje_objetivo: 1200,
+            kilometraje_objetivo: 13680,
             estado: "pendiente",
           }}
         />
@@ -150,7 +171,7 @@ function JacPreview() {
                   modelo: "Tepuy Pro",
                   dueno: "Luis",
                   placa: "AA90N90",
-                  servicio: "Cauchos",
+                  servicio: "Neumáticos",
                   hora: "10:00 a. m.",
                   chip: "bahia",
                 },

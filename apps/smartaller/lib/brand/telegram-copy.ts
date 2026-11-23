@@ -36,23 +36,23 @@ export function jacTelegramCopy(): BrandTelegramCopy {
   return {
     help:
       "JAC Taller\n\n" +
-      "📷 /recepcion — foto de frente del carro (lee la placa y abre la inspección)\n" +
-      "🔍 /inspeccion PLACA — abre la planilla con la placa escrita\n" +
-      "📷 Foto de la placa + pie: inspeccion\n\n" +
+      "📷 /recepcion — fotografía frontal del vehículo (lee la placa y abre la inspección)\n" +
+      "🔍 /inspeccion PLACA — abre la planilla con la placa indicada\n" +
+      "📷 Fotografía de la placa + pie: inspeccion\n\n" +
       "🔗 Vincular taller: /vincular TU_CODIGO\n" +
-      "(El código está en Configuración)",
+      "(El código se encuentra en Configuración)",
     inspeccionHint:
-      "Escribe la placa del carro:\n/inspeccion ABC123\n\n" +
-      "O manda la foto de la placa con pie: inspeccion\n\n" +
-      "Para la foto de frente usa: /recepcion",
+      "Indique la placa del vehículo:\n/inspeccion ABC123\n\n" +
+      "O envíe la fotografía de la placa con pie: inspeccion\n\n" +
+      "Para la fotografía frontal utilice: /recepcion",
     recepcionPrompt:
       "📷 Recepción del JAC\n\n" +
-      "Manda la foto de frente del carro (parachoques o portaplacas a la vista).\n\n" +
-      "Leemos la placa y te pasamos el enlace para terminar la hoja en la app.\n\n" +
-      "Tienes 15 minutos.",
+      "Envíe la fotografía frontal del vehículo (parachoques o portaplacas visible).\n\n" +
+      "Leeremos la placa y le enviaremos el enlace para completar la hoja en la aplicación.\n\n" +
+      "Dispone de 15 minutos.",
     vinculado: (tallerNombre) =>
-      `✅ Taller "${tallerNombre}" ya está vinculado a JAC Taller.\n\n` +
-      "• Recepción: /recepcion — foto de frente del carro\n" +
+      `✅ El taller "${tallerNombre}" quedó vinculado a JAC Taller.\n\n` +
+      "• Recepción: /recepcion — fotografía frontal del vehículo\n" +
       "• Inspección rápida: /inspeccion PLACA",
     botLabel: "JAC Taller Bot",
   };
