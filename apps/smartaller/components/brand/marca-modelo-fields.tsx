@@ -82,7 +82,7 @@ export function MarcaModeloFields({
               onChange={(e) => onModeloChange(e.target.value)}
               className={inputClass}
             >
-              <option value="">Selecciona un modelo JAC</option>
+              <option value="">{brand.copy.vehicleForm.modelPlaceholder}</option>
               {catalog.models.map((item) => (
                 <option key={item} value={item}>
                   {item}
@@ -91,7 +91,7 @@ export function MarcaModeloFields({
             </select>
             {catalog.modelsProvisional && (
               <p className={cn("mt-1 text-xs", isLight ? "text-zinc-400" : "text-zinc-500")}>
-                Lista provisional de modelos JAC en Venezuela. Pendiente de confirmación.
+                {brand.copy.vehicleForm.modelHint}
               </p>
             )}
           </>

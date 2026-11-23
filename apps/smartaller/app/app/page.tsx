@@ -20,6 +20,9 @@ import {
 import { getEtiquetaVehiculo, getValorOdometro } from "@/lib/vehicles/format";
 import { buildVehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
 import { isStripeConfigured } from "@/lib/stripe/config";
+import { getBrand } from "@/lib/brand";
+import { JacOwnerHome } from "@/components/jac/jac-owner-home";
+import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -59,11 +62,29 @@ export default async function AppHomePage({ searchParams }: PageProps) {
         salud,
         titulo: getEtiquetaVehiculo(vehiculo),
         alertasUrgentes: alertasVehiculo,
+        proximoRecordatorio: resumen.proximoRecordatorio,
       };
     })
   );
 
   const vehiculoUnico = vehiculosConSalud.length === 1 ? vehiculosConSalud[0] : null;
+
+  if (getBrand().id === "jac") {
+    const user = await getUser();
+    const rawName =
+      (typeof user?.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
+      user?.email?.split("@")[0] ||
+      "tú";
+    const nombre = rawName.split(" ")[0] ?? "tú";
+    return (
+      <JacOwnerHome
+        nombre={nombre}
+        vehicles={vehiculosConSalud}
+        alertas={alertas}
+        proximaCita={vehiculosConSalud[0]?.proximoRecordatorio}
+      />
+    );
+  }
 
   return (
     <>

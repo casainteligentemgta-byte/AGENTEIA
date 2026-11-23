@@ -2,7 +2,7 @@ import type { ModuloMantenimiento } from "@/lib/vehicles/types";
 import type { MantenimientoHistorial, RecordatorioUsuario } from "@/lib/data/vehicle-history";
 import { PALABRAS_MODULO } from "@/lib/vehicles/module-keywords";
 import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
-import { getModuleInterval } from "@/lib/brand";
+import { getBrand, getModuleInterval } from "@/lib/brand";
 import {
   Battery,
   CircleDot,
@@ -80,6 +80,9 @@ export function MaintenanceModuleCard({
   proximoRecordatorio = null,
 }: MaintenanceModuleCardProps) {
   const Icon = ICONOS[modulo.id] ?? Wrench;
+  const categoryLabels = getBrand().copy.categories;
+  const label =
+    categoryLabels[modulo.id as keyof typeof categoryLabels] ?? modulo.label;
   const pendiente =
     modulo.disponibleDesdeVisita != null && visitasRegistradas < modulo.disponibleDesdeVisita;
   const ultimo = buscarUltimoServicioModulo(modulo.id, historial);
@@ -97,7 +100,7 @@ export function MaintenanceModuleCard({
           <Icon className="h-7 w-7" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-zinc-900">{modulo.label}</p>
+          <p className="font-bold text-zinc-900">{label}</p>
 
           {pendiente ? (
             <div className="mt-3 space-y-2 text-sm text-zinc-400">
@@ -111,7 +114,7 @@ export function MaintenanceModuleCard({
                   <p className="mt-1 text-zinc-300">—</p>
                 </div>
               </div>
-              <p>Disponible después del 1er {modulo.label.toLowerCase()}</p>
+              <p>Disponible después del 1er {label.toLowerCase()}</p>
               <p className="text-xs">Disponible en la {modulo.disponibleDesdeVisita}ª visita</p>
             </div>
           ) : ultimo ? (
@@ -148,7 +151,7 @@ export function MaintenanceModuleCard({
             </div>
           ) : visitasRegistradas > 0 ? (
             <p className="mt-2 text-sm text-zinc-500">
-              {visitasRegistradas} visita(s). Sin detalle de {modulo.label.toLowerCase()}.
+              {visitasRegistradas} visita(s). Sin detalle de {label.toLowerCase()}.
             </p>
           ) : (
             <p className="mt-2 text-sm text-zinc-500">

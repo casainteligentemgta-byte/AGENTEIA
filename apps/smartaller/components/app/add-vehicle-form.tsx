@@ -16,11 +16,14 @@ export function AddVehicleForm() {
   const [tipo, setTipo] = useState<TipoVehiculo>("auto");
   const [error, setError] = useState<string | null>(null);
   const brand = getBrand();
+  const jac = brand.id === "jac";
   const [marca, setMarca] = useState(brand.vehicleCatalog.lockedMarca ?? "");
   const [modelo, setModelo] = useState("");
 
   const config = getConfigTipoVehiculo(tipo);
-  const odometroLabel = config.unidadOdometro === "horas" ? "Horas de motor" : "Kilometraje";
+  const formCopy = brand.copy.vehicleForm;
+  const odometroLabel =
+    config.unidadOdometro === "horas" ? "Horas de motor (opcional)" : formCopy.odometerKm;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -50,12 +53,17 @@ export function AddVehicleForm() {
   };
 
   const fields = [
-    { id: "nick", label: "Nick del vehículo", required: false, placeholder: `Ej. Mi ${config.labelCorto}` },
-    { id: "color", label: "Color", required: false, placeholder: "Ej. Blanco" },
-    { id: "placa", label: "Placa / identificador", required: true, placeholder: "Ej. AA90N90" },
+    {
+      id: "nick",
+      label: formCopy.nick,
+      required: false,
+      placeholder: formCopy.nickPlaceholder.replace("{tipo}", config.labelCorto),
+    },
+    { id: "color", label: formCopy.color, required: false, placeholder: formCopy.colorPlaceholder },
+    { id: "placa", label: formCopy.plate, required: true, placeholder: formCopy.platePlaceholder },
     {
       id: "odometro",
-      label: `${odometroLabel} (opcional)`,
+      label: odometroLabel,
       required: false,
       placeholder: config.unidadOdometro === "horas" ? "1250" : "10694",
       inputMode: "numeric" as const,
@@ -65,7 +73,9 @@ export function AddVehicleForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <p className="mb-3 text-center text-sm font-medium text-zinc-400">Tipo de vehículo</p>
+        <p className={`mb-3 text-center text-sm font-medium ${jac ? "text-[#6a6a74]" : "text-zinc-400"}`}>
+          {formCopy.typeLabel}
+        </p>
         <VehicleTypePicker value={tipo} onChange={setTipo} />
       </div>
 
@@ -74,7 +84,7 @@ export function AddVehicleForm() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
             <VehicleTypeIcon tipo={tipo} className="h-7 w-7 text-zinc-700" />
           </div>
-          <h2 className="text-lg font-bold">Nuevo vehículo</h2>
+          <h2 className="text-lg font-bold">{formCopy.title}</h2>
         </div>
 
         <div className="space-y-4">
@@ -98,7 +108,7 @@ export function AddVehicleForm() {
             onMarcaChange={setMarca}
             onModeloChange={setModelo}
             marcaPlaceholder="Ej. BAIC"
-            modeloPlaceholder="Ej. BJ40"
+            modeloPlaceholder={formCopy.modelPlaceholder}
             variant="light"
           />
           {fields.slice(1).map((field) => (
@@ -118,7 +128,7 @@ export function AddVehicleForm() {
           ))}
           <div>
             <label htmlFor="codigo_reclamo" className="mb-1.5 block text-sm font-medium text-zinc-600">
-              Código de este vehículo (si te lo dieron en el taller)
+              {formCopy.claimCode}
             </label>
             <input
               id="codigo_reclamo"
@@ -128,7 +138,7 @@ export function AddVehicleForm() {
               autoComplete="off"
             />
             <p className="mt-1 text-xs text-zinc-400">
-              Es el código de este auto, no el de Telegram. Te lo da recepción.
+              {formCopy.claimHint}
             </p>
           </div>
         </div>
@@ -144,17 +154,25 @@ export function AddVehicleForm() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 rounded-2xl bg-zinc-600 py-3.5 text-sm font-semibold text-white transition hover:bg-zinc-500"
+          className={
+            jac
+              ? "flex h-[52px] flex-1 items-center justify-center rounded-2xl bg-[#e6e7ee] text-sm font-semibold text-[#1c1c22]"
+              : "flex-1 rounded-2xl bg-zinc-600 py-3.5 text-sm font-semibold text-white transition hover:bg-zinc-500"
+          }
         >
-          Cancelar
+          {formCopy.cancel}
         </button>
         <button
           type="submit"
           disabled={pending}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 disabled:opacity-60"
+          className={
+            jac
+              ? "jac-btn flex-1 disabled:opacity-60"
+              : "flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 disabled:opacity-60"
+          }
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Car className="h-4 w-4" />}
-          Confirmar
+          {formCopy.confirm}
         </button>
       </div>
     </form>

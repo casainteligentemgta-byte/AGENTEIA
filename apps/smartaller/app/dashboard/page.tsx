@@ -10,8 +10,16 @@ import {
   getRecordatorios,
   getTopClientes,
   getTopVehiculos,
+  getVehiculos,
 } from "@/lib/data/dashboard";
 import { formatCurrency, formatDate, formatKm } from "@/lib/utils";
+import { getBrand } from "@/lib/brand";
+import {
+  buildJacWorkshopRows,
+  JacWorkshopBoard,
+} from "@/components/jac/jac-workshop-board";
+import { getUser } from "@/lib/supabase/server";
+import { ensureTallerForUser } from "@/lib/taller";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +36,37 @@ export default async function DashboardPage() {
 
   const { stats, error: statsError } = statsResult;
   const proximosRecordatorios = recordatorios.filter((r) => r.estado === "pendiente").slice(0, 5);
+
+  if (getBrand().id === "jac") {
+    const [vehiculos, user] = await Promise.all([getVehiculos(), getUser()]);
+    let tallerNombre = getBrand().copy.fallbackTallerNombre;
+    if (user) {
+      try {
+        const { taller } = await ensureTallerForUser(user.id);
+        tallerNombre = taller?.nombre ?? tallerNombre;
+      } catch {
+        /* sin taller */
+      }
+    }
+    const pendientes = recordatorios.filter((r) => r.estado === "pendiente");
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const porConfirmar = pendientes.filter((r) => {
+      const d = new Date(r.fecha_programada);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() > hoy.getTime() + 7 * 86400000;
+    }).length;
+    const citasPorLlegar = Math.max(0, pendientes.length - porConfirmar);
+    return (
+      <JacWorkshopBoard
+        tallerNombre={tallerNombre}
+        bahia={stats.vehiculosEnMantenimiento}
+        citas={citasPorLlegar}
+        porConfirmar={porConfirmar}
+        rows={buildJacWorkshopRows(vehiculos, mantenimientos, recordatorios)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 sm:p-8">

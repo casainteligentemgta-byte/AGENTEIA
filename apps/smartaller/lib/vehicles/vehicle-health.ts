@@ -14,7 +14,7 @@ import { palabrasParaCategoria } from "@/lib/vehicles/module-keywords";
 import { isRecepcionMantenimiento } from "@/lib/vehicles/recepcion-historial";
 import type { ConfigTipoVehiculo, TipoVehiculo } from "@/lib/vehicles/types";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
-import { getHealthThresholds } from "@/lib/brand";
+import { getBrand, getHealthThresholds } from "@/lib/brand";
 
 export type FuenteEstadoSalud =
   | "categorias"
@@ -44,6 +44,11 @@ const ETIQUETAS: Record<CategoriaVehiculoId, string> = {
   aceite: "Aceite",
   general: "Revisión general",
 };
+
+export function etiquetaCategoria(id: CategoriaVehiculoId): string {
+  const branded = getBrand().copy.categories[id];
+  return branded ?? ETIQUETAS[id];
+}
 
 const ORDEN_ESTADO: Record<EstadoCategoriaValue, number> = {
   critico: 3,
@@ -196,7 +201,7 @@ function resolverCategoria(
   if (desdeJson) {
     return {
       id: categoria,
-      label: ETIQUETAS[categoria],
+          label: etiquetaCategoria(categoria),
       estado: desdeJson.estado,
       fechaRevision: desdeJson.fechaRevision,
       notas: desdeJson.notas,
@@ -209,7 +214,7 @@ function resolverCategoria(
     if (legacy) {
       return {
         id: categoria,
-        label: ETIQUETAS[categoria],
+          label: etiquetaCategoria(categoria),
         estado: legacy.estado,
         fechaRevision: null,
         notas: legacy.notas,
@@ -223,7 +228,7 @@ function resolverCategoria(
     if (desdeRecordatorio) {
       return {
         id: categoria,
-        label: ETIQUETAS[categoria],
+          label: etiquetaCategoria(categoria),
         estado: desdeRecordatorio.estado,
         fechaRevision: desdeRecordatorio.fechaRevision,
         notas: null,
@@ -236,7 +241,7 @@ function resolverCategoria(
   if (heuristico) {
     return {
       id: categoria,
-      label: ETIQUETAS[categoria],
+          label: etiquetaCategoria(categoria),
       estado: heuristico.estado,
       fechaRevision: heuristico.fechaRevision,
       notas: null,
@@ -246,7 +251,7 @@ function resolverCategoria(
 
   return {
     id: categoria,
-    label: ETIQUETAS[categoria],
+          label: etiquetaCategoria(categoria),
     estado: null,
     fechaRevision: null,
     notas: null,
@@ -283,14 +288,15 @@ export function getConfigParaSalud(tipoVehiculo: TipoVehiculo): ConfigTipoVehicu
 }
 
 export function formatEstadoSalud(estado: EstadoCategoriaValue | null): string {
+  const labels = getBrand().copy.status;
   switch (estado) {
     case "bien":
-      return "Bien";
+      return labels.bien;
     case "atencion":
-      return "Atención";
+      return labels.atencion;
     case "critico":
-      return "Crítico";
+      return labels.critico;
     default:
-      return "Sin datos";
+      return labels.sinDatos;
   }
 }

@@ -49,6 +49,7 @@ module.exports = {
         },
       },
       fontFamily: {
+        jakarta: ["var(--font-jakarta)", "system-ui", "sans-serif"],
         "landing-display": [
           "var(--font-bricolage)",
           "Georgia",

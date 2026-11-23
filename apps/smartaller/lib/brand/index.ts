@@ -20,3 +20,5 @@ export {
   getHealthThresholds,
 } from "@/lib/brand/intervals";
 export { JAC_MODELS_PROVISIONAL } from "@/lib/brand/jac-models";
+export { getJacCarPhoto, JAC_LOGIN_HERO_PHOTO } from "@/lib/brand/jac-photos";
+export { getJacServiceTheme, JAC_SERVICE_ORDER, JAC_CHIPS } from "@/lib/brand/jac-theme";

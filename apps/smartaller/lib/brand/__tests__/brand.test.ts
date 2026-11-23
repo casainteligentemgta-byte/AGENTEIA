@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { DEFAULT_BRAND_ID, getBrand, getBrandId, parseBrandId } from "@/lib/brand";
 import { JAC_MODELS_PROVISIONAL } from "@/lib/brand/jac-models";
+import { getJacCarPhoto, JAC_LOGIN_HERO_PHOTO } from "@/lib/brand/jac-photos";
 import {
   applyVehicleBrandFields,
   isAllowedModelo,
@@ -64,9 +65,27 @@ describe("jac catalog", () => {
     process.env.NEXT_PUBLIC_BRAND = "jac";
     const brand = getBrand();
     assert.equal(brand.copy.name, "JAC Taller");
-    assert.equal(brand.copy.loginTallerSubtitle, "Mantenimiento de tu JAC");
-    assert.equal(brand.copy.loginDuenoSubtitle, "Mantenimiento de tu JAC");
-    assert.equal(brand.copy.loginTallerCta, "Entrar al taller");
+    assert.equal(brand.copy.loginScreen.title, "Hola. Cuidamos tu JAC.");
+    assert.equal(
+      brand.copy.loginScreen.subtitle,
+      "Entra para ver cómo está tu carro o para armar el día en el taller."
+    );
+    assert.equal(brand.copy.loginScreen.submit, "Entrar");
+    assert.equal(brand.copy.loginScreen.forgot, "¿Se te olvidó la clave?");
+    assert.equal(brand.copy.categories.neumaticos, "Cauchos");
+    assert.equal(brand.copy.status.bien, "Va bien");
+    assert.equal(brand.copy.status.atencion, "Se acerca");
+    assert.equal(brand.copy.status.critico, "Ojo aquí");
+    assert.equal(brand.copy.owner.hello("Luis"), "Hola, Luis");
+    assert.equal(brand.copy.workshop.kpiBahia, "JAC en bahía");
+    assert.equal(brand.copy.vehicleForm.title, "Sumar un JAC");
+    assert.equal(brand.theme.mode, "photo");
+    assert.ok(JAC_MODELS_PROVISIONAL.includes("Tepuy Pro"));
+    assert.ok(JAC_MODELS_PROVISIONAL.includes("La Venezolana Pro"));
+    assert.ok(getJacCarPhoto("Tepuy Pro").endsWith("tepuy-pro.webp"));
+    assert.ok(getJacCarPhoto("Hunter").endsWith("venezolana-pro.webp"));
+    assert.ok(getJacCarPhoto("modelo-raro").endsWith("fallback.webp"));
+    assert.ok(JAC_LOGIN_HERO_PHOTO.endsWith("tepuy-pro.webp"));
     assert.equal(brand.copy.portalesNavLabel, "Inicio");
     assert.equal(brand.copy.portalesBackLabel, "Volver al inicio");
     assert.equal(brand.copy.portalesHomeLink, "Ir al inicio");
