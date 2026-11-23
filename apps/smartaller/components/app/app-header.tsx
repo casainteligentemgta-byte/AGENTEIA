@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { BrandLogo } from "@/components/app/brand-logo";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { cn } from "@/lib/utils";
 
 type AppHeaderProps = {
@@ -30,8 +31,12 @@ export function AppHeader({
           isLight ? "border-b border-zinc-200/80 bg-[#eef0f3]/95 backdrop-blur-md" : "app-bg-dark border-b border-white/5"
         )}
       >
-        <div className="flex justify-center">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1" />
           <BrandLogo theme={isLight ? "light" : "dark"} />
+          <div className="flex min-w-0 flex-1 justify-end">
+            <SignOutButton variant="header" tone={isLight ? "light" : "dark"} />
+          </div>
         </div>
       </header>
     );
@@ -80,7 +85,7 @@ export function AppHeader({
             <BrandLogo theme={isLight ? "light" : "dark"} />
           )}
         </div>
-        {showBack && <div className="w-9 shrink-0" />}
+        <SignOutButton variant="header" tone={isLight ? "light" : "dark"} />
       </div>
     </header>
   );

@@ -14,6 +14,7 @@ import {
   resolvePortalAccess,
   type PortalRole,
 } from "@/lib/portal/roles";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { getUser } from "@/lib/supabase/server";
 import { getBrand } from "@/lib/brand";
 
@@ -144,9 +145,12 @@ export default async function PortalesHubPage() {
                 </p>
               ) : null}
             </div>
-            <p className="max-w-[50%] truncate text-right text-[11px] text-zinc-600 md:text-xs">
-              {access.email}
-            </p>
+            <div className="flex max-w-[50%] flex-col items-end gap-1">
+              <p className="truncate text-right text-[11px] text-zinc-600 md:text-xs">
+                {access.email}
+              </p>
+              <SignOutButton variant="header" />
+            </div>
           </div>
         </header>
 
