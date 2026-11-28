@@ -2,11 +2,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getMyTaller } from "@/lib/taller";
 import {
+  COMPROBANTES_PAGO_BUCKET,
   DIAGNOSTICOS_BUCKET,
   RECEPCION_ESTADO_VISUAL_BUCKET,
   VEHICULOS_DOCUMENTOS_BUCKET,
   type PrivateStorageBucket,
 } from "@/lib/storage/buckets";
+import { resolvePortalAccess } from "@/lib/portal/roles";
 import { isSafeStoragePath } from "@/lib/storage/signed-url";
 
 export async function canAccessPrivateStoragePath(
@@ -17,6 +19,12 @@ export async function canAccessPrivateStoragePath(
 
   const user = await getUser();
   if (!user) return false;
+
+  if (bucket === COMPROBANTES_PAGO_BUCKET) {
+    if (path.startsWith(`${user.id}/`)) return true;
+    const access = await resolvePortalAccess();
+    return Boolean(access?.roles.includes("master") && access.verTodo);
+  }
 
   const taller = await getMyTaller();
   if (taller && path.startsWith(`${taller.id}/`)) {

@@ -1,13 +1,18 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TelegramBanner } from "@/components/dashboard/telegram-banner";
+import { TallerPaywallScreen } from "@/components/dashboard/taller-paywall-screen";
+import { SuscripcionBanner } from "@/components/app/suscripcion-banner";
 import { getUser } from "@/lib/supabase/server";
 import { ensureTallerForUser } from "@/lib/taller";
 import { getBrand } from "@/lib/brand";
+import { getAccesoTaller } from "@/lib/billing/acceso";
+import { getNotificacionesUsuario } from "@/lib/data/notificaciones";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   let userEmail: string | null = null;
   let tallerNombre: string | null = null;
   let telegramLinked = false;
+  let tallerId: string | null = null;
 
   try {
     const user = await getUser();
@@ -16,10 +21,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
       const { taller } = await ensureTallerForUser(user.id);
       tallerNombre = taller?.nombre ?? null;
       telegramLinked = taller?.telegram_chat_id != null;
+      tallerId = taller?.id ?? null;
     }
   } catch {
     /* sin config Supabase */
   }
+
+  const acceso = await getAccesoTaller(tallerId);
+  if (tallerId && acceso.schemaReady && !acceso.permitido) {
+    return (
+      <div className="min-h-screen bg-zinc-950">
+        <TallerPaywallScreen />
+      </div>
+    );
+  }
+
+  const notificaciones = await getNotificacionesUsuario(4);
 
   const jac = getBrand().id === "jac";
 
@@ -50,6 +67,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <TelegramBanner linked={telegramLinked} />
             </div>
           )}
+          <SuscripcionBanner
+            vencimiento={acceso.vencimiento}
+            diasRestantes={acceso.diasRestantes}
+            notificaciones={notificaciones}
+            hrefPago="/dashboard"
+            className="px-4 pt-4 sm:px-8 sm:pt-4"
+          />
           {children}
         </main>
       </div>

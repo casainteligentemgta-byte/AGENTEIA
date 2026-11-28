@@ -1,8 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getOrEnsurePerfil } from "@/lib/data/perfil";
 import { getStripeClient } from "@/lib/stripe/client";
@@ -62,29 +60,11 @@ export async function activarSuscripcionPremiumAction(): Promise<SubscriptionAct
     }
   }
 
-  const vencimiento = new Date();
-  vencimiento.setMonth(vencimiento.getMonth() + 1);
-
-  const admin = createAdminClient();
-  const { error } = await admin.from("perfiles").upsert(
-    {
-      id: user.id,
-      tipo_plan: "premium",
-      suscripcion_activa: true,
-      vencimiento_plan: vencimiento.toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" }
-  );
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  revalidatePath("/app");
-  revalidatePath("/app/vehiculos/nuevo");
-
-  return { success: true };
+  return {
+    success: false,
+    error:
+      "El pago es por Pago Móvil. Reporta tu transferencia desde la pantalla de suscripción; un administrador la confirmará.",
+  };
 }
 
 /** Portal de Stripe para gestionar/cancelar suscripción */

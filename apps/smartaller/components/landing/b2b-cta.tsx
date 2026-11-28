@@ -21,7 +21,7 @@ export function B2bCta() {
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-bold text-blue-300">
                     1
                   </span>
-                  Regístrate como taller (gratis)
+                  Regístrate como taller (USD 100/mes)
                 </li>
                 <li className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-bold text-blue-300">
@@ -42,7 +42,7 @@ export function B2bCta() {
                 href="/login?redirectTo=/dashboard"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-zinc-900 transition hover:bg-zinc-100 sm:w-auto"
               >
-                Empezar gratis
+                Crear cuenta de taller
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link

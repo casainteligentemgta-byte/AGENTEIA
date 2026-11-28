@@ -1,11 +1,13 @@
 export const DIAGNOSTICOS_BUCKET = "diagnosticos";
 export const RECEPCION_ESTADO_VISUAL_BUCKET = "recepcion-estado-visual";
 export const VEHICULOS_DOCUMENTOS_BUCKET = "vehiculos-documentos";
+export const COMPROBANTES_PAGO_BUCKET = "comprobantes-pago";
 
 export const PRIVATE_STORAGE_BUCKETS = [
   DIAGNOSTICOS_BUCKET,
   RECEPCION_ESTADO_VISUAL_BUCKET,
   VEHICULOS_DOCUMENTOS_BUCKET,
+  COMPROBANTES_PAGO_BUCKET,
 ] as const;
 
 export type PrivateStorageBucket = (typeof PRIVATE_STORAGE_BUCKETS)[number];

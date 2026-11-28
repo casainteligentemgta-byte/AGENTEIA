@@ -9,17 +9,14 @@ import { VehicleHealthDashboard } from "@/components/app/vehicle-health-dashboar
 import { PaywallScreen } from "@/components/app/paywall-screen";
 import { SubscriptionNotice } from "@/components/app/subscription-notice";
 import { ManageSubscriptionButton } from "@/components/app/manage-subscription-button";
+import { SuscripcionBanner } from "@/components/app/suscripcion-banner";
 import { getAlertasUsuario } from "@/lib/data/alertas";
+import { getNotificacionesUsuario } from "@/lib/data/notificaciones";
 import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
 import { getUserVehiculos } from "@/lib/data/user-vehicles";
-import {
-  getOrEnsurePerfil,
-  perfilSuscripcionVigente,
-  usuarioTieneVehiculoTaller,
-} from "@/lib/data/perfil";
+import { getAccesoB2c } from "@/lib/billing/acceso";
 import { getEtiquetaVehiculo, getValorOdometro } from "@/lib/vehicles/format";
 import { buildVehicleHealthSummary } from "@/lib/vehicles/vehicle-health";
-import { isStripeConfigured } from "@/lib/stripe/config";
 import { getBrand } from "@/lib/brand";
 import { JacOwnerHome } from "@/components/jac/jac-owner-home";
 import { getUser } from "@/lib/supabase/server";
@@ -31,22 +28,22 @@ type PageProps = {
 };
 
 export default async function AppHomePage({ searchParams }: PageProps) {
-  const [vehiculos, perfil, tieneVinculoTaller, alertas] = await Promise.all([
+  const [vehiculos, acceso, alertas, notificaciones] = await Promise.all([
     getUserVehiculos(),
-    getOrEnsurePerfil(),
-    usuarioTieneVehiculoTaller(),
+    getAccesoB2c(),
     getAlertasUsuario(8),
+    getNotificacionesUsuario(5),
   ]);
 
-  const suscripcionOk = perfil ? perfilSuscripcionVigente(perfil) : false;
-  const mostrarPaywall = !tieneVinculoTaller && !suscripcionOk;
+  const perfil = acceso.perfil;
+  const mostrarPaywall = !acceso.permitido;
 
   if (mostrarPaywall) {
     return (
       <>
         <AppHeader centered />
         <SubscriptionNotice subscribed={searchParams.subscribed} />
-        <PaywallScreen stripeEnabled={isStripeConfigured()} />
+        <PaywallScreen />
       </>
     );
   }
@@ -78,12 +75,22 @@ export default async function AppHomePage({ searchParams }: PageProps) {
       "";
     const nombre = rawName.split(" ")[0] ?? "";
     return (
-      <JacOwnerHome
-        nombre={nombre}
-        vehicles={vehiculosConSalud}
-        alertas={alertas}
-        proximaCita={vehiculosConSalud[0]?.proximoRecordatorio}
-      />
+      <>
+        <div className="px-4 pt-4">
+          <SuscripcionBanner
+            vencimiento={acceso.vencimiento}
+            diasRestantes={acceso.diasRestantes}
+            notificaciones={notificaciones}
+            hrefPago="/app"
+          />
+        </div>
+        <JacOwnerHome
+          nombre={nombre}
+          vehicles={vehiculosConSalud}
+          alertas={alertas}
+          proximaCita={vehiculosConSalud[0]?.proximoRecordatorio}
+        />
+      </>
     );
   }
 
@@ -95,6 +102,15 @@ export default async function AppHomePage({ searchParams }: PageProps) {
       <main className="px-4 pb-10 pt-2">
         <div className="mb-3 flex justify-end">
           <ManageSubscriptionButton tieneStripe={Boolean(perfil?.stripe_customer_id)} />
+        </div>
+
+        <div className="mb-3">
+          <SuscripcionBanner
+            vencimiento={acceso.vencimiento}
+            diasRestantes={acceso.diasRestantes}
+            notificaciones={notificaciones}
+            hrefPago="/app"
+          />
         </div>
 
         <AlertasBanner alertas={alertas} />
