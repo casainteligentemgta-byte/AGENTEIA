@@ -5,6 +5,7 @@ import {
   publicHealthPayload,
   telegramIntegrationStatus,
   telegramWebhookSecretStatus,
+  whatsappIntegrationStatus,
 } from "../health";
 
 function withEnv(vars: Record<string, string | undefined>, fn: () => void): void {
@@ -60,5 +61,48 @@ describe("health", () => {
         assert.equal(telegramWebhookSecretStatus(), "ok");
       }
     );
+  });
+
+  it("whatsapp es skipped cuando está apagado y nunca error", () => {
+    withEnv(
+      {
+        WHATSAPP_ENABLED: undefined,
+        TWILIO_ACCOUNT_SID: undefined,
+        TWILIO_AUTH_TOKEN: undefined,
+        TWILIO_WHATSAPP_FROM: undefined,
+      },
+      () => {
+        assert.equal(whatsappIntegrationStatus(), "skipped");
+      }
+    );
+    withEnv(
+      {
+        WHATSAPP_ENABLED: "true",
+        TWILIO_ACCOUNT_SID: "ACxxx",
+        TWILIO_AUTH_TOKEN: undefined,
+        TWILIO_WHATSAPP_FROM: "whatsapp:+14155238886",
+      },
+      () => {
+        assert.equal(whatsappIntegrationStatus(), "skipped");
+      }
+    );
+    withEnv(
+      {
+        WHATSAPP_ENABLED: "true",
+        TWILIO_ACCOUNT_SID: "ACxxx",
+        TWILIO_AUTH_TOKEN: "token",
+        TWILIO_WHATSAPP_FROM: "whatsapp:+14155238886",
+      },
+      () => {
+        assert.equal(whatsappIntegrationStatus(), "ok");
+      }
+    );
+    for (const value of [undefined, "true", "false"] as const) {
+      withEnv({ WHATSAPP_ENABLED: value }, () => {
+        const status = whatsappIntegrationStatus();
+        assert.notEqual(status, "error");
+        assert.ok(status === "skipped" || status === "ok");
+      });
+    }
   });
 });

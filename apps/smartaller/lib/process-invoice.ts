@@ -236,15 +236,19 @@ export async function processInvoice(input: ProcessInvoiceInput): Promise<Proces
 
   let whatsappEnviado = false;
   if (telefono) {
+    const portalUrl = getClientePortalUrl(extraido.placa);
     const mensaje = buildConfirmacionWhatsApp({
       nombre,
       placa: extraido.placa,
       fechaProximoServicio: fechaFormateada,
-      portalUrl: getClientePortalUrl(extraido.placa),
+      portalUrl,
     });
-    const { ok, error } = await enviarWhatsApp(telefono, mensaje);
+    const { ok, skipped, error } = await enviarWhatsApp(telefono, mensaje, {
+      type: "confirmacion",
+      variables: [nombre, extraido.placa, fechaFormateada, portalUrl],
+    });
     whatsappEnviado = ok;
-    if (!ok) {
+    if (!ok && !skipped) {
       console.error("WhatsApp no enviado:", error);
     }
   }
