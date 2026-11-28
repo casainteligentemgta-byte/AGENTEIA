@@ -156,7 +156,7 @@ En **Authentication → URL Configuration**:
 | Variable | Uso |
 |----------|-----|
 | `OPENAI_CHAT_MODEL` | Default: `gpt-4o-mini` |
-| `CALLMEBOT_API_KEY` | WhatsApp pruebas |
+| `WHATSAPP_ENABLED` + `TWILIO_*` | WhatsApp (apagado salvo `WHATSAPP_ENABLED=true`) |
 | `PRESIDENCIA_PIN` | PIN kiosk recepción (obligatorio en producción) |
 | `RESEND_API_KEY` + `RESEND_FROM` | Email recordatorios |
 | `STRAVA_WEBHOOK_SECRET` | Solo si usas webhook SmartBike manual |

@@ -5,6 +5,11 @@ import { isBillingSchemaMissing } from "@/lib/billing/schema";
 import { PLANES_PAGO } from "@/lib/billing/plans";
 import { AVISO_DIAS_VENCIMIENTO } from "@/lib/billing/periodo";
 import { getAppBaseUrl } from "@/lib/app-url";
+import {
+  buildAvisoPagoWhatsApp,
+  enviarWhatsApp,
+  isWhatsAppEnabled,
+} from "@/lib/whatsapp";
 
 export type RecordatoriosSuscripcionResult = {
   scanned: number;
@@ -47,6 +52,59 @@ async function alreadySent(
     return true;
   }
   return Boolean(data);
+}
+
+async function telefonoUsuarioParaWhatsApp(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<string | null> {
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    const authPhone = data.user?.phone?.trim();
+    if (authPhone) return authPhone;
+    const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;
+    for (const key of ["telefono", "phone", "whatsapp"] as const) {
+      const value = meta[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  } catch {
+    // sin teléfono en Auth
+  }
+
+  const { data: vehiculos } = await admin
+    .from("vehiculos")
+    .select("telefono_cliente")
+    .eq("user_id", userId)
+    .not("telefono_cliente", "is", null)
+    .limit(1);
+
+  const telefono = vehiculos?.[0]?.telefono_cliente;
+  return typeof telefono === "string" && telefono.trim() ? telefono.trim() : null;
+}
+
+async function enviarAvisoPagoWhatsApp(params: {
+  userId: string;
+  admin: ReturnType<typeof createAdminClient>;
+  nombre: string;
+  dias: number;
+  fechaVencimiento: string;
+  portalUrl: string;
+}): Promise<boolean> {
+  if (!isWhatsAppEnabled()) return false;
+  const telefono = await telefonoUsuarioParaWhatsApp(params.admin, params.userId);
+  if (!telefono) return false;
+
+  const mensaje = buildAvisoPagoWhatsApp({
+    nombre: params.nombre,
+    dias: params.dias,
+    fechaVencimiento: params.fechaVencimiento,
+    portalUrl: params.portalUrl,
+  });
+  const { ok, skipped } = await enviarWhatsApp(telefono, mensaje, {
+    type: "pago",
+    variables: [params.nombre, String(params.dias), params.fechaVencimiento, params.portalUrl],
+  });
+  return ok && !skipped;
 }
 
 async function markSent(
@@ -124,15 +182,33 @@ export async function procesarRecordatoriosSuscripcion(
         dias === 3
           ? "Tu SmartTaller Pro vence en 3 días"
           : "Tu SmartTaller Pro vence en 7 días";
-      const cuerpo = `Renueva con Pago Móvil para no perder el historial independiente. Vence el ${new Date(vencimiento).toLocaleDateString("es-VE")}.`;
+      const fecha = new Date(vencimiento).toLocaleDateString("es-VE");
+      const cuerpo = `Renueva con Pago Móvil para no perder el historial independiente. Vence el ${fecha}.`;
       await crearNotificacionUsuario({ userId: perfil.id, titulo, cuerpo });
+      let canal = "in_app";
+      try {
+        const waOk = await enviarAvisoPagoWhatsApp({
+          userId: perfil.id,
+          admin,
+          nombre: "cliente",
+          dias,
+          fechaVencimiento: fecha,
+          portalUrl: `${getAppBaseUrl()}/app`,
+        });
+        if (waOk) canal = "in_app+whatsapp";
+      } catch (err) {
+        console.error(
+          "WhatsApp aviso suscripción B2C:",
+          err instanceof Error ? err.message : err
+        );
+      }
       await markSent(admin, {
         userId: perfil.id,
         tallerId: null,
         tipoPlan: "b2c",
         diasAntes: dias,
         vencimiento,
-        canal: "in_app",
+        canal,
       });
       result.enviados += 1;
     }
@@ -194,6 +270,22 @@ export async function procesarRecordatoriosSuscripcion(
           `telegram ${taller.id}: ${err instanceof Error ? err.message : "falló"}`
         );
       }
+    }
+    try {
+      const waOk = await enviarAvisoPagoWhatsApp({
+        userId: taller.owner_user_id,
+        admin,
+        nombre: taller.nombre,
+        dias,
+        fechaVencimiento: fecha,
+        portalUrl: `${getAppBaseUrl()}/dashboard`,
+      });
+      if (waOk) canal = `${canal}+whatsapp`;
+    } catch (err) {
+      console.error(
+        "WhatsApp aviso suscripción taller:",
+        err instanceof Error ? err.message : err
+      );
     }
 
     await markSent(admin, {

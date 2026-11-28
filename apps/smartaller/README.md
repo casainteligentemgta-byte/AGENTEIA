@@ -240,8 +240,11 @@ STRIPE_PRICE_ID            # price_... del producto SmartTaller Pro
 PRESIDENCIA_PIN          # obligatorio en producción
 RESEND_API_KEY           # opcional — email recordatorios
 RESEND_FROM              # opcional
-# Twilio (pendiente)
-# CALLMEBOT_API_KEY (solo pruebas WhatsApp)
+# WhatsApp Twilio (dormant; ver docs/WHATSAPP-TWILIO.md)
+# WHATSAPP_ENABLED=true
+# TWILIO_ACCOUNT_SID
+# TWILIO_AUTH_TOKEN
+# TWILIO_WHATSAPP_FROM
 ```
 
 ### Webhook Telegram
@@ -258,7 +261,7 @@ La app `/app` incluye `manifest.json` para instalación en móvil. Icono en `pub
 
 - **Multi-taller por cuenta:** un usuario con varios talleres (hoy 1:1 con `owner_user_id`)
 - **Panel admin global:** gestión de todos los talleres / centros de servicio
-- **Twilio WhatsApp:** producción masiva (CallMeBot solo pruebas)
+- **Twilio WhatsApp:** ya integrado, apagado por defecto (`WHATSAPP_ENABLED`); ver `docs/WHATSAPP-TWILIO.md`
 
 ## Local
 

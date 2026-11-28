@@ -1,3 +1,5 @@
+import { whatsappHealthStatus } from "@/lib/whatsapp";
+
 export type HealthStatus = "ok" | "error" | "skipped";
 
 export type HealthChecks = {
@@ -8,6 +10,7 @@ export type HealthChecks = {
   telegram_webhook_secret: HealthStatus;
   cron: HealthStatus;
   stripe: HealthStatus;
+  whatsapp: HealthStatus;
 };
 
 export function isDetailedHealthAuthorized(req: Request): boolean {
@@ -34,6 +37,14 @@ export function telegramIntegrationStatus(): HealthStatus {
 
 export function telegramWebhookSecretStatus(): HealthStatus {
   return process.env.TELEGRAM_WEBHOOK_SECRET?.trim() ? "ok" : "error";
+}
+
+/**
+ * WhatsApp es opt-in (WHATSAPP_ENABLED=true + creds Twilio).
+ * Nunca reporta error: skipped si está apagado o incompleto, ok si puede enviar.
+ */
+export function whatsappIntegrationStatus(): HealthStatus {
+  return whatsappHealthStatus();
 }
 
 export function publicHealthPayload(healthy: boolean): { status: "ok" | "fail" } {

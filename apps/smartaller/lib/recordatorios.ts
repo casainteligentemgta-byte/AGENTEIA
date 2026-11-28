@@ -70,25 +70,41 @@ export async function procesarRecordatoriosVencidos(): Promise<ProcesarRecordato
     let enviado = false;
 
     if (vehiculo.telefono_cliente) {
+      const portalUrl = getClientePortalUrl(vehiculo.placa);
       const mensaje = buildRecordatorioWhatsApp({
         nombre,
         placa: vehiculo.placa,
         fechaProgramada: formatDate(row.fecha_programada),
         kilometrajeObjetivo: kmFormatted,
-        portalUrl: getClientePortalUrl(vehiculo.placa),
+        portalUrl,
       });
 
-      const { ok, error: waError } = await enviarWhatsApp(vehiculo.telefono_cliente, mensaje);
+      const { ok, skipped, error: waError } = await enviarWhatsApp(
+        vehiculo.telefono_cliente,
+        mensaje,
+        {
+          type: "recordatorio",
+          variables: [
+            nombre,
+            vehiculo.placa,
+            formatDate(row.fecha_programada),
+            kmFormatted ?? "",
+            portalUrl,
+          ],
+        }
+      );
 
-      if (!ok) {
+      if (ok) {
+        enviado = true;
+        result.enviados++;
+      } else if (!skipped) {
         console.error(`Recordatorio ${row.id} WhatsApp falló:`, waError);
         result.errores++;
         continue;
       }
+    }
 
-      enviado = true;
-      result.enviados++;
-    } else if (vehiculo.user_id) {
+    if (!enviado && vehiculo.user_id) {
       const email = await obtenerEmailUsuario(vehiculo.user_id);
       if (!email) {
         result.sinContacto++;
@@ -116,7 +132,7 @@ export async function procesarRecordatoriosVencidos(): Promise<ProcesarRecordato
 
       enviado = true;
       result.emailsEnviados++;
-    } else {
+    } else if (!enviado) {
       result.sinContacto++;
       continue;
     }

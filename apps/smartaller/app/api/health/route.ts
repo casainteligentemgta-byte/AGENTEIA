@@ -6,6 +6,7 @@ import {
   publicHealthPayload,
   telegramIntegrationStatus,
   telegramWebhookSecretStatus,
+  whatsappIntegrationStatus,
   type HealthChecks,
 } from "@/lib/api/health";
 
@@ -20,6 +21,7 @@ async function runChecks(): Promise<{ healthy: boolean; checks: HealthChecks }> 
     telegram_webhook_secret: telegramWebhookSecretStatus(),
     cron: envFlagStatus(process.env.CRON_SECRET),
     stripe: envFlagStatus(process.env.STRIPE_SECRET_KEY),
+    whatsapp: whatsappIntegrationStatus(),
   };
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
