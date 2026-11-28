@@ -5,11 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { fusionarVehiculosPorPlaca, normalizarPlaca } from "@/lib/vehicles/link";
-import {
-  getOrEnsurePerfil,
-  perfilSuscripcionVigente,
-  usuarioTieneVehiculoTaller,
-} from "@/lib/data/perfil";
+import { getAccesoB2c } from "@/lib/billing/acceso";
 import {
   createVehicleSchema,
   type CreateVehicleInput,
@@ -200,12 +196,9 @@ export async function createVehicle(
     return { success: true, data: { id: vinculado.id } };
   }
 
-  const [perfil, tieneVinculoTaller] = await Promise.all([
-    getOrEnsurePerfil(),
-    usuarioTieneVehiculoTaller(),
-  ]);
+  const acceso = await getAccesoB2c();
 
-  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+  if (!acceso.permitido) {
     return {
       success: false,
       error: getBrand().copy.needProVehicles,

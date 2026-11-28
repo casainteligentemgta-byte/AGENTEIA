@@ -5,6 +5,7 @@ import {
   tieneMontoParaConvertir,
 } from "@/lib/importacion/pago-aranceles";
 import { lookupTasaBcv, todayYmdCaracas } from "@/lib/importacion/tasa-bcv";
+import { persistirTasaBcv } from "@/lib/billing/tasa-bcv";
 import {
   parseImportacion,
   serializeImportacion,
@@ -42,6 +43,7 @@ export async function procesarTasaOficialDiaria(
     return result;
   }
   result.tasa = lookup.tasa;
+  await persistirTasaBcv(lookup);
 
   const admin = createAdminClient();
   const { data, error } = await admin

@@ -245,6 +245,21 @@ export function requirePortalRole(
   return { ok: true, access };
 }
 
+export async function requireMasterVerTodo(): Promise<
+  { ok: true; access: PortalAccess } | { ok: false; error: string }
+> {
+  const access = await resolvePortalAccess();
+  const gate = requirePortalRole(access, "master");
+  if (!gate.ok) return gate;
+  if (!gate.access.verTodo) {
+    return {
+      ok: false,
+      error: "Solo el máster con visión global (ver_todo) puede gestionar pagos y exoneraciones.",
+    };
+  }
+  return gate;
+}
+
 /** IDs de taller visibles según rol y flags. */
 export function resolveVisibleTallerIds(
   access: PortalAccess,

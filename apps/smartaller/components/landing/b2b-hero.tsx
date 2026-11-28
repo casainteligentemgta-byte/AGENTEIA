@@ -35,7 +35,7 @@ export function B2bHero() {
               </a>
             </div>
             <p className="mt-4 text-sm text-zinc-500">
-              Gratis para empezar · Sin tarjeta · Listo en minutos
+              USD 100/mes · Pago Móvil · Clientes vinculados sin costo
             </p>
           </div>
 

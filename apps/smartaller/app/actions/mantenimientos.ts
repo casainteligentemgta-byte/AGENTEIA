@@ -14,11 +14,7 @@ import {
 import { z } from "zod";
 import { parseRevisionInput, type RevisionParsed } from "@/lib/validations/revision";
 import type { TipoIndustria } from "@/lib/platform/types";
-import {
-  getOrEnsurePerfil,
-  perfilSuscripcionVigente,
-  usuarioTieneVehiculoTaller,
-} from "@/lib/data/perfil";
+import { getAccesoB2c } from "@/lib/billing/acceso";
 import { getBrand } from "@/lib/brand";
 import {
   CATEGORIAS_VEHICULO,
@@ -215,12 +211,9 @@ export async function createMantenimientoB2C(
     return { success: false, error: parsed.error.errors[0]?.message ?? "Datos inválidos" };
   }
 
-  const [perfil, tieneVinculoTaller] = await Promise.all([
-    getOrEnsurePerfil(),
-    usuarioTieneVehiculoTaller(),
-  ]);
+  const acceso = await getAccesoB2c();
 
-  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+  if (!acceso.permitido) {
     return { success: false, error: getBrand().copy.needProMantenimientos };
   }
 
@@ -326,12 +319,9 @@ export async function actualizarCategoriaVehiculo(
       return { success: false, error: "No autorizado para este mantenimiento" };
     }
 
-    const [perfil, tieneVinculoTaller] = await Promise.all([
-      getOrEnsurePerfil(),
-      usuarioTieneVehiculoTaller(),
-    ]);
+    const acceso = await getAccesoB2c();
 
-    if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+    if (!acceso.permitido) {
       return {
         success: false,
         error: getBrand().copy.needProCategorias,
@@ -435,12 +425,9 @@ export async function actualizarCategoriaVehiculoPorVehiculo(
     return { success: false, error: "Debes iniciar sesión" };
   }
 
-  const [perfil, tieneVinculoTaller] = await Promise.all([
-    getOrEnsurePerfil(),
-    usuarioTieneVehiculoTaller(),
-  ]);
+  const acceso = await getAccesoB2c();
 
-  if (!tieneVinculoTaller && (!perfil || !perfilSuscripcionVigente(perfil))) {
+  if (!acceso.permitido) {
     return {
       success: false,
       error: getBrand().copy.needProEstado,

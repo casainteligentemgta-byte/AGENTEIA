@@ -5,7 +5,7 @@ const faqs = [
   },
   {
     q: "¿Mis clientes tienen que pagar?",
-    a: "Pueden usar la app gratis si están vinculados a tu taller. El plan Pro de pago para dueños independientes (Stripe) está marcado como próximamente.",
+    a: "Si están vinculados a tu taller, usan la app sin pagar. Los dueños independientes pagan SmartTaller Pro (USD 2.99/mes) por Pago Móvil. El plan del taller es USD 100/mes, también por Pago Móvil; los montos se muestran también en bolívares a la tasa BCV del día.",
   },
   {
     q: "¿Funciona para bicicleterías?",

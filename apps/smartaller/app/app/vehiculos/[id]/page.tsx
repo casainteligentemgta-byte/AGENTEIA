@@ -12,11 +12,7 @@ import { SmartBikePanel } from "@/components/smartbike/SmartBikePanel";
 import { getUserVehiculoById } from "@/lib/data/user-vehicles";
 import { getOrEnsureSmartBikeForVehiculo } from "@/lib/data/smartbike";
 import { getResumenTallerVehiculo } from "@/lib/data/vehicle-history";
-import {
-  getOrEnsurePerfil,
-  perfilSuscripcionVigente,
-  usuarioTieneVehiculoTaller,
-} from "@/lib/data/perfil";
+import { getAccesoB2c } from "@/lib/billing/acceso";
 import { getConfigTipoVehiculo } from "@/lib/vehicles/templates";
 import { getBrand } from "@/lib/brand";
 import { getEtiquetaVehiculo, getSubtituloVehiculo, getValorOdometro } from "@/lib/vehicles/format";
@@ -45,21 +41,17 @@ export default async function VehiculoDetallePage({ params }: PageProps) {
 
   if (!vehiculoBase) notFound();
 
-  const [resumen, perfil, tieneVinculoTaller, smartBike] = await Promise.all([
+  const [resumen, acceso, smartBike] = await Promise.all([
     getResumenTallerVehiculo(id, vehiculoBase.placa),
-    getOrEnsurePerfil(),
-    usuarioTieneVehiculoTaller(),
+    getAccesoB2c(),
     vehiculoBase.tipo_vehiculo === "bicicleta"
       ? getOrEnsureSmartBikeForVehiculo(id)
       : Promise.resolve(null),
   ]);
 
-  const puedeRegistrarMantenimiento =
-    !resumen.vinculado &&
-    (tieneVinculoTaller || (perfil != null && perfilSuscripcionVigente(perfil)));
+  const puedeRegistrarMantenimiento = !resumen.vinculado && acceso.permitido;
 
-  const puedeEditarCategorias =
-    tieneVinculoTaller || (perfil != null && perfilSuscripcionVigente(perfil));
+  const puedeEditarCategorias = acceso.permitido;
 
   const vehiculo = vehiculoConOdometroTaller(vehiculoBase, resumen.ultimaVisitaKm);
   const kmActual = getValorOdometro(vehiculo);
